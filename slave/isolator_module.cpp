@@ -40,8 +40,8 @@ namespace stats {
   };
 }
 
-stats::IsolatorModule::IsolatorModule(IsolatorProcess* process)
-  : impl(process) {
+stats::IsolatorModule::IsolatorModule(const mesos::Parameters& parameters)
+  : impl(new IsolatorProcess(parameters)) {
   process::spawn(*impl);
 }
 
@@ -79,8 +79,7 @@ process::Future<Nothing> stats::IsolatorModule::cleanup(
 
 namespace {
   mesos::slave::Isolator* create_isolator_cb(const mesos::Parameters& parameters) {
-    Try<mesos::slave::Isolator*> result =
-      new stats::IsolatorModule(new stats::IsolatorProcess(parameters));
+    Try<mesos::slave::Isolator*> result = new stats::IsolatorModule(parameters);
     if (result.isError()) {
       return NULL;
     }

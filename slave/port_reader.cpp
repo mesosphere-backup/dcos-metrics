@@ -27,9 +27,12 @@ namespace stats {
 }
 
 stats::PortReader::PortReader(std::shared_ptr<PortWriter> port_writer, const UDPEndpoint& requested_endpoint, bool annotations_enabled) {
-  impl.reset(new PortReaderProcess(port_writer, requested_endpoint, annotations_enabled));
+  : impl(new PortReaderProcess(port_writer, requested_endpoint, annotations_enabled)) {
+  process::spawn(*impl);
 }
 stats::PortReader::~PortReader() {
+  process::terminate(*impl);
+  process::wait(*impl);
 }
 
 Try<stats::UDPEndpoint> stats::PortReader::open() {

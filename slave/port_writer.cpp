@@ -33,10 +33,13 @@ namespace stats {
   };
 }
 
-stats::PortWriter::PortWriter(const mesos::Parameters& parameters) {
-  impl.reset(new PortWriterProcess(parameters));
+stats::PortWriter::PortWriter(const mesos::Parameters& parameters)
+  : impl(new PortWriterProcess(parameters)) {
+  process::spawn(*impl);
 }
 stats::PortWriter::~PortWriter() {
+  process::terminate(*impl);
+  process::wait(*impl);
 }
 
 bool stats::PortWriter::open() {

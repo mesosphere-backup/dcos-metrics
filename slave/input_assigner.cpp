@@ -1,10 +1,10 @@
 #include "input_assigner.hpp"
 
+#include <mutex>
 #include <thread>
+#include <unordered_map>
 
 #include <glog/logging.h>
-#include <process/dispatch.hpp>
-#include <process/process.hpp>
 
 #include "params.hpp"
 #include "port_range_pool.hpp"
@@ -23,55 +23,74 @@ namespace stats {
   /**
    * Base class for a port assignment strategy. See below for implementations.
    */
-  class InputAssignerProcess : public process::Process<InputAssignerProcess> {
+  class InputAssignerImpl {
    public:
-    InputAssignerProcess(const mesos::Parameters& parameters)
+    InputAssignerImpl(const mesos::Parameters& parameters)
       : listen_host(params::get_str(parameters, params::LISTEN_HOST, params::LISTEN_HOST_DEFAULT)),
         annotations_enabled(params::get_bool(parameters, params::ANNOTATIONS, params::ANNOTATIONS_DEFAULT)),
         writer(new PortWriter(parameters)) { }
-    virtual ~InputAssignerProcess() { }
+    virtual ~InputAssignerImpl() { }
 
-    virtual Try<UDPEndpoint> register_container(
+    Try<UDPEndpoint> register_container(
         const mesos::ContainerID& container_id,
-        const mesos::ExecutorInfo& executor_info) = 0;
+        const mesos::ExecutorInfo& executor_info) {
+      std::unique_lock<std::mutex> lock(mutex);
+      return _register_container(container_id, executor_info);
+    }
 
-    std::list<Try<UDPEndpoint>> register_containers(
+    std::list<Try<stats::UDPEndpoint>> stats::InputAssigner::register_containers(
         const std::list<mesos::slave::ContainerState>& containers) {
+      std::unique_lock<std::mutex> lock(mutex);
       LOG(ERROR) << "STATSM RECOVER (" << containers.size() << "):";
       std::list<Try<UDPEndpoint>> list;
       for (const mesos::slave::ContainerState& container : containers) {
-        list.push_back(register_container(container.container_id(), container.executor_info()));
+        list.push_back(_register_container(container.container_id(), container.executor_info()));
       }
       return list;
     }
 
-    virtual Nothing unregister_container(const mesos::ContainerID& container_id) = 0;
+    void unregister_container(const mesos::ContainerID& container_id) {
+      std::unique_lock<std::mutex> lock(mutex);
+      _unregister_container(container_id);
+    }
 
-    virtual Try<UDPEndpoint> get_statsd_endpoint(const mesos::ExecutorInfo& executor_info) = 0;
+    Try<UDPEndpoint> get_statsd_endpoint(const mesos::ExecutorInfo& executor_info) {
+      std::unique_lock<std::mutex> lock(mutex);
+      return _get_statsd_endpoint(executor_info);
+    }
 
    protected:
+    virtual Try<UDPEndpoint> _register_container(
+        const mesos::ContainerID& container_id,
+        const mesos::ExecutorInfo& executor_info) = 0;
+    virtual void _unregister_container(const mesos::ContainerID& container_id) = 0;
+    virtual Try<UDPEndpoint> _get_statsd_endpoint(const mesos::ExecutorInfo& executor_info) = 0;
+
     const std::string listen_host;
     const bool annotations_enabled;
 
     std::shared_ptr<PortWriter> writer;
+
+   private:
+    std::mutex mutex;
   };
 
   /**
    * Listen on a single port across all containers in the slave.
    * IP-per-container should use this, then register individual container hosts inside the Reader.
    */
-  class SinglePortAssignerProcess : public InputAssignerProcess {
+  class SinglePortAssignerImpl : public InputAssignerImpl {
    public:
-    SinglePortAssignerProcess(const mesos::Parameters& parameters)
-      : InputAssignerProcess(parameters),
+    SinglePortAssignerImpl(const mesos::Parameters& parameters)
+      : InputAssignerImpl(parameters),
         single_port_value(params::get_uint(parameters, params::LISTEN_PORT, params::LISTEN_PORT_DEFAULT)) {
       if (!valid_port(single_port_value)) {
         LOG(FATAL) << "Invalid " << params::LISTEN_PORT << " config value.";
       }
     }
-    virtual ~SinglePortAssignerProcess() { }
+    virtual ~SinglePortAssignerImpl() { }
 
-    Try<UDPEndpoint> register_container(
+    Try<UDPEndpoint> _register_container(
         const mesos::ContainerID& container_id,
         const mesos::ExecutorInfo& executor_info) {
       if (!single_port_reader) {
@@ -91,17 +110,16 @@ namespace stats {
       return single_port_reader->register_container(container_id, executor_info/*, FIXME container_ip*/);
     }
 
-    Nothing unregister_container(const mesos::ContainerID& container_id) {
+    void _unregister_container(const mesos::ContainerID& container_id) {
       if (!single_port_reader) {
         LOG(WARNING) << "No single-port reader had been initialized, cannot unregister container=" << container_id.value();
-        return Nothing();
+        return;
       }
       // Unassign this container from the reader, leave the reader itself (and its port) open.
       single_port_reader->unregister_container_check_empty(container_id);
-      return Nothing();
     }
 
-    Try<UDPEndpoint> get_statsd_endpoint(const mesos::ExecutorInfo& executor_info) {
+    Try<UDPEndpoint> _get_statsd_endpoint(const mesos::ExecutorInfo& executor_info) {
       if (!single_port_reader) {
         std::ostringstream oss;
         oss << "Unable to retrieve single-port endpoint for executor=" << executor_info.ShortDebugString();
@@ -122,15 +140,15 @@ namespace stats {
    * Listen on ephemeral ports, dynamically-allocated and assigned by the kernel, one per container.
    * Use this unless you have some kind of localhost firewall to worry about.
    */
-  class EphemeralPortAssignerProcess : public InputAssignerProcess {
+  class EphemeralPortAssignerImpl : public InputAssignerImpl {
    public:
-    EphemeralPortAssignerProcess(const mesos::Parameters& parameters)
-      : InputAssignerProcess(parameters) {
+    EphemeralPortAssignerImpl(const mesos::Parameters& parameters)
+      : InputAssignerImpl(parameters) {
       // No extra params to validate
     }
-    virtual ~EphemeralPortAssignerProcess() { }
+    virtual ~EphemeralPortAssignerImpl() { }
 
-    Try<UDPEndpoint> register_container(
+    Try<UDPEndpoint> _register_container(
         const mesos::ContainerID& container_id,
         const mesos::ExecutorInfo& executor_info) {
       // Reuse existing reader if available.
@@ -154,21 +172,20 @@ namespace stats {
       return endpoint;
     }
 
-    Nothing unregister_container(const mesos::ContainerID& container_id) {
+    void _unregister_container(const mesos::ContainerID& container_id) {
       auto iter = container_to_reader.find(container_id.value());
       if (iter == container_to_reader.end()) {
         LOG(WARNING) << "No ephemeral-port reader had been assigned to container=" << container_id.value() << ", cannot unregister";
-        return Nothing();
+        return;
       }
       // Unassign this container from the reader, then delete the reader if empty (should always occur).
       if (iter->second->unregister_container_check_empty(container_id)) {
         // The reader is empty. Delete it and close the port.
         container_to_reader.erase(iter);
       }
-      return Nothing();
     }
 
-    Try<UDPEndpoint> get_statsd_endpoint(const mesos::ExecutorInfo& executor_info) {
+    Try<UDPEndpoint> _get_statsd_endpoint(const mesos::ExecutorInfo& executor_info) {
       auto container_iter = executor_to_container.find(executor_info.executor_id().value());
       if (container_iter == executor_to_container.end()) {
         std::ostringstream oss;
@@ -203,10 +220,10 @@ namespace stats {
    * Listen on a limited range of predefined ports, one per container.
    * Use this if you need to whitelist a specific range of ports.
    */
-  class PortRangeAssignerProcess : public InputAssignerProcess {
+  class PortRangeAssignerImpl : public InputAssignerImpl {
    public:
-    PortRangeAssignerProcess(const mesos::Parameters& parameters)
-      : InputAssignerProcess(parameters) {
+    PortRangeAssignerImpl(const mesos::Parameters& parameters)
+      : InputAssignerImpl(parameters) {
       size_t port_range_start = params::get_uint(parameters, params::LISTEN_PORT_START, params::LISTEN_PORT_START_DEFAULT);
       if (!valid_port(port_range_start)) {
         LOG(FATAL) << "Invalid " << params::LISTEN_PORT_START << " config value.";
@@ -222,9 +239,9 @@ namespace stats {
       }
       port_range_pool.reset(new PortRangePool(port_range_start, port_range_end));
     }
-    virtual ~PortRangeAssignerProcess() { }
+    virtual ~PortRangeAssignerImpl() { }
 
-    Try<UDPEndpoint> register_container(
+    Try<UDPEndpoint> _register_container(
         const mesos::ContainerID& container_id,
         const mesos::ExecutorInfo& executor_info) {
       // Reuse existing reader if available.
@@ -257,11 +274,11 @@ namespace stats {
       return endpoint;
     }
 
-    Nothing unregister_container(const mesos::ContainerID& container_id) {
+    void _unregister_container(const mesos::ContainerID& container_id) {
       auto iter = container_to_reader.find(container_id.value());
       if (iter == container_to_reader.end()) {
         LOG(WARNING) << "No port-range reader had been assigned to container=" << container_id.value() << ", cannot unregister";
-        return Nothing();
+        return;
       }
       // Unassign this container from the reader, then delete the reader if empty (should always occur).
       if (iter->second->unregister_container_check_empty(container_id)) {
@@ -274,10 +291,9 @@ namespace stats {
         }
         container_to_reader.erase(iter);
       }
-      return Nothing();
     }
 
-    Try<UDPEndpoint> get_statsd_endpoint(const mesos::ExecutorInfo& executor_info) {
+    Try<UDPEndpoint> _get_statsd_endpoint(const mesos::ExecutorInfo& executor_info) {
       auto container_iter = executor_to_container.find(executor_info.executor_id().value());
       if (container_iter == executor_to_container.end()) {
         std::ostringstream oss;
@@ -332,13 +348,13 @@ stats::InputAssigner::InputAssigner(const mesos::Parameters& parameters) {
   params::PortMode port_mode = params::to_port_mode(port_mode_str);
   switch (port_mode) {
     case params::PortMode::SINGLE_PORT:
-      impl.reset(new SinglePortAssignerProcess(parameters));
+      impl.reset(new SinglePortAssignerImpl(parameters));
       break;
     case params::PortMode::EPHEMERAL_PORTS:
-      impl.reset(new EphemeralPortAssignerProcess(parameters));
+      impl.reset(new EphemeralPortAssignerImpl(parameters));
       break;
     case params::PortMode::PORT_RANGE:
-      impl.reset(new PortRangeAssignerProcess(parameters));
+      impl.reset(new PortRangeAssignerImpl(parameters));
       break;
     case params::PortMode::UNKNOWN_MODE:
       LOG(FATAL) << "Unknown " << params::LISTEN_PORT_MODE << " config value: " << port_mode_str;
@@ -346,32 +362,25 @@ stats::InputAssigner::InputAssigner(const mesos::Parameters& parameters) {
   }
 }
 
-stats::InputAssigner::~InputAssigner() {
-  process::terminate(*impl);
-  process::wait(*impl);
-}
+stats::InputAssigner::~InputAssigner() { }
 
 Try<stats::UDPEndpoint> stats::InputAssigner::register_container(
     const mesos::ContainerID& container_id,
     const mesos::ExecutorInfo& executor_info) {
-  return process::dispatch(*impl,
-      &InputAssignerProcess::register_container, container_id, executor_info).get();
+  return impl->register_container(container_id, executor_info);
 }
 
 std::list<Try<stats::UDPEndpoint>> stats::InputAssigner::register_containers(
     const std::list<mesos::slave::ContainerState>& containers) {
-  return process::dispatch(*impl,
-      &InputAssignerProcess::register_containers, containers).get();
+  return impl->register_containers(containers);
 }
 
 void stats::InputAssigner::unregister_container(
     const mesos::ContainerID& container_id) {
-  process::dispatch(*impl,
-      &InputAssignerProcess::unregister_container, container_id).get();
+  impl->unregister_container(container_id);
 }
 
 Try<stats::UDPEndpoint> stats::InputAssigner::get_statsd_endpoint(
     const mesos::ExecutorInfo& executor_info) {
-  return process::dispatch(*impl,
-      &InputAssignerProcess::get_statsd_endpoint, executor_info).get();
+  return impl->get_statsd_endpoint(executor_info);
 }

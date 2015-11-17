@@ -11,7 +11,7 @@ namespace stats {
 
   class IsolatorModule : public mesos::slave::Isolator {
    public:
-    IsolatorModule(IsolatorProcess* process);
+    IsolatorModule(const mesos::Parameters& parameters);
     virtual ~IsolatorModule();
 
     process::Future<Nothing> recover(

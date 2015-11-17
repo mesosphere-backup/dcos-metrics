@@ -5,13 +5,12 @@
 
 #include <mesos/mesos.pb.h>
 #include <mesos/slave/isolator.pb.h>
-#include <process/future.hpp>
 #include <stout/try.hpp>
 
 #include "udp_endpoint.hpp"
 
 namespace stats {
-  class InputAssignerProcess;
+  class InputAssignerImpl;
 
   /**
    * Assigns containers to monitoring ports, according to the strategy in the provided Parameters. Internally runs as a Process.
@@ -47,6 +46,6 @@ namespace stats {
    private:
     InputAssigner(const mesos::Parameters& parameters);
 
-    std::unique_ptr<InputAssignerProcess> impl;
+    std::unique_ptr<InputAssignerImpl> impl;
   };
 }
