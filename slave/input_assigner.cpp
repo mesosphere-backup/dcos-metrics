@@ -43,12 +43,15 @@ namespace stats {
       writer.reset();
       io_service.stop();
       io_service_thread->join();
+      io_service.reset();
+      io_service_thread.reset();
     }
 
     Try<UDPEndpoint> register_container(
         const mesos::ContainerID& container_id,
         const mesos::ExecutorInfo& executor_info) {
       std::unique_lock<std::mutex> lock(mutex);
+      //TODO shouldnt this just schedule _register_container() within io_service? (but how to get data back..)
       return _register_container(container_id, executor_info);
     }
 
@@ -58,6 +61,7 @@ namespace stats {
       std::list<Try<UDPEndpoint>> list;
       LOG(ERROR) << "STATSM RECOVER (" << containers.size() << "):";
       for (const mesos::slave::ContainerState& container : containers) {
+        //TODO shouldnt this just schedule _register_container() within io_service? (but how to get data back..)
         list.push_back(_register_container(container.container_id(), container.executor_info()));
       }
       return list;
@@ -65,11 +69,13 @@ namespace stats {
 
     void unregister_container(const mesos::ContainerID& container_id) {
       std::unique_lock<std::mutex> lock(mutex);
+      //TODO shouldnt this just schedule _unregister_container() within io_service?
       _unregister_container(container_id);
     }
 
     Try<UDPEndpoint> get_statsd_endpoint(const mesos::ExecutorInfo& executor_info) {
       std::unique_lock<std::mutex> lock(mutex);
+      //TODO shouldnt this just schedule _get_statsd_endpoint() within io_service? (but how to get data back..)
       return _get_statsd_endpoint(executor_info);
     }
 

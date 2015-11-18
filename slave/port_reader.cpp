@@ -17,7 +17,8 @@ stats::PortReader::PortReader(
     requested_endpoint(requested_endpoint),
     annotations_enabled(annotations_enabled),
     io_service(io_service),
-    socket(io_service) { }
+    socket(io_service),
+    buffer((char*) malloc(RECV_BUFFER_MAX_SIZE)) { }
 
 stats::PortReader::~PortReader() {
   boost::system::error_code ec;
@@ -56,6 +57,7 @@ Try<stats::UDPEndpoint> stats::PortReader::open() {
     return Try<stats::UDPEndpoint>::error(oss.str());
   }
 
+  // TODO should we even be handling a separate 'actual' value? maybe just use the requested value regardless of what it resolves to? need to see how this behaves in practice
   std::string actual_address = resolved_address.to_string(ec);
   if (ec) {
     std::ostringstream oss;
@@ -84,38 +86,37 @@ Try<stats::UDPEndpoint> stats::PortReader::register_container(
   registered_container_ids.insert(container_id);
   return endpoint();
 }
+
 void stats::PortReader::unregister_container(const mesos::ContainerID& container_id) {
   registered_container_ids.erase(container_id);
 }
 
 void stats::PortReader::start_recv() {
-  socket.async_receive(buffer.prepare(RECV_BUFFER_MAX_SIZE),
+  socket.async_receive(boost::asio::buffer(buffer, RECV_BUFFER_MAX_SIZE),
       std::bind(&PortReader::recv_cb, this, std::placeholders::_1, std::placeholders::_2));
 }
+
 void stats::PortReader::recv_cb(const boost::system::error_code& ec, std::size_t bytes_transferred) {
   if (ec) {
     //FIXME handle certain errors here, eg boost::asio::error::message_size.
-    LOG(WARNING) << "Error when receiving data from socket at " << actual_endpoint->host << ":" << actual_endpoint->port << ": " << ec;
+    LOG(WARNING) << "Error when receiving data from reader socket at "
+                 << "address[" << actual_endpoint->host << ":" << actual_endpoint->port << "]: " << ec;
     start_recv();
     return;
   }
 
-  buffer.commit(bytes_transferred);
-  std::istream is(&buffer);
-  std::string payload;
-  is >> payload;
   switch (registered_container_ids.size()) {
     case 0:
-      // TODO add special error case tags
+      // TODO add special error case tag(s) to buffer
       break;
     case 1:
-      // TODO add tags
+      // TODO add id tags to buffer
       break;
     default:
-      // TODO add special error case tags
+      // TODO add special error case tag(s) to buffer
       break;
   }
-  port_writer->send(payload);
+  port_writer->write(buffer, bytes_transferred);
 
   start_recv();
 }
