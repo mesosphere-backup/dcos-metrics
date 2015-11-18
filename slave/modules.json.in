@@ -1,6 +1,6 @@
 {
     "libraries": [ {
-        "file": "/home/vagrant/libstatsisolator@CMAKE_SHARED_LIBRARY_SUFFIX@",
+        "file": "/home/vagrant/libstats-slave@CMAKE_SHARED_LIBRARY_SUFFIX@",
         "modules": [ {
             "name": "com_mesosphere_StatsIsolatorModule",
             "parameters": [ { "key": "dest_host", "value": "192.168.33.1" } ]

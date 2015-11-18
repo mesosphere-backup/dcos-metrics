@@ -1,21 +1,26 @@
 #pragma once
 
-#include <memory>
-
+#include <boost/asio.hpp>
 #include <mesos/mesos.pb.h>
 
-namespace stats {
-  class PortWriterProcess;
+#include "params.hpp"
 
+namespace stats {
   class PortWriter {
    public:
-    PortWriter(const mesos::Parameters& parameters);
+    PortWriter(boost::asio::io_service& io_service, const mesos::Parameters& parameters);
     virtual ~PortWriter();
 
     bool open();
     void send(const std::string& metric);
 
    private:
-    std::unique_ptr<PortWriterProcess> impl;
+    const std::string send_host;
+    const size_t send_port;
+    const size_t udp_max_bytes;
+
+    boost::asio::io_service& io_service;
+    boost::asio::ip::udp::socket socket;
+    boost::asio::streambuf buffer;
   };
 }

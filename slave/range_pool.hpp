@@ -6,9 +6,9 @@
 
 namespace stats {
 
-  class PortRangePool {
+  class RangePool {
    public:
-    PortRangePool(size_t start, size_t end)
+    RangePool(size_t start, size_t end)
       : start(start),
         used((end + 1) - start, false) { }
 

@@ -6,6 +6,14 @@
 
 namespace stats {
   namespace params {
+    /**
+     * Types
+     */
+
+    enum PortMode {
+      UNKNOWN_PORT_MODE, SINGLE_PORT, EPHEMERAL_PORTS, PORT_RANGE
+    };
+    PortMode to_port_mode(const std::string& param);
 
     /**
      * Input settings
@@ -38,11 +46,6 @@ namespace stats {
 
     // Default to ephemeral unless/until ip-per-container becomes common.
     const std::string LISTEN_PORT_MODE_DEFAULT = LISTEN_PORT_MODE_EPHEMERAL;
-
-    enum PortMode {
-      UNKNOWN_MODE, SINGLE_PORT, EPHEMERAL_PORTS, PORT_RANGE
-    };
-    PortMode to_port_mode(const std::string& param);
 
     /**
      * Output settings

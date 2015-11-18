@@ -40,7 +40,7 @@ stats::params::PortMode stats::params::to_port_mode(const std::string& param) {
   } else if (param == LISTEN_PORT_MODE_RANGE) {
     return PORT_RANGE;
   }
-  return UNKNOWN_MODE;
+  return UNKNOWN_PORT_MODE;
 }
 
 std::string stats::params::get_str(

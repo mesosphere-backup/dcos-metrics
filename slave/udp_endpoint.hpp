@@ -3,6 +3,8 @@
 #include <string>
 #include <stddef.h>
 
+#include "params.hpp"
+
 namespace stats {
   class UDPEndpoint {
    public:

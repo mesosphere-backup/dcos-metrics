@@ -13,7 +13,7 @@ namespace stats {
   class InputAssignerImpl;
 
   /**
-   * Assigns containers to monitoring ports, according to the strategy in the provided Parameters. Internally runs as a Process.
+   * Assigns containers to monitoring ports, according to the strategy in the provided Parameters.
    */
   class InputAssigner {
    public:
