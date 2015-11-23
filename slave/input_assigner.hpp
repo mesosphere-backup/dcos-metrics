@@ -13,7 +13,8 @@ namespace stats {
   class InputAssignerImpl;
 
   /**
-   * Assigns containers to monitoring ports, according to the strategy in the provided Parameters.
+   * Maps containers to monitoring ports, according to the strategy in the provided Parameters.
+   * In practice, there is one singleton InputAssigner instance per mesos-slave.
    */
   class InputAssigner {
    public:
@@ -24,13 +25,13 @@ namespace stats {
     /**
      * Registers a container which is about to be brought up.
      */
-    Try<UDPEndpoint> register_container(
+    void register_container(
         const mesos::ContainerID& container_id,
         const mesos::ExecutorInfo& executor_info);
     /**
      * See register_container().
      */
-    std::list<Try<UDPEndpoint>> register_containers(
+    void register_containers(
         const std::list<mesos::slave::ContainerState>& containers);
     /**
      * Removes a registered container which is now being brought down.
@@ -43,9 +44,10 @@ namespace stats {
     Try<UDPEndpoint> get_statsd_endpoint(
         const mesos::ExecutorInfo& executor_info);
 
-   private:
-    InputAssigner(const mesos::Parameters& parameters);
+   protected:
+    InputAssigner(InputAssignerImpl* impl);
 
+   private:
     std::unique_ptr<InputAssignerImpl> impl;
   };
 }
