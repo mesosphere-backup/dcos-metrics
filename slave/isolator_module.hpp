@@ -7,11 +7,23 @@
 
 namespace stats {
 
-  class IsolatorProcess;
+  class InputAssigner;
 
+  template <typename InputAssigner>
+  class IsolatorProcess;
+  typedef IsolatorProcess<InputAssigner> isolator_process_t;
+
+  template <typename InputAssigner>
+  class IsolatorModule;
+  typedef IsolatorModule<InputAssigner> isolator_module_t;
+
+  /**
+   * Templated to allow mockery of InputAssigner.
+   */
+  template <typename InputAssigner>
   class IsolatorModule : public mesos::slave::Isolator {
    public:
-    IsolatorModule(const mesos::Parameters& parameters);
+    IsolatorModule(std::shared_ptr<InputAssigner> input_assigner);
     virtual ~IsolatorModule();
 
     process::Future<Nothing> recover(
@@ -55,7 +67,7 @@ namespace stats {
     }
 
    private:
-    std::unique_ptr<IsolatorProcess> impl;
+    std::unique_ptr<IsolatorProcess<InputAssigner>> impl;
   };
 
 }

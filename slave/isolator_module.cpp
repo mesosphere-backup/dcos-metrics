@@ -7,10 +7,14 @@
 #include "input_assigner.hpp"
 
 namespace stats {
-  class IsolatorProcess : public process::Process<IsolatorProcess> {
+  /**
+   * Templated to allow mockery of InputAssigner.
+   */
+  template <typename InputAssigner>
+  class IsolatorProcess : public process::Process<IsolatorProcess<InputAssigner>> {
    public:
-    IsolatorProcess(const mesos::Parameters& parameters)
-      : input_assigner(InputAssigner::get(parameters)) { }
+    IsolatorProcess(std::shared_ptr<InputAssigner> input_assigner)
+      : input_assigner(input_assigner) { }
     virtual ~IsolatorProcess() { }
 
     process::Future<Nothing> recover(
@@ -40,50 +44,53 @@ namespace stats {
   };
 }
 
-stats::IsolatorModule::IsolatorModule(const mesos::Parameters& parameters)
-  : impl(new IsolatorProcess(parameters)) {
+template <typename InputAssigner>
+stats::IsolatorModule<InputAssigner>::IsolatorModule(std::shared_ptr<InputAssigner> input_assigner)
+  : impl(new IsolatorProcess<InputAssigner>(input_assigner)) {
   process::spawn(*impl);
 }
 
-stats::IsolatorModule::~IsolatorModule() {
+template <typename InputAssigner>
+stats::IsolatorModule<InputAssigner>::~IsolatorModule() {
   process::terminate(*impl);
   process::wait(*impl);
 }
 
-process::Future<Nothing> stats::IsolatorModule::recover(
+template <typename InputAssigner>
+process::Future<Nothing> stats::IsolatorModule<InputAssigner>::recover(
     const std::list<mesos::slave::ContainerState>& states,
     const hashset<mesos::ContainerID>& orphans) {
   return process::dispatch(*impl,
-      &IsolatorProcess::recover,
+      &IsolatorProcess<InputAssigner>::recover,
       states,
       orphans);
 }
 
-process::Future<Option<mesos::slave::ContainerPrepareInfo>> stats::IsolatorModule::prepare(
+template <typename InputAssigner>
+process::Future<Option<mesos::slave::ContainerPrepareInfo>> stats::IsolatorModule<InputAssigner>::prepare(
     const mesos::ContainerID& container_id,
     const mesos::ExecutorInfo& executor_info,
     const std::string& directory,
     const Option<std::string>& user) {
   return process::dispatch(*impl,
-      &IsolatorProcess::prepare,
+      &IsolatorProcess<InputAssigner>::prepare,
       container_id,
       executor_info,
       directory,
       user);
 }
 
-process::Future<Nothing> stats::IsolatorModule::cleanup(
+template <typename InputAssigner>
+process::Future<Nothing> stats::IsolatorModule<InputAssigner>::cleanup(
     const mesos::ContainerID& container_id) {
-  return process::dispatch(*impl, &IsolatorProcess::cleanup, container_id);
+  return process::dispatch(*impl,
+      &IsolatorProcess<InputAssigner>::cleanup,
+      container_id);
 }
 
 namespace {
   mesos::slave::Isolator* create_isolator_cb(const mesos::Parameters& parameters) {
-    Try<mesos::slave::Isolator*> result = new stats::IsolatorModule(parameters);
-    if (result.isError()) {
-      return NULL;
-    }
-    return result.get();
+    return new stats::IsolatorModule<stats::InputAssigner>(stats::InputAssigner::get(parameters));
   }
 }
 
