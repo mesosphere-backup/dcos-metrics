@@ -5,6 +5,7 @@
 #include <mesos/module/hook.hpp>
 
 #include "input_assigner.hpp"
+#include "input_assigner_factory.hpp"
 
 namespace {
   const std::string STATSD_ENV_NAME_HOST = "STATSD_UDP_HOST";
@@ -12,7 +13,7 @@ namespace {
 }
 
 stats::EnvHook::EnvHook(const mesos::Parameters& parameters)
-  : input_assigner(InputAssigner::get(parameters)) { }
+  : input_assigner(InputAssignerFactory::get(parameters)) { }
 
 Result<mesos::Environment> stats::EnvHook::slaveExecutorEnvironmentDecorator(
     const mesos::ExecutorInfo& executor_info) {

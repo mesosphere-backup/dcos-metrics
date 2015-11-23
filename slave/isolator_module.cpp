@@ -5,12 +5,13 @@
 #include <stout/try.hpp>
 
 #include "input_assigner.hpp"
+#include "input_assigner_factory.hpp"
 
 namespace stats {
   class IsolatorProcess : public process::Process<IsolatorProcess> {
    public:
     IsolatorProcess(const mesos::Parameters& parameters)
-      : input_assigner(InputAssigner::get(parameters)) { }
+      : input_assigner(InputAssignerFactory::get(parameters)) { }
     virtual ~IsolatorProcess() { }
 
     process::Future<Nothing> recover(
