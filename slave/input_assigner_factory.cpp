@@ -26,16 +26,16 @@ std::shared_ptr<stats::InputAssigner> stats::InputAssignerFactory::get(
     params::get_str(parameters, params::LISTEN_PORT_MODE, params::LISTEN_PORT_MODE_DEFAULT);
   params::port_mode::Value port_mode = params::to_port_mode(port_mode_str);
 
-  InputAssignerImpl* impl;
+  InputAssigner* impl;
   switch (port_mode) {
     case params::port_mode::SINGLE:
-      impl = new SinglePortAssignerImpl(parameters);
+      impl = new SinglePortAssigner(parameters);
       break;
     case params::port_mode::EPHEMERAL:
-      impl = new EphemeralPortAssignerImpl(parameters);
+      impl = new EphemeralPortAssigner(parameters);
       break;
     case params::port_mode::RANGE:
-      impl = new PortRangeAssignerImpl(parameters);
+      impl = new PortRangeAssigner(parameters);
       break;
     case params::port_mode::UNKNOWN:
       LOG(FATAL) << "Unknown " << params::LISTEN_PORT_MODE << " config value: " << port_mode_str;
