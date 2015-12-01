@@ -30,10 +30,11 @@ namespace {
   }
 
   // Run svc until data is available at test_reader, with timeout after ~2s
-  void wait_timer_triggered(boost::asio::io_service& svc, TestReadSocket& test_reader) {
+  void wait_timer_triggered(
+      std::shared_ptr<boost::asio::io_service> svc, TestReadSocket& test_reader) {
     time_t start = time(NULL);
     while (test_reader.available() == 0) {
-      svc.run_one();
+      svc->run_one();
       struct timespec wait_1ms;
       wait_1ms.tv_sec = 0;
       wait_1ms.tv_nsec = 1000000;
@@ -47,7 +48,7 @@ TEST(PortWriterTests, chunking_off) {
   TestReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
-  boost::asio::io_service svc;
+  std::shared_ptr<boost::asio::io_service> svc(new boost::asio::io_service);
   stats::PortWriter writer(svc, build_params(listen_port, 0 /* chunk_size */));
   Try<Nothing> result = writer.open();
   ASSERT_FALSE(result.isError()) << result.error();
@@ -64,7 +65,7 @@ TEST(PortWriterTests, chunking_on_flush_when_full) {
   TestReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
-  boost::asio::io_service svc;
+  std::shared_ptr<boost::asio::io_service> svc(new boost::asio::io_service);
   std::shared_ptr<stats::PortWriter> writer(new stats::PortWriter(
           svc,
           build_params(listen_port, 10 /* chunk_size */),
@@ -89,7 +90,7 @@ TEST(PortWriterTests, chunking_on_flush_timer) {
   TestReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
-  boost::asio::io_service svc;
+  std::shared_ptr<boost::asio::io_service> svc(new boost::asio::io_service);
   std::shared_ptr<stats::PortWriter> writer(new stats::PortWriter(
           svc,
           build_params(listen_port, 10 /* chunk_size */),

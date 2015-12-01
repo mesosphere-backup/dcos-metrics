@@ -51,7 +51,7 @@ set(SRCS
   input_assigner_factory.cpp
   isolator_module.cpp
   params.cpp
-  port_reader.cpp
+  port_reader_impl.cpp
   port_writer.cpp
   )
 configure_file(

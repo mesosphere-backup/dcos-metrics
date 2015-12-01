@@ -11,9 +11,9 @@ include_directories(
   ${GTEST_INCLUDE_DIR}
   )
 
-add_executable(port_reader_tests port_reader_tests.cpp)
-target_link_libraries(port_reader_tests gmock gtest stats-slave)
-add_test(port_reader_tests port_reader_tests)
+add_executable(port_reader_impl_tests port_reader_impl_tests.cpp)
+target_link_libraries(port_reader_impl_tests gmock gtest stats-slave)
+add_test(port_reader_impl_tests port_reader_impl_tests)
 
 add_executable(port_writer_tests port_writer_tests.cpp)
 target_link_libraries(port_writer_tests gtest stats-slave)

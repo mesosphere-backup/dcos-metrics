@@ -27,7 +27,7 @@ namespace stats {
      * Creates a PortWriter which shares the provided io_service for async operations.
      * chunk_timeout_ms is exposed here to allow customization in unit tests.
      */
-    PortWriter(boost::asio::io_service& io_service,
+    PortWriter(std::shared_ptr<boost::asio::io_service> io_service,
         const mesos::Parameters& parameters,
         size_t chunk_timeout_ms = 1000);
     virtual ~PortWriter();
@@ -57,7 +57,7 @@ namespace stats {
     const bool chunking;
     const size_t chunk_timeout_ms;
 
-    boost::asio::io_service& io_service;
+    std::shared_ptr<boost::asio::io_service> io_service;
     boost::asio::deadline_timer flush_timer;
     udp_endpoint_t send_endpoint;
     boost::asio::ip::udp::socket socket;
