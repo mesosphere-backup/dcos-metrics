@@ -16,15 +16,21 @@ namespace {
   }
 
   bool to_bool(const std::string& key, const std::string& v) {
+    if (v.empty()) {
+      LOG(FATAL) << "Invalid config value (must be non-empty): " << key << " = " << v;
+      return false;
+    }
     switch (v[0]) {
       case 't':
       case 'y':
+      case '1':
         return true;
       case 'f':
       case 'n':
+      case '0':
         return false;
       default: {
-        LOG(FATAL) << "Invalid config value (must be bool): " << key << "=" << v;
+        LOG(FATAL) << "Invalid config value (must start with 't','y','1' (true) or 'f','n','0' (false)): " << key << " = " << v;
         return false;
       }
     }
@@ -32,15 +38,15 @@ namespace {
 }
 
 
-stats::params::PortMode stats::params::to_port_mode(const std::string& param) {
+stats::params::port_mode::Value stats::params::to_port_mode(const std::string& param) {
   if (param == LISTEN_PORT_MODE_SINGLE) {
-    return SINGLE_PORT;
+    return port_mode::SINGLE;
   } else if (param == LISTEN_PORT_MODE_EPHEMERAL) {
-    return EPHEMERAL_PORTS;
+    return port_mode::EPHEMERAL;
   } else if (param == LISTEN_PORT_MODE_RANGE) {
-    return PORT_RANGE;
+    return port_mode::RANGE;
   }
-  return UNKNOWN_PORT_MODE;
+  return port_mode::UNKNOWN;
 }
 
 std::string stats::params::get_str(
@@ -49,7 +55,7 @@ std::string stats::params::get_str(
     if (parameter.key() == key) {
       const std::string& v = parameter.value();
       if (v.empty()) {
-        LOG(FATAL) << "Invalid config value (must be non-empty): " << key << "=" << v;
+        LOG(FATAL) << "Invalid config value (must be non-empty): " << key << " = " << v;
       }
       return v;
     }
