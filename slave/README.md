@@ -35,5 +35,6 @@ Available parameters for modules.json (can be seen in params.hpp):
         - "listen_port_end": End of range in "range" mode (inclusive)
 - "dest_host" (default "statsd.monitoring.mesos"): Where to forward stats received from tasks.
 - "dest_port" (default "8125"): Where to forward stats received from tasks.
-- "dest_udp_max_bytes" (default "512"): Maximum size of a single UDP packet to send to dest_host/dest_port.
 - "annotations" (default "true"): Whether to use the [Datadog Tag statsd extension](http://docs.datadoghq.com/guides/dogstatsd/) ([wire format](https://github.com/DataDog/dogstatsd-python/blob/master/statsd.py#L178)) to annotate outgoing stats data with more information about the Mesos task.
+- "chunking" (default "true"): Whether to group outgoing data into a smaller number of packets.
+- "chunk_size_bytes" (default "512"): Preferred chunk size for outgoing UDP packets, when "chunking" is enabled.
