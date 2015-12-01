@@ -1,5 +1,7 @@
 #pragma once
 
+#include <mesos/mesos.pb.h>
+
 #include <unordered_map>
 #include <unordered_set>
 
