@@ -42,6 +42,12 @@ std::shared_ptr<stats::InputAssigner> stats::InputAssignerFactory::get(
       break;
   }
 
-  global_assigner.reset(new InputAssigner(impl));
+  global_assigner.reset(impl);
   return global_assigner;
+}
+
+void stats::InputAssignerFactory::reset_for_test() {
+  std::unique_lock<std::mutex> lock(global_assigner_mutex);
+  LOG(INFO) << "Wiping existing InputAssigner, if any";
+  global_assigner.reset();
 }
