@@ -11,17 +11,20 @@ namespace {
   const std::string STATSD_ENV_NAME_PORT = "STATSD_UDP_PORT";
 }
 
-stats::EnvHook::EnvHook(const mesos::Parameters& parameters)
-  : input_assigner(InputAssigner::get(parameters)) { }
+template <typename InputAssigner>
+stats::EnvHook<InputAssigner>::EnvHook(std::shared_ptr<InputAssigner> input_assigner)
+  : input_assigner(input_assigner) { }
 
-Result<mesos::Environment> stats::EnvHook::slaveExecutorEnvironmentDecorator(
+template <typename InputAssigner>
+Result<mesos::Environment> stats::EnvHook<InputAssigner>::slaveExecutorEnvironmentDecorator(
     const mesos::ExecutorInfo& executor_info) {
-  LOG(ERROR) << "STATSH Executing 'slaveExecutorEnvironmentDecorator' hook: " << executor_info.DebugString();
-
   Try<UDPEndpoint> endpoint = input_assigner->get_statsd_endpoint(executor_info);
   if (endpoint.isError()) {
+    LOG(ERROR) << "InputAssigner doesn't have container registered. No statsd endpoint to inject: " << executor_info.ShortDebugString();
     return None();
   }
+
+  LOG(INFO) << "Injecting statsd endpoint[" << endpoint->host << ":" << endpoint->port << "] into environment: " << executor_info.ShortDebugString();
 
   mesos::Environment environment;
   if (executor_info.command().has_environment()) {
@@ -36,13 +39,15 @@ Result<mesos::Environment> stats::EnvHook::slaveExecutorEnvironmentDecorator(
   variable->set_name(STATSD_ENV_NAME_PORT);
   variable->set_value(stringify(endpoint->port));
 
+  DLOG(INFO) << "Updated environment is now: " << environment.ShortDebugString();
+
   return environment;
 }
 
 namespace {
   mesos::Hook* create_hook_cb(const mesos::Parameters& parameters) {
     Try<mesos::Hook*> result =
-      new stats::EnvHook(parameters);
+      new stats::EnvHook<stats::InputAssigner>(stats::InputAssigner::get(parameters));
     if (result.isError()) {
       return NULL;
     }
