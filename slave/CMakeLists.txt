@@ -48,6 +48,7 @@ set(LIBS
 set(SRCS
   env_hook.cpp
   input_assigner.cpp
+  input_assigner_factory.cpp
   isolator_module.cpp
   params.cpp
   port_reader.cpp

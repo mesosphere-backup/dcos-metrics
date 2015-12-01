@@ -5,6 +5,7 @@
 #include <mesos/module/hook.hpp>
 
 #include "input_assigner.hpp"
+#include "input_assigner_factory.hpp"
 
 namespace {
   const std::string STATSD_ENV_NAME_HOST = "STATSD_UDP_HOST";
@@ -47,7 +48,7 @@ Result<mesos::Environment> stats::EnvHook<InputAssigner>::slaveExecutorEnvironme
 namespace {
   mesos::Hook* create_hook_cb(const mesos::Parameters& parameters) {
     Try<mesos::Hook*> result =
-      new stats::EnvHook<stats::InputAssigner>(stats::InputAssigner::get(parameters));
+      new stats::EnvHook<stats::InputAssigner>(stats::InputAssignerFactory::get(parameters));
     if (result.isError()) {
       return NULL;
     }

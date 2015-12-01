@@ -5,6 +5,7 @@
 #include <stout/try.hpp>
 
 #include "input_assigner.hpp"
+#include "input_assigner_factory.hpp"
 
 namespace stats {
   /**
@@ -90,7 +91,8 @@ process::Future<Nothing> stats::IsolatorModule<InputAssigner>::cleanup(
 
 namespace {
   mesos::slave::Isolator* create_isolator_cb(const mesos::Parameters& parameters) {
-    return new stats::IsolatorModule<stats::InputAssigner>(stats::InputAssigner::get(parameters));
+    return new stats::IsolatorModule<stats::InputAssigner>(
+        stats::InputAssignerFactory::get(parameters));
   }
 }
 
