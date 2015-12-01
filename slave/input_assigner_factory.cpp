@@ -42,6 +42,6 @@ std::shared_ptr<stats::InputAssigner> stats::InputAssignerFactory::get(
       break;
   }
 
-  global_assigner.reset(impl);
+  global_assigner.reset(new InputAssigner(impl));
   return global_assigner;
 }
