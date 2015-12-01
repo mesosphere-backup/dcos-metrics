@@ -10,10 +10,10 @@ namespace stats {
      * Types
      */
 
-    enum PortMode {
-      UNKNOWN_PORT_MODE, SINGLE_PORT, EPHEMERAL_PORTS, PORT_RANGE
-    };
-    PortMode to_port_mode(const std::string& param);
+    namespace port_mode {
+      enum Value { UNKNOWN, SINGLE, EPHEMERAL, RANGE };
+    }
+    port_mode::Value to_port_mode(const std::string& param);
 
     /**
      * Input settings
@@ -59,13 +59,17 @@ namespace stats {
     const std::string DEST_PORT = "dest_port";
     const size_t DEST_PORT_DEFAULT = 8125;
 
-    // The MTU to enforce for sent packets.
-    const std::string DEST_UDP_MAX_BYTES = "dest_udp_max_bytes";
-    const int DEST_UDP_MAX_BYTES_DEFAULT = 512;
-
     // Whether to annotate output with datadog tags about originating containers.
     const std::string ANNOTATIONS = "annotations";
     const bool ANNOTATIONS_DEFAULT = true;
+
+    // Whether to group output stats into a smaller number of packets.
+    const std::string CHUNKING = "chunking";
+    const bool CHUNKING_DEFAULT = true;
+
+    // The MTU to enforce for chunked packets.
+    const std::string CHUNK_SIZE_BYTES = "chunk_size_bytes";
+    const int CHUNK_SIZE_BYTES_DEFAULT = 512;
 
     std::string get_str(const mesos::Parameters& parameters, const std::string& key, const std::string& default_value);
     size_t get_uint(const mesos::Parameters& parameters, const std::string& key, size_t default_value);

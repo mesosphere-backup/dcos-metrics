@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 2.8)
 
 project(stats-slave)
 
@@ -39,6 +39,7 @@ if(linux_prctl_HEADER)
 endif()
 
 set(LIBS
+  pthread
   ${Boost_LIBRARIES}
   ${mesos_LIBRARY}
   ${process_LIBRARY}
@@ -74,16 +75,11 @@ include_directories(${INCLUDES})
 add_library(stats-slave SHARED ${SRCS})
 target_link_libraries(stats-slave ${LIBS})
 
-find_package(GTest)
-if(NOT GTEST_FOUND)
-  message(STATUS "Didn't find GTest on default system paths, trying /usr/src/gtest")
-  set(GTEST_ROOT /usr/src/gtest)
-  find_package(GTest)
-endif()
-if(GTEST_FOUND)
-  message(STATUS "Found GTest. Unit tests enabled.")
+set(TESTS_ENABLED true)
+if(TESTS_ENABLED)
+  message(STATUS "Unit tests enabled.")
   enable_testing()
-  #add_directory(tests) TODO
+  add_subdirectory(tests)
 else()
-  message(WARNING "GTest not found. Unit tests disabled. To enable them, first install libgtest-dev and build /usr/src/gtest")
+  message(STATUS "Unit tests disabled.")
 endif()
