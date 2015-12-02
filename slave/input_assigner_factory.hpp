@@ -21,7 +21,17 @@ namespace stats {
    */
   class InputAssignerFactory {
    public:
+    /**
+     * Returns an InputAssigner using the provided params, or recycles a previous InputAssigner
+     * while ignoring the provided params.
+     */
     static std::shared_ptr<InputAssigner> get(const mesos::Parameters& parameters);
+
+    /**
+     * Resets the internal state, wiping any locally cached InputAssigners which were previously
+     * built via get(). Meant for testing only.
+     */
+    static void reset_for_test();
 
     virtual ~InputAssignerFactory() { }
 
