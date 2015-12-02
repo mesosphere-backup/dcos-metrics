@@ -48,8 +48,9 @@ namespace stats {
     typedef boost::asio::ip::udp::endpoint udp_endpoint_t;
 
     void start_chunk_flush_timer();
-    void chunk_flush_cb(const boost::system::error_code& ec);
+    void chunk_flush_cb(boost::system::error_code ec);
     void send_raw_bytes(const char* bytes, size_t size);
+    void shutdown_cb();
 
     const std::string send_host;
     const size_t send_port;
@@ -63,6 +64,7 @@ namespace stats {
     boost::asio::ip::udp::socket socket;
     char* buffer;
     size_t buffer_used;
+    bool shutdown;
   };
 
 }
