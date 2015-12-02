@@ -53,7 +53,7 @@ namespace stats {
   }
 }
 
-stats::PortWriter::PortWriter(boost::asio::io_service& io_service,
+stats::PortWriter::PortWriter(std::shared_ptr<boost::asio::io_service> io_service,
     const mesos::Parameters& parameters,
     size_t chunk_timeout_ms/*=1000*/)
   : send_host(params::get_str(parameters, params::DEST_HOST, params::DEST_HOST_DEFAULT)),
@@ -62,8 +62,8 @@ stats::PortWriter::PortWriter(boost::asio::io_service& io_service,
     chunking(params::get_bool(parameters, params::CHUNKING, params::CHUNKING_DEFAULT)),
     chunk_timeout_ms(chunk_timeout_ms),
     io_service(io_service),
-    flush_timer(io_service),
-    socket(io_service),
+    flush_timer(*io_service),
+    socket(*io_service),
     buffer((char*) malloc(buffer_capacity)),
     buffer_used(0) {
   LOG(INFO) << "Writer constructed for " << send_host << ":" << send_port;
@@ -88,7 +88,7 @@ Try<Nothing> stats::PortWriter::open() {
     return Nothing();
   }
 
-  resolver_t resolver(io_service);
+  resolver_t resolver(*io_service);
   resolver_t::query query(send_host, "");
   boost::system::error_code ec;
   resolver_t::iterator iter = resolver.resolve(query, ec);

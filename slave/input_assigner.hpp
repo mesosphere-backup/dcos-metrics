@@ -10,6 +10,7 @@
 
 #include "mesos_hash.hpp"
 #include "port_reader.hpp"
+#include "port_writer.hpp"
 #include "udp_endpoint.hpp"
 
 namespace stats {
@@ -44,7 +45,7 @@ namespace stats {
     const std::string listen_host;
     const bool annotations_enabled;
 
-    boost::asio::io_service io_service;
+    std::shared_ptr<boost::asio::io_service> io_service;
     std::shared_ptr<PortWriter> writer;
 
    private:
@@ -73,7 +74,7 @@ namespace stats {
     // The port to listen on, passed to all containers.
     const size_t single_port_value;
     // The sole reader shared by all containers. Any per-container mapping (eg per-IP) is done internally.
-    std::shared_ptr<port_reader_t> single_port_reader;
+    std::shared_ptr<PortReader> single_port_reader;
   };
 
   /**
@@ -95,7 +96,7 @@ namespace stats {
     // Temporary mapping of executor_id to container_id. Used to bridge a call to register_container(), followed by a call to get_statsd_endpoint().
     executor_id_map<mesos::ContainerID> executor_to_container;
     // Long-term mapping of container_id to the port reader assigned to that container. This mapping exists for the lifespan of the container.
-    container_id_map<std::shared_ptr<port_reader_t>> container_to_reader;
+    container_id_map<std::shared_ptr<PortReader>> container_to_reader;
   };
 
   /**
@@ -117,7 +118,7 @@ namespace stats {
     // Temporary mapping of executor_id to container_id. Used to bridge a call to register_container(), followed by a call to get_statsd_endpoint().
     executor_id_map<mesos::ContainerID> executor_to_container;
     // Long-term mapping of container_id to the port reader assigned to that container. This mapping exists for the lifespan of the container.
-    container_id_map<std::shared_ptr<port_reader_t>> container_to_reader;
+    container_id_map<std::shared_ptr<PortReader>> container_to_reader;
     // Allocator of ports within a range.
     std::shared_ptr<RangePool> range_pool;
   };

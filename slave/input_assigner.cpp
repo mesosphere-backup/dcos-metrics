@@ -10,8 +10,7 @@
 #include <glog/logging.h>
 
 #include "params.hpp"
-#include "port_reader.hpp"
-#include "port_writer.hpp"
+#include "port_reader_impl.hpp"
 #include "range_pool.hpp"
 
 #define MAX_PORT 65535
@@ -26,7 +25,7 @@ namespace {
 stats::InputAssigner::InputAssigner(const mesos::Parameters& parameters)
   : listen_host(params::get_str(parameters, params::LISTEN_HOST, params::LISTEN_HOST_DEFAULT)),
     annotations_enabled(params::get_bool(parameters, params::ANNOTATIONS, params::ANNOTATIONS_DEFAULT)),
-    io_service(),
+    io_service(new boost::asio::io_service),
     writer(new PortWriter(io_service, parameters)) {
   io_service_thread.reset(new std::thread(std::bind(&InputAssigner::run_io_service, this)));
 }
@@ -35,9 +34,9 @@ stats::InputAssigner::~InputAssigner() {
   // Clean shutdown of all sockets, followed by the IO Service thread itself
   std::unique_lock<std::mutex> lock(mutex);
   writer.reset();
-  io_service.stop();
+  io_service->stop();
   io_service_thread->join();
-  io_service.reset();
+  io_service->reset();
   io_service_thread.reset();
 }
 
@@ -88,7 +87,7 @@ void stats::InputAssigner::run_io_service() {
 #endif
   try {
     LOG(INFO) << "Starting io_service";
-    io_service.run();
+    io_service->run();
     LOG(INFO) << "Exited io_service.run()";
   } catch (const std::exception& e) {
     LOG(ERROR) << "io_service.run() threw exception, exiting: " << e.what();
@@ -113,7 +112,7 @@ Try<stats::UDPEndpoint> stats::SinglePortAssigner::_register_container(
   if (!single_port_reader) {
     LOG(INFO) << "Creating single-port reader at endpoint[" << listen_host << ":" << single_port_value << "].";
     // Create/open/register a new port reader only if one doesn't exist.
-    std::shared_ptr<port_reader_t> reader(new port_reader_t(
+    std::shared_ptr<PortReader> reader(new PortReaderImpl<PortWriter>(
             io_service,
             writer,
             UDPEndpoint(listen_host, single_port_value),
@@ -194,7 +193,7 @@ Try<stats::UDPEndpoint> stats::EphemeralPortAssigner::_register_container(
   }
 
   // Create/open/register a new reader against an ephemeral port.
-  std::shared_ptr<port_reader_t> reader(new port_reader_t(
+  std::shared_ptr<PortReader> reader(new PortReaderImpl<PortWriter>(
           io_service,
           writer,
           UDPEndpoint(listen_host, 0),
@@ -310,7 +309,7 @@ Try<stats::UDPEndpoint> stats::PortRangeAssigner::_register_container(
   }
 
   // Create/open/register a new reader against the obtained port.
-  std::shared_ptr<port_reader_t> reader(new port_reader_t(
+  std::shared_ptr<PortReader> reader(new PortReaderImpl<PortWriter>(
           io_service,
           writer,
           UDPEndpoint(listen_host, port.get()),
