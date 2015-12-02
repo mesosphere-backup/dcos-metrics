@@ -10,21 +10,26 @@ Monitoring component to be run against mesos-slaves. Contains an Isolator Module
 
 ## Build instructions:
 
+```
 host:dcos-stats/slave$ ... build mesos ...
-host:dcos-stats/slave$ sudo apt-get install libasio-dev
+host:dcos-stats/slave$ sudo apt-get install cmake libasio-dev libboost-system-dev libgoogle-glog-dev
 host:dcos-stats/slave$ mkdir build; cd build
-host:dcos-stats/slave/build$ cmake -Dmesos_SOURCE_DIR=/path/to/mesos/ -Dmesos_BUILD_DIR=/path/to/mesos/build/ ..
+host:dcos-stats/slave/build$ cmake -Dmesos_SOURCE_DIR=/path/to/mesos/ ..
 host:dcos-stats/slave/build$ make -j4
+```
 
 ## Install instructions
 
 On a system running mesos-slave:
-1. Copy dcos-stats/slave/build/modules.json and dcos-stats/slave/build/libstats-slave.so to the same directory. Customize modules.json as needed (see below).
-2. Add line to /etc/mesos-slave/modules (create file if needed): "/path/to/modules.json"
+
+1. Copy dcos-stats/slave/build/modules.json and dcos-stats/slave/build/libstats-slave.so to the same directory.
+2. Customize modules.json as needed (see parameters below).
+3. Add line to /etc/mesos-slave/modules (create file if needed): "/path/to/modules.json"
 
 ## Customization
 
-Available parameters for modules.json (can be seen in params.hpp):
+Available parameters for modules.json (see also params.hpp):
+
 - "listen_host" (default "localhost"): Host to listen on for stats input from tasks.
 - "listen_port_mode" (default "ephemeral"): Method to use for opening listen ports for stats input from tasks.
     - "ephemeral": Use OS-defined ephemeral ports for listen sockets. See /proc/sys/net/ipv4/ip_local_port_range.
