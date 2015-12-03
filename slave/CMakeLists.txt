@@ -21,15 +21,25 @@ if(NOT mesos_SOURCE_DIR OR NOT mesos_BUILD_DIR)
 endif()
 
 find_library(mesos_LIBRARY NAMES mesos HINTS ${mesos_BUILD_DIR}/src/.libs/)
-set(process_SOURCE_DIR ${mesos_SOURCE_DIR}/3rdparty/libprocess)
-set(process_BUILD_DIR ${mesos_BUILD_DIR}/3rdparty/libprocess)
-find_library(process_LIBRARY NAMES process HINTS ${process_BUILD_DIR}/.libs/)
+find_path(process_SOURCE_DIR HINTS ${mesos_SOURCE_DIR}/3rdparty/libprocess NAMES include/process/process.hpp)
+find_path(stout_SOURCE_DIR HINTS ${process_SOURCE_DIR}/3rdparty/stout NAMES include/stout/stringify.hpp)
+
+# Dragged in by stout, so we have to find it:
+option(USE_MESOS_PICOJSON "Whether to use mesos' internal picojson (true) or system picojson (false)" TRUE)
+if(USE_MESOS_PICOJSON)
+  include(InstallMesosPicojsonIncludes.cmake)
+  message(STATUS "Using mesos picojson: incl:${picojson_INCLUDE_DIR}")
+else()
+  find_path(picojson_INCLUDE_DIR NAMES picojson.h)
+  message(STATUS "Using system protobuf: incl:${protobuf_INCLUDE_DIR}")
+endif()
 
 # Mesos may have linked against the system protobuf, or against its own copy.
 # Make sure our includes match or else linking will fail later.
+option(USE_MESOS_PROTOBUF "Whether to use mesos' internal protobuf (true) or system protobuf (false)" TRUE)
 if(USE_MESOS_PROTOBUF)
   include(InstallMesosProtobufIncludes.cmake)
-  message(STATUS "Using mesos protobuf: incl:${protobuf_INCLUDE_DIR} lib:${protobuf_LIBRARY}")
+  message(STATUS "Using mesos protobuf: incl:${protobuf_INCLUDE_DIR} lib:<static within libmesos>")
 else()
   find_path(protobuf_INCLUDE_DIR NAMES google/protobuf/message.h)
   find_library(protobuf_LIBRARY NAMES protobuf)
@@ -59,9 +69,10 @@ set(LIBS
   pthread
   ${Boost_LIBRARIES}
   ${mesos_LIBRARY}
-  ${process_LIBRARY}
-  ${protobuf_LIBRARY}
   )
+if(NOT USE_MESOS_PROTOBUF)
+  list(APPEND LIBS ${protobuf_LIBRARY})
+endif()
 set(SRCS
   env_hook.cpp
   input_assigner.cpp
@@ -82,8 +93,8 @@ list(APPEND INCLUDES
   ${mesos_SOURCE_DIR}/include
   ${mesos_BUILD_DIR}/include
   ${process_SOURCE_DIR}/include
-  ${process_SOURCE_DIR}/3rdparty/stout/include
-  ${process_BUILD_DIR}/3rdparty/picojson-1.3.0 # internally required by stout
+  ${stout_SOURCE_DIR}/include
+  ${picojson_INCLUDE_DIR} # internally required by stout
   ${protobuf_INCLUDE_DIR}
   )
 
