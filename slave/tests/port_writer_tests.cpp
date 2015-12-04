@@ -1,7 +1,11 @@
+#include <atomic>
+#include <thread>
+
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
 #include "port_writer.hpp"
+#include "sync_util.hpp"
 #include "test_socket.hpp"
 
 namespace {
@@ -29,18 +33,56 @@ namespace {
     return params;
   }
 
-  // Run svc until data is available at test_reader, with timeout after ~2s
-  void wait_timer_triggered(
-      std::shared_ptr<boost::asio::io_service> svc, TestReadSocket& test_reader) {
-    time_t start = time(NULL);
-    while (test_reader.available() == 0) {
-      svc->run_one();
-      struct timespec wait_1ms;
-      wait_1ms.tv_sec = 0;
-      wait_1ms.tv_nsec = 1000000;
-      nanosleep(&wait_1ms, NULL);
-      ASSERT_LT(time(NULL), start + 2);
+  class ServiceThread {
+   public:
+    ServiceThread()
+      : svc_(new boost::asio::io_service),
+        check_timer(*svc_) {
+      LOG(INFO) << "start thread";
+      check_timer.expires_from_now(boost::posix_time::milliseconds(100));
+      check_timer.async_wait(std::bind(&ServiceThread::check_exit_cb, this));
+      svc_thread.reset(new std::thread(std::bind(&ServiceThread::run_svc, this)));
     }
+    virtual ~ServiceThread() {
+      EXPECT_FALSE((bool)svc_thread) << "ServiceThread.join() must be called before destructor";
+    }
+
+    std::shared_ptr<boost::asio::io_service> svc() {
+      return svc_;
+    }
+
+    void join() {
+      LOG(INFO) << "join thread";
+      shutdown = true;
+      svc_thread->join();
+      svc_thread.reset();
+    }
+
+   private:
+    void run_svc() {
+      LOG(INFO) << "run svc";
+      svc_->run();
+      LOG(INFO) << "run svc done";
+    }
+    void check_exit_cb() {
+      if (shutdown) {
+        LOG(INFO) << "exit";
+        svc_->stop();
+      } else {
+        LOG(INFO) << "recheck";
+        check_timer.expires_from_now(boost::posix_time::milliseconds(1));
+        check_timer.async_wait(std::bind(&ServiceThread::check_exit_cb, this));
+      }
+    }
+
+    std::shared_ptr<boost::asio::io_service> svc_;
+    boost::asio::deadline_timer check_timer;
+    std::shared_ptr<std::thread> svc_thread;
+    std::atomic_bool shutdown;
+  };
+
+  void flush_service_queue_with_noop() {
+    LOG(INFO) << "async queue flushed";
   }
 }
 
@@ -48,14 +90,19 @@ TEST(PortWriterTests, chunking_off) {
   TestReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
-  std::shared_ptr<boost::asio::io_service> svc(new boost::asio::io_service);
-  stats::PortWriter writer(svc, build_params(listen_port, 0 /* chunk_size */));
-  Try<Nothing> result = writer.open();
-  ASSERT_FALSE(result.isError()) << result.error();
+  ServiceThread thread;
+  {
+    stats::PortWriter writer(thread.svc(), build_params(listen_port, 0 /* chunk_size */));
+    Try<Nothing> result = writer.open();
+    ASSERT_FALSE(result.isError()) << result.error();
 
-  std::string hello("hello"), hey("hey");
-  writer.write(hello.data(), hello.size());
-  writer.write(hey.data(), hey.size());
+    std::string hello("hello"), hey("hey");
+    writer.write(hello.data(), hello.size());
+    writer.write(hey.data(), hey.size());
+
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+  }
+  thread.join();
 
   EXPECT_EQ("hello", test_reader.read());
   EXPECT_EQ("hey", test_reader.read());
@@ -65,24 +112,29 @@ TEST(PortWriterTests, chunking_on_flush_when_full) {
   TestReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
-  std::shared_ptr<boost::asio::io_service> svc(new boost::asio::io_service);
-  std::shared_ptr<stats::PortWriter> writer(new stats::PortWriter(
-          svc,
-          build_params(listen_port, 10 /* chunk_size */),
-          9999999 /* chunk_timeout_ms */));
-  Try<Nothing> result = writer->open();
-  ASSERT_FALSE(result.isError()) << result.error();
+  ServiceThread thread;
+  {
+    stats::PortWriter writer(
+        thread.svc(),
+        build_params(listen_port, 10 /* chunk_size */),
+        9999999 /* chunk_timeout_ms */);
+    Try<Nothing> result = writer.open();
+    ASSERT_FALSE(result.isError()) << result.error();
 
-  std::string hello("hello"), hey("hey"), hi("hi");
-  writer->write(hello.data(), hello.size());// 5 bytes
-  EXPECT_EQ("", test_reader.read(1 /* timeout_ms */));
-  writer->write(hey.data(), hey.size());// 9 bytes (5 + 1 + 3)
-  EXPECT_EQ("", test_reader.read(1 /* timeout_ms */));
-  writer->write(hi.data(), hi.size());// 12 bytes (5 + 1 + 3 + 1 + 2), chunk is flushed before adding "hi"
-  EXPECT_EQ("hello\nhey", test_reader.read(1 /* timeout_ms */));
+    std::string hello("hello"), hey("hey"), hi("hi");
+    writer.write(hello.data(), hello.size());// 5 bytes
+    EXPECT_EQ("", test_reader.read(1 /* timeout_ms */));
+    writer.write(hey.data(), hey.size());// 9 bytes (5 + 1 + 3)
+    EXPECT_EQ("", test_reader.read(1 /* timeout_ms */));
+    writer.write(hi.data(), hi.size());// 12 bytes (5 + 1 + 3 + 1 + 2), chunk is flushed before adding "hi"
+    EXPECT_EQ("hello\nhey", test_reader.read(1 /* timeout_ms */));
 
-  EXPECT_EQ("", test_reader.read(1 /* timeout_ms */));
-  writer.reset();//force flush of buffer
+    EXPECT_EQ("", test_reader.read(1 /* timeout_ms */));
+
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+  }
+  thread.join();
+
   EXPECT_EQ("hi", test_reader.read(1 /* timeout_ms */));
 }
 
@@ -90,25 +142,30 @@ TEST(PortWriterTests, chunking_on_flush_timer) {
   TestReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
-  std::shared_ptr<boost::asio::io_service> svc(new boost::asio::io_service);
-  std::shared_ptr<stats::PortWriter> writer(new stats::PortWriter(
-          svc,
-          build_params(listen_port, 10 /* chunk_size */),
-          1 /* chunk_timeout_ms */));
-  Try<Nothing> result = writer->open();
-  ASSERT_FALSE(result.isError()) << result.error();
+  ServiceThread thread;
+  {
+    stats::PortWriter writer(
+        thread.svc(),
+        build_params(listen_port, 10 /* chunk_size */),
+        1 /* chunk_timeout_ms */);
+    Try<Nothing> result = writer.open();
+    ASSERT_FALSE(result.isError()) << result.error();
 
-  std::string hello("hello"), hey("hey"), hi("hi");
-  writer->write(hello.data(), hello.size());
-  EXPECT_FALSE(test_reader.available());
-  wait_timer_triggered(svc, test_reader);
-  EXPECT_EQ("hello", test_reader.read(100 /* timeout_ms */));
+    std::string hello("hello"), hey("hey"), hi("hi");
+    writer.write(hello.data(), hello.size());
+    EXPECT_FALSE(test_reader.available());
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+    EXPECT_EQ("hello", test_reader.read(100 /* timeout_ms */));
 
-  writer->write(hey.data(), hey.size());
-  writer->write(hi.data(), hi.size());
-  EXPECT_FALSE(test_reader.available());
-  wait_timer_triggered(svc, test_reader);
-  EXPECT_EQ("hey\nhi", test_reader.read(100 /* timeout_ms */));
+    writer.write(hey.data(), hey.size());
+    writer.write(hi.data(), hi.size());
+    EXPECT_FALSE(test_reader.available());
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+    EXPECT_EQ("hey\nhi", test_reader.read(100 /* timeout_ms */));
+
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+  }
+  thread.join();
 }
 
 int main(int argc, char **argv) {

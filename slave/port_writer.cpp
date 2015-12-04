@@ -1,28 +1,31 @@
 #include "port_writer.hpp"
+#include "sync_util.hpp"
 
 #include <glog/logging.h>
 
-#define CHUNK_BUFFER_MAX_CAPACITY 65536 /* UDP size limit in IPv4 (may be larger in IPv6) */
+#define UDP_MAX_PACKET_BYTES 65536 /* UDP size limit in IPv4 (may be larger in IPv6) */
 
 typedef boost::asio::ip::udp::resolver resolver_t;
 
 namespace stats {
   size_t select_buffer_capacity(const mesos::Parameters& parameters) {
-    size_t params_size = params::get_uint(parameters, params::CHUNK_SIZE_BYTES, params::CHUNK_SIZE_BYTES_DEFAULT);
+    size_t params_size =
+      params::get_uint(parameters, params::CHUNK_SIZE_BYTES, params::CHUNK_SIZE_BYTES_DEFAULT);
     if (params_size == 0) {
       LOG(WARNING) << "Ignoring invalid requested UDP packet size " << params_size << ", "
                    << "using " << params::CHUNK_SIZE_BYTES_DEFAULT;
       return params::CHUNK_SIZE_BYTES_DEFAULT;
     }
-    if (params_size > CHUNK_BUFFER_MAX_CAPACITY) {
+    if (params_size > UDP_MAX_PACKET_BYTES) {
       LOG(WARNING) << "Ignoring excessive requested UDP packet size " << params_size << ", "
-                   << "using " << CHUNK_BUFFER_MAX_CAPACITY;
-      return CHUNK_BUFFER_MAX_CAPACITY;
+                   << "using " << UDP_MAX_PACKET_BYTES;
+      return UDP_MAX_PACKET_BYTES;
     }
     return params_size;
   }
 
-  bool add_to_buffer(char* buffer, size_t buffer_capacity, size_t& buffer_used, const char* to_add, size_t to_add_size) {
+  bool add_to_buffer(char* buffer, size_t buffer_capacity, size_t& buffer_used,
+      const char* to_add, size_t to_add_size) {
     if (to_add_size == 0) {
       return true;
     }
@@ -65,24 +68,27 @@ stats::PortWriter::PortWriter(std::shared_ptr<boost::asio::io_service> io_servic
     flush_timer(*io_service),
     socket(*io_service),
     buffer((char*) malloc(buffer_capacity)),
-    buffer_used(0) {
+    buffer_used(0),
+    shutdown(false) {
   LOG(INFO) << "Writer constructed for " << send_host << ":" << send_port;
 }
 
 stats::PortWriter::~PortWriter() {
-  LOG(INFO) << "Destroying writer for " << send_host << ":" << send_port;
-  boost::system::error_code ec;
-  if (socket.is_open()) {
-    chunk_flush_cb(boost::system::error_code());
-    socket.close(ec);
-    if (ec) {
-      LOG(ERROR) << "Error on writer socket close: " << ec;
-    }
+  LOG(INFO) << "Asynchronously triggering PortWriter shutdown for "
+            << send_host << ":" << send_port;
+  if (sync_util::dispatch_run(
+          "~PortWriter", *io_service, std::bind(&PortWriter::shutdown_cb, this))) {
+    LOG(INFO) << "PortWriter shutdown succeeded";
+  } else {
+    LOG(ERROR) << "Failed to complete PortWriter shutdown for " << send_host << ":" << send_port;
   }
-  free(buffer);
-  buffer = NULL;
 }
 
+/* TODO:
+ * instead of explicitly running open() once up-front, run a timer which re-resolves the host every
+ * few seconds/minutes and automatically resets to a new random destination if the current
+ * destination is no longer listed. this also would allow for scenarios where the host fails lookup
+ * at first but starts working later */
 Try<Nothing> stats::PortWriter::open() {
   if (socket.is_open()) {
     return Nothing();
@@ -99,7 +105,7 @@ Try<Nothing> stats::PortWriter::open() {
     resolved_address = boost::asio::ip::address::from_string(send_host, ec);
     if (ec) {
       //FIXME: Retry loop instead of exiting process?
-      LOG(FATAL) << "Error when resolving configured output host[" << send_host << "]: " << ec;
+      LOG(WARNING) << "Error when resolving configured output host[" << send_host << "]: " << ec;
     }
   } else if (iter == resolver_t::iterator()) {
     // no results, fall back to using the host as-is
@@ -111,6 +117,7 @@ Try<Nothing> stats::PortWriter::open() {
     }
   } else {
     // resolved, bind output socket to first entry in list
+    //TODO: select random entry, to support round-robin across A records
     resolved_address = iter->endpoint().address();
     LOG(INFO) << "Resolved dest_host[" << send_host << "] -> " << resolved_address;
   }
@@ -144,8 +151,10 @@ void stats::PortWriter::write(const char* bytes, size_t size) {
     }
 
     // Data is too big to fit in an empty buffer. Skip the buffer and send the data as-is (below).
-    // Note that the data doesn't jump the 'queue' since we've already sent anything in the current buffer.
-    LOG(WARNING) << "Ignoring requested packet max[" << buffer_capacity << "]: Sending metric of size " << size;
+    // Note that the data doesn't jump the 'queue' since we've already sent the contents of the
+    // current buffer.
+    LOG(WARNING) << "Ignoring requested packet max[" << buffer_capacity << "]: "
+                 << "Sending metric of size " << size;
   }
 
   send_raw_bytes(bytes, size);
@@ -155,14 +164,25 @@ void stats::PortWriter::start_chunk_flush_timer() {
   if (chunking) {
     flush_timer.expires_from_now(boost::posix_time::milliseconds(chunk_timeout_ms));
     flush_timer.async_wait(std::bind(&PortWriter::chunk_flush_cb, this, std::placeholders::_1));
+  } else {
+    // Ensure that the io_service always has some work to do, otherwise io_service.run() will return
+    // immediately without performing any work. This hack is effectively a no-op since the buffer
+    // will always be unused/empty when chunk_flush_cb is invoked.
+    //TODO this stub timer can be removed once the re-resolve timer is added. See TODO above.
+    flush_timer.expires_from_now(boost::posix_time::hours(24));
+    flush_timer.async_wait(std::bind(&PortWriter::chunk_flush_cb, this, std::placeholders::_1));
   }
 }
 
-void stats::PortWriter::chunk_flush_cb(const boost::system::error_code& ec) {
+void stats::PortWriter::chunk_flush_cb(boost::system::error_code ec) {
   DLOG(INFO) << "Flush triggered";
   if (ec) {
     LOG(ERROR) << "Flush timer returned error:" << ec;
-    //FIXME: should we abort at this point? this may signal that the process is shutting down (boost::system::errc::operation_canceled)
+    if (boost::asio::error::operation_aborted) {
+      // We're being destroyed. Don't look at local state, it may be destroyed already.
+      LOG(WARNING) << "Aborted: Exiting write loop immediately";
+      return;
+    }
   }
 
   send_raw_bytes(buffer, buffer_used);
@@ -172,22 +192,38 @@ void stats::PortWriter::chunk_flush_cb(const boost::system::error_code& ec) {
 }
 
 void stats::PortWriter::send_raw_bytes(const char* bytes, size_t size) {
-  DLOG(INFO) << "Send " << size << " bytes to " << send_host << ":" << send_port;
   if (size == 0) {
+    DLOG(INFO) << "Skipping scheduled send of zero bytes";
     return;
   }
 
   if (!socket.is_open()) {
-    LOG(WARNING) << "Dropped " << size << " bytes of data due to lack of open writer socket to " << send_host << ":" << send_port;
+    LOG(WARNING) << "Dropped " << size << " bytes of data due to lack of open writer socket to "
+                 << send_host << ":" << send_port;
     return;
   }
 
+  DLOG(INFO) << "Send " << size << " bytes to " << send_host << ":" << send_port;
   boost::system::error_code ec;
   size_t sent = socket.send_to(boost::asio::buffer(bytes, size), send_endpoint, 0 /* flags */, ec);
   if (ec) {
-    LOG(ERROR) << "Failed to send " << size << " bytes of data to " << send_host << ":" << send_port << ": " << ec;
+    LOG(ERROR) << "Failed to send " << size << " bytes of data to "
+               << send_host << ":" << send_port << ": " << ec;
   }
   if (sent != size) {
     LOG(WARNING) << "Sent size=" << sent << " doesn't match requested size=" << size;
   }
+}
+
+void stats::PortWriter::shutdown_cb() {
+  boost::system::error_code ec;
+  if (socket.is_open()) {
+    chunk_flush_cb(boost::system::error_code());
+    socket.close(ec);
+    if (ec) {
+      LOG(ERROR) << "Error on writer socket close: " << ec;
+    }
+  }
+  free(buffer);
+  buffer = NULL;
 }

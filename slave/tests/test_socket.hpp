@@ -81,7 +81,7 @@ class TestReadSocket : public AbstractTestSocket {
         std::bind(&TestReadSocket::recv_cb, std::placeholders::_1, std::placeholders::_2, &ec, &len));
 
     while (ec == boost::asio::error::would_block) {
-      svc.run_one();
+      svc.poll();
     }
 
     if (ec == boost::system::errc::operation_canceled) {
