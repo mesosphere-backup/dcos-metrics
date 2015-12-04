@@ -161,6 +161,7 @@ TEST(PortRunnerImplTests, data_flow_multi_stream) {
         std::inserter(stat_rows, stat_rows.begin()));
   }
 
+  EXPECT_EQ(9, stat_rows.size());
   EXPECT_TRUE(stat_rows.count(annotated_row("writer1:1", container1, executor1)));
   EXPECT_TRUE(stat_rows.count(annotated_row("writer1:2", container1, executor1)));
   EXPECT_TRUE(stat_rows.count(annotated_row("writer1:3", container1, executor1)));
@@ -237,6 +238,7 @@ TEST(PortRunnerImplTests, data_flow_multi_stream_unchunked) {
         std::inserter(stat_rows, stat_rows.begin()));
   }
 
+  EXPECT_EQ(9, stat_rows.size());
   EXPECT_TRUE(stat_rows.count(annotated_row("writer1:1", container1, executor1)));
   EXPECT_TRUE(stat_rows.count(annotated_row("writer1:2", container1, executor1)));
   EXPECT_TRUE(stat_rows.count(annotated_row("writer1:3", container1, executor1)));
@@ -313,6 +315,7 @@ TEST(PortRunnerImplTests, data_flow_multi_stream_unannotated) {
         std::inserter(stat_rows, stat_rows.begin()));
   }
 
+  EXPECT_EQ(9, stat_rows.size());
   EXPECT_TRUE(stat_rows.count("writer1:1"));
   EXPECT_TRUE(stat_rows.count("writer1:2"));
   EXPECT_TRUE(stat_rows.count("writer1:3"));
