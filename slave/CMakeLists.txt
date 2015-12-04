@@ -103,6 +103,13 @@ include_directories(${INCLUDES})
 
 add_library(stats-slave SHARED ${SRCS})
 target_link_libraries(stats-slave ${LIBS})
+# ensure header dependencies are unpacked before we start building
+if(USE_MESOS_PROTOBUF)
+  add_dependencies(stats-slave ext_protobuf)
+endif()
+if(USE_MESOS_PICOJSON)
+  add_dependencies(stats-slave ext_picojson)
+endif()
 
 set(TESTS_ENABLED true)
 if(TESTS_ENABLED)
