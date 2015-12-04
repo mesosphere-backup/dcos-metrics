@@ -19,6 +19,10 @@ add_executable(input_assigner_factory_tests input_assigner_factory_tests.cpp)
 target_link_libraries(input_assigner_factory_tests gtest stats-slave)
 add_test(input_assigner_factory_tests input_assigner_factory_tests)
 
+add_executable(input_assigner_tests input_assigner_tests.cpp)
+target_link_libraries(input_assigner_tests gmock gtest stats-slave)
+add_test(input_assigner_tests input_assigner_tests)
+
 add_executable(isolator_module_tests isolator_module_tests.cpp)
 target_link_libraries(isolator_module_tests gmock gtest stats-slave)
 add_test(isolator_module_tests isolator_module_tests)
@@ -30,6 +34,10 @@ add_test(params_tests params_tests)
 add_executable(port_reader_impl_tests port_reader_impl_tests.cpp)
 target_link_libraries(port_reader_impl_tests gmock gtest stats-slave)
 add_test(port_reader_impl_tests port_reader_impl_tests)
+
+add_executable(port_runner_impl_tests port_runner_impl_tests.cpp)
+target_link_libraries(port_runner_impl_tests gmock gtest stats-slave)
+add_test(port_runner_impl_tests port_runner_impl_tests)
 
 add_executable(port_writer_tests port_writer_tests.cpp)
 target_link_libraries(port_writer_tests gtest stats-slave)

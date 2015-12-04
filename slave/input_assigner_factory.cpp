@@ -5,6 +5,7 @@
 #include <glog/logging.h>
 
 #include "input_assigner.hpp"
+#include "port_runner_impl.hpp"
 
 namespace {
   std::mutex global_assigner_mutex;
@@ -29,13 +30,13 @@ std::shared_ptr<stats::InputAssigner> stats::InputAssignerFactory::get(
   InputAssigner* impl;
   switch (port_mode) {
     case params::port_mode::SINGLE:
-      impl = new SinglePortAssigner(parameters);
+      impl = new SinglePortAssigner(PortRunnerImpl::create(parameters), parameters);
       break;
     case params::port_mode::EPHEMERAL:
-      impl = new EphemeralPortAssigner(parameters);
+      impl = new EphemeralPortAssigner(PortRunnerImpl::create(parameters));
       break;
     case params::port_mode::RANGE:
-      impl = new PortRangeAssigner(parameters);
+      impl = new PortRangeAssigner(PortRunnerImpl::create(parameters), parameters);
       break;
     case params::port_mode::UNKNOWN:
       LOG(FATAL) << "Unknown " << params::LISTEN_PORT_MODE << " config value: " << port_mode_str;

@@ -69,6 +69,7 @@ set(SRCS
   isolator_module.cpp
   params.cpp
   port_reader_impl.cpp
+  port_runner_impl.cpp
   port_writer.cpp
   )
 configure_file(

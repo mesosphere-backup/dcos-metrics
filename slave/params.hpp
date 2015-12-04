@@ -21,7 +21,7 @@ namespace stats {
 
     // The host to listen on. Should stay with "localhost" except in ip-per-container environments.
     const std::string LISTEN_HOST = "listen_host";
-    const std::string LISTEN_HOST_DEFAULT = "localhost";
+    const std::string LISTEN_HOST_DEFAULT = "127.0.0.1";
 
     // The mode to use for assigning containers to listen ports.
     const std::string LISTEN_PORT_MODE = "listen_port_mode";
