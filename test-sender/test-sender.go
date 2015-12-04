@@ -36,13 +36,14 @@ func debugf(format string, v ...interface{}) {
 func getEnvAddress() string {
 	host := os.Getenv(envvarHost)
 	if host == "" {
-		log.Fatalf("No UDP Host provided in environment (%s): Missing %s",
-			os.Environ(), envvarHost)
+		log.Printf("No UDP Host provided in environment: Need %s", envvarHost)
 	}
 	port_str := os.Getenv(envvarPort)
 	if port_str == "" {
-		log.Fatalf("No UDP Port provided in environment (%s): Missing %s",
-			os.Environ(), envvarPort)
+		log.Printf("No UDP Port provided in environment: Need %s", envvarPort)
+	}
+	if host == "" || port_str == "" {
+		log.Fatalf("Environment: %s", os.Environ())
 	}
 	port, err := strconv.Atoi(port_str)
 	if err != nil {
