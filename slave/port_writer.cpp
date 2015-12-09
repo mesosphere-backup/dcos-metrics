@@ -175,7 +175,7 @@ void stats::PortWriter::start_chunk_flush_timer() {
 }
 
 void stats::PortWriter::chunk_flush_cb(boost::system::error_code ec) {
-  DLOG(INFO) << "Flush triggered";
+  //DLOG(INFO) << "Flush triggered";
   if (ec) {
     LOG(ERROR) << "Flush timer returned error:" << ec;
     if (boost::asio::error::operation_aborted) {
@@ -193,7 +193,7 @@ void stats::PortWriter::chunk_flush_cb(boost::system::error_code ec) {
 
 void stats::PortWriter::send_raw_bytes(const char* bytes, size_t size) {
   if (size == 0) {
-    DLOG(INFO) << "Skipping scheduled send of zero bytes";
+    //DLOG(INFO) << "Skipping scheduled send of zero bytes";
     return;
   }
 

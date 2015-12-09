@@ -16,9 +16,6 @@ class InputAssignerFactoryTests  : public ::testing::Test {
 
 TEST_F(InputAssignerFactoryTests, stress_multithread_usage) {
   mesos::Parameters params;
-  mesos::Parameter* param = params.add_parameter();
-  param->set_key(stats::params::DEST_HOST);
-  param->set_value("127.0.0.1");
 
   std::list<std::thread*> thread_ptrs;
   for (int i = 0; i < 250; ++i) {
@@ -31,6 +28,27 @@ TEST_F(InputAssignerFactoryTests, stress_multithread_usage) {
     delete thread;
   }
   thread_ptrs.clear();
+}
+
+TEST_F(InputAssignerFactoryTests, get_drop_params) {
+  mesos::Parameters params;
+  mesos::Parameter* param = params.add_parameter();
+  param->set_key(stats::params::DEST_HOST);
+  param->set_value("127.0.0.1");
+
+  stats::InputAssignerFactory::get(params);
+  EXPECT_DETH(stats::InputAssignerFactory::get(params),
+      "These module parameters are in the wrong module!")
+}
+
+TEST_F(InputAssignerFactoryTests, get_correct_params) {
+  mesos::Parameters params;
+  mesos::Parameter* param = params.add_parameter();
+  param->set_key(stats::params::DEST_HOST);
+  param->set_value("127.0.0.1");
+
+  stats::InputAssignerFactory::get(params);
+  stats::InputAssignerFactory::get(mesos::Parameters());
 }
 
 TEST_F(InputAssignerFactoryTests, get_unknown) {
