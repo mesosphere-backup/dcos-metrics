@@ -31,10 +31,10 @@ On a system running mesos-slave:
 3. Configure args to enable the module in ```mesos-slave```, creating files as needed:
    - ```/etc/mesos-slave/modules``` should contain "```/path/to/your/modules.json```"
    - ```/etc/mesos-slave/hooks``` should contain "```com_mesosphere_StatsEnvHook```"
-   - ```/etc/mesos-slave/isolation``` should contain "```posix/cpu,posix/mem,filesystem/posix,com_mesosphere_StatsIsolatorModule```". Other entries may be different, but ```com_mesosphere_StatsIsolatorModule``` must be present.
+   - ```/etc/mesos-slave/isolation``` should contain "```posix/cpu,posix/mem,filesystem/posix,com_mesosphere_StatsIsolatorModule```". This may vary somewhat, but ```com_mesosphere_StatsIsolatorModule``` must be present.
 4. Restart ```mesos-slave```.
 5. Verify that the module was successfully installed:
-   - Use "```ps aux | grep mesos```" to confirm that the arguments now contain the following values, as configured in step 3:
+   - Use "```ps aux | grep mesos-slave```" to confirm that ```mesos-slave```'s arguments now contain the following values, as configured in step 3:
       - ```--hooks=com_mesosphere_StatsEnvHook```
       - ```--isolation=posix/cpu,posix/mem,filesystem/posix,com_mesosphere_StatsIsolatorModule``` (or as you configured)
       - ```--modules=/home/vagrant/modules.json```
