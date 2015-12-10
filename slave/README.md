@@ -4,11 +4,15 @@ Monitoring component to be run against mesos-slaves. Contains an Isolator Module
 ## Prerequisites:
 
 - CMake
-- A nearby Mesos checkout and completed build: Set mesos_SOURCE_DIR and mesos_BUILD_DIR
+- A local copy of the Mesos source, and a completed build from that source ([mesos build instructions](http://mesos.apache.org/gettingstarted/)):
+  - Set ```mesos_SOURCE_DIR``` to the mesos source directory.
+  - Optionally set ```mesos_BUILD_DIR``` to the mesos build directory (defaults to ```mesos_SOURCE_DIR/build```)
 - Protobuf (preferably what the Mesos build used)
 - Boost ASIO (libasio-dev)
 
 ## Build instructions:
+
+In order to build the module, you must point to a local copy of the mesos source, as well as a build from that source. The below steps 
 
 ```
 host:dcos-stats/slave$ ... build mesos ...
@@ -16,18 +20,19 @@ host:dcos-stats/slave$ sudo apt-get install build-essential cmake libasio-dev li
 host:dcos-stats/slave$ mkdir build; cd build
 host:dcos-stats/slave/build$ cmake -Dmesos_SOURCE_DIR=/path/to/mesos/ ..
 host:dcos-stats/slave/build$ make -j4
+host:dcos-stats/slave/build$ make test
 ```
 
 ## Install instructions
 
 On a system running mesos-slave:
 
-1. Copy dcos-stats/slave/build/modules.json and dcos-stats/slave/build/libstats-slave.so to the slave machine.
-2. Customize modules.json as needed:
-   - Parameters must be placed under the ```StatsEnvHook``` section, where the ```dest_host``` example is provided. Mesos-slave will fail to start with "```These parameters are being dropped!```" if parameters are placed in the wrong section.
-   - The example config has a ```file``` parameter which assumes that ```libstats-slave.so``` is located in ```/home/vagrant/```. Update this parameter to point elsewhere if needed.
-   - The example config will send stats to ```192.168.33.1:8125```. Update the ```dest_host``` parameter to send somewhere else if needed.
-   - Full list of parameters is documented below under "Customization". As mentioned above, keep all parameters against ```StatsEnvHook``` or else mesos-slave will fail on startup.
+1. Copy ```dcos-stats/slave/build/modules.json``` and ```dcos-stats/slave/build/libstats-slave.so``` to the slave machine.
+2. Customize ```modules.json``` as needed:
+   - All parameters must be placed within the ```StatsEnvHook``` section of ```modules.json```, which is where the ```dest_host``` example is provided. If parameters are placed in the wrong section, ```mesos-slave``` will fail to start with an error which says "```These parameters are being dropped!```".
+   - The example config has a ```file``` parameter which assumes that ```libstats-slave.so``` is located in ```/home/vagrant/```. Update this parameter to point to where ```libstats-slave.so``` was copied earlier.
+   - The example config defaults to outputting stats to ```192.168.33.1:8125```. Update the ```dest_host``` parameter to send stats elsewhere if needed.
+   - Full list of parameters is documented below under "Customization". Again, place all parameter changes within ```StatsEnvHook``` or else ```mesos-slave``` will fail to start.
 3. Configure args to enable the module in ```mesos-slave```, creating files as needed:
    - ```/etc/mesos-slave/modules``` should contain "```/path/to/your/modules.json```"
    - ```/etc/mesos-slave/hooks``` should contain "```com_mesosphere_StatsEnvHook```"
