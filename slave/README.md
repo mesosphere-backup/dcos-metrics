@@ -48,7 +48,7 @@ On a system running mesos-slave:
 
 ## Customization
 
-Available parameters for modules.json (see also params.hpp), which should be placed under :
+Available parameters for ```modules.json``` (see also [params.hpp](https://github.com/mesosphere/dcos-stats/blob/master/slave/params.hpp)):
 
 - "```listen_host```" (default ```localhost```): Host to listen on for stats input from tasks.
 - "```listen_port_mode```" (default ```ephemeral```): Method to use for opening listen ports for stats input from tasks.
