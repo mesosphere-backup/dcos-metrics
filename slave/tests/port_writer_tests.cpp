@@ -9,7 +9,7 @@
 #include "test_socket.hpp"
 
 namespace {
-  mesos::Parameters build_params(size_t port, size_t chunk_size) {
+  mesos::Parameters build_params(size_t port, size_t chunk_size, std::string host = "127.0.0.1") {
     mesos::Parameters params;
     mesos::Parameter* param;
     if (chunk_size > 0) {
@@ -26,7 +26,7 @@ namespace {
     }
     param = params.add_parameter();
     param->set_key(stats::params::DEST_HOST);
-    param->set_value("127.0.0.1");
+    param->set_value(host);
     param = params.add_parameter();
     param->set_key(stats::params::DEST_PORT);
     param->set_value(std::to_string(port));
@@ -86,17 +86,83 @@ namespace {
   }
 }
 
+TEST(PortWriterTests, resolve_fails_data_dropped) {
+  const std::string hello("hello"), hey("hey"), hi("hi");
+  TestReadSocket test_reader;
+  size_t listen_port = test_reader.listen();
+
+  ServiceThread thread;
+  {
+    stats::PortWriter writer(thread.svc(),
+        build_params(listen_port, 0 /* chunk_size */, "bad_host_test"),
+        stats::PortWriter::DEFAULT_CHUNK_TIMEOUT_MS,
+        1);
+    writer.start();
+
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+
+    writer.write(hello.data(), hello.size());
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+    EXPECT_FALSE(test_reader.available());
+
+    writer.write(hey.data(), hey.size());
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+    EXPECT_FALSE(test_reader.available());
+
+    writer.write(hi.data(), hi.size());
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+    EXPECT_FALSE(test_reader.available());
+  }
+  thread.join();
+
+  EXPECT_FALSE(test_reader.available());
+}
+
+TEST(PortWriterTests, resolve_success_data_kept) {
+  const std::string hello("hello"), hey("hey"), hi("hi");
+  TestReadSocket test_reader;
+  size_t listen_port = test_reader.listen();
+
+  ServiceThread thread;
+  {
+    stats::PortWriter writer(thread.svc(),
+        build_params(listen_port, 0 /* chunk_size */),
+        stats::PortWriter::DEFAULT_CHUNK_TIMEOUT_MS,
+        1);
+    writer.start();
+
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+
+    writer.write(hello.data(), hello.size());
+    writer.write(hey.data(), hey.size());
+    writer.write(hi.data(), hi.size());
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+  }
+  thread.join();
+
+  EXPECT_EQ("hello", test_reader.read());
+  EXPECT_EQ("hey", test_reader.read());
+  EXPECT_EQ("hi", test_reader.read());
+
+  EXPECT_FALSE(test_reader.available());
+}
+
 TEST(PortWriterTests, chunking_off) {
+  const std::string hello("hello"), hey("hey");
   TestReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
   {
     stats::PortWriter writer(thread.svc(), build_params(listen_port, 0 /* chunk_size */));
-    Try<Nothing> result = writer.open();
-    ASSERT_FALSE(result.isError()) << result.error();
+    writer.start();
 
-    std::string hello("hello"), hey("hey");
+    // value is dropped because we didn't give writer a chance to resolve the host:
+    writer.write(hello.data(), hello.size());
+    EXPECT_FALSE(test_reader.available());
+
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+
     writer.write(hello.data(), hello.size());
     writer.write(hey.data(), hey.size());
 
@@ -109,6 +175,7 @@ TEST(PortWriterTests, chunking_off) {
 }
 
 TEST(PortWriterTests, chunking_on_flush_when_full) {
+  const std::string hello("hello"), hey("hey"), hi("hi");
   TestReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
@@ -118,10 +185,8 @@ TEST(PortWriterTests, chunking_on_flush_when_full) {
         thread.svc(),
         build_params(listen_port, 10 /* chunk_size */),
         9999999 /* chunk_timeout_ms */);
-    Try<Nothing> result = writer.open();
-    ASSERT_FALSE(result.isError()) << result.error();
+    writer.start();
 
-    std::string hello("hello"), hey("hey"), hi("hi");
     writer.write(hello.data(), hello.size());// 5 bytes
     EXPECT_EQ("", test_reader.read(1 /* timeout_ms */));
     writer.write(hey.data(), hey.size());// 9 bytes (5 + 1 + 3)
@@ -139,6 +204,7 @@ TEST(PortWriterTests, chunking_on_flush_when_full) {
 }
 
 TEST(PortWriterTests, chunking_on_flush_timer) {
+  const std::string hello("hello"), hey("hey"), hi("hi");
   TestReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
@@ -148,10 +214,8 @@ TEST(PortWriterTests, chunking_on_flush_timer) {
         thread.svc(),
         build_params(listen_port, 10 /* chunk_size */),
         1 /* chunk_timeout_ms */);
-    Try<Nothing> result = writer.open();
-    ASSERT_FALSE(result.isError()) << result.error();
+    writer.start();
 
-    std::string hello("hello"), hey("hey"), hi("hi");
     writer.write(hello.data(), hello.size());
     EXPECT_FALSE(test_reader.available());
     stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);

@@ -59,6 +59,7 @@ Available parameters for ```modules.json``` (see also [params.hpp](https://githu
         - "```listen_port_start```": Start of range in ```range``` mode (inclusive)
         - "```listen_port_end```": End of range in ```range``` mode (inclusive)
 - "```dest_host```" (default ```statsd.monitoring.mesos```): Where to forward stats received from tasks.
+- "```dest_refresh_seconds```" (default ```300```, or 5 minutes): Duration in seconds between DNS lookups of ```dest_host```. Automatically detects changes in DNS and redirects output to the new destination.
 - "```dest_port```" (default ```8125```): Where to forward stats received from tasks.
 - "```annotations```" (default ```true```): Whether to use the [Datadog Tag statsd extension](http://docs.datadoghq.com/guides/dogstatsd/) ([wire format](https://github.com/DataDog/dogstatsd-python/blob/master/statsd.py#L178)) to annotate outgoing stats data with more information about the Mesos task.
 - "```chunking```" (default ```true```): Whether to group outgoing data into a smaller number of packets.

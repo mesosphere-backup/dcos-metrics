@@ -20,7 +20,7 @@ stats::PortRunnerImpl::PortRunnerImpl(const mesos::Parameters& parameters)
         params::get_bool(parameters, params::ANNOTATIONS, params::ANNOTATIONS_DEFAULT)),
     io_service(new boost::asio::io_service),
     writer(new PortWriter(io_service, parameters)) {
-  writer->open();
+  writer->start();
   io_service_thread.reset(new std::thread(std::bind(&PortRunnerImpl::run_io_service, this)));
 }
 

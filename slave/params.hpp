@@ -55,6 +55,10 @@ namespace stats {
     const std::string DEST_HOST = "dest_host";
     const std::string DEST_HOST_DEFAULT = "statsd.monitoring.mesos";
 
+    // The period in seconds between host resolutions. Automatically detects changes in
+    const std::string DEST_REFRESH_SECONDS = "dest_refresh_seconds";
+    const size_t DEST_REFRESH_SECONDS_DEFAULT = 300; // 5 minutes
+
     // The port to send to.
     const std::string DEST_PORT = "dest_port";
     const size_t DEST_PORT_DEFAULT = 8125;

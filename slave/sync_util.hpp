@@ -29,7 +29,7 @@ namespace stats {
       for (size_t i = 0; timeout_secs == 0 || i < (timeout_secs * 10000); ++i) {
         DLOG(INFO) << "dispatch_get(): wait " << desc << ": " << i;
         if (out) {
-          DLOG(INFO) << "Dispatch result obtained after " << i << " 10us waits";
+          DLOG(INFO) << "Dispatch result obtained after " << (i + 1) << " 10us waits";
           return out;
         }
         struct timespec wait_100us;

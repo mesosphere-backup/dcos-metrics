@@ -6,7 +6,10 @@
         },
         {
             "name": "com_mesosphere_StatsEnvHook",
-            "parameters": [ { "key": "dest_host", "value": "192.168.33.1" } ]
+            "parameters": [
+                { "key": "dest_host", "value": "appname.marathon.mesos" },
+                { "key": "dest_refresh_seconds", "value": "60" }
+            ]
         } ]
     } ]
 }

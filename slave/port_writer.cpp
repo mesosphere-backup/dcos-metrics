@@ -58,19 +58,28 @@ namespace stats {
 
 stats::PortWriter::PortWriter(std::shared_ptr<boost::asio::io_service> io_service,
     const mesos::Parameters& parameters,
-    size_t chunk_timeout_ms/*=1000*/)
+    size_t chunk_timeout_ms_for_tests/*=1000*/,
+    size_t resolve_period_ms_for_tests/*=0*/)
   : send_host(params::get_str(parameters, params::DEST_HOST, params::DEST_HOST_DEFAULT)),
     send_port(params::get_uint(parameters, params::DEST_PORT, params::DEST_PORT_DEFAULT)),
     buffer_capacity(select_buffer_capacity(parameters)),
     chunking(params::get_bool(parameters, params::CHUNKING, params::CHUNKING_DEFAULT)),
-    chunk_timeout_ms(chunk_timeout_ms),
+    chunk_timeout_ms(chunk_timeout_ms_for_tests),
+    resolve_period_ms((resolve_period_ms_for_tests != 0)
+        ? resolve_period_ms_for_tests
+        : 1000 * params::get_uint(parameters,
+            params::DEST_REFRESH_SECONDS, params::DEST_REFRESH_SECONDS_DEFAULT)),
     io_service(io_service),
     flush_timer(*io_service),
+    resolve_timer(*io_service),
     socket(*io_service),
     buffer((char*) malloc(buffer_capacity)),
     buffer_used(0),
     shutdown(false) {
   LOG(INFO) << "Writer constructed for " << send_host << ":" << send_port;
+  if (resolve_period_ms == 0) {
+    LOG(FATAL) << "Invalid " << params::DEST_REFRESH_SECONDS << " value: must be non-zero";
+  }
 }
 
 stats::PortWriter::~PortWriter() {
@@ -84,55 +93,12 @@ stats::PortWriter::~PortWriter() {
   }
 }
 
-/* TODO:
- * instead of explicitly running open() once up-front, run a timer which re-resolves the host every
- * few seconds/minutes and automatically resets to a new random destination if the current
- * destination is no longer listed. this also would allow for scenarios where the host fails lookup
- * at first but starts working later */
-Try<Nothing> stats::PortWriter::open() {
-  if (socket.is_open()) {
-    return Nothing();
+void stats::PortWriter::start() {
+  // Only run the timer callbacks within the io_service thread:
+  io_service->dispatch(std::bind(&PortWriter::dest_resolve_cb, this, boost::system::error_code()));
+  if (chunking) {
+    start_chunk_flush_timer();
   }
-
-  resolver_t resolver(*io_service);
-  resolver_t::query query(send_host, "");
-  boost::system::error_code ec;
-  resolver_t::iterator iter = resolver.resolve(query, ec);
-  boost::asio::ip::address resolved_address;
-  if (ec) {
-    // failed, fall back to using the host as-is
-    LOG(WARNING) << "Error when resolving host[" << send_host << "], trying to use as ip: " << ec;
-    resolved_address = boost::asio::ip::address::from_string(send_host, ec);
-    if (ec) {
-      //FIXME: Retry loop instead of exiting process?
-      LOG(WARNING) << "Error when resolving configured output host[" << send_host << "]: " << ec;
-    }
-  } else if (iter == resolver_t::iterator()) {
-    // no results, fall back to using the host as-is
-    LOG(WARNING) << "No results when resolving host[" << send_host << "], trying to use as ip.";
-    resolved_address = boost::asio::ip::address::from_string(send_host, ec);
-    if (ec) {
-      //FIXME: Retry loop instead of exiting process?
-      LOG(FATAL) << "No results when resolving configured output host[" << send_host << "]: " << ec;
-    }
-  } else {
-    // resolved, bind output socket to first entry in list
-    //TODO: select random entry, to support round-robin across A records
-    resolved_address = iter->endpoint().address();
-    LOG(INFO) << "Resolved dest_host[" << send_host << "] -> " << resolved_address;
-  }
-
-  send_endpoint = udp_endpoint_t(resolved_address, send_port);
-  socket.open(send_endpoint.protocol(), ec);
-  if (ec) {
-    std::ostringstream oss;
-    oss << "Failed to open writer socket to endpoint[" << send_endpoint << "]: " << ec;
-    return Try<Nothing>::error(oss.str());
-  }
-
-  start_chunk_flush_timer();
-
-  return Nothing();
 }
 
 void stats::PortWriter::write(const char* bytes, size_t size) {
@@ -160,27 +126,128 @@ void stats::PortWriter::write(const char* bytes, size_t size) {
   send_raw_bytes(bytes, size);
 }
 
-void stats::PortWriter::start_chunk_flush_timer() {
-  if (chunking) {
-    flush_timer.expires_from_now(boost::posix_time::milliseconds(chunk_timeout_ms));
-    flush_timer.async_wait(std::bind(&PortWriter::chunk_flush_cb, this, std::placeholders::_1));
-  } else {
-    // Ensure that the io_service always has some work to do, otherwise io_service.run() will return
-    // immediately without performing any work. This hack is effectively a no-op since the buffer
-    // will always be unused/empty when chunk_flush_cb is invoked.
-    //TODO this stub timer can be removed once the re-resolve timer is added. See TODO above.
-    flush_timer.expires_from_now(boost::posix_time::hours(24));
-    flush_timer.async_wait(std::bind(&PortWriter::chunk_flush_cb, this, std::placeholders::_1));
+void stats::PortWriter::start_dest_resolve_timer() {
+  resolve_timer.expires_from_now(boost::posix_time::milliseconds(resolve_period_ms));
+  resolve_timer.async_wait(std::bind(&PortWriter::dest_resolve_cb, this, std::placeholders::_1));
+}
+
+void stats::PortWriter::dest_resolve_cb(boost::system::error_code ec) {
+  if (ec) {
+    LOG(ERROR) << "Resolve timer returned error. err=" << ec;
+    if (boost::asio::error::operation_aborted) {
+      // We're being destroyed. Don't look at local state, it may be destroyed already.
+      LOG(WARNING) << "Aborted: Exiting resolve loop immediately";
+      return;
+    }
   }
+
+  resolver_t resolver(*io_service);
+  resolver_t::query query(send_host, "");
+  resolver_t::iterator iter = resolver.resolve(query, ec);
+  boost::asio::ip::address selected_address;
+  if (ec) {
+    // failed, fall back to using the host as-is
+    boost::system::error_code ec2;
+    selected_address = boost::asio::ip::address::from_string(send_host, ec2);
+    if (ec2) {
+      if (socket.is_open()) {
+        LOG(ERROR) << "Error when resolving host[" << send_host << "]. "
+                   << "Sending data to old endpoint[" << current_endpoint << "] "
+                   << "and trying again in " << resolve_period_ms / 1000 << " seconds. "
+                   << "err=" << ec << ", err2=" << ec2;
+      } else {
+        LOG(ERROR) << "Error when resolving host[" << send_host << "]. "
+                   << "Dropping data "
+                   << "and trying again in " << resolve_period_ms / 1000 << " seconds. "
+                   << "err=" << ec << ", err2=" << ec2;
+      }
+      start_dest_resolve_timer();
+      return;
+    }
+  } else if (iter == resolver_t::iterator()) {
+    // no results, fall back to using the host as-is
+    selected_address = boost::asio::ip::address::from_string(send_host, ec);
+    if (ec) {
+      if (socket.is_open()) {
+        LOG(ERROR) << "No results when resolving host[" << send_host << "]. "
+                   << "Sending data to old endpoint[" << current_endpoint << "] "
+                   << "and trying again in " << resolve_period_ms / 1000 << " seconds. "
+                   << "err=" << ec;
+      } else {
+        LOG(ERROR) << "No results when resolving host[" << send_host << "]. "
+                   << "Dropping data "
+                   << "and trying again in " << resolve_period_ms / 1000 << " seconds. "
+                   << "err=" << ec;
+      }
+      start_dest_resolve_timer();
+      return;
+    }
+  } else {
+    // resolved, compare returned list to any prior list
+    std::vector<boost::asio::ip::address> resolved_addresses;(iter, resolver_t::iterator());
+    for (; iter != resolver_t::iterator(); ++iter) {
+      resolved_addresses.push_back(iter->endpoint().address());
+    }
+    if (resolved_addresses == last_resolved_addresses) {
+      LOG(INFO) << "No change in resolved addresses[size=" << resolved_addresses.size() << "], "
+                << "leaving socket as-is and checking again in "
+                << resolve_period_ms / 1000 << " seconds.";
+      start_dest_resolve_timer();
+      return;
+    }
+
+    // list has changed, switch to a new random entry (redistribute load across new list)
+    std::random_device dev;
+    std::mt19937 engine{dev()};
+    std::uniform_int_distribution<int> dist(0, resolved_addresses.size() - 1);
+    selected_address = resolved_addresses[dist(engine)];
+
+    LOG(INFO) << "Resolved dest host[" << send_host << "] "
+              << "-> results[size=" << resolved_addresses.size() << "] "
+              << "-> selected[" << selected_address << "]";
+    last_resolved_addresses = resolved_addresses;
+  }
+
+  udp_endpoint_t new_endpoint(selected_address, send_port);
+  if (socket.is_open()) {
+    // Before closing the current socket, check that the endpoint has changed.
+    if (new_endpoint == current_endpoint) {
+      DLOG(INFO) << "No change in selected endpoint[" << current_endpoint << "], "
+                 << "leaving socket as-is and checking again in "
+                 << resolve_period_ms / 1000 << " seconds.";
+      start_dest_resolve_timer();
+      return;
+    }
+    // Socket is moing to a new endpoint. Close socket before reopening.
+    socket.close(ec);
+    if (ec) {
+      LOG(ERROR) << "Failed to close writer socket for move from "
+                 << "old_endpoint[" << current_endpoint << "] to "
+                 << "new_endpoint[" << new_endpoint << "] err=" << ec;
+    }
+  }
+  socket.open(new_endpoint.protocol(), ec);
+  if (ec) {
+    LOG(ERROR) << "Failed to open writer socket to endpoint[" << new_endpoint << "] err=" << ec;
+  } else {
+    LOG(INFO) << "Updated dest endpoint[" << current_endpoint << "] to endpoint[" << new_endpoint << "]";
+    current_endpoint = new_endpoint;
+  }
+  start_dest_resolve_timer();
+}
+
+void stats::PortWriter::start_chunk_flush_timer() {
+  flush_timer.expires_from_now(boost::posix_time::milliseconds(chunk_timeout_ms));
+  flush_timer.async_wait(std::bind(&PortWriter::chunk_flush_cb, this, std::placeholders::_1));
 }
 
 void stats::PortWriter::chunk_flush_cb(boost::system::error_code ec) {
   //DLOG(INFO) << "Flush triggered";
   if (ec) {
-    LOG(ERROR) << "Flush timer returned error:" << ec;
+    LOG(ERROR) << "Flush timer returned error. err=" << ec;
     if (boost::asio::error::operation_aborted) {
       // We're being destroyed. Don't look at local state, it may be destroyed already.
-      LOG(WARNING) << "Aborted: Exiting write loop immediately";
+      LOG(WARNING) << "Aborted: Exiting flush loop immediately";
       return;
     }
   }
@@ -205,10 +272,10 @@ void stats::PortWriter::send_raw_bytes(const char* bytes, size_t size) {
 
   DLOG(INFO) << "Send " << size << " bytes to " << send_host << ":" << send_port;
   boost::system::error_code ec;
-  size_t sent = socket.send_to(boost::asio::buffer(bytes, size), send_endpoint, 0 /* flags */, ec);
+  size_t sent = socket.send_to(boost::asio::buffer(bytes, size), current_endpoint, 0 /* flags */, ec);
   if (ec) {
-    LOG(ERROR) << "Failed to send " << size << " bytes of data to "
-               << send_host << ":" << send_port << ": " << ec;
+    LOG(ERROR) << "Failed to send " << size << " bytes of data to ["
+               << send_host << ":" << send_port << "] err=" << ec;
   }
   if (sent != size) {
     LOG(WARNING) << "Sent size=" << sent << " doesn't match requested size=" << size;
@@ -218,10 +285,12 @@ void stats::PortWriter::send_raw_bytes(const char* bytes, size_t size) {
 void stats::PortWriter::shutdown_cb() {
   boost::system::error_code ec;
   if (socket.is_open()) {
-    chunk_flush_cb(boost::system::error_code());
+    if (chunking) {
+      chunk_flush_cb(boost::system::error_code());
+    }
     socket.close(ec);
     if (ec) {
-      LOG(ERROR) << "Error on writer socket close: " << ec;
+      LOG(ERROR) << "Error on writer socket close. err=" << ec;
     }
   }
   free(buffer);
