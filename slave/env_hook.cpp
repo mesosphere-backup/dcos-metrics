@@ -21,11 +21,14 @@ Result<mesos::Environment> stats::EnvHook<InputAssigner>::slaveExecutorEnvironme
     const mesos::ExecutorInfo& executor_info) {
   Try<UDPEndpoint> endpoint = input_assigner->get_statsd_endpoint(executor_info);
   if (endpoint.isError()) {
-    LOG(ERROR) << "InputAssigner doesn't have container registered. No statsd endpoint to inject: " << executor_info.ShortDebugString();
+    LOG(ERROR) << "InputAssigner doesn't have container registered. "
+               << "No statsd endpoint to inject: " << executor_info.ShortDebugString();
     return None();
   }
 
-  LOG(INFO) << "Injecting statsd endpoint[" << endpoint->host << ":" << endpoint->port << "] into environment: " << executor_info.ShortDebugString();
+  LOG(INFO) << "Injecting statsd "
+            << "endpoint[" << endpoint.get().host << ":" << endpoint.get().port << "] "
+            << "into environment: " << executor_info.ShortDebugString();
 
   mesos::Environment environment;
   if (executor_info.command().has_environment()) {
@@ -34,11 +37,11 @@ Result<mesos::Environment> stats::EnvHook<InputAssigner>::slaveExecutorEnvironme
 
   mesos::Environment::Variable* variable = environment.add_variables();
   variable->set_name(STATSD_ENV_NAME_HOST);
-  variable->set_value(endpoint->host);
+  variable->set_value(endpoint.get().host);
 
   variable = environment.add_variables();
   variable->set_name(STATSD_ENV_NAME_PORT);
-  variable->set_value(stringify(endpoint->port));
+  variable->set_value(std::to_string(endpoint.get().port));
 
   DLOG(INFO) << "Updated environment is now: " << environment.ShortDebugString();
 

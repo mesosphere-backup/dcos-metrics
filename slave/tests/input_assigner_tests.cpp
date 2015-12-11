@@ -132,8 +132,8 @@ TEST_F(InputAssignerTests, single_port) {
   // Following lookup finds it
   EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port1)));
   Try<stats::UDPEndpoint> endpt = spa.get_statsd_endpoint(ei1);
-  EXPECT_EQ(host1, endpt->host);
-  EXPECT_EQ(port1, endpt->port);
+  EXPECT_EQ(host1, endpt.get().host);
+  EXPECT_EQ(port1, endpt.get().port);
 
   // Similar sequence for ci2/ei2, except this time things are initialized
   EXPECT_CALL(*mock_reader1, endpoint())
@@ -149,12 +149,12 @@ TEST_F(InputAssignerTests, single_port) {
   // Endpoint lookup just passes through whatever the reader returns
   EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port1)));
   endpt = spa.get_statsd_endpoint(ei1);
-  EXPECT_EQ(host1, endpt->host);
-  EXPECT_EQ(port1, endpt->port);
+  EXPECT_EQ(host1, endpt.get().host);
+  EXPECT_EQ(port1, endpt.get().port);
   EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port2)));
   endpt = spa.get_statsd_endpoint(ei2);
-  EXPECT_EQ(host1, endpt->host);
-  EXPECT_EQ(port2, endpt->port);
+  EXPECT_EQ(host1, endpt.get().host);
+  EXPECT_EQ(port2, endpt.get().port);
 
   // Unregister ci2/ei2
   EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port2)));
@@ -164,12 +164,12 @@ TEST_F(InputAssignerTests, single_port) {
   // Lookup still just passes through the reader endpoint despite 'deregistration'
   EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port1)));
   endpt = spa.get_statsd_endpoint(ei1);
-  EXPECT_EQ(host1, endpt->host);
-  EXPECT_EQ(port1, endpt->port);
+  EXPECT_EQ(host1, endpt.get().host);
+  EXPECT_EQ(port1, endpt.get().port);
   EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port2)));
   endpt = spa.get_statsd_endpoint(ei2);
-  EXPECT_EQ(host1, endpt->host);
-  EXPECT_EQ(port2, endpt->port);
+  EXPECT_EQ(host1, endpt.get().host);
+  EXPECT_EQ(port2, endpt.get().port);
 }
 
 TEST_F(InputAssignerTests, single_port_multithread) {
@@ -233,8 +233,8 @@ TEST_F(InputAssignerTests, ephemeral_port) {
   // A lookup finds ei1, then wipes the ei1 lookup info after that
   EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port1)));
   Try<stats::UDPEndpoint> endpt = epa.get_statsd_endpoint(ei1);
-  EXPECT_EQ(host1, endpt->host);
-  EXPECT_EQ(port1, endpt->port);
+  EXPECT_EQ(host1, endpt.get().host);
+  EXPECT_EQ(port1, endpt.get().port);
   EXPECT_TRUE(epa.get_statsd_endpoint(ei1).isError());
 
   // Similar sequence for ci2/ei2
@@ -250,8 +250,8 @@ TEST_F(InputAssignerTests, ephemeral_port) {
   // A lookup finds it, then wipes the ei2 lookup info after that
   EXPECT_CALL(*mock_reader2, endpoint()).WillOnce(Return(try_endpoint(host2, port2)));
   endpt = epa.get_statsd_endpoint(ei2);
-  EXPECT_EQ(host2, endpt->host);
-  EXPECT_EQ(port2, endpt->port);
+  EXPECT_EQ(host2, endpt.get().host);
+  EXPECT_EQ(port2, endpt.get().port);
   EXPECT_TRUE(epa.get_statsd_endpoint(ei2).isError());
 
   LOG(INFO) << "i";
@@ -381,8 +381,8 @@ TEST_F(InputAssignerTests, port_range) {
   // A lookup finds ei1, then wipes the ei1 lookup info after that
   EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port1)));
   Try<stats::UDPEndpoint> endpt = pra.get_statsd_endpoint(ei1);
-  EXPECT_EQ(host1, endpt->host);
-  EXPECT_EQ(port1, endpt->port);
+  EXPECT_EQ(host1, endpt.get().host);
+  EXPECT_EQ(port1, endpt.get().port);
   EXPECT_TRUE(pra.get_statsd_endpoint(ei1).isError());
 
   // Similar sequence for ci2/ei2
@@ -398,8 +398,8 @@ TEST_F(InputAssignerTests, port_range) {
   // A lookup finds it, then wipes the ei2 lookup info after that
   EXPECT_CALL(*mock_reader2, endpoint()).WillOnce(Return(try_endpoint(host2, port2)));
   endpt = pra.get_statsd_endpoint(ei2);
-  EXPECT_EQ(host2, endpt->host);
-  EXPECT_EQ(port2, endpt->port);
+  EXPECT_EQ(host2, endpt.get().host);
+  EXPECT_EQ(port2, endpt.get().port);
   EXPECT_TRUE(pra.get_statsd_endpoint(ei2).isError());
 
   LOG(INFO) << "i";

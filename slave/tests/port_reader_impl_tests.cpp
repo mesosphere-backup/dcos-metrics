@@ -98,7 +98,7 @@ TEST(PortReaderImplTests, annotations_off) {
 
     Try<stats::UDPEndpoint> result = reader.open();
     ASSERT_FALSE(result.isError()) << result.error();
-    size_t reader_port = result->port;
+    size_t reader_port = result.get().port;
 
     TestWriteSocket test_writer;
     test_writer.connect(reader_port);
@@ -128,7 +128,7 @@ TEST(PortReaderImplTests, annotations_on_zero_registered) {
 
     Try<stats::UDPEndpoint> result = reader.open();
     ASSERT_FALSE(result.isError()) << result.error();
-    size_t reader_port = result->port;
+    size_t reader_port = result.get().port;
 
     TestWriteSocket test_writer;
     test_writer.connect(reader_port);
@@ -165,7 +165,7 @@ TEST(PortReaderImplTests, annotations_on_one_registered) {
 
     Try<stats::UDPEndpoint> result = reader.open();
     ASSERT_FALSE(result.isError()) << result.error();
-    size_t reader_port = result->port;
+    size_t reader_port = result.get().port;
 
     TestWriteSocket test_writer;
     test_writer.connect(reader_port);
@@ -201,7 +201,7 @@ TEST(PortReaderImplTests, annotations_on_multi_registered) {
 
     Try<stats::UDPEndpoint> result = reader.open();
     ASSERT_FALSE(result.isError()) << result.error();
-    size_t reader_port = result->port;
+    size_t reader_port = result.get().port;
 
     TestWriteSocket test_writer;
     test_writer.connect(reader_port);

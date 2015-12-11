@@ -107,7 +107,7 @@ void stats::SinglePortAssigner::_register_container(
       LOG(INFO) << "Reusing existing single-port reader at endpoint[???].";
     } else {
       LOG(INFO) << "Reusing existing single-port reader at "
-                << "endpoint[" << endpoint->string() << "].";
+                << "endpoint[" << endpoint.get().string() << "].";
     }
   }
 
@@ -129,7 +129,7 @@ void stats::SinglePortAssigner::_unregister_container(
                  << "(should be port[" << single_port_value << "]).";
   } else {
     LOG(INFO) << "Unregistering container[" << container_id.ShortDebugString() << "] "
-              << "from single-port endpoint[" << endpoint->string() << "].";
+              << "from single-port endpoint[" << endpoint.get().string() << "].";
   }
   // Unassign this container from the reader, but leave the reader itself (and its port) open.
   single_port_reader->unregister_container(container_id);
@@ -152,7 +152,7 @@ Try<stats::UDPEndpoint> stats::SinglePortAssigner::_get_statsd_endpoint(
   } else {
     LOG(INFO) << "Returning single-port endpoint for "
               << "executor[" << executor_info.ShortDebugString() << "] "
-              << "-> endpoint[" << ret->string() << "].";
+              << "-> endpoint[" << ret.get().string() << "].";
   }
   return ret;
 }
@@ -180,7 +180,7 @@ void stats::EphemeralPortAssigner::_register_container(
       LOG(INFO) << "Reusing existing ephemeral-port reader for "
                 << "container[" << container_id.ShortDebugString() << "] "
                 << "executor[" << executor_info.ShortDebugString() << "] "
-                << "at endpoint[" << ret->string() << "].";
+                << "at endpoint[" << ret.get().string() << "].";
     }
     return;
   }
@@ -197,7 +197,7 @@ void stats::EphemeralPortAssigner::_register_container(
   executor_to_container[executor_info.executor_id()] = container_id;
   container_to_reader[container_id] = reader;
   LOG(INFO) << "New ephemeral-port reader for container[" << container_id.ShortDebugString() << "] "
-            << "created at endpoint[" << endpoint->string() << "].";
+            << "created at endpoint[" << endpoint.get().string() << "].";
 }
 
 void stats::EphemeralPortAssigner::_unregister_container(
@@ -216,7 +216,7 @@ void stats::EphemeralPortAssigner::_unregister_container(
   } else {
     LOG(INFO) << "Closing ephemeral-port reader for "
               << "container[" << container_id.ShortDebugString() << "] at "
-              << "endpoint[" << endpoint->string() << "].";
+              << "endpoint[" << endpoint.get().string() << "].";
   }
   container_to_reader.erase(iter);
 }
@@ -252,7 +252,7 @@ Try<stats::UDPEndpoint> stats::EphemeralPortAssigner::_get_statsd_endpoint(
   } else {
     LOG(INFO) << "Returning ephemeral-port endpoint for "
               << "executor[" << executor_info.ShortDebugString() << "] "
-              << "-> endpoint[" << ret->string() << "].";
+              << "-> endpoint[" << ret.get().string() << "].";
   }
   return ret;
 }
@@ -296,7 +296,7 @@ void stats::PortRangeAssigner::_register_container(
       LOG(INFO) << "Reusing existing ephemeral-port reader for "
                 << "container[" << container_id.ShortDebugString() << "] "
                 << "executor[" << executor_info.ShortDebugString() << "] "
-                << "at endpoint[" << ret->string() << "].";
+                << "at endpoint[" << ret.get().string() << "].";
     }
     return;
   }
@@ -324,7 +324,7 @@ void stats::PortRangeAssigner::_register_container(
   LOG(INFO) << "New port-range reader for "
             << "container[" << container_id.ShortDebugString() << "] "
             << "executor[" << executor_info.ShortDebugString() << "] "
-            << "created at endpoint[" << endpoint->string() << "].";
+            << "created at endpoint[" << endpoint.get().string() << "].";
 }
 
 void stats::PortRangeAssigner::_unregister_container(
@@ -344,8 +344,8 @@ void stats::PortRangeAssigner::_unregister_container(
   } else {
     LOG(INFO) << "Closing port-range reader for "
               << "container[" << container_id.ShortDebugString() << "] at "
-              << "endpoint[" << endpoint_to_close->string() << "].";
-    range_pool->put(endpoint_to_close->port);
+              << "endpoint[" << endpoint_to_close.get().string() << "].";
+    range_pool->put(endpoint_to_close.get().port);
   }
   container_to_reader.erase(iter);
 }
@@ -381,7 +381,7 @@ Try<stats::UDPEndpoint> stats::PortRangeAssigner::_get_statsd_endpoint(
   } else {
     LOG(INFO) << "Returning port-range endpoint for "
               << "executor[" << executor_info.ShortDebugString() << "] "
-              << "-> endpoint[" << ret->string() << "].";
+              << "-> endpoint[" << ret.get().string() << "].";
   }
   return ret;
 }

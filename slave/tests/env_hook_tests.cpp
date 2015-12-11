@@ -5,6 +5,11 @@
 
 using testing::Return;
 
+MATCHER_P(ExecInfoMatch, proto_value, "mesos::ExecutorInfo") {
+  return arg.executor_id().value() == proto_value.executor_id().value()
+    && arg.framework_id().value() == proto_value.framework_id().value();
+}
+
 TEST(EnvHookTests, endpoint_returns_error) {
   std::shared_ptr<MockInputAssigner> mock_assigner(new MockInputAssigner());
   stats::EnvHook<MockInputAssigner> env_hook(mock_assigner);
@@ -15,7 +20,7 @@ TEST(EnvHookTests, endpoint_returns_error) {
   var->set_name("PATH");
   var->set_value("untouched var");
 
-  EXPECT_CALL(*mock_assigner, get_statsd_endpoint(executor_info))
+  EXPECT_CALL(*mock_assigner, get_statsd_endpoint(ExecInfoMatch(executor_info)))
     .WillOnce(Return(Try<stats::UDPEndpoint>::error("test err")));
   Result<mesos::Environment> env = env_hook.slaveExecutorEnvironmentDecorator(executor_info);
 
@@ -33,18 +38,19 @@ TEST(EnvHookTests, endpoint_returns_success) {
   orig_var->set_value("untouched var");
 
   stats::UDPEndpoint endpoint("test_host", 1234567);
-  EXPECT_CALL(*mock_assigner, get_statsd_endpoint(executor_info))
+  EXPECT_CALL(*mock_assigner, get_statsd_endpoint(ExecInfoMatch(executor_info)))
     .WillOnce(Return(Try<stats::UDPEndpoint>(endpoint)));
-  Result<mesos::Environment> env = env_hook.slaveExecutorEnvironmentDecorator(executor_info);
+  Result<mesos::Environment> result = env_hook.slaveExecutorEnvironmentDecorator(executor_info);
+  EXPECT_FALSE(result.isNone());
 
-  EXPECT_FALSE(env.isNone());
-  EXPECT_EQ(3, env->variables_size());
-  EXPECT_EQ(orig_var->name(), env->variables(0).name());
-  EXPECT_EQ(orig_var->value(), env->variables(0).value());
-  EXPECT_EQ("STATSD_UDP_HOST", env->variables(1).name());
-  EXPECT_EQ(endpoint.host, env->variables(1).value());
-  EXPECT_EQ("STATSD_UDP_PORT", env->variables(2).name());
-  EXPECT_EQ("1234567", env->variables(2).value());
+  mesos::Environment env = result.get();
+  EXPECT_EQ(3, env.variables_size());
+  EXPECT_EQ(orig_var->name(), env.variables(0).name());
+  EXPECT_EQ(orig_var->value(), env.variables(0).value());
+  EXPECT_EQ("STATSD_UDP_HOST", env.variables(1).name());
+  EXPECT_EQ(endpoint.host, env.variables(1).value());
+  EXPECT_EQ("STATSD_UDP_PORT", env.variables(2).name());
+  EXPECT_EQ(std::to_string(endpoint.port), env.variables(2).value());
 }
 
 int main(int argc, char **argv) {
