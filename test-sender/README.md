@@ -3,10 +3,10 @@ A small executable which emits metrics data, which may be used to test a metrics
 
 ## Notes:
 
-* Requires ```STATSD_UDP_HOST``` and ```STATSD_UDP_PORT``` in the environment, pointing to where stats should be sent. In Mesos, these should be provided by the Stats slave module to test-sender's containerrunning.
+* Requires ```STATSD_UDP_HOST``` and ```STATSD_UDP_PORT``` in the environment, pointing to where stats should be sent. In Mesos, these should be provided by the Stats slave module to the container where test-sender is running.
 * A "```-debug```" option enables additional logs to stdout.
 
-## Prerequisites:
+## Build/run instructions:
 
 ```
 apt-get install golang-go

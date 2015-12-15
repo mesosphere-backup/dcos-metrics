@@ -30,7 +30,7 @@ namespace stats {
       return true;
     }
     if (buffer_used == 0) {
-      // Buffer is empty, no separator is needed yet.
+      // Buffer is empty, no newline separator is needed yet.
       if (to_add_size > buffer_capacity) {
         return false;// Too big
       }
@@ -46,12 +46,6 @@ namespace stats {
     // Add the new data following any existing data.
     memcpy(buffer + buffer_used, to_add, to_add_size);
     buffer_used += to_add_size;
-    std::string tmp(buffer, buffer_used);
-    for (int i = 0; i < tmp.size(); ++i) {
-      if (tmp[i] == '\n') {
-        tmp[i] = '\\';
-      }
-    }
     return true;
   }
 }

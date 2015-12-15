@@ -22,16 +22,19 @@ namespace {
   }
 
   inline std::string annotated_row(const std::string& msg,
-      const mesos::ContainerID& cid, const mesos::ExecutorInfo& einfo) {
+      const mesos::ContainerID& cid, const mesos::ExecutorInfo& einfo,
+      const std::string& tag_prefix = "|#") {
     std::ostringstream oss;
-    oss << msg << "|#container_id:" << cid.value()
+    oss << msg << tag_prefix
+        << "container_id:" << cid.value()
         << ",executor_id:" << einfo.executor_id().value()
         << ",framework_id:" << einfo.framework_id().value();
     return oss.str();
   }
-  inline std::string annotated_row_unregistered(const std::string& msg) {
+  inline std::string annotated_row_unregistered(
+      const std::string& msg, const std::string& tag_prefix = "|#") {
     std::ostringstream oss;
-    oss << msg << "|#missing_container";
+    oss << msg << tag_prefix << "missing_container";
     return oss.str();
   }
 
@@ -85,12 +88,10 @@ TEST(PortRunnerImplTests, write_then_immediate_shutdown) {
   TestWriteSocket writer3;
   writer3.connect(input_port3);
 
-  writer2.write("writer2:2");
-  writer1.write("writer1:2");
-  writer2.write("writer2:3");
-  writer3.write("writer3:1");
-  writer3.write("writer3:2");
-  writer3.write("writer3:3");
+  writer2.write("writer2:2|#tag2|@0.5");
+  writer1.write("writer1:2|@0.2");
+  writer2.write("writer2:3|#tag3");
+  writer3.write("writer3:1\nwriter3:2|@0.3|#tag2\nwriter3:3");
   writer1.write("writer1:3");
 
   // Immediately shut things down in the correct order (readers THEN runner).
@@ -141,12 +142,10 @@ TEST(PortRunnerImplTests, data_flow_multi_stream) {
   TestWriteSocket writer3;
   writer3.connect(input_port3);
 
-  writer2.write("writer2:2");
-  writer1.write("writer1:2");
-  writer2.write("writer2:3");
-  writer3.write("writer3:1");
-  writer3.write("writer3:2");
-  writer3.write("writer3:3");
+  writer2.write("writer2:2|#tag2|@0.5");
+  writer1.write("writer1:2|@0.2");
+  writer2.write("writer2:3|#tag3");
+  writer3.write("writer3:1\nwriter3:2|@0.3|#tag2\nwriter3:3");
   writer1.write("writer1:3");
 
   // Wait up to (30 * 100ms) = 3s for the above 9 rows to show up in the output:
@@ -163,13 +162,13 @@ TEST(PortRunnerImplTests, data_flow_multi_stream) {
 
   EXPECT_EQ(9, stat_rows.size());
   EXPECT_TRUE(stat_rows.count(annotated_row("writer1:1", container1, executor1)));
-  EXPECT_TRUE(stat_rows.count(annotated_row("writer1:2", container1, executor1)));
+  EXPECT_TRUE(stat_rows.count(annotated_row("writer1:2|@0.2", container1, executor1)));
   EXPECT_TRUE(stat_rows.count(annotated_row("writer1:3", container1, executor1)));
   EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:1")));
-  EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:2")));
-  EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:3")));
+  EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:2", "|@0.5|#tag2,")));
+  EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:3", "|#tag3,")));
   EXPECT_TRUE(stat_rows.count(annotated_row("writer3:1", container3, executor3)));
-  EXPECT_TRUE(stat_rows.count(annotated_row("writer3:2", container3, executor3)));
+  EXPECT_TRUE(stat_rows.count(annotated_row("writer3:2", container3, executor3, "|@0.3|#tag2,")));
   EXPECT_TRUE(stat_rows.count(annotated_row("writer3:3", container3, executor3)));
 }
 
@@ -218,12 +217,10 @@ TEST(PortRunnerImplTests, data_flow_multi_stream_unchunked) {
   TestWriteSocket writer3;
   writer3.connect(input_port3);
 
-  writer2.write("writer2:2");
-  writer1.write("writer1:2");
-  writer2.write("writer2:3");
-  writer3.write("writer3:1");
-  writer3.write("writer3:2");
-  writer3.write("writer3:3");
+  writer2.write("writer2:2|#tag2|@0.5");
+  writer1.write("writer1:2|@0.2");
+  writer2.write("writer2:3|#tag3");
+  writer3.write("writer3:1\nwriter3:2|@0.3|#tag2\nwriter3:3");
   writer1.write("writer1:3");
 
   // Wait up to (30 * 100ms) = 3s for the above 9 rows to show up in the output:
@@ -240,13 +237,13 @@ TEST(PortRunnerImplTests, data_flow_multi_stream_unchunked) {
 
   EXPECT_EQ(9, stat_rows.size());
   EXPECT_TRUE(stat_rows.count(annotated_row("writer1:1", container1, executor1)));
-  EXPECT_TRUE(stat_rows.count(annotated_row("writer1:2", container1, executor1)));
+  EXPECT_TRUE(stat_rows.count(annotated_row("writer1:2|@0.2", container1, executor1)));
   EXPECT_TRUE(stat_rows.count(annotated_row("writer1:3", container1, executor1)));
   EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:1")));
-  EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:2")));
-  EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:3")));
+  EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:2", "|@0.5|#tag2,")));
+  EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:3", "|#tag3,")));
   EXPECT_TRUE(stat_rows.count(annotated_row("writer3:1", container3, executor3)));
-  EXPECT_TRUE(stat_rows.count(annotated_row("writer3:2", container3, executor3)));
+  EXPECT_TRUE(stat_rows.count(annotated_row("writer3:2", container3, executor3, "|@0.3|#tag2,")));
   EXPECT_TRUE(stat_rows.count(annotated_row("writer3:3", container3, executor3)));
 }
 
@@ -295,12 +292,10 @@ TEST(PortRunnerImplTests, data_flow_multi_stream_unannotated) {
   TestWriteSocket writer3;
   writer3.connect(input_port3);
 
-  writer2.write("writer2:2");
-  writer1.write("writer1:2");
-  writer2.write("writer2:3");
-  writer3.write("writer3:1");
-  writer3.write("writer3:2");
-  writer3.write("writer3:3");
+  writer2.write("writer2:2|#tag2|@0.5");
+  writer1.write("writer1:2|@0.2");
+  writer2.write("writer2:3|#tag3");
+  writer3.write("writer3:1\nwriter3:2|@0.3|#tag2\nwriter3:3");
   writer1.write("writer1:3");
 
   // Wait up to (30 * 100ms) = 3s for the above 9 rows to show up in the output:
@@ -317,19 +312,20 @@ TEST(PortRunnerImplTests, data_flow_multi_stream_unannotated) {
 
   EXPECT_EQ(9, stat_rows.size());
   EXPECT_TRUE(stat_rows.count("writer1:1"));
-  EXPECT_TRUE(stat_rows.count("writer1:2"));
+  EXPECT_TRUE(stat_rows.count("writer1:2|@0.2"));
   EXPECT_TRUE(stat_rows.count("writer1:3"));
   EXPECT_TRUE(stat_rows.count("writer2:1"));
-  EXPECT_TRUE(stat_rows.count("writer2:2"));
-  EXPECT_TRUE(stat_rows.count("writer2:3"));
+  EXPECT_TRUE(stat_rows.count("writer2:2|#tag2|@0.5"));
+  EXPECT_TRUE(stat_rows.count("writer2:3|#tag3"));
   EXPECT_TRUE(stat_rows.count("writer3:1"));
-  EXPECT_TRUE(stat_rows.count("writer3:2"));
+  EXPECT_TRUE(stat_rows.count("writer3:2|@0.3|#tag2"));
   EXPECT_TRUE(stat_rows.count("writer3:3"));
 }
 
 int main(int argc, char **argv) {
   ::google::InitGoogleLogging(argv[0]);
-  FLAGS_logtostderr = 1;
+  // avoid non-threadsafe logging code for these tests
+  //FLAGS_logtostderr = 1;
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

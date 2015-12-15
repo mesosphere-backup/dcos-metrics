@@ -35,6 +35,7 @@ namespace stats {
 
     void start_recv();
     void recv_cb(boost::system::error_code ec, size_t bytes_transferred);
+    void tag_and_send(std::vector<char>& entry_buffer, size_t size);
     void flush_cb();
     void shutdown_cb();
 
@@ -44,7 +45,7 @@ namespace stats {
 
     std::shared_ptr<boost::asio::io_service> io_service;
     boost::asio::ip::udp::socket socket;
-    std::vector<char> buffer;
+    std::vector<char> buffer, tag_reorder_scratch_buffer, multiline_scratch_buffer;
     udp_endpoint_t sender_endpoint;
 
     std::unique_ptr<UDPEndpoint> actual_endpoint;
