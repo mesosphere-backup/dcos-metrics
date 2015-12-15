@@ -28,16 +28,26 @@ host:dcos-stats/slave/build$ make test
 On a system running mesos-slave:
 
 1. Copy ```dcos-stats/slave/build/modules.json``` and ```dcos-stats/slave/build/libstats-slave.so``` to the slave machine.
+   * The ```libstats-slave.so``` build must match your version of Mesos. Run ```ldd libstats-slave.so``` to see which version is expected.
+   * On DCOS, you will also need to install ```libboost_system.so``` into ```/opt/mesosphere/lib/```. Run ```ldd libstats-slave.so``` to see which version is needed.
 2. Customize ```modules.json``` as needed:
    - All parameters must be placed within the ```StatsEnvHook``` section of ```modules.json```, which is where the ```dest_host``` example is provided. If parameters are placed in the wrong section, ```mesos-slave``` will fail to start with an error which says "```These parameters are being dropped!```".
    - The example config has a ```file``` parameter which assumes that ```libstats-slave.so``` is located in ```/home/vagrant/```. Update this parameter to point to where ```libstats-slave.so``` was copied earlier.
-   - The example config defaults to outputting stats to ```192.168.33.1:8125```. Update the ```dest_host``` parameter to send stats elsewhere if needed.
-   - Full list of parameters is documented below under "Customization". Again, place all parameter changes within ```StatsEnvHook``` or else ```mesos-slave``` will fail to start.
-3. Configure args to enable the module in ```mesos-slave```, creating files as needed:
-   - ```/etc/mesos-slave/modules``` should contain "```/path/to/your/modules.json```"
-   - ```/etc/mesos-slave/hooks``` should contain "```com_mesosphere_StatsEnvHook```"
-   - ```/etc/mesos-slave/isolation``` should contain "```posix/cpu,posix/mem,filesystem/posix,com_mesosphere_StatsIsolatorModule```". This may vary somewhat, but ```com_mesosphere_StatsIsolatorModule``` must be present.
+   - The example config defaults to outputting stats to ```192.168.33.1:8125```. Update the ```dest_host``` parameter to send stats elsewhere if needed. If the stats destination is running in Marathon, you should be able to use something like ```appname.marathon.mesos``` here.
+   - A full list of parameters is documented below under "Customization". Again, place all parameter changes within ```StatsEnvHook``` or else ```mesos-slave``` will fail to start.
+3. Enable the module in ```mesos-slave``` by configuring commandline arguments. This step varies depending on your environment:
+   * Mesos: Create the following files, or update them if they're already present:
+     - Create/modify ```/etc/mesos-slave/modules``` with ```/path/to/your/modules.json```
+     - Create/modify ```/etc/mesos-slave/hooks``` with ```com_mesosphere_StatsEnvHook```
+     - Modify ```/etc/mesos-slave/isolation``` to contain something like ```posix/cpu,posix/mem,filesystem/posix,com_mesosphere_StatsIsolatorModule```. The content may vary, but ```com_mesosphere_StatsIsolatorModule``` must be present.
+   * DCOS: Edit ```/opt/mesosphere/etc/mesos-slave-common``` to contain the following declarations:
+     - Add: ```MESOS_MODULES=/path/to/your/modules.json```
+     - Add: ```MESOS_HOOKS=com_mesosphere_StatsEnvHook```
+     - Update ```MESOS_ISOLATION=cgroups/cpu,cgroups/mem,com_mesosphere_StatsIsolatorModule```. The content may vary, but ```com_mesosphere_StatsIsolatorModule``` must be present.
 4. Restart ```mesos-slave```.
+   * DCOS:
+      1. Delete (or move) the current ```mesos-slave``` state: ```mv /var/lib/mesos/slave /var/lib/mesos/slave.old```
+      2. Run ```systemctl restart dcos-mesos-slave```, and ```systemctl status dcos-mesos-slave```.
 5. Verify that the module was successfully installed:
    - Use "```ps aux | grep mesos-slave```" to confirm that ```mesos-slave```'s arguments now contain the following values, as configured in step 3:
       - ```--hooks=com_mesosphere_StatsEnvHook```
