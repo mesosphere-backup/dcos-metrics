@@ -25,18 +25,21 @@ namespace stats {
       std::shared_ptr<Result> out;
       dispatcher.dispatch(
           std::bind(&sync_util::_exec_and_pass_result_cb<Result>, func, &out));
-      // 100us * 10,000 = 1 second (approximately)
-      for (size_t i = 0; timeout_secs == 0 || i < (timeout_secs * 10000); ++i) {
+
+      struct timespec wait_5ms;
+      wait_5ms.tv_sec = 0;
+      wait_5ms.tv_nsec = 5000000;
+
+      // 5ms * 200 = 1 second (approximately)
+      for (size_t i = 0; timeout_secs == 0 || i < (timeout_secs * 200); ++i) {
         DLOG(INFO) << "dispatch_get(): wait " << desc << ": " << i;
         if (out) {
-          DLOG(INFO) << "Dispatch result obtained after " << (i + 1) << " 10us waits";
+          DLOG(INFO) << "Dispatch result obtained after " << (i + 1) << " 5ms waits";
           return out;
         }
-        struct timespec wait_100us;
-        wait_100us.tv_sec = 0;
-        wait_100us.tv_nsec = 100000;
-        nanosleep(&wait_100us, NULL);
+        nanosleep(&wait_5ms, NULL);
       }
+
       // Note that if this ever occurs, we will likely segfault: The 'out' pointer we passed into
       // _get_and_insert_result() will be out of scope.
       LOG(ERROR) << "Timed out after " << timeout_secs << "s waiting for async response: " << desc;

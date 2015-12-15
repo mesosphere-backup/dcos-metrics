@@ -31,6 +31,9 @@ add_executable(params_tests params_tests.cpp)
 target_link_libraries(params_tests gtest stats-slave)
 add_test(params_tests params_tests)
 
+add_executable(port_reader_impl_fuzz port_reader_impl_fuzz.cpp)
+target_link_libraries(port_reader_impl_fuzz gmock gtest stats-slave)
+
 add_executable(port_reader_impl_tests port_reader_impl_tests.cpp)
 target_link_libraries(port_reader_impl_tests gmock gtest stats-slave)
 add_test(port_reader_impl_tests port_reader_impl_tests)

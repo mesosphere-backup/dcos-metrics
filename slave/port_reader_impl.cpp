@@ -157,8 +157,6 @@ namespace {
    * Returns the mode to use when appending tags to this buffer.
    */
   TagMode prepare_for_tags(char* buffer, size_t size, std::vector<char>& scratch_buffer) {
-    std::string orig(buffer, size);
-
     char* tag_section_ptr = memnmem_imp(buffer, size, TAG_PREFIX.data(), TAG_PREFIX.size());
     if (tag_section_ptr == NULL) {
       // No pre-existing tag section was found. Append tags in a new section.
@@ -398,7 +396,7 @@ void stats::PortReaderImpl<PortWriter>::tag_and_send(
     std::vector<char>& buffer, size_t size) {
   if (!annotations_enabled) {
     DLOG(INFO) << "Received/forwarded " << size << " byte entry from "
-               << "endpoint[" << sender_endpoint << "]: " << std::string(buffer.data(), size);
+               << "endpoint[" << sender_endpoint << "]";
     port_writer->write(buffer.data(), size);
     return;
   }
@@ -433,7 +431,7 @@ void stats::PortReaderImpl<PortWriter>::tag_and_send(
   }
   DLOG(INFO) << "Received " << original_size << " byte entry from "
              << "endpoint[" << sender_endpoint << "], "
-             << "forwarding " << size << " bytes with tags: " << std::string(buffer.data(), size);
+             << "forwarding " << size << " bytes with tags";
 
   port_writer->write(buffer.data(), size);
 }
