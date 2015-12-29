@@ -1,5 +1,7 @@
 #pragma once
 
+#include <set>
+
 #include <boost/asio.hpp>
 #include <mesos/mesos.pb.h>
 #include <stout/nothing.hpp>
@@ -19,7 +21,7 @@ namespace stats {
    public:
     /**
      * Default maximum time to wait before sending a pending chunk.
-     * Statsd messages are time-sensitive so don't sit on them too long.
+     * Statsd messages are time-sensitive so don't sit on them too long, at most a second or so.
      */
     const static size_t DEFAULT_CHUNK_TIMEOUT_MS = 1000;
 
@@ -46,6 +48,20 @@ namespace stats {
      */
     void write(const char* bytes, size_t size);
 
+   protected:
+    typedef boost::asio::ip::udp::resolver udp_resolver_t;
+
+    /**
+     * DNS lookup operation. Broken out for easier mocking in tests.
+     */
+    virtual udp_resolver_t::iterator resolve(boost::system::error_code& ec);
+
+    /**
+     * Cancels running timers. Subclasses should call this in their destructor, to avoid the default
+     * resolve() being called in the timespan between ~<Subclass>() and ~PortWriter().
+     */
+    void cancel_timers();
+
    private:
     typedef boost::asio::ip::udp::endpoint udp_endpoint_t;
 
@@ -69,7 +85,7 @@ namespace stats {
     boost::asio::deadline_timer flush_timer;
     boost::asio::deadline_timer resolve_timer;
     udp_endpoint_t current_endpoint;
-    std::vector<boost::asio::ip::address> last_resolved_addresses;
+    std::multiset<boost::asio::ip::address> last_resolved_addresses;
     boost::asio::ip::udp::socket socket;
     char* buffer;
     size_t buffer_used;

@@ -9,7 +9,13 @@
 #include "test_socket.hpp"
 
 namespace {
-  mesos::Parameters build_params(size_t port, size_t chunk_size, std::string host = "127.0.0.1") {
+  const std::string DEST_HOSTNAME = "fakehost";
+  const boost::asio::ip::udp::endpoint DEST_LOCAL_ENDPOINT(
+      boost::asio::ip::address::from_string("127.0.0.1"), 0 /* port */);
+  const boost::asio::ip::udp::endpoint DEST_LOCAL_ENDPOINT6(
+      boost::asio::ip::address::from_string("::1"), 0 /* port */);
+
+  mesos::Parameters build_params(size_t port, size_t chunk_size) {
     mesos::Parameters params;
     mesos::Parameter* param;
     if (chunk_size > 0) {
@@ -26,12 +32,94 @@ namespace {
     }
     param = params.add_parameter();
     param->set_key(stats::params::DEST_HOST);
-    param->set_value(host);
+    param->set_value(DEST_HOSTNAME);
     param = params.add_parameter();
     param->set_key(stats::params::DEST_PORT);
     param->set_value(std::to_string(port));
     return params;
   }
+
+  void flush_service_queue_with_noop() {
+    LOG(INFO) << "async queue flushed";
+  }
+
+  typedef std::shared_ptr<stats::PortWriter> writer_ptr_t;
+
+  class StubLookupPortWriter : public stats::PortWriter {
+   public:
+    static writer_ptr_t with_lookup_result(
+        std::shared_ptr<boost::asio::io_service> io_service,
+        size_t port,
+        std::vector<boost::asio::ip::udp::endpoint> lookup_result) {
+      return writer_ptr_t(new StubLookupPortWriter(io_service, port,
+              lookup_result, boost::system::error_code()));
+    }
+
+    static writer_ptr_t with_lookup_error(
+        std::shared_ptr<boost::asio::io_service> io_service,
+        size_t port,
+        boost::system::error_code lookup_error) {
+      return writer_ptr_t(new StubLookupPortWriter(io_service, port,
+              std::vector<boost::asio::ip::udp::endpoint>(), lookup_error));
+    }
+
+    static writer_ptr_t without_chunking(
+        std::shared_ptr<boost::asio::io_service> io_service,
+        size_t port) {
+      std::vector<boost::asio::ip::udp::endpoint> endpoints;
+      endpoints.push_back(DEST_LOCAL_ENDPOINT);
+      return writer_ptr_t(new StubLookupPortWriter(io_service, port,
+              endpoints, boost::system::error_code()));
+    }
+
+    static writer_ptr_t with_chunk_size(
+        std::shared_ptr<boost::asio::io_service> io_service,
+        size_t port,
+        size_t chunk_size,
+        size_t chunk_timeout_ms) {
+      std::vector<boost::asio::ip::udp::endpoint> endpoints;
+      endpoints.push_back(DEST_LOCAL_ENDPOINT);
+      return writer_ptr_t(new StubLookupPortWriter(io_service, port,
+              endpoints, boost::system::error_code(),
+              chunk_size, chunk_timeout_ms));
+    }
+
+    virtual ~StubLookupPortWriter() {
+      cancel_timers();
+      stats::sync_util::dispatch_run(
+          "~StubLookupPortWriter", *io_service, std::bind(&flush_service_queue_with_noop));
+    }
+
+   protected:
+    udp_resolver_t::iterator resolve(boost::system::error_code& ec) {
+      if (lookup_error) {
+        ec = lookup_error;
+        return udp_resolver_t::iterator();
+      } else {
+        std::vector<boost::asio::ip::udp::endpoint> shuffled(lookup_result);
+        std::random_shuffle(shuffled.begin(), shuffled.end());
+        return udp_resolver_t::iterator::create(
+            shuffled.begin(), shuffled.end(), DEST_HOSTNAME, "");
+      }
+    }
+
+   private:
+    StubLookupPortWriter(std::shared_ptr<boost::asio::io_service> io_service,
+        size_t port,
+        std::vector<boost::asio::ip::udp::endpoint> lookup_result,
+        boost::system::error_code lookup_error,
+        size_t chunk_size = 0,
+        size_t chunk_timeout_ms = stats::PortWriter::DEFAULT_CHUNK_TIMEOUT_MS)
+      : PortWriter(
+          io_service, build_params(port, chunk_size), chunk_timeout_ms, 1 /* resolve_period_ms */),
+        io_service(io_service),
+        lookup_result(lookup_result),
+        lookup_error(lookup_error) { }
+
+    const std::shared_ptr<boost::asio::io_service> io_service;
+    const std::vector<boost::asio::ip::udp::endpoint> lookup_result;
+    const boost::system::error_code lookup_error;
+  };
 
   class ServiceThread {
    public:
@@ -80,10 +168,6 @@ namespace {
     std::shared_ptr<std::thread> svc_thread;
     std::atomic_bool shutdown;
   };
-
-  void flush_service_queue_with_noop() {
-    LOG(INFO) << "async queue flushed";
-  }
 }
 
 TEST(PortWriterTests, resolve_fails_data_dropped) {
@@ -93,23 +177,51 @@ TEST(PortWriterTests, resolve_fails_data_dropped) {
 
   ServiceThread thread;
   {
-    stats::PortWriter writer(thread.svc(),
-        build_params(listen_port, 0 /* chunk_size */, "bad_host_test"),
-        stats::PortWriter::DEFAULT_CHUNK_TIMEOUT_MS,
-        1);
-    writer.start();
+    writer_ptr_t writer = StubLookupPortWriter::with_lookup_error(
+        thread.svc(), listen_port, boost::asio::error::netdb_errors::host_not_found);
+    writer->start();
 
     stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
 
-    writer.write(hello.data(), hello.size());
+    writer->write(hello.data(), hello.size());
     stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
     EXPECT_FALSE(test_reader.available());
 
-    writer.write(hey.data(), hey.size());
+    writer->write(hey.data(), hey.size());
     stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
     EXPECT_FALSE(test_reader.available());
 
-    writer.write(hi.data(), hi.size());
+    writer->write(hi.data(), hi.size());
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+    EXPECT_FALSE(test_reader.available());
+  }
+  thread.join();
+
+  EXPECT_FALSE(test_reader.available());
+}
+
+TEST(PortWriterTests, resolve_empty_data_dropped) {
+  const std::string hello("hello"), hey("hey"), hi("hi");
+  TestReadSocket test_reader;
+  size_t listen_port = test_reader.listen();
+
+  ServiceThread thread;
+  {
+    writer_ptr_t writer = StubLookupPortWriter::with_lookup_result(
+        thread.svc(), listen_port, std::vector<boost::asio::ip::udp::endpoint>());
+    writer->start();
+
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+
+    writer->write(hello.data(), hello.size());
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+    EXPECT_FALSE(test_reader.available());
+
+    writer->write(hey.data(), hey.size());
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+    EXPECT_FALSE(test_reader.available());
+
+    writer->write(hi.data(), hi.size());
     stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
     EXPECT_FALSE(test_reader.available());
   }
@@ -120,31 +232,47 @@ TEST(PortWriterTests, resolve_fails_data_dropped) {
 
 TEST(PortWriterTests, resolve_success_data_kept) {
   const std::string hello("hello"), hey("hey"), hi("hi");
-  TestReadSocket test_reader;
-  size_t listen_port = test_reader.listen();
+  TestReadSocket test_reader4, test_reader6;
+  size_t listen_port = test_reader4.listen(DEST_LOCAL_ENDPOINT.address(), 0);
+  size_t listen_port6 = test_reader6.listen(DEST_LOCAL_ENDPOINT6.address(), listen_port);
+  EXPECT_EQ(listen_port, listen_port6);
 
   ServiceThread thread;
   {
-    stats::PortWriter writer(thread.svc(),
-        build_params(listen_port, 0 /* chunk_size */),
-        stats::PortWriter::DEFAULT_CHUNK_TIMEOUT_MS,
-        1);
-    writer.start();
+    // have the resolver return a weighted mix of ipv4 + ipv6 endpoints for localhost
+    std::vector<boost::asio::ip::udp::endpoint> endpoints;
+    endpoints.push_back(DEST_LOCAL_ENDPOINT);
+    endpoints.push_back(DEST_LOCAL_ENDPOINT);
+    endpoints.push_back(DEST_LOCAL_ENDPOINT6);
+    endpoints.push_back(DEST_LOCAL_ENDPOINT);
+    endpoints.push_back(DEST_LOCAL_ENDPOINT6);
+    writer_ptr_t writer = StubLookupPortWriter::with_lookup_result(
+        thread.svc(), listen_port, endpoints);
+    writer->start();
 
-    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
-
-    writer.write(hello.data(), hello.size());
-    writer.write(hey.data(), hey.size());
-    writer.write(hi.data(), hi.size());
-    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+    // flush a bunch to ensure resolve code is exercised between writes:
+    stats::sync_util::dispatch_run("flush1", *thread.svc(), &flush_service_queue_with_noop);
+    writer->write(hello.data(), hello.size());
+    stats::sync_util::dispatch_run("flush2", *thread.svc(), &flush_service_queue_with_noop);
+    writer->write(hey.data(), hey.size());
+    stats::sync_util::dispatch_run("flush3", *thread.svc(), &flush_service_queue_with_noop);
+    writer->write(hi.data(), hi.size());
+    stats::sync_util::dispatch_run("flush4", *thread.svc(), &flush_service_queue_with_noop);
   }
   thread.join();
 
-  EXPECT_EQ("hello", test_reader.read());
-  EXPECT_EQ("hey", test_reader.read());
-  EXPECT_EQ("hi", test_reader.read());
-
-  EXPECT_FALSE(test_reader.available());
+  std::set<std::string> recv4, recv6;
+  while (test_reader4.available()) {
+    recv4.insert(test_reader4.read());
+  }
+  while (test_reader6.available()) {
+    recv6.insert(test_reader6.read());
+  }
+  // sent data should be divided across the ipv4 and ipv6 endpoints in some fashion:
+  EXPECT_EQ(3, recv4.size() + recv6.size());
+  EXPECT_TRUE((recv4.count(hello) == 1) ^ (recv6.count(hello) == 1));
+  EXPECT_TRUE((recv4.count(hey) == 1) ^ (recv6.count(hey) == 1));
+  EXPECT_TRUE((recv4.count(hi) == 1) ^ (recv6.count(hi) == 1));
 }
 
 TEST(PortWriterTests, chunking_off) {
@@ -154,17 +282,17 @@ TEST(PortWriterTests, chunking_off) {
 
   ServiceThread thread;
   {
-    stats::PortWriter writer(thread.svc(), build_params(listen_port, 0 /* chunk_size */));
-    writer.start();
+    writer_ptr_t writer = StubLookupPortWriter::without_chunking(thread.svc(), listen_port);
+    writer->start();
 
     // value is dropped because we didn't give writer a chance to resolve the host:
-    writer.write(hello.data(), hello.size());
+    writer->write(hello.data(), hello.size());
     EXPECT_FALSE(test_reader.available());
 
     stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
 
-    writer.write(hello.data(), hello.size());
-    writer.write(hey.data(), hey.size());
+    writer->write(hello.data(), hello.size());
+    writer->write(hey.data(), hey.size());
 
     stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
   }
@@ -181,17 +309,15 @@ TEST(PortWriterTests, chunking_on_flush_when_full) {
 
   ServiceThread thread;
   {
-    stats::PortWriter writer(
-        thread.svc(),
-        build_params(listen_port, 10 /* chunk_size */),
-        9999999 /* chunk_timeout_ms */);
-    writer.start();
+    writer_ptr_t writer = StubLookupPortWriter::with_chunk_size(
+        thread.svc(), listen_port, 10 /* chunk_size */, 9999999 /* chunk_timeout_ms */);
+    writer->start();
 
-    writer.write(hello.data(), hello.size());// 5 bytes
+    writer->write(hello.data(), hello.size());// 5 bytes
     EXPECT_EQ("", test_reader.read(1 /* timeout_ms */));
-    writer.write(hey.data(), hey.size());// 9 bytes (5 + 1 + 3)
+    writer->write(hey.data(), hey.size());// 9 bytes (5 + 1 + 3)
     EXPECT_EQ("", test_reader.read(1 /* timeout_ms */));
-    writer.write(hi.data(), hi.size());// 12 bytes (5 + 1 + 3 + 1 + 2), chunk is flushed before adding "hi"
+    writer->write(hi.data(), hi.size());// 12 bytes (5 + 1 + 3 + 1 + 2), chunk is flushed before adding "hi"
     EXPECT_EQ("hello\nhey", test_reader.read(1 /* timeout_ms */));
 
     EXPECT_EQ("", test_reader.read(1 /* timeout_ms */));
@@ -210,19 +336,17 @@ TEST(PortWriterTests, chunking_on_flush_timer) {
 
   ServiceThread thread;
   {
-    stats::PortWriter writer(
-        thread.svc(),
-        build_params(listen_port, 10 /* chunk_size */),
-        1 /* chunk_timeout_ms */);
-    writer.start();
+    writer_ptr_t writer = StubLookupPortWriter::with_chunk_size(
+        thread.svc(), listen_port, 10 /* chunk_size */, 1 /* chunk_timeout_ms */);
+    writer->start();
 
-    writer.write(hello.data(), hello.size());
+    writer->write(hello.data(), hello.size());
     EXPECT_FALSE(test_reader.available());
     stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
     EXPECT_EQ("hello", test_reader.read(100 /* timeout_ms */));
 
-    writer.write(hey.data(), hey.size());
-    writer.write(hi.data(), hi.size());
+    writer->write(hey.data(), hey.size());
+    writer->write(hi.data(), hi.size());
     EXPECT_FALSE(test_reader.available());
     stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
     EXPECT_EQ("hey\nhi", test_reader.read(100 /* timeout_ms */));

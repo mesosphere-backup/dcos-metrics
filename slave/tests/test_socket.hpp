@@ -7,32 +7,36 @@
 class AbstractTestSocket {
  public:
   AbstractTestSocket()
-    : svc(), socket(svc), listener_port(0) { }
+    : svc(), socket(svc), listener_endpoint() { }
 
   virtual ~AbstractTestSocket() {
     socket.close();
   }
 
  protected:
-  const boost::asio::ip::address LOCALHOST = boost::asio::ip::address::from_string("127.0.0.1");
+  const boost::asio::ip::address LOCALHOST =
+    boost::asio::ip::address::from_string("127.0.0.1");
 
   boost::asio::io_service svc;
   boost::asio::ip::udp::socket socket;
-  size_t listener_port;
+  boost::asio::ip::udp::endpoint listener_endpoint;
 };
+
 
 class TestWriteSocket : public AbstractTestSocket {
  public:
   void connect(size_t port) {
-    listener_port = port;
-    socket.open(boost::asio::ip::udp::v4());
-    LOG(INFO) << "(TEST) Configured for communication to destination port[" << listener_port << "]";
+    listener_endpoint = boost::asio::ip::udp::endpoint(LOCALHOST, port);
+    socket.open(listener_endpoint.protocol());
+    LOG(INFO) << "(TEST) Configured for communication to destination "
+              << "endpoint[" << listener_endpoint << "]";
   }
 
   void write(const std::string& data) {
-    boost::asio::ip::udp::endpoint endpoint(LOCALHOST, listener_port);
-    socket.send_to(boost::asio::buffer(data), endpoint);
-    LOG(INFO) << "(TEST) Sent message[" << data << "] from port[" << socket.local_endpoint().port() << "] to destination[" << endpoint << "]";
+    socket.send_to(boost::asio::buffer(data), listener_endpoint);
+    LOG(INFO) << "(TEST) Sent message[" << data << "] from "
+              << "port[" << socket.local_endpoint().port() << "] to "
+              << "destination[" << listener_endpoint << "]";
   }
 };
 
@@ -50,19 +54,23 @@ class TestReadSocket : public AbstractTestSocket {
     free(buffer);
   }
 
-  size_t listen() {
-    if (listener_port != 0) {
-      return listener_port;
+  size_t listen(size_t port = 0) {
+    return listen(LOCALHOST, port);
+  }
+
+  size_t listen(boost::asio::ip::address host, size_t port) {
+    if (listener_endpoint.port() != 0 && listener_endpoint.port() == port) {
+      return listener_endpoint.port();
     }
 
     // Open on random OS-selected port:
-    boost::asio::ip::udp::endpoint requested_endpoint(LOCALHOST, 0);
+    boost::asio::ip::udp::endpoint requested_endpoint(host, port);
     socket.open(requested_endpoint.protocol());
     socket.bind(requested_endpoint);
     // Get resulting port selected by OS:
-    LOG(INFO) << "(TEST) Listening on endpoint[" << socket.local_endpoint() << "]";
-    listener_port = socket.local_endpoint().port();
-    return listener_port;
+    listener_endpoint = socket.local_endpoint();
+    LOG(INFO) << "(TEST) Listening on endpoint[" << listener_endpoint << "]";
+    return listener_endpoint.port();
   }
 
   size_t available() {
@@ -85,12 +93,15 @@ class TestReadSocket : public AbstractTestSocket {
     }
 
     if (ec == boost::system::errc::operation_canceled) {
-      LOG(INFO) << "(TEST) Timed out waiting " << timeout_ms << "ms for message on port " << listener_port;
+      LOG(INFO) << "(TEST) Timed out waiting " << timeout_ms << "ms for message on "
+                << "endpoint[" << listener_endpoint << "]";
       return "";
     } else {
       std::ostringstream oss;
       oss.write(buffer, len);
-      LOG(INFO) << "(TEST) Got message[" << oss.str() << "] on port[" << listener_port << "] from sender[" << sender_endpoint << "]";
+      LOG(INFO) << "(TEST) Got message[" << oss.str() << "] on "
+                << "endpoint[" << listener_endpoint << "] from "
+                << "sender[" << sender_endpoint << "]";
       return oss.str();
     }
   }
