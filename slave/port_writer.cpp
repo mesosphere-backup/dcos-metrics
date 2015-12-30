@@ -156,10 +156,11 @@ void stats::PortWriter::dest_resolve_cb(boost::system::error_code ec) {
   udp_resolver_t::iterator iter = resolve(ec);
   boost::asio::ip::address selected_address;
   if (ec) {
-    // failed, fall back to using the host as-is
+    // dns lookup failed, fall back to parsing the host string as a literal ip
     boost::system::error_code ec2;
     selected_address = boost::asio::ip::address::from_string(send_host, ec2);
     if (ec2) {
+      // using host as-is also failed, give up and try again later
       if (socket.is_open()) {
         LOG(ERROR) << "Error when resolving host[" << send_host << "]. "
                    << "Sending data to old endpoint[" << current_endpoint << "] "
@@ -174,10 +175,13 @@ void stats::PortWriter::dest_resolve_cb(boost::system::error_code ec) {
       start_dest_resolve_timer();
       return;
     }
+    // parsing the host as a literal ip succeeded. skip random address selection below since we only
+    // have a single entry anyway.
   } else if (iter == udp_resolver_t::iterator()) {
-    // no results, fall back to using the host as-is
+    // dns lookup had no results, fall back to parsing the host string as a literal ip
     selected_address = boost::asio::ip::address::from_string(send_host, ec);
     if (ec) {
+      // using host as-is also failed, give up and try again later
       if (socket.is_open()) {
         LOG(ERROR) << "No results when resolving host[" << send_host << "]. "
                    << "Sending data to old endpoint[" << current_endpoint << "] "
@@ -192,9 +196,13 @@ void stats::PortWriter::dest_resolve_cb(boost::system::error_code ec) {
       start_dest_resolve_timer();
       return;
     }
+    // parsing the host as a literal ip succeeded. skip random address selection below since we only
+    // have a single entry anyway.
   } else {
-    // resolved, compare returned list to any prior list, using multiset's consistent ordering to
-    // ignore any randomized ordering produced by the dns server itself
+    // resolved successfully. pick a new endpoint only if the list of endpoints has changed since
+    // the last refresh. since we are performing our own randomization below, detect and normalize
+    // any randomized ordering produced by the dns server, only changing our destination endpoint
+    // if the list changes beyond superficial reordering.
     std::multiset<boost::asio::ip::address> sorted_resolved_addresses;
     for (; iter != udp_resolver_t::iterator(); ++iter) {
       sorted_resolved_addresses.insert(iter->endpoint().address());

@@ -230,7 +230,7 @@ TEST(PortWriterTests, resolve_empty_data_dropped) {
   EXPECT_FALSE(test_reader.available());
 }
 
-TEST(PortWriterTests, resolve_success_data_kept) {
+TEST(PortWriterTests, resolve_reshuffle_data_sent_single_destination) {
   const std::string hello("hello"), hey("hey"), hi("hi");
   TestReadSocket test_reader4, test_reader6;
   size_t listen_port = test_reader4.listen(DEST_LOCAL_ENDPOINT.address(), 0);
@@ -268,11 +268,18 @@ TEST(PortWriterTests, resolve_success_data_kept) {
   while (test_reader6.available()) {
     recv6.insert(test_reader6.read());
   }
-  // sent data should be divided across the ipv4 and ipv6 endpoints in some fashion:
-  EXPECT_EQ(3, recv4.size() + recv6.size());
-  EXPECT_TRUE((recv4.count(hello) == 1) ^ (recv6.count(hello) == 1));
-  EXPECT_TRUE((recv4.count(hey) == 1) ^ (recv6.count(hey) == 1));
-  EXPECT_TRUE((recv4.count(hi) == 1) ^ (recv6.count(hi) == 1));
+  // all sent data should have only been sent to one of the two endpoints
+  EXPECT_TRUE(recv4.size() == 3 ^ recv6.size() == 3);
+  if (!recv4.empty()) {
+    EXPECT_EQ(1, recv4.count(hello));
+    EXPECT_EQ(1, recv4.count(hey));
+    EXPECT_EQ(1, recv4.count(hi));
+  }
+  if (!recv6.empty()) {
+    EXPECT_EQ(1, recv6.count(hello));
+    EXPECT_EQ(1, recv6.count(hey));
+    EXPECT_EQ(1, recv6.count(hi));
+  }
 }
 
 TEST(PortWriterTests, chunking_off) {
