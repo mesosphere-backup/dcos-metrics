@@ -4,21 +4,24 @@ Monitoring component to be run against mesos-slaves. Contains an Isolator Module
 ## Prerequisites:
 
 - CMake
-- A local copy of the Mesos source, and a completed build from that source ([mesos build instructions](http://mesos.apache.org/gettingstarted/)):
-  - Set ```mesos_SOURCE_DIR``` to the mesos source directory.
-  - Optionally set ```mesos_BUILD_DIR``` to the mesos build directory (defaults to ```mesos_SOURCE_DIR/build```)
-- Protobuf (preferably what the Mesos build used)
-- Boost ASIO (libasio-dev)
+- [Mesos' build prerequisites](http://mesos.apache.org/gettingstarted/)
+- Boost ASIO (install ```libasio-dev```)
 
 ## Build instructions:
 
-In order to build the module, you must point to a local copy of the mesos source, as well as a build from that source. The below steps 
+Building this module requires a local copy of the mesos source, as well as a build from that source. You can use the provided ```get-mesos.sh``` script to get those.
 
 ```
-host:dcos-stats/slave$ ... build mesos ...
+host:dcos-stats$ ... install mesos prereqs ...
+host:dcos-stats$ sh get-mesos.sh 0.26.0 # or whatever version you need
+```
+
+Once mesos is built, you can build the module code.
+
+```
 host:dcos-stats/slave$ sudo apt-get install build-essential cmake libasio-dev libboost-system-dev libgoogle-glog-dev
 host:dcos-stats/slave$ mkdir build; cd build
-host:dcos-stats/slave/build$ cmake -Dmesos_SOURCE_DIR=/path/to/mesos/ ..
+host:dcos-stats/slave/build$ cmake -Dmesos_VERSION=0.26.0 .. # needs to match version built with get-mesos.sh
 host:dcos-stats/slave/build$ make -j4
 host:dcos-stats/slave/build$ make test
 ```
