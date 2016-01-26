@@ -7,8 +7,8 @@ set(PROTOBUF_TGZ_FILENAME protobuf-${PROTOBUF_VERSION}.tar.gz)
 find_file(PROTOBUF_TGZ
     NAMES ${PROTOBUF_TGZ_FILENAME}
     PATHS
-      ${process_SOURCE_DIR}/3rdparty
-      ${CMAKE_SOURCE_DIR}/../../mesos/3rdparty/libprocess/3rdparty)
+      ${process_INCLUDE_DIR}/../3rdparty
+      ${mesos_INCLUDE_DIR}/../3rdparty/libprocess/3rdparty)
 if(NOT PROTOBUF_TGZ)
   # not found locally, fall back to web
   message(STATUS "Didn't find Mesos ${PROTOBUF_TGZ_FILENAME}, will download")
@@ -28,5 +28,4 @@ ExternalProject_Add(
   )
 
 ExternalProject_Get_Property(ext_protobuf source_dir binary_dir)
-set(protobuf_SOURCE_DIR ${source_dir})
-set(protobuf_INCLUDE_DIR ${protobuf_SOURCE_DIR}/src)
+set(protobuf_INCLUDE_DIR ${source_dir}/src)

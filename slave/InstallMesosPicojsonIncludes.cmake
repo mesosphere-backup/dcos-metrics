@@ -7,8 +7,8 @@ set(PICOJSON_TGZ_FILENAME picojson-${PICOJSON_VERSION}.tar.gz)
 find_file(PICOJSON_TGZ
     NAMES ${PICOJSON_TGZ_FILENAME}
     PATHS
-      ${process_SOURCE_DIR}/3rdparty
-      ${CMAKE_SOURCE_DIR}/../../mesos/3rdparty/libprocess/3rdparty)
+      ${process_INCLUDE_DIR}/../3rdparty
+      ${mesos_INCLUDE_DIR}/../3rdparty/libprocess/3rdparty)
 if(NOT PICOJSON_TGZ)
   # not found locally, fall back to web
   message(STATUS "Didn't find Mesos ${PICOJSON_TGZ_FILENAME}, will download")
