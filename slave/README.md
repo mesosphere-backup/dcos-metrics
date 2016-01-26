@@ -19,9 +19,10 @@ host:dcos-stats$ sh get-mesos.sh 0.26.0 # or whatever version you need
 Once mesos is built, you can build the module code.
 
 ```
-host:dcos-stats/slave$ sudo apt-get install build-essential cmake libasio-dev libboost-system-dev libgoogle-glog-dev
+host:dcos-stats/slave$ sudo apt-get install \
+build-essential cmake libasio-dev libboost-system-dev libgoogle-glog-dev
 host:dcos-stats/slave$ mkdir -p build; cd build
-host:dcos-stats/slave/build$ cmake -Dmesos_VERSION=0.26.0 .. # needs to match version built with get-mesos.sh
+host:dcos-stats/slave/build$ cmake -Dmesos_VERSION=0.26.0 .. # match version passed to get-mesos.sh
 host:dcos-stats/slave/build$ make -j4
 host:dcos-stats/slave/build$ make test
 ```
