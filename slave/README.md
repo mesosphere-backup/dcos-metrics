@@ -1,5 +1,5 @@
 # Slave Modules
-Monitoring component to be run against mesos-slaves. Contains an Isolator Module (tracks task bringup/shutdown) and a Hook which implements slaveExecutorEnvironmentDecorator (injects monitoring endpoints into Task environments), which must be enabled in the mesos slave via cmdline arguments.
+Monitoring component to be run against ```mesos-slave```s. Contains an Isolator Module (tracks task bringup/shutdown) and a Hook which implements slaveExecutorEnvironmentDecorator (injects monitoring endpoints into Task environments), which must be enabled in the mesos slave via cmdline arguments.
 
 ## Prerequisites:
 
@@ -45,7 +45,7 @@ host:dcos-stats/slave/build$ make -j4
 
 ## Install instructions
 
-On a system running mesos-slave:
+On a system running ```mesos-slave```:
 
 1. Copy ```dcos-stats/slave/build/modules.json``` and ```dcos-stats/slave/build/libstats-slave.so``` to the slave machine.
    * The ```libstats-slave.so``` build must match your version of Mesos. Run ```ldd libstats-slave.so``` to see which version is expected.
