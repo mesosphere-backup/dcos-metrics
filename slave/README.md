@@ -20,7 +20,7 @@ Once mesos is built, you can build the module code.
 
 ```
 host:dcos-stats/slave$ sudo apt-get install \
-build-essential cmake libasio-dev libboost-system-dev libgoogle-glog-dev
+  build-essential cmake libasio-dev libboost-system-dev libgoogle-glog-dev
 host:dcos-stats/slave$ mkdir -p build; cd build
 host:dcos-stats/slave/build$ cmake -Dmesos_VERSION=0.26.0 .. # match version passed to get-mesos.sh
 host:dcos-stats/slave/build$ make -j4
@@ -33,13 +33,13 @@ If you already have a build of mesos available elsewhere, you can just point the
 host:dcos-stats/slave$ sudo yum install cmake boost-system
 host:dcos-stats/slave$ mkdir -p build; cd build
 host:dcos-stats/slave/build$ cmake \
--Dmesos_INCLUDE_DIR=/opt/mesosphere/include \
--Dmesos_LIBRARY=/opt/mesosphere/lib/libmesos.so \
--Dboost_system_LIBRARY=/usr/lib64/libboost_system.so.1.53.0 \
--DUSE_LOCAL_PICOJSON=false \
--DUSE_LOCAL_PROTOBUF=false \
--DTESTS_ENABLED=false \
-..
+  -Dmesos_INCLUDE_DIR=/opt/mesosphere/include \
+  -Dmesos_LIBRARY=/opt/mesosphere/lib/libmesos.so \
+  -Dboost_system_LIBRARY=/usr/lib64/libboost_system.so.1.53.0 \
+  -DUSE_LOCAL_PICOJSON=false \
+  -DUSE_LOCAL_PROTOBUF=false \
+  -DTESTS_ENABLED=false \
+  .. # tests off to avoid CMake bug on some OSes
 host:dcos-stats/slave/build$ make -j4
 ```
 
