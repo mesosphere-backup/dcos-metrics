@@ -2,33 +2,38 @@ cmake_minimum_required(VERSION 2.8)
 
 project(stats-slave)
 
-# Version is just used in order to find the directory named "mesos-VERSION"
 if(mesos_VERSION)
-  message(STATUS "Mesos version: ${mesos_VERSION}")
+  # Use mesos_VERSION to find a directory named "mesos-VERSION" which was created via get-mesos.sh helper script.
+  message(STATUS "Searching for Mesos ${mesos_VERSION} created by get-mesos.sh at ${CMAKE_SOURCE_DIR}/../mesos-${mesos_VERSION}")
+  find_path(mesos_SOURCE_DIR NAMES include/mesos/mesos.hpp PATHS ${CMAKE_SOURCE_DIR}/../mesos-${mesos_VERSION} NO_DEFAULT_PATH)
+  if(NOT mesos_SOURCE_DIR)
+    message(FATAL_ERROR "Didn't find Mesos source dir for v${mesos_VERSION} (should contain include/mesos/mesos.hpp). Did you run 'get-mesos.sh ${mesos_VERSION}' yet?")
+  endif()
+elseif(mesos_SOURCE_DIR)
+  # Use mesos_SOURCE_DIR for manually pointing to a copy of mesos which was built without get-mesos.sh.
+  message(STATUS "Using Mesos source dir: ${mesos_SOURCE_DIR}")
 else()
-  message(FATAL_ERROR "Mesos version required. Run with eg 'cmake -Dmesos_VERSION=0.26.0 ..'")
+  message(FATAL_ERROR "One of 'mesos_VERSION' or 'mesos_SOURCE_DIR' is required. Run cmake with:\neg 'cmake -Dmesos_VERSION=0.26.0 ..' (for Mesos built with get-mesos.sh)\nor 'cmake -Dmesos_SOURCE_DIR=/path/to/mesos-0.26.0 ..' (for Mesos built without get-mesos.sh)")
 endif()
 
-message(STATUS "Searching for Mesos at ${CMAKE_SOURCE_DIR}/../mesos-${mesos_VERSION}...")
-find_path(mesos_SOURCE_DIR NAMES include/mesos/mesos.hpp PATHS ${CMAKE_SOURCE_DIR}/../mesos-${mesos_VERSION} NO_DEFAULT_PATH)
-if(mesos_SOURCE_DIR)
-  message(STATUS "Found Mesos source dir: ${mesos_SOURCE_DIR}")
-else()
-  message(WARNING "Didn't find Mesos source dir for v${mesos_VERSION} (contains include/mesos/mesos.hpp).")
-endif()
-
-find_path(mesos_BUILD_DIR NAMES include/mesos/mesos.pb.h HINTS ${mesos_SOURCE_DIR}/build NO_DEFAULT_PATH)
 if(mesos_BUILD_DIR)
-  message(STATUS "Found Mesos build dir: ${mesos_BUILD_DIR}")
+  message(STATUS "Using Mesos build dir: ${mesos_BUILD_DIR}")
 else()
-  message(WARNING "Didn't find Mesos build dir for v${mesos_VERSION} (contains include/mesos/mesos.pb.h).")
+  message(STATUS "Searching for Mesos build at ${mesos_SOURCE_DIR}/build")
+  find_path(mesos_BUILD_DIR NAMES include/mesos/mesos.pb.h HINTS ${mesos_SOURCE_DIR}/build NO_DEFAULT_PATH)
+  if(NOT mesos_BUILD_DIR)
+    message(WARNING "Didn't find Mesos build dir at ${mesos_SOURCE_DIR}/build (should contain include/mesos/mesos.pb.h). Build Mesos and point to its build dir with eg 'cmake [...] -Dmesos_BUILD_DIR=/path/to/mesos-0.26.0 ..'")
+  endif()
 endif()
 
 if(NOT mesos_SOURCE_DIR OR NOT mesos_BUILD_DIR)
-  message(FATAL_ERROR "Unable to proceed without Mesos source/build directories.")
+  message(FATAL_ERROR "Unable to configure build without Mesos source/build directories. Exiting.")
 endif()
 
 find_library(mesos_LIBRARY NAMES mesos HINTS ${mesos_BUILD_DIR}/src/.libs/)
+if(NOT mesos_LIBRARY)
+  message(FATAL_ERROR "Unable to find libmesos.so in Mesos build dir: ${mesos_BUILD_DIR}/src/.libs/")
+endif()
 find_path(process_SOURCE_DIR NAMES include/process/process.hpp HINTS ${mesos_SOURCE_DIR}/3rdparty/libprocess NO_DEFAULT_PATH)
 find_path(stout_SOURCE_DIR NAMES include/stout/stringify.hpp HINTS ${process_SOURCE_DIR}/3rdparty/stout NO_DEFAULT_PATH)
 
