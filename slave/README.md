@@ -20,10 +20,26 @@ Once mesos is built, you can build the module code.
 
 ```
 host:dcos-stats/slave$ sudo apt-get install build-essential cmake libasio-dev libboost-system-dev libgoogle-glog-dev
-host:dcos-stats/slave$ mkdir build; cd build
+host:dcos-stats/slave$ mkdir -p build; cd build
 host:dcos-stats/slave/build$ cmake -Dmesos_VERSION=0.26.0 .. # needs to match version built with get-mesos.sh
 host:dcos-stats/slave/build$ make -j4
 host:dcos-stats/slave/build$ make test
+```
+
+If you already have a build of mesos available elsewhere, you can just point the stats module to that. For example, here's how to build on a DCOS node, which already has most of what we need within ```/opt/mesosphere```, except for ```libboost_system``` which isn't yet included as of this writing:
+
+```
+host:dcos-stats/slave$ sudo yum install cmake boost-system
+host:dcos-stats/slave$ mkdir -p build; cd build
+host:dcos-stats/slave/build$ cmake \
+-Dmesos_INCLUDE_DIR=/opt/mesosphere/include \
+-Dmesos_LIBRARY=/opt/mesosphere/lib/libmesos.so \
+-Dboost_system_LIBRARY=/usr/lib64/libboost_system.so.1.53.0 \
+-DUSE_LOCAL_PICOJSON=false \
+-DUSE_LOCAL_PROTOBUF=false \
+-DTESTS_ENABLED=false \
+..
+host:dcos-stats/slave/build$ make -j4
 ```
 
 ## Install instructions
