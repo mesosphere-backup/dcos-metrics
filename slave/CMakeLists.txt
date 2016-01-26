@@ -50,9 +50,11 @@ else()
 endif()
 
 # Search for libmesos.so
+
 if(mesos_VERSION)
 
   # Use lib which was created via get-mesos.sh helper script.
+
   message(STATUS "Searching for libmesos.so created by get-mesos.sh at ${CMAKE_SOURCE_DIR}/../mesos-${mesos_VERSION}/build/src/.libs/")
   find_library(mesos_LIBRARY NAMES mesos HINTS ${CMAKE_SOURCE_DIR}/../mesos-${mesos_VERSION}/build/src/.libs/ NO_DEFAULT_PATH)
   if(NOT mesos_LIBRARY)
@@ -62,6 +64,7 @@ if(mesos_VERSION)
 else()
 
   # Use whatever's installed on system
+
   message(STATUS "Searching on system for libmesos.so")
   find_library(mesos_LIBRARY NAMES mesos)
   if(NOT mesos_LIBRARY)
@@ -75,23 +78,23 @@ find_path(process_INCLUDE_DIR NAMES process/process.hpp HINTS ${mesos_INCLUDE_DI
 find_path(stout_INCLUDE_DIR NAMES stout/stringify.hpp HINTS ${process_INCLUDE_DIR}/../3rdparty/stout/include ${mesos_INCLUDE_DIR})
 
 # We don't use this, but it's dragged in via stout's includes, so we're forced to find it so that stout doesn't break the build:
-option(USE_MESOS_PICOJSON "Whether to use Mesos' or a locally downloaded internal build of picojson (true) or system picojson (false)" TRUE)
-if(USE_MESOS_PICOJSON AND NOT picojson_INCLUDE_DIR)
+option(USE_LOCAL_PICOJSON "Whether to use Mesos' or a locally downloaded internal build of picojson (true) or system picojson (false)" TRUE)
+if(USE_LOCAL_PICOJSON AND NOT picojson_INCLUDE_DIR)
   include(InstallMesosPicojsonIncludes.cmake)
   message(STATUS "Using Mesos or locally-downloaded picojson: incl:${picojson_INCLUDE_DIR}")
 else()
-  find_path(picojson_INCLUDE_DIR NAMES picojson.h NO_DEFAULT_PATH)
-  message(STATUS "Using system picojson: incl:${protobuf_INCLUDE_DIR}")
+  find_path(picojson_INCLUDE_DIR NAMES picojson.h HINTS ${mesos_INCLUDE_DIR})
+  message(STATUS "Using system picojson: incl:${picojson_INCLUDE_DIR}")
 endif()
 
 # Mesos may have linked against the system protobuf, or against its own copy.
 # Make sure our includes match Mesos or else linking will fail later.
-option(USE_MESOS_PROTOBUF "Whether to use Mesos' or a locally downloaded internal build of protobuf (true) or system protobuf (false)" TRUE)
-if(USE_MESOS_PROTOBUF AND NOT protobuf_INCLUDE_DIR AND NOT protobuf_LIBRARY)
+option(USE_LOCAL_PROTOBUF "Whether to use Mesos' or a locally downloaded internal build of protobuf (true) or system protobuf (false)" TRUE)
+if(USE_LOCAL_PROTOBUF AND NOT protobuf_INCLUDE_DIR)
   include(InstallMesosProtobufIncludes.cmake)
   message(STATUS "Using Mesos or locally-downloaded protobuf: incl:${protobuf_INCLUDE_DIR} lib:<static within libmesos>")
 else()
-  find_path(protobuf_INCLUDE_DIR NAMES google/protobuf/message.h)
+  find_path(protobuf_INCLUDE_DIR NAMES google/protobuf/message.h HINTS ${mesos_INCLUDE_DIR})
   find_library(protobuf_LIBRARY NAMES protobuf)
   message(STATUS "Using system protobuf: incl:${protobuf_INCLUDE_DIR} lib:${protobuf_LIBRARY}")
 endif()
@@ -100,12 +103,12 @@ find_library(boost_system_LIBRARY NAMES boost-system)
 if(NOT boost_system_LIBRARY)
   message(FATAL_ERROR "Boost System library is required by Boost ASIO.\napt-get: Install 'libboost-system-dev'\nyum: install 'boost-system'\n...or run cmake with eg 'cmake -Dboost_system_LIBRARY=/opt/mesosphere/lib/libboost_system.so ..'")
 endif()
-find_path(boost_asio_INCLUDE_DIR NAMES boost/asio.hpp)
+find_path(boost_asio_INCLUDE_DIR NAMES boost/asio.hpp HINTS ${mesos_INCLUDE_DIR})
 if(NOT boost_asio_INCLUDE_DIR)
   message(FATAL_ERROR "Boost ASIO library is required.\napt-get: Install 'libasio-dev'\nyum: Install '???'\n...or run cmake with eg 'cmake -Dboost_asio_INCLUDE_DIR=/opt/mesosphere/include ..' (contains boost/asio.hpp)")
 endif()
 
-find_path(glog_INCLUDE_DIR NAMES glog/logging.h)
+find_path(glog_INCLUDE_DIR NAMES glog/logging.h HINTS ${mesos_INCLUDE_DIR})
 if(NOT glog_INCLUDE_DIR)
   message(FATAL_ERROR "Google Log library is required.\napt-get: Install 'libgoogle-glog-dev'\nyum: Install '???'\n...or run cmake with eg 'cmake -Dglog_INCLUDE_DIR=/opt/mesosphere/include ..' (contains glog/logging.h)")
 endif()
@@ -120,7 +123,7 @@ set(LIBS
   ${boost_system_LIBRARY}
   ${mesos_LIBRARY}
   )
-if(NOT USE_MESOS_PROTOBUF)
+if(protobuf_LIBRARY)
   list(APPEND LIBS ${protobuf_LIBRARY})
 endif()
 set(SRCS
@@ -154,10 +157,10 @@ include_directories(${INCLUDES})
 add_library(stats-slave SHARED ${SRCS})
 target_link_libraries(stats-slave ${LIBS})
 # ensure header dependencies are unpacked before we start building
-if(USE_MESOS_PROTOBUF)
+if(USE_LOCAL_PROTOBUF)
   add_dependencies(stats-slave ext_protobuf)
 endif()
-if(USE_MESOS_PICOJSON)
+if(USE_LOCAL_PICOJSON)
   add_dependencies(stats-slave ext_picojson)
 endif()
 
