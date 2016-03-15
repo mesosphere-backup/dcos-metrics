@@ -182,3 +182,8 @@ if(TESTS_ENABLED)
 else()
   message(STATUS "Unit tests disabled.")
 endif()
+
+install(TARGETS stats-slave
+  RUNTIME DESTINATION bin
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib/static)
