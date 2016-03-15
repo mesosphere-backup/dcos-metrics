@@ -55,7 +55,8 @@ namespace stats {
     const std::string DEST_HOST = "dest_host";
     const std::string DEST_HOST_DEFAULT = "statsd.monitoring.mesos";
 
-    // The period in seconds between host resolutions. Automatically detects changes in
+    // The period in seconds between host resolutions. Automatically detects changes in DNS records,
+    // with automatic selection of a random A record if multiple entries are configured.
     const std::string DEST_REFRESH_SECONDS = "dest_refresh_seconds";
     const size_t DEST_REFRESH_SECONDS_DEFAULT = 300; // 5 minutes
 

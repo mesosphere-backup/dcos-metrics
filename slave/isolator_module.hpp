@@ -30,11 +30,9 @@ namespace stats {
       const std::list<mesos::slave::ContainerState>& states,
       const hashset<mesos::ContainerID>& orphans);
 
-    process::Future<Option<mesos::slave::ContainerPrepareInfo>> prepare(
+    process::Future<Option<mesos::slave::ContainerLaunchInfo>> prepare(
       const mesos::ContainerID& container_id,
-      const mesos::ExecutorInfo& executor_info,
-      const std::string& directory,
-      const Option<std::string>& user);
+      const mesos::slave::ContainerConfig& container_config);
 
     process::Future<Nothing> cleanup(
       const mesos::ContainerID& container_id);

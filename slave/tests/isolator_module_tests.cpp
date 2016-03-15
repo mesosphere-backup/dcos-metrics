@@ -43,17 +43,17 @@ TEST(IsolatorModuleTests, prepare_smoke) {
   std::shared_ptr<MockInputAssigner> mock_assigner(new MockInputAssigner());
   stats::IsolatorModule<MockInputAssigner> mod(mock_assigner);
 
-  mesos::ExecutorInfo exec_info;
-  exec_info.mutable_executor_id()->set_value("test executor");
   mesos::ContainerID container_id;
   container_id.set_value("test container");
 
-  std::string directory("test directory");
-  Option<std::string> user("test user");
+  mesos::slave::ContainerConfig config;
+  config.mutable_executorinfo()->mutable_executor_id()->set_value("test executor");
+  config.set_directory("test directory");
+  config.set_user("test user");
 
-  EXPECT_CALL(*mock_assigner, register_container(container_id, exec_info));
-  Option<mesos::slave::ContainerPrepareInfo> ret =
-    mod.prepare(container_id, exec_info, directory, user).get();
+  EXPECT_CALL(*mock_assigner, register_container(container_id, config.executorinfo()));
+  Option<mesos::slave::ContainerLaunchInfo> ret =
+    mod.prepare(container_id, config).get();
   EXPECT_TRUE(ret.isNone());
 }
 

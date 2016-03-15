@@ -151,6 +151,9 @@ list(APPEND INCLUDES
   ${protobuf_INCLUDE_DIR}
   )
 
+message(STATUS "Include dirs: ${INCLUDES}")
+message(STATUS "Libs: ${LIBS}")
+
 add_definitions(-std=c++11)
 include_directories(${INCLUDES})
 

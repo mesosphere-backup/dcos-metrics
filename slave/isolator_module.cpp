@@ -25,12 +25,10 @@ namespace stats {
       return Nothing();
     }
 
-    process::Future<Option<mesos::slave::ContainerPrepareInfo>> prepare(
+    process::Future<Option<mesos::slave::ContainerLaunchInfo>> prepare(
         const mesos::ContainerID& container_id,
-        const mesos::ExecutorInfo& executor_info,
-        const std::string& /* directory */,
-        const Option<std::string>& /* user */) {
-      input_assigner->register_container(container_id, executor_info);
+        const mesos::slave::ContainerConfig& container_config) {
+      input_assigner->register_container(container_id, container_config.executorinfo());
       return None();
     }
 
@@ -68,17 +66,13 @@ process::Future<Nothing> stats::IsolatorModule<InputAssigner>::recover(
 }
 
 template <typename InputAssigner>
-process::Future<Option<mesos::slave::ContainerPrepareInfo>> stats::IsolatorModule<InputAssigner>::prepare(
+process::Future<Option<mesos::slave::ContainerLaunchInfo>> stats::IsolatorModule<InputAssigner>::prepare(
     const mesos::ContainerID& container_id,
-    const mesos::ExecutorInfo& executor_info,
-    const std::string& directory,
-    const Option<std::string>& user) {
+    const mesos::slave::ContainerConfig& container_config) {
   return process::dispatch(*impl,
       &IsolatorProcess<InputAssigner>::prepare,
       container_id,
-      executor_info,
-      directory,
-      user);
+      container_config);
 }
 
 template <typename InputAssigner>
