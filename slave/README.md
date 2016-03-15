@@ -1,5 +1,5 @@
 # Slave Modules
-Monitoring component to be run against mesos-slaves. Contains an Isolator Module (tracks task bringup/shutdown) and a Hook which implements slaveExecutorEnvironmentDecorator (injects monitoring endpoints into Task environments), which must be enabled in the mesos slave via cmdline arguments.
+Monitoring component to be run against ```mesos-slave```s. Contains an Isolator Module (tracks task bringup/shutdown) and a Hook which implements slaveExecutorEnvironmentDecorator (injects monitoring endpoints into Task environments), which must be enabled in the mesos slave via cmdline arguments.
 
 ## Prerequisites:
 
@@ -19,16 +19,33 @@ host:dcos-stats$ sh get-mesos.sh 0.26.0 # or whatever version you need
 Once mesos is built, you can build the module code.
 
 ```
-host:dcos-stats/slave$ sudo apt-get install build-essential cmake libasio-dev libboost-system-dev libgoogle-glog-dev
-host:dcos-stats/slave$ mkdir build; cd build
-host:dcos-stats/slave/build$ cmake -Dmesos_VERSION=0.26.0 .. # needs to match version built with get-mesos.sh
+host:dcos-stats/slave$ sudo apt-get install \
+  build-essential cmake libasio-dev libboost-system-dev libgoogle-glog-dev
+host:dcos-stats/slave$ mkdir -p build; cd build
+host:dcos-stats/slave/build$ cmake -Dmesos_VERSION=0.26.0 .. # match version passed to get-mesos.sh
 host:dcos-stats/slave/build$ make -j4
 host:dcos-stats/slave/build$ make test
 ```
 
+If you already have a build of mesos available elsewhere, you can just point the stats module to that. For example, here's how to build on a DCOS node, which already has most of what we need within ```/opt/mesosphere```, except for ```libboost_system``` which isn't yet included as of this writing:
+
+```
+host:dcos-stats/slave$ sudo yum install cmake boost-system
+host:dcos-stats/slave$ mkdir -p build; cd build
+host:dcos-stats/slave/build$ cmake \
+  -Dmesos_INCLUDE_DIR=/opt/mesosphere/include \
+  -Dmesos_LIBRARY=/opt/mesosphere/lib/libmesos.so \
+  -Dboost_system_LIBRARY=/usr/lib64/libboost_system.so.1.53.0 \
+  -DUSE_LOCAL_PICOJSON=false \
+  -DUSE_LOCAL_PROTOBUF=false \
+  -DTESTS_ENABLED=false \
+  .. # tests off to avoid CMake bug on some OSes
+host:dcos-stats/slave/build$ make -j4
+```
+
 ## Install instructions
 
-On a system running mesos-slave:
+On a system running ```mesos-slave```:
 
 1. Copy ```dcos-stats/slave/build/modules.json``` and ```dcos-stats/slave/build/libstats-slave.so``` to the slave machine.
    * The ```libstats-slave.so``` build must match your version of Mesos. Run ```ldd libstats-slave.so``` to see which version is expected.
