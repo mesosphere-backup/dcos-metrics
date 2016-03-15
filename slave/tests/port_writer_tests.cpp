@@ -95,11 +95,35 @@ namespace {
       if (lookup_error) {
         ec = lookup_error;
         return udp_resolver_t::iterator();
+      } else if (lookup_result.empty()) {
+        return udp_resolver_t::iterator();
       } else {
         std::vector<boost::asio::ip::udp::endpoint> shuffled(lookup_result);
         std::random_shuffle(shuffled.begin(), shuffled.end());
+#if BOOST_VERSION >= 105500
+        // >=1.55.0 supports passing iterator directly:
         return udp_resolver_t::iterator::create(
             shuffled.begin(), shuffled.end(), DEST_HOSTNAME, "");
+#else
+        // 1.54.0 and older require getaddrinfo-formatted entries:
+        std::vector<addrinfo> lookup_conv(shuffled.size());
+        for (size_t i = 0; i < shuffled.size(); ++i) {
+          addrinfo& out = lookup_conv[i];
+          out.ai_flags = 0;
+          out.ai_family = AF_INET;
+          out.ai_socktype = SOCK_DGRAM;
+          out.ai_protocol = 0;
+          out.ai_addrlen = sizeof(sockaddr_in);
+          out.ai_addr = shuffled[i].data();
+          out.ai_canonname = NULL;
+          if ((i + 1) < shuffled.size()) {
+            out.ai_next = &lookup_conv[i+1];
+          } else {
+            out.ai_next = NULL;
+          }
+        }
+        return udp_resolver_t::iterator::create(&lookup_conv[0], DEST_HOSTNAME, "");
+#endif
       }
     }
 
