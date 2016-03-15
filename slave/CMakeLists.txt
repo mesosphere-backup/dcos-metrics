@@ -103,6 +103,7 @@ find_library(boost_system_LIBRARY NAMES boost-system)
 if(NOT boost_system_LIBRARY)
   message(FATAL_ERROR "Boost System library is required by Boost ASIO.\napt-get: Install 'libboost-system-dev'\nyum: install 'boost-system'\n...or run cmake with eg 'cmake -Dboost_system_LIBRARY=/opt/mesosphere/lib/libboost_system.so ..'")
 endif()
+
 find_path(boost_asio_INCLUDE_DIR NAMES boost/asio.hpp HINTS ${mesos_INCLUDE_DIR})
 if(NOT boost_asio_INCLUDE_DIR)
   message(FATAL_ERROR "Boost ASIO library is required.\napt-get: Install 'libasio-dev'\nyum: Install '???'\n...or run cmake with eg 'cmake -Dboost_asio_INCLUDE_DIR=/opt/mesosphere/include ..' (contains boost/asio.hpp)")
@@ -113,6 +114,11 @@ if(NOT glog_INCLUDE_DIR)
   message(FATAL_ERROR "Google Log library is required.\napt-get: Install 'libgoogle-glog-dev'\nyum: Install '???'\n...or run cmake with eg 'cmake -Dglog_INCLUDE_DIR=/opt/mesosphere/include ..' (contains glog/logging.h)")
 endif()
 
+find_library(glog_LIBRARY NAMES glog)
+if(NOT glog)
+  message(STATUS "Google GLog *may* be needed to complete the build, depending on your Mesos build.\napt-get: Install 'libgoogle-glog-dev'\nyum: install '???'\n...or run cmake with eg 'cmake -Dglog_LIBRARY=/opt/mesosphere/lib/libglog.so ..'")
+endif()
+
 find_path(linux_prctl_HEADER NAMES sys/prctl.h)
 if(linux_prctl_HEADER)
   add_definitions(-DLINUX_PRCTL_AVAILABLE)
@@ -121,6 +127,7 @@ endif()
 set(LIBS
   pthread
   ${boost_system_LIBRARY}
+  ${glog_LIBRARY}
   ${mesos_LIBRARY}
   )
 if(protobuf_LIBRARY)
