@@ -115,7 +115,7 @@ if(NOT glog_INCLUDE_DIR)
 endif()
 
 find_library(glog_LIBRARY NAMES glog)
-if(NOT glog)
+if(NOT glog_LIBRARY)
   message(STATUS "Google GLog *may* be needed to complete the build, depending on your Mesos build.\napt-get: Install 'libgoogle-glog-dev'\nyum: install '???'\n...or run cmake with eg 'cmake -Dglog_LIBRARY=/opt/mesosphere/lib/libglog.so ..'")
 endif()
 
