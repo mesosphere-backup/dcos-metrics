@@ -89,6 +89,7 @@ namespace stats {
     boost::asio::ip::udp::socket socket;
     char* buffer;
     size_t buffer_used;
+    size_t dropped_bytes;
     bool shutdown;
   };
 

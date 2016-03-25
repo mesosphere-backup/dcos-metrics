@@ -67,6 +67,7 @@ stats::PortWriter::PortWriter(std::shared_ptr<boost::asio::io_service> io_servic
     socket(*io_service),
     buffer((char*) malloc(buffer_capacity)),
     buffer_used(0),
+    dropped_bytes(0),
     shutdown(false) {
   LOG(INFO) << "Writer constructed for " << send_host << ":" << send_port;
   if (resolve_period_ms == 0) {
@@ -153,6 +154,13 @@ void stats::PortWriter::dest_resolve_cb(boost::system::error_code ec) {
     }
   }
 
+  // Warn periodically when data is being dropped due to lack of outgoing connection
+  if (dropped_bytes > 0) {
+    LOG(WARNING) << "Recently dropped " << dropped_bytes
+                 << " due to lack of open writer socket to " << send_host;
+    dropped_bytes = 0;
+  }
+
   udp_resolver_t::iterator iter = resolve(ec);
   boost::asio::ip::address selected_address;
   if (ec) {
@@ -162,15 +170,17 @@ void stats::PortWriter::dest_resolve_cb(boost::system::error_code ec) {
     if (ec2) {
       // using host as-is also failed, give up and try again later
       if (socket.is_open()) {
+        // Log as error: User used to have a working host!
         LOG(ERROR) << "Error when resolving host[" << send_host << "]. "
                    << "Sending data to old endpoint[" << current_endpoint << "] "
                    << "and trying again in " << resolve_period_ms / 1000. << " seconds. "
                    << "err=" << ec << ", err2=" << ec2;
       } else {
-        LOG(ERROR) << "Error when resolving host[" << send_host << "]. "
-                   << "Dropping data "
-                   << "and trying again in " << resolve_period_ms / 1000. << " seconds. "
-                   << "err=" << ec << ", err2=" << ec2;
+        // Log as warning: User may not have brought up their metrics service yet.
+        LOG(WARNING) << "Error when resolving host[" << send_host << "]. "
+                     << "Dropping data and trying again in "
+                     << resolve_period_ms / 1000. << " seconds. "
+                     << "err=" << ec << ", err2=" << ec2;
       }
       start_dest_resolve_timer();
       return;
@@ -183,15 +193,17 @@ void stats::PortWriter::dest_resolve_cb(boost::system::error_code ec) {
     if (ec) {
       // using host as-is also failed, give up and try again later
       if (socket.is_open()) {
+        // Log as error: User used to have a working host!
         LOG(ERROR) << "No results when resolving host[" << send_host << "]. "
                    << "Sending data to old endpoint[" << current_endpoint << "] "
                    << "and trying again in " << resolve_period_ms / 1000. << " seconds. "
                    << "err=" << ec;
       } else {
-        LOG(ERROR) << "No results when resolving host[" << send_host << "]. "
-                   << "Dropping data "
-                   << "and trying again in " << resolve_period_ms / 1000. << " seconds. "
-                   << "err=" << ec;
+        // Log as warning: User may not have brought up their metrics service yet.
+        LOG(WARNING) << "No results when resolving host[" << send_host << "]. "
+                     << "Dropping data and trying again in "
+                     << resolve_period_ms / 1000. << " seconds. "
+                     << "err=" << ec;
       }
       start_dest_resolve_timer();
       return;
@@ -294,8 +306,8 @@ void stats::PortWriter::send_raw_bytes(const char* bytes, size_t size) {
   }
 
   if (!socket.is_open()) {
-    LOG(WARNING) << "Dropped " << size << " bytes of data due to lack of open writer socket to "
-                 << send_host << ":" << send_port;
+    // Log dropped data for periodic cumulative reporting in the resolve callback
+    dropped_bytes += size;
     return;
   }
 
