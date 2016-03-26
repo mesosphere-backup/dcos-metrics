@@ -157,7 +157,7 @@ void stats::PortWriter::dest_resolve_cb(boost::system::error_code ec) {
   // Warn periodically when data is being dropped due to lack of outgoing connection
   if (dropped_bytes > 0) {
     LOG(WARNING) << "Recently dropped " << dropped_bytes
-                 << " due to lack of open writer socket to " << send_host;
+                 << " bytes due to lack of open writer socket to host[" << send_host << "]";
     dropped_bytes = 0;
   }
 
