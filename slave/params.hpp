@@ -15,6 +15,16 @@ namespace stats {
     }
     port_mode::Value to_port_mode(const std::string& param);
 
+    namespace annotation_mode {
+      enum Value { UNKNOWN, NONE, TAG_DATADOG, KEY_PREFIX };
+    }
+    annotation_mode::Value to_annotation_mode(const std::string& param);
+
+    namespace dest_mode {
+      enum Value { UNKNOWN, NONE, STATSD_UDP, POLL_TCP };
+    }
+    dest_mode::Value to_dest_mode(const std::string& param);
+
     /**
      * Input settings
      */
@@ -51,6 +61,13 @@ namespace stats {
      * Output settings
      */
 
+    // The type of host connection to use for DEST_HOST.
+    const std::string DEST_MODE = "dest_mode";
+    const std::string DEST_MODE_NONE = "none";
+    const std::string DEST_MODE_POLL_TCP = "poll_tcp";
+    const std::string DEST_MODE_STATSD_UDP = "statsd_udp";
+    const std::string DEST_MODE_DEFAULT = DEST_MODE_STATSD_UDP;
+
     // The host to send to. Should be the endpoint for tasks in the monitoring framework.
     const std::string DEST_HOST = "dest_host";
     const std::string DEST_HOST_DEFAULT = "statsd.monitoring.mesos";
@@ -64,9 +81,12 @@ namespace stats {
     const std::string DEST_PORT = "dest_port";
     const size_t DEST_PORT_DEFAULT = 8125;
 
-    // Whether to annotate output with datadog tags about originating containers.
-    const std::string ANNOTATIONS = "annotations";
-    const bool ANNOTATIONS_DEFAULT = true;
+    // How to annotate output with metadata about the originating containers.
+    const std::string ANNOTATION_MODE = "annotation_mode";
+    const std::string ANNOTATION_MODE_NONE = "none";
+    const std::string ANNOTATION_MODE_TAG_DATADOG = "tag_datadog";
+    const std::string ANNOTATION_MODE_KEY_PREFIX = "key_prefix";
+    const std::string ANNOTATION_MODE_DEFAULT = ANNOTATION_MODE_TAG_DATADOG;
 
     // Whether to group output stats into a smaller number of packets.
     const std::string CHUNKING = "chunking";

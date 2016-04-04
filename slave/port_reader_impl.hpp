@@ -17,7 +17,7 @@ namespace stats {
         const std::shared_ptr<boost::asio::io_service>& io_service,
         const std::shared_ptr<PortWriter>& port_writer,
         const UDPEndpoint& requested_endpoint,
-        bool annotations_enabled);
+        params::annotation_mode::Value annotation_mode);
     virtual ~PortReaderImpl();
 
     Try<UDPEndpoint> open();
@@ -41,7 +41,7 @@ namespace stats {
 
     const std::shared_ptr<PortWriter> port_writer;
     const UDPEndpoint requested_endpoint;
-    const bool annotations_enabled;
+    const params::annotation_mode::Value annotation_mode;
 
     std::shared_ptr<boost::asio::io_service> io_service;
     boost::asio::ip::udp::socket socket;

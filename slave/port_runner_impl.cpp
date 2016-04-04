@@ -16,10 +16,16 @@ std::shared_ptr<stats::PortRunner> stats::PortRunnerImpl::create(
 
 stats::PortRunnerImpl::PortRunnerImpl(const mesos::Parameters& parameters)
   : listen_host(params::get_str(parameters, params::LISTEN_HOST, params::LISTEN_HOST_DEFAULT)),
-    annotations_enabled(
-        params::get_bool(parameters, params::ANNOTATIONS, params::ANNOTATIONS_DEFAULT)),
+    annotation_mode(
+        params::to_annotation_mode(
+            params::get_str(parameters, params::ANNOTATION_MODE, params::ANNOTATION_MODE_DEFAULT))),
     io_service(new boost::asio::io_service),
+    //TODO multiple PortWriter implementations, each for a different dest_mode.
     writer(new PortWriter(io_service, parameters)) {
+  if (annotation_mode == params::annotation_mode::Value::UNKNOWN) {
+    LOG(FATAL) << "Unknown " << params::ANNOTATION_MODE << " config value: "
+               << params::get_str(parameters, params::ANNOTATION_MODE, params::ANNOTATION_MODE_DEFAULT);
+  }
   writer->start();
   io_service_thread.reset(new std::thread(std::bind(&PortRunnerImpl::run_io_service, this)));
 }
@@ -41,7 +47,7 @@ void stats::PortRunnerImpl::dispatch(std::function<void()> func) {
 std::shared_ptr<stats::PortReader> stats::PortRunnerImpl::create_port_reader(size_t port) {
   return std::shared_ptr<PortReader>(
       new PortReaderImpl<PortWriter>(
-          io_service, writer, UDPEndpoint(listen_host, port), annotations_enabled));
+          io_service, writer, UDPEndpoint(listen_host, port), annotation_mode));
 }
 
 void stats::PortRunnerImpl::run_io_service() {

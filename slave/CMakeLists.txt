@@ -1,5 +1,17 @@
 cmake_minimum_required(VERSION 2.8)
 
+set(CMAKE_BUILD_TYPE "Release")
+
+#cmake
+# -Dboost_system_LIBRARY=/path/to/matching/libboost_system.so
+# -DTARGET_DCOS_16
+# -Dmesos_VERSION=0.27.1 ..
+option(TARGET_DCOS_16 "Whether to build with compatibility for DCOS 1.6")
+if(TARGET_DCOS_16)
+  set(CMAKE_CXX_COMPILER "/usr/bin/g++-4.8")
+  set(CMAKE_CXX_FLAGS "-std=c++11")
+endif()
+
 project(stats-slave)
 
 # Search for mesos includes (contains mesos/mesos.hpp) and mesos protobufs (contains mesos/mesos.pb.h).
@@ -109,14 +121,22 @@ if(NOT boost_asio_INCLUDE_DIR)
   message(FATAL_ERROR "Boost ASIO library is required.\napt-get: Install 'libasio-dev'\nyum: Install '???'\n...or run cmake with eg 'cmake -Dboost_asio_INCLUDE_DIR=/opt/mesosphere/include ..' (contains boost/asio.hpp)")
 endif()
 
-find_path(glog_INCLUDE_DIR NAMES glog/logging.h HINTS ${mesos_INCLUDE_DIR})
-if(NOT glog_INCLUDE_DIR)
-  message(FATAL_ERROR "Google Log library is required.\napt-get: Install 'libgoogle-glog-dev'\nyum: Install '???'\n...or run cmake with eg 'cmake -Dglog_INCLUDE_DIR=/opt/mesosphere/include ..' (contains glog/logging.h)")
-endif()
-
-find_library(glog_LIBRARY NAMES glog HINTS ${default_LIB_DIR})
-if(NOT glog_LIBRARY)
-  message(STATUS "Google GLog *may* be needed to complete the build, depending on your Mesos build.\napt-get: Install 'libgoogle-glog-dev'\nyum: install '???'\n...or run cmake with eg 'cmake -Dglog_LIBRARY=/opt/mesosphere/lib/libglog.so ..'")
+option(USE_LOCAL_GLOG "Whether to use Mesos' copy of glog (true) or the system copy of glog (false)" TRUE)
+if(USE_LOCAL_GLOG)
+  find_path(glog_INCLUDE_DIR NAMES glog/logging.h HINTS ${mesos_INCLUDE_DIR})
+  if(NOT glog_INCLUDE_DIR)
+    message(FATAL_ERROR "Google Log library is required.\napt-get: Install 'libgoogle-glog-dev'\nyum: Install '???'\n...or run cmake with eg 'cmake -Dglog_INCLUDE_DIR=/opt/mesosphere/include ..' (contains glog/logging.h)")
+  endif()
+  # don't link glog explicitly -- libmesos includes it
+else()
+  find_path(glog_INCLUDE_DIR NAMES glog/logging.h)
+  if(NOT glog_INCLUDE_DIR)
+    message(FATAL_ERROR "Google Log library is required.\napt-get: Install 'libgoogle-glog-dev'\nyum: Install '???'\n...or run cmake with eg 'cmake -Dglog_INCLUDE_DIR=/opt/mesosphere/include ..' (contains glog/logging.h)")
+  endif()
+  find_library(glog_LIBRARY NAMES glog HINTS ${default_LIB_DIR})
+  if(NOT glog_LIBRARY)
+    message(STATUS "Google GLog *may* be needed to complete the build, depending on your Mesos build.\napt-get: Install 'libgoogle-glog-dev'\nyum: install '???'\n...or run cmake with eg 'cmake -Dglog_LIBRARY=/opt/mesosphere/lib/libglog.so ..'")
+  endif()
 endif()
 
 find_path(linux_prctl_HEADER NAMES sys/prctl.h)
@@ -127,12 +147,15 @@ endif()
 set(LIBS
   pthread
   ${boost_system_LIBRARY}
-  ${glog_LIBRARY}
   ${mesos_LIBRARY}
   )
+if(glog_LIRARY)
+  list(APPEND LIBS ${glog_LIBRARY})
+endif()
 if(protobuf_LIBRARY)
   list(APPEND LIBS ${protobuf_LIBRARY})
 endif()
+
 set(SRCS
   env_hook.cpp
   input_assigner.cpp
@@ -142,6 +165,8 @@ set(SRCS
   port_reader_impl.cpp
   port_runner_impl.cpp
   port_writer.cpp
+  tag_datadog.cpp
+  tag_key_prefix.cpp
   )
 configure_file(
   "${PROJECT_SOURCE_DIR}/modules.json.in"

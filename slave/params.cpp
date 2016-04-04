@@ -49,6 +49,28 @@ stats::params::port_mode::Value stats::params::to_port_mode(const std::string& p
   return port_mode::UNKNOWN;
 }
 
+stats::params::annotation_mode::Value stats::params::to_annotation_mode(const std::string& param) {
+  if (param == ANNOTATION_MODE_NONE) {
+    return annotation_mode::NONE;
+  } else if (param == ANNOTATION_MODE_TAG_DATADOG) {
+    return annotation_mode::TAG_DATADOG;
+  } else if (param == ANNOTATION_MODE_KEY_PREFIX) {
+    return annotation_mode::KEY_PREFIX;
+  }
+  return annotation_mode::UNKNOWN;
+}
+
+stats::params::dest_mode::Value stats::params::to_dest_mode(const std::string& param) {
+  if (param == DEST_MODE_NONE) {
+    return dest_mode::NONE;
+  } else if (param == DEST_MODE_STATSD_UDP) {
+    return dest_mode::STATSD_UDP;
+  } else if (param == DEST_MODE_POLL_TCP) {
+    return dest_mode::POLL_TCP;
+  }
+  return dest_mode::UNKNOWN;
+}
+
 std::string stats::params::get_str(
     const mesos::Parameters& parameters, const std::string& key, const std::string& default_value) {
   for (const mesos::Parameter& parameter : parameters.parameter()) {

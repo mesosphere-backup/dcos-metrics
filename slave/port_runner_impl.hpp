@@ -33,7 +33,8 @@ namespace stats {
     void run_io_service();
 
     const std::string listen_host;
-    const bool annotations_enabled;
+    const params::annotation_mode::Value annotation_mode;
+
     std::shared_ptr<boost::asio::io_service> io_service;
     std::shared_ptr<PortWriter> writer;
     std::unique_ptr<std::thread> io_service_thread;

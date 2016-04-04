@@ -261,8 +261,8 @@ TEST(PortRunnerImplTests, data_flow_multi_stream_unannotated) {
   param->set_value(std::to_string(output_port));
 
   param = params.add_parameter();
-  param->set_key(stats::params::ANNOTATIONS);
-  param->set_value("false");
+  param->set_key(stats::params::ANNOTATION_MODE);
+  param->set_value(stats::params::ANNOTATION_MODE_NONE);
 
   std::shared_ptr<stats::PortRunner> runner = stats::PortRunnerImpl::create(params);
 

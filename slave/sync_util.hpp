@@ -68,7 +68,7 @@ namespace stats {
     /**
      * No instantiation allowed.
      */
-    sync_util() { };
+    sync_util() { }
     sync_util(const sync_util&) { }
 
     /**

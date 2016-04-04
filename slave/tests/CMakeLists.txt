@@ -33,6 +33,8 @@ add_test(params_tests params_tests)
 
 add_executable(port_reader_impl_fuzz port_reader_impl_fuzz.cpp)
 target_link_libraries(port_reader_impl_fuzz gmock gtest stats-slave)
+# disabled by default
+#add_test(port_reader_impl_fuzz port_reader_impl_fuzz)
 
 add_executable(port_reader_impl_tests port_reader_impl_tests.cpp)
 target_link_libraries(port_reader_impl_tests gmock gtest stats-slave)
@@ -49,3 +51,11 @@ add_test(port_writer_tests port_writer_tests)
 add_executable(range_pool_tests range_pool_tests.cpp)
 target_link_libraries(range_pool_tests gtest stats-slave)
 add_test(range_pool_tests range_pool_tests)
+
+add_executable(tag_datadog_tests tag_datadog_tests.cpp)
+target_link_libraries(tag_datadog_tests gtest stats-slave)
+add_test(tag_datadog_tests tag_datadog_tests)
+
+add_executable(tag_key_prefix_tests tag_key_prefix_tests.cpp)
+target_link_libraries(tag_key_prefix_tests gtest stats-slave)
+add_test(tag_key_prefix_tests tag_key_prefix_tests)
