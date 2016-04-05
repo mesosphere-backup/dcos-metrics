@@ -142,7 +142,7 @@ set(LIBS
   ${boost_system_LIBRARY}
   ${mesos_LIBRARY}
   )
-if(glog_LIRARY)
+if(glog_LIBRARY)
   list(APPEND LIBS ${glog_LIBRARY})
 endif()
 if(protobuf_LIBRARY)
