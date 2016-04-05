@@ -65,7 +65,6 @@ A sample program that just emits various arbitrary stats (eg 'currentto the endp
 
 In Marathon:
 - ID: `test-sender` (the precise name isn't important)
-- Disk space: `10`MB
 - Command: `./test-sender`
 - Optional settings > URIs = `https://s3-us-west-2.amazonaws.com/nick-dev/metrics-msft/test-sender.tgz`
 - Extra credit: start (or reconfigure) the sender task with >1 instances to test sending stats from multiple sources.
