@@ -20,7 +20,15 @@ namespace stats {
 
     process::Future<Nothing> recover(
         const std::list<mesos::slave::ContainerState>& states,
-        const hashset<mesos::ContainerID>& /* orphans */) {
+        const hashset<mesos::ContainerID>& orphans) {
+      for (const mesos::slave::ContainerState& state : states) {
+        LOG(INFO) << "Container recover: "
+                  << "container_state[" << state.ShortDebugString() << "]";
+      }
+      for (const mesos::ContainerID& orphan : orphans) {
+        LOG(INFO) << "Container recover: "
+                  << "orphan[" << orphan.ShortDebugString() << "]";
+      }
       input_assigner->register_containers(states);
       return Nothing();
     }
@@ -28,6 +36,9 @@ namespace stats {
     process::Future<Option<mesos::slave::ContainerLaunchInfo>> prepare(
         const mesos::ContainerID& container_id,
         const mesos::slave::ContainerConfig& container_config) {
+      LOG(INFO) << "Container prepare: "
+                << "container_id[" << container_id.ShortDebugString() << "] "
+                << "container_config[" << container_config.ShortDebugString() << "]";
       input_assigner->register_container(container_id, container_config.executorinfo());
       return None();
     }

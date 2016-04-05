@@ -1,15 +1,17 @@
 cmake_minimum_required(VERSION 2.8)
 
-set(CMAKE_BUILD_TYPE "Release")
-
-#cmake
-# -Dboost_system_LIBRARY=/path/to/matching/libboost_system.so
-# -DTARGET_DCOS_16
-# -Dmesos_VERSION=0.27.1 ..
 option(TARGET_DCOS_16 "Whether to build with compatibility for DCOS 1.6")
+option(TESTS_ENABLED "Whether to build unit tests." TRUE)
+option(USE_LOCAL_PICOJSON "Whether to use Mesos' or a locally downloaded internal build of picojson (true) or system picojson (false)" TRUE)
+option(USE_LOCAL_PROTOBUF "Whether to use Mesos' or a locally downloaded internal build of protobuf (true) or system protobuf (false)" TRUE)
+option(USE_LOCAL_GLOG "Whether to use Mesos' copy of glog (true) or the system copy of glog (false)" TRUE)
+
+#cmake -DCMAKE_BUILD_TYPE=Release -Dboost_system_LIBRARY=/home/nick/code/dcos-vagrant/metrics-libs-16/opt/mesosphere/lib/libboost_system.so -DTARGET_DCOS_16=true ..
 if(TARGET_DCOS_16)
   set(CMAKE_CXX_COMPILER "/usr/bin/g++-4.8")
   set(CMAKE_CXX_FLAGS "-std=c++11")
+  set(mesos_VERSION "0.27.1")
+  set(TESTS_ENABLED false)
 endif()
 
 project(stats-slave)
@@ -90,7 +92,6 @@ find_path(process_INCLUDE_DIR NAMES process/process.hpp HINTS ${mesos_INCLUDE_DI
 find_path(stout_INCLUDE_DIR NAMES stout/stringify.hpp HINTS ${process_INCLUDE_DIR}/../3rdparty/stout/include ${mesos_INCLUDE_DIR})
 
 # We don't use this, but it's dragged in via stout's includes, so we're forced to find it so that stout doesn't break the build:
-option(USE_LOCAL_PICOJSON "Whether to use Mesos' or a locally downloaded internal build of picojson (true) or system picojson (false)" TRUE)
 if(USE_LOCAL_PICOJSON AND NOT picojson_INCLUDE_DIR)
   include(InstallMesosPicojsonIncludes.cmake)
   message(STATUS "Using Mesos or locally-downloaded picojson: incl:${picojson_INCLUDE_DIR}")
@@ -101,7 +102,6 @@ endif()
 
 # Mesos may have linked against the system protobuf, or against its own copy.
 # Make sure our includes match Mesos or else linking will fail later.
-option(USE_LOCAL_PROTOBUF "Whether to use Mesos' or a locally downloaded internal build of protobuf (true) or system protobuf (false)" TRUE)
 if(USE_LOCAL_PROTOBUF AND NOT protobuf_INCLUDE_DIR)
   include(InstallMesosProtobufIncludes.cmake)
   message(STATUS "Using Mesos or locally-downloaded protobuf: incl:${protobuf_INCLUDE_DIR} lib:<static within libmesos>")
@@ -121,7 +121,6 @@ if(NOT boost_asio_INCLUDE_DIR)
   message(FATAL_ERROR "Boost ASIO library is required.\napt-get: Install 'libasio-dev'\nyum: Install '???'\n...or run cmake with eg 'cmake -Dboost_asio_INCLUDE_DIR=/opt/mesosphere/include ..' (contains boost/asio.hpp)")
 endif()
 
-option(USE_LOCAL_GLOG "Whether to use Mesos' copy of glog (true) or the system copy of glog (false)" TRUE)
 if(USE_LOCAL_GLOG)
   find_path(glog_INCLUDE_DIR NAMES glog/logging.h HINTS ${mesos_INCLUDE_DIR})
   if(NOT glog_INCLUDE_DIR)
@@ -199,7 +198,6 @@ if(USE_LOCAL_PICOJSON)
   add_dependencies(stats-slave ext_picojson)
 endif()
 
-option(TESTS_ENABLED "Whether to build unit tests." true)
 if(TESTS_ENABLED)
   message(STATUS "Unit tests enabled.")
   enable_testing()

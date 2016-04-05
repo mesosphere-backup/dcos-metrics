@@ -33,6 +33,11 @@ void stats::InputAssigner::register_containers(
     const std::list<mesos::slave::ContainerState>& containers) {
   std::unique_lock<std::mutex> lock(mutex);
   LOG(INFO) << "Recovering/re-registering " << containers.size() << " containers...";
+  //TODO in the common case of ephemeral port readers, this doesn't recover the previous port!
+  //  for now, if a slave is restarted, any containers within that slave will stop transmitting data
+  //  we want to re-open the port that this container was originally configured with.
+  //  in theory, we are passed an envvar list via executor_info, but it doesn't have STATSD_UDP_*
+  //  alternate option: store state somewhere on disk, then attempt to recover from that?
   for (const mesos::slave::ContainerState& container : containers) {
     LOG(INFO) << "  Registering "
               << "container_id[" << container.container_id().ShortDebugString() << "] "
