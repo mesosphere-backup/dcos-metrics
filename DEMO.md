@@ -17,17 +17,11 @@ It's recommended that you try these steps end-to-end on a single mesos-slave bef
     - Add a new line defining `MESOS_HOOKS=com_mesosphere_StatsEnvHook`
   - `mesos-slave-modules.json`
     - Add a configuration block for `/opt/mesosphere/lib/libstats-slave.so`
-5. After backing up the original configs and verifying the changes, copy the provided `mesos-slave-common` and `mesos-slave-modules.json` into `/opt/mesosphere/etc/`.
-6. Edit mesos-slave-modules.json as needed, see below.
-7. Last chance to back out! Revert `mesos-slave-common` and `mesos-slave-modules.json` to their original state if you want to abort now. The library files added to `/opt/mesosphere/lib/` are effectively unused once the config changes are rolled back.
+5. After backing up the original configs and verifying the changes, copy the provided `mesos-slave-common` and `mesos-slave-modules.json` into `/opt/mesosphere/etc/`, overwriting the originals.
+6. Edit `mesos-slave-modules.json` as needed, see below.
+7. Last chance to back out! Revert `mesos-slave-common` and `mesos-slave-modules.json` to their original state if you want to abort now. The library files added to `/opt/mesosphere/lib/` are effectively unused until the configs in `/opt/mesosphere/etc/` are referencing them.
 8. Restart the `mesos-slave` process, see below.
-9. Verify that the module is working by checking mesos-slave logs, see below.
-
-## Uninstalling the module
-
-1. Undo the additions made to `/opt/mesosphere/etc/mesos-slave-common` and `/opt/mesosphere/etc/mesos-slave-modules.json` by restoring the original files (you kept backups, right?).
-2. The library files added to `/opt/mesosphere/lib/` can also be removed, but this isn't required, as long as the config file changes have been rolled back.
-3. Restart `mesos-slave` using the steps described below.
+9. Verify that the module is working by checking `mesos-slave` logs, see below.
 
 ## Configuring/customizing the module
 
@@ -78,11 +72,54 @@ In Marathon:
 
 ## Launching a test receiver
 
-This is just a shell script that runs 'nc -ul 8125'. A minute or two after the job comes up, 'metrics.marathon.mesos' will be resolved by the mesos-slaves, at which point stats will start being printed to stdout.
+This is just a shell script that runs `nc -ul 8125`. A minute or two after the job comes up, 'metrics.marathon.mesos' will be resolved by the mesos-slaves, at which point stats will start being printed to stdout.
 
 In Marathon:
-- ID: `metrics` (this name matters, it maps to 'metrics.marathon.mesos' configured in the modules.json config on the slaves)
-- Disk space: `10`MB
+- ID: `metrics` (this name matters, it maps to `metrics.marathon.mesos` configured in `modules.json` on the slaves)
 - Command: `./test-receiver`
 - Optional settings > URIs = `https://s3-us-west-2.amazonaws.com/nick-dev/metrics-msft/test-receiver.tgz`
 - Extra credit: start (or reconfigure) the 'metrics' receiver task with >1 instances. This will result in multiple DNS A records for 'metrics.marathon.mesos', and the mesos-slaves will automatically balance their load across them.
+
+## Launching a sample graphite receiver
+
+Runs a sample copy of Graphite in a Docker container. **Using this receiver requires `annotation_mode` = `key_prefix`. `tag_datadog` is NOT supported.**
+
+Defining the container config with all its ports via the web UI is very clunky, so lets just call the REST API.
+
+Save the following config as `statsd-docker-marathon.json`, then push it to the Marathon API using `curl -X POST --header 'Content-Type: application/json' -d @statsd-docker-marathon.json http://$DCOS_URI/marathon/v2/apps`.
+
+```json
+{
+  "id": "/metrics",
+  "cmd": null,
+  "cpus": 1,
+  "mem": 512,
+  "disk": 0,
+  "instances": 1,
+  "acceptedResourceRoles": [ "slave_public" ],
+  "container": {
+    "type": "DOCKER",
+    "docker": {
+      "image": "hopsoft/graphite-statsd",
+      "network": "BRIDGE",
+      "portMappings": [
+        { "hostPort": 80,   "protocol": "tcp" },
+        { "hostPort": 2003, "protocol": "tcp" },
+        { "hostPort": 2004, "protocol": "tcp" },
+        { "hostPort": 2023, "protocol": "tcp" },
+        { "hostPort": 2024, "protocol": "tcp" },
+        { "hostPort": 8125, "protocol": "udp" },
+        { "hostPort": 8126, "protocol": "tcp" }
+      ]
+    }
+  }
+}
+```
+
+The image should deploy to a public slave instance (due to the `slave_public` resource role). Visit its port 80 to view Graphite, or `telnet` into port 8126 for the `statsd` daemon console (tip: type `help`). Once the image has been up for a few minutes, it should start getting stats from `mesos-slaves` as `metrics.marathon.mesos` starts to resolve to it.
+
+## Uninstalling the module
+
+1. Undo the additions made to `/opt/mesosphere/etc/mesos-slave-common` and `/opt/mesosphere/etc/mesos-slave-modules.json` by restoring the original files (you kept backups, right?).
+2. The library files added to `/opt/mesosphere/lib/` can also be removed, but this isn't required, as long as the config file changes have been rolled back.
+3. Restart `mesos-slave` using the steps described below.
