@@ -68,7 +68,7 @@ Try<stats::UDPEndpoint> stats::InputAssigner::get_statsd_endpoint(
     sync_util::dispatch_get<PortRunner, Try<stats::UDPEndpoint>>(
         "get_statsd_endpoint", *port_runner, get_statsd_endpoint_func);
   if (!out) {
-    return Try<stats::UDPEndpoint>::error("Timed out waiting for endpoint retrieval");
+    return Try<stats::UDPEndpoint>(Error("Timed out waiting for endpoint retrieval"));
   }
   return *out;
 }
@@ -147,7 +147,7 @@ Try<stats::UDPEndpoint> stats::SinglePortAssigner::_get_statsd_endpoint(
     oss << "Unable to retrieve single-port endpoint for "
         << "executor[" << executor_info.ShortDebugString() << "]";
     LOG(ERROR) << oss.str();
-    return Try<UDPEndpoint>::error(oss.str());
+    return Try<UDPEndpoint>(Error(oss.str()));
   }
 
   Try<UDPEndpoint> ret = single_port_reader->endpoint();
@@ -234,7 +234,7 @@ Try<stats::UDPEndpoint> stats::EphemeralPortAssigner::_get_statsd_endpoint(
     oss << "Unable to retrieve ephemeral-port container for "
         << "executor[" << executor_info.ShortDebugString() << "]";
     LOG(ERROR) << oss.str();
-    return Try<UDPEndpoint>::error(oss.str());
+    return Try<UDPEndpoint>(Error(oss.str()));
   }
   // We only needed the executor_id->container_id for this one lookup, so remove it now.
   mesos::ContainerID container_id = container_iter->second;
@@ -247,7 +247,7 @@ Try<stats::UDPEndpoint> stats::EphemeralPortAssigner::_get_statsd_endpoint(
         << "container[" << container_id.ShortDebugString() << "] "
         << "executor[" << executor_info.ShortDebugString() << "]";
     LOG(ERROR) << oss.str();
-    return Try<UDPEndpoint>::error(oss.str());
+    return Try<UDPEndpoint>(Error(oss.str()));
   }
 
   Try<UDPEndpoint> ret = reader_iter->second->endpoint();
@@ -363,7 +363,7 @@ Try<stats::UDPEndpoint> stats::PortRangeAssigner::_get_statsd_endpoint(
     oss << "Unable to retrieve port-range container for "
         << "executor[" << executor_info.ShortDebugString() << "]";
     LOG(ERROR) << oss.str();
-    return Try<UDPEndpoint>::error(oss.str());
+    return Try<UDPEndpoint>(Error(oss.str()));
   }
   // We only needed the executor_id->container_id for this lookup, so remove it now.
   mesos::ContainerID container_id = container_iter->second;
@@ -376,7 +376,7 @@ Try<stats::UDPEndpoint> stats::PortRangeAssigner::_get_statsd_endpoint(
         << "container[" << container_id.ShortDebugString() << "] "
         << "executor[" << executor_info.ShortDebugString() << "]";
     LOG(ERROR) << oss.str();
-    return Try<UDPEndpoint>::error(oss.str());
+    return Try<UDPEndpoint>(Error(oss.str()));
   }
 
   Try<UDPEndpoint> ret = reader_iter->second->endpoint();

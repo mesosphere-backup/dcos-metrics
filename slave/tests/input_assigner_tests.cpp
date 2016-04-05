@@ -116,7 +116,7 @@ TEST_F(InputAssignerTests, single_port) {
 
   // Registration of ci1/ei1 fails
   EXPECT_CALL(*mock_runner, create_port_reader(create_port)).WillOnce(Return(mock_reader1));
-  EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(Try<stats::UDPEndpoint>::error("test fail")));
+  EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(Try<stats::UDPEndpoint>(Error("test fail"))));
   spa.register_container(ci1, ei1);
 
   // Still not initialized in Following lookup
@@ -137,7 +137,7 @@ TEST_F(InputAssignerTests, single_port) {
 
   // Similar sequence for ci2/ei2, except this time things are initialized
   EXPECT_CALL(*mock_reader1, endpoint())
-    .WillOnce(Return(Try<stats::UDPEndpoint>::error("test fail")));
+      .WillOnce(Return(Try<stats::UDPEndpoint>(Error("test fail"))));
   EXPECT_TRUE(spa.get_statsd_endpoint(ei2).isError());
 
   // Registration reuses endpoint from preexisting reader
@@ -217,7 +217,7 @@ TEST_F(InputAssignerTests, ephemeral_port) {
 
   // Registration of ci1/ei1 fails
   EXPECT_CALL(*mock_runner, create_port_reader(0)).WillOnce(Return(mock_reader1));
-  EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(Try<stats::UDPEndpoint>::error("test fail")));
+  EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(Try<stats::UDPEndpoint>(Error("test fail"))));
   epa.register_container(ci1, ei1);
 
   // Still not initialized in Following lookup
@@ -263,7 +263,7 @@ TEST_F(InputAssignerTests, ephemeral_port) {
 
   // Unregister ci1/ei1 with broken endpoint. Still works.
   EXPECT_CALL(*mock_reader1, endpoint())
-    .WillOnce(Return(Try<stats::UDPEndpoint>::error("ignored")));
+    .WillOnce(Return(Try<stats::UDPEndpoint>(Error("ignored"))));
   epa.unregister_container(ci1);
   // Unregister same thing again, no reader access this time
   epa.unregister_container(ci1);
@@ -365,7 +365,7 @@ TEST_F(InputAssignerTests, port_range) {
 
   // Registration of ci1/ei1 fails
   EXPECT_CALL(*mock_runner, create_port_reader(port1)).WillOnce(Return(mock_reader1));
-  EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(Try<stats::UDPEndpoint>::error("test fail")));
+  EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(Try<stats::UDPEndpoint>(Error("test fail"))));
   pra.register_container(ci1, ei1);
 
   // Still not initialized in Following lookup
@@ -411,7 +411,7 @@ TEST_F(InputAssignerTests, port_range) {
 
   // Unregister ci1/ei1 with broken endpoint, which cannot be returned to the pool
   EXPECT_CALL(*mock_reader1, endpoint())
-    .WillOnce(Return(Try<stats::UDPEndpoint>::error("ignored")));
+    .WillOnce(Return(Try<stats::UDPEndpoint>(Error("ignored"))));
   pra.unregister_container(ci1);
   // Unregister same thing again, no reader access this time
   pra.unregister_container(ci1);

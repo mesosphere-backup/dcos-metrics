@@ -32,7 +32,7 @@ namespace stats {
       // No ports left!
       std::ostringstream oss;
       oss << "Port range " << start << "-" << range_end() << " has been depleted.";
-      return Try<size_t>::error(oss.str());
+      return Try<size_t>(Error(oss.str()));
     }
 
     /**

@@ -21,7 +21,7 @@ TEST(EnvHookTests, endpoint_returns_error) {
   var->set_value("untouched var");
 
   EXPECT_CALL(*mock_assigner, get_statsd_endpoint(ExecInfoMatch(executor_info)))
-    .WillOnce(Return(Try<stats::UDPEndpoint>::error("test err")));
+    .WillOnce(Return(Try<stats::UDPEndpoint>(Error("test err"))));
   Result<mesos::Environment> env = env_hook.slaveExecutorEnvironmentDecorator(executor_info);
 
   EXPECT_TRUE(env.isNone());

@@ -80,13 +80,13 @@ Try<stats::UDPEndpoint> stats::PortReaderImpl<PortWriter>::open() {
   if (ec) {
     std::ostringstream oss;
     oss << "Failed to open reader socket at endpoint[" << bind_endpoint << "]: " << ec;
-    return Try<stats::UDPEndpoint>::error(oss.str());
+    return Try<stats::UDPEndpoint>(Error(oss.str()));
   }
   socket.bind(bind_endpoint, ec);
   if (ec) {
     std::ostringstream oss;
     oss << "Failed to bind reader socket at endpoint[" << bind_endpoint << "]: " << ec;
-    return Try<stats::UDPEndpoint>::error(oss.str());
+    return Try<stats::UDPEndpoint>(Error(oss.str()));
   }
 
   udp_endpoint_t bound_endpoint = socket.local_endpoint(ec);
@@ -94,7 +94,7 @@ Try<stats::UDPEndpoint> stats::PortReaderImpl<PortWriter>::open() {
     std::ostringstream oss;
     oss << "Failed to retrieve reader socket's resulting endpoint for bind at "
         << "endpoint[" << bind_endpoint << "]: " << ec;
-    return Try<stats::UDPEndpoint>::error(oss.str());
+    return Try<stats::UDPEndpoint>(Error(oss.str()));
   }
 
   std::string bound_endpoint_address_str = bound_endpoint.address().to_string(ec);
@@ -102,7 +102,7 @@ Try<stats::UDPEndpoint> stats::PortReaderImpl<PortWriter>::open() {
     std::ostringstream oss;
     oss << "Failed to stringify reader socket's "
         << "address[" << bound_endpoint.address() << "]: " << ec;
-    return Try<stats::UDPEndpoint>::error(oss.str());
+    return Try<stats::UDPEndpoint>(Error(oss.str()));
   }
 
   // Set endpoint (indicates open socket) and start listening AFTER all error conditions are clear
@@ -118,7 +118,7 @@ Try<stats::UDPEndpoint> stats::PortReaderImpl<PortWriter>::endpoint() const {
   if (actual_endpoint) {
     return *actual_endpoint;
   } else {
-    return Try<stats::UDPEndpoint>::error("Not listening on UDP");
+    return Try<stats::UDPEndpoint>(Error("Not listening on UDP"));
   }
 }
 
