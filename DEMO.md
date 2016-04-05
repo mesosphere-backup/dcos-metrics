@@ -115,7 +115,10 @@ Save the following config as `statsd-docker-marathon.json`, then push it to the 
 }
 ```
 
-The image should deploy to a public slave instance (due to the `slave_public` resource role). Visit its port 80 to view Graphite, or `telnet` into port 8126 for the `statsd` daemon console (tip: type `help`). Once the image has been up for a few minutes, it should start getting stats from `mesos-slaves` as `metrics.marathon.mesos` starts to resolve to it.
+The image should deploy to a public slave instance (due to the `slave_public` resource role). Once it's up and running, you need to find the ip of the node it's running on, then connect to one of the following:
+- Visit http://the-node-ip (port 80) to view Graphite
+- `telnet` into port 8126 to view the statsd daemon's console (tip: type `help`)
+Once the image has been up for a few minutes, it should start getting stats from `mesos-slaves` as `metrics.marathon.mesos` starts to resolve to it. In Graphite's left panel, navigate into `Metrics > stats > gauges > [fmwk_id] > [executor_id] > [container_id] > ...`.
 
 ## Uninstalling the module
 
