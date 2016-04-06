@@ -9,7 +9,7 @@ The metrics module must be installed on **EACH** mesos-slave system that you wan
 It's recommended that you try these steps end-to-end on a single mesos-slave before continuing to other mesos-slaves, to ensure that you have the configuration you want BEFORE deploying it across the cluster.
 
 1. Download and unpack `https://s3-us-west-2.amazonaws.com/nick-dev/metrics-msft/dcos-statsd-16.tgz` (only compatible with DCOS 1.6).
-2. Copy `libboost_system.so`, `libbost_system.so.1.53.0`, and `libstats-slave.so` into `/opt/mesosphere/lib/`
+2. Copy `libboost_system.so`, `libboost_system.so.1.53.0`, and `libstats-slave.so` into `/opt/mesosphere/lib/`
 3. Back up the current versions of `/opt/mesosphere/etc/mesos-slave-common` and `/opt/mesosphere/etc/mesos-slave-modules.json`.
 4. Compare the provided `mesos-slave-common` and `mesos-slave-modules.json` with the originals. The **only** changes should be as follows:
   - `mesos-slave-common`
