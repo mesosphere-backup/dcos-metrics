@@ -158,6 +158,7 @@ set(SRCS
   port_reader_impl.cpp
   port_runner_impl.cpp
   port_writer.cpp
+  sync_util.cpp
   tag_datadog.cpp
   tag_key_prefix.cpp
   )

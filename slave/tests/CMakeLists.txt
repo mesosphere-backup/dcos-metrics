@@ -52,6 +52,10 @@ add_executable(range_pool_tests range_pool_tests.cpp)
 target_link_libraries(range_pool_tests gtest stats-slave)
 add_test(range_pool_tests range_pool_tests)
 
+add_executable(sync_util_tests sync_util_tests.cpp)
+target_link_libraries(sync_util_tests gtest stats-slave)
+add_test(sync_util_tests sync_util_tests)
+
 add_executable(tag_datadog_tests tag_datadog_tests.cpp)
 target_link_libraries(tag_datadog_tests gtest stats-slave)
 add_test(tag_datadog_tests tag_datadog_tests)
