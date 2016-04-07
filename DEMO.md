@@ -69,6 +69,28 @@ In Marathon:
 - Optional settings > URIs = `https://s3-us-west-2.amazonaws.com/nick-dev/metrics-msft/test-sender.tgz`
 - Extra credit: start (or reconfigure) the sender task with >1 instances to test sending stats from multiple sources.
 
+## Launching a Kafka or Cassandra sender
+
+After the module has been installed on all the slaves, the Kafka brokers and Cassandra nodes will need to be restarted in order to start using it. They will see the advertised metrics capability on startup and will automatically enable metrics export locally. In future DCOS versions, the module will be installed by default, so this restart won't be necessary.
+
+### Kafka
+
+As Kafka brokers start, they will automatically be configured for metrics export, and will show the following in `stdout`:
+
+```
+[2016-04-07 18:15:18,709] INFO Reporter is enabled and starting... (com.airbnb.metrics.StatsDReporter)
+[2016-04-07 18:15:18,782] INFO Started Reporter with host=127.0.0.1, port=35542, polling_period_secs=10, prefix= (com.airbnb.metrics.StatsDReporter)
+```
+
+### Cassandra
+
+As Cassandra nodes start, they will automatically be configured for metrics export, and will show the following in `cassandra-stdout.log`:
+
+```
+INFO  18:16:42 Trying to load metrics-reporter-config from file: metrics-reporter-config.yaml
+INFO  18:16:42 Enabling StatsDReporter to 127.0.0.1:50030
+```
+
 ## Launching a test receiver
 
 This is just a shell script that runs `nc -ul 8125`. A minute or two after the job comes up, 'metrics.marathon.mesos' will be resolved by the mesos-slaves, at which point stats will start being printed to stdout.
