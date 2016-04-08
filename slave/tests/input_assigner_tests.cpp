@@ -41,8 +41,7 @@ namespace {
     oss << "e" << id;
     mesos::ExecutorInfo einfo = exec_info(fid, oss.str());
 
-    assigner.register_container(cid, einfo);
-    EXPECT_FALSE(assigner.get_statsd_endpoint(einfo).isError()) << "thread " << id;
+    EXPECT_FALSE(assigner.register_container(cid, einfo).isError()) << "thread " << id;
     assigner.unregister_container(cid);
     std::cout << "thread " << id << " end" << std::endl;
   }
@@ -110,49 +109,24 @@ TEST_F(InputAssignerTests, single_port) {
 
   EXPECT_CALL(*mock_runner, dispatch(_)).WillRepeatedly(Invoke(execute));
 
-  // Returns without further lookup due to lack of initialized reader
-  EXPECT_TRUE(spa.get_statsd_endpoint(ei1).isError());
-  EXPECT_TRUE(spa.get_statsd_endpoint(ei2).isError());
-
   // Registration of ci1/ei1 fails
   EXPECT_CALL(*mock_runner, create_port_reader(create_port)).WillOnce(Return(mock_reader1));
   EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(Try<stats::UDPEndpoint>(Error("test fail"))));
-  spa.register_container(ci1, ei1);
+  EXPECT_TRUE(spa.register_container(ci1, ei1).isError());
 
-  // Still not initialized in Following lookup
-  EXPECT_TRUE(spa.get_statsd_endpoint(ei1).isError());
-
-  // Registration of ci1/ei1 succeeds
+  // Registration of ci1/ei1 creates reader and succeeds
   EXPECT_CALL(*mock_runner, create_port_reader(create_port)).WillOnce(Return(mock_reader1));
-  EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(try_endpoint(host1, port1)));
+  EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(try_endpoint("ignored", 0)));
   EXPECT_CALL(*mock_reader1, register_container(ContainerIdMatch(ci1), ExecInfoMatch(ei1)))
-    .WillOnce(Return(try_endpoint("ignored", 0)));
-  spa.register_container(ci1, ei1);
-
-  // Following lookup finds it
-  EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port1)));
-  Try<stats::UDPEndpoint> endpt = spa.get_statsd_endpoint(ei1);
+    .WillOnce(Return(try_endpoint(host1, port1)));
+  Try<stats::UDPEndpoint> endpt = spa.register_container(ci1, ei1);
   EXPECT_EQ(host1, endpt.get().host);
   EXPECT_EQ(port1, endpt.get().port);
 
-  // Similar sequence for ci2/ei2, except this time things are initialized
-  EXPECT_CALL(*mock_reader1, endpoint())
-      .WillOnce(Return(Try<stats::UDPEndpoint>(Error("test fail"))));
-  EXPECT_TRUE(spa.get_statsd_endpoint(ei2).isError());
-
-  // Registration reuses endpoint from preexisting reader
-  EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port2)));
+  // Registration of ci2/ei2 reuses reader and succeeds
   EXPECT_CALL(*mock_reader1, register_container(ContainerIdMatch(ci2), ExecInfoMatch(ei2)))
-    .WillOnce(Return(try_endpoint("ignored", 0)));
-  spa.register_container(ci2, ei2);
-
-  // Endpoint lookup just passes through whatever the reader returns
-  EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port1)));
-  endpt = spa.get_statsd_endpoint(ei1);
-  EXPECT_EQ(host1, endpt.get().host);
-  EXPECT_EQ(port1, endpt.get().port);
-  EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port2)));
-  endpt = spa.get_statsd_endpoint(ei2);
+    .WillOnce(Return(try_endpoint(host1, port2)));
+  endpt = spa.register_container(ci2, ei2);
   EXPECT_EQ(host1, endpt.get().host);
   EXPECT_EQ(port2, endpt.get().port);
 
@@ -160,16 +134,6 @@ TEST_F(InputAssignerTests, single_port) {
   EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port2)));
   EXPECT_CALL(*mock_reader1, unregister_container(ContainerIdMatch(ci2)));
   spa.unregister_container(ci2);
-
-  // Lookup still just passes through the reader endpoint despite 'deregistration'
-  EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port1)));
-  endpt = spa.get_statsd_endpoint(ei1);
-  EXPECT_EQ(host1, endpt.get().host);
-  EXPECT_EQ(port1, endpt.get().port);
-  EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port2)));
-  endpt = spa.get_statsd_endpoint(ei2);
-  EXPECT_EQ(host1, endpt.get().host);
-  EXPECT_EQ(port2, endpt.get().port);
 }
 
 TEST_F(InputAssignerTests, single_port_multithread) {
@@ -211,50 +175,29 @@ TEST_F(InputAssignerTests, ephemeral_port) {
 
   EXPECT_CALL(*mock_runner, dispatch(_)).WillRepeatedly(Invoke(execute));
 
-  // Returns without further lookup due to lack of mapping
-  EXPECT_TRUE(epa.get_statsd_endpoint(ei1).isError());
-  EXPECT_TRUE(epa.get_statsd_endpoint(ei2).isError());
-
   // Registration of ci1/ei1 fails
   EXPECT_CALL(*mock_runner, create_port_reader(0)).WillOnce(Return(mock_reader1));
   EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(Try<stats::UDPEndpoint>(Error("test fail"))));
-  epa.register_container(ci1, ei1);
+  EXPECT_TRUE(epa.register_container(ci1, ei1).isError());
 
-  // Still not initialized in Following lookup
-  EXPECT_TRUE(epa.get_statsd_endpoint(ei1).isError());
-
-  // Registration of ci1/ei1 succeeds
+  // Registration of ci1/ei1 creates reader and succeeds
   EXPECT_CALL(*mock_runner, create_port_reader(0)).WillOnce(Return(mock_reader1));
-  EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(try_endpoint("ignored1", 54321)));
+  EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(try_endpoint(host1, port1)));
   EXPECT_CALL(*mock_reader1, register_container(ContainerIdMatch(ci1), ExecInfoMatch(ei1)))
-    .WillOnce(Return(try_endpoint(host1, port1)));
-  epa.register_container(ci1, ei1);
-
-  // A lookup finds ei1, then wipes the ei1 lookup info after that
-  EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port1)));
-  Try<stats::UDPEndpoint> endpt = epa.get_statsd_endpoint(ei1);
+    .WillOnce(Return(try_endpoint("ignored1", 54321)));
+  Try<stats::UDPEndpoint> endpt = epa.register_container(ci1, ei1);
   EXPECT_EQ(host1, endpt.get().host);
   EXPECT_EQ(port1, endpt.get().port);
-  EXPECT_TRUE(epa.get_statsd_endpoint(ei1).isError());
 
-  // Similar sequence for ci2/ei2
-  EXPECT_TRUE(epa.get_statsd_endpoint(ei2).isError());
-
-  // Registration creates a new separate reader
+  // Registration of ci2/ei2 creates a new separate reader
   EXPECT_CALL(*mock_runner, create_port_reader(0)).WillOnce(Return(mock_reader2));
-  EXPECT_CALL(*mock_reader2, open()).WillOnce(Return(try_endpoint("ignored2", 54321)));
+  EXPECT_CALL(*mock_reader2, open()).WillOnce(Return(try_endpoint(host2, port2)));
   EXPECT_CALL(*mock_reader2, register_container(ContainerIdMatch(ci2), ExecInfoMatch(ei2)))
-    .WillOnce(Return(try_endpoint(host2, port2)));
-  epa.register_container(ci2, ei2);
-
-  // A lookup finds it, then wipes the ei2 lookup info after that
-  EXPECT_CALL(*mock_reader2, endpoint()).WillOnce(Return(try_endpoint(host2, port2)));
-  endpt = epa.get_statsd_endpoint(ei2);
+    .WillOnce(Return(try_endpoint("ignored2", 54321)));
+  endpt = epa.register_container(ci2, ei2);
   EXPECT_EQ(host2, endpt.get().host);
   EXPECT_EQ(port2, endpt.get().port);
-  EXPECT_TRUE(epa.get_statsd_endpoint(ei2).isError());
 
-  LOG(INFO) << "i";
   // Unregister ci2/ei2
   EXPECT_CALL(*mock_reader2, endpoint()).WillOnce(Return(try_endpoint(host2, port2)));
   epa.unregister_container(ci2);
@@ -359,50 +302,29 @@ TEST_F(InputAssignerTests, port_range) {
 
   EXPECT_CALL(*mock_runner, dispatch(_)).WillRepeatedly(Invoke(execute));
 
-  // Returns without further lookup due to lack of mapping
-  EXPECT_TRUE(pra.get_statsd_endpoint(ei1).isError());
-  EXPECT_TRUE(pra.get_statsd_endpoint(ei2).isError());
-
   // Registration of ci1/ei1 fails
   EXPECT_CALL(*mock_runner, create_port_reader(port1)).WillOnce(Return(mock_reader1));
   EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(Try<stats::UDPEndpoint>(Error("test fail"))));
-  pra.register_container(ci1, ei1);
-
-  // Still not initialized in Following lookup
-  EXPECT_TRUE(pra.get_statsd_endpoint(ei1).isError());
+  EXPECT_TRUE(pra.register_container(ci1, ei1).isError());
 
   // Registration of ci1/ei1 succeeds (against same port; it was put back after the fail)
   EXPECT_CALL(*mock_runner, create_port_reader(port1)).WillOnce(Return(mock_reader1));
-  EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(try_endpoint("ignored1", 54321)));
+  EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(try_endpoint(host1, port1)));
   EXPECT_CALL(*mock_reader1, register_container(ContainerIdMatch(ci1), ExecInfoMatch(ei1)))
-    .WillOnce(Return(try_endpoint(host1, port1)));
-  pra.register_container(ci1, ei1);
-
-  // A lookup finds ei1, then wipes the ei1 lookup info after that
-  EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port1)));
-  Try<stats::UDPEndpoint> endpt = pra.get_statsd_endpoint(ei1);
+    .WillOnce(Return(try_endpoint("ignored1", 54321)));
+  Try<stats::UDPEndpoint> endpt = pra.register_container(ci1, ei1);
   EXPECT_EQ(host1, endpt.get().host);
   EXPECT_EQ(port1, endpt.get().port);
-  EXPECT_TRUE(pra.get_statsd_endpoint(ei1).isError());
 
-  // Similar sequence for ci2/ei2
-  EXPECT_TRUE(pra.get_statsd_endpoint(ei2).isError());
-
-  // Registration creates a new separate reader against the next port in the pool
+  // Registration of ci2/ei2 creates a new separate reader against the next port in the pool
   EXPECT_CALL(*mock_runner, create_port_reader(port2)).WillOnce(Return(mock_reader2));
-  EXPECT_CALL(*mock_reader2, open()).WillOnce(Return(try_endpoint("ignored2", 54321)));
+  EXPECT_CALL(*mock_reader2, open()).WillOnce(Return(try_endpoint(host2, port2)));
   EXPECT_CALL(*mock_reader2, register_container(ContainerIdMatch(ci2), ExecInfoMatch(ei2)))
-    .WillOnce(Return(try_endpoint(host2, port2)));
-  pra.register_container(ci2, ei2);
-
-  // A lookup finds it, then wipes the ei2 lookup info after that
-  EXPECT_CALL(*mock_reader2, endpoint()).WillOnce(Return(try_endpoint(host2, port2)));
-  endpt = pra.get_statsd_endpoint(ei2);
+    .WillOnce(Return(try_endpoint("ignored2", 54321)));
+  endpt = pra.register_container(ci2, ei2);
   EXPECT_EQ(host2, endpt.get().host);
   EXPECT_EQ(port2, endpt.get().port);
-  EXPECT_TRUE(pra.get_statsd_endpoint(ei2).isError());
 
-  LOG(INFO) << "i";
   // Unregister ci2/ei2 with successful endpoint, which is returned
   EXPECT_CALL(*mock_reader2, endpoint()).WillOnce(Return(try_endpoint(host2, port2)));
   pra.unregister_container(ci2);

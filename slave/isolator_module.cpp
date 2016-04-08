@@ -7,6 +7,25 @@
 #include "input_assigner.hpp"
 #include "input_assigner_factory.hpp"
 
+namespace {
+  const std::string STATSD_ENV_NAME_HOST = "STATSD_UDP_HOST";
+  const std::string STATSD_ENV_NAME_PORT = "STATSD_UDP_PORT";
+
+  void set_env(mesos::slave::ContainerLaunchInfo& launch_info, const stats::UDPEndpoint& endpoint) {
+    mesos::Environment* environment = launch_info.mutable_environment();
+
+    mesos::Environment::Variable* variable = environment->add_variables();
+    variable->set_name(STATSD_ENV_NAME_HOST);
+    variable->set_value(endpoint.host);
+
+    variable = environment->add_variables();
+    variable->set_name(STATSD_ENV_NAME_PORT);
+    variable->set_value(std::to_string(endpoint.port));
+
+    DLOG(INFO) << "Returning environment: " << environment->ShortDebugString();
+  }
+}
+
 namespace stats {
   /**
    * Templated to allow mockery of InputAssigner.
@@ -21,15 +40,12 @@ namespace stats {
     process::Future<Nothing> recover(
         const std::list<mesos::slave::ContainerState>& states,
         const hashset<mesos::ContainerID>& orphans) {
+      LOG(INFO) << "Container recovery "
+                << "(" << states.size() << " containers, " << orphans.size() << " orphans):";
       for (const mesos::slave::ContainerState& state : states) {
-        LOG(INFO) << "Container recover: "
-                  << "container_state[" << state.ShortDebugString() << "]";
+        LOG(INFO) << "  container_state[" << state.ShortDebugString() << "]";
       }
-      for (const mesos::ContainerID& orphan : orphans) {
-        LOG(INFO) << "Container recover: "
-                  << "orphan[" << orphan.ShortDebugString() << "]";
-      }
-      input_assigner->register_containers(states);
+      input_assigner->recover_containers(states);
       return Nothing();
     }
 
@@ -39,8 +55,16 @@ namespace stats {
       LOG(INFO) << "Container prepare: "
                 << "container_id[" << container_id.ShortDebugString() << "] "
                 << "container_config[" << container_config.ShortDebugString() << "]";
-      input_assigner->register_container(container_id, container_config.executorinfo());
-      return None();
+      Try<UDPEndpoint> endpoint =
+        input_assigner->register_container(container_id, container_config.executorinfo());
+      if (endpoint.isError()) {
+        LOG(ERROR) << "Failed to register container, no statsd endpoint to inject: "
+                   << container_id.ShortDebugString();
+        return None();
+      }
+      mesos::slave::ContainerLaunchInfo launch_info;
+      set_env(launch_info, endpoint.get());
+      return launch_info;
     }
 
     process::Future<Nothing> cleanup(

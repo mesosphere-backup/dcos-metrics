@@ -3,9 +3,6 @@
         "file": "/home/vagrant/libstats-slave@CMAKE_SHARED_LIBRARY_SUFFIX@",
         "modules": [ {
             "name": "com_mesosphere_StatsIsolatorModule"
-        },
-        {
-            "name": "com_mesosphere_StatsEnvHook",
             "parameters": [
                 { "key": "dest_host", "value": "metrics.marathon.mesos" },
                 { "key": "dest_refresh_seconds", "value": "60" }

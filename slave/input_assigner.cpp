@@ -19,31 +19,40 @@ stats::InputAssigner::InputAssigner(std::shared_ptr<PortRunner> port_runner)
 
 stats::InputAssigner::~InputAssigner() { }
 
-void stats::InputAssigner::register_container(
+Try<stats::UDPEndpoint> stats::InputAssigner::register_container(
     const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info) {
   std::unique_lock<std::mutex> lock(mutex);
-  LOG(INFO) << "Registering "
+  LOG(INFO) << "Registering and retrieving endpoint for "
             << "container_id[" << container_id.ShortDebugString() << "] "
             << "executor_info[" << executor_info.ShortDebugString() << "].";
-  port_runner->dispatch(std::bind(&InputAssigner::_register_container, this,
-          container_id, executor_info));
+  // Dispatch the endpoint retrieval from within the io_service thread, avoiding races with any
+  // other endpoint registrations/deregistrations.
+  std::function<Try<stats::UDPEndpoint>()> register_container_func =
+    std::bind(&InputAssigner::_register_container, this,
+        std::cref(container_id), std::cref(executor_info));
+  std::shared_ptr<Try<stats::UDPEndpoint>> out =
+    sync_util::dispatch_get<PortRunner, Try<stats::UDPEndpoint>>(
+        "register_container", *port_runner, register_container_func);
+  if (!out) {
+    return Try<stats::UDPEndpoint>(Error("Timed out waiting for endpoint retrieval"));
+  }
+  return *out;
 }
 
-void stats::InputAssigner::register_containers(
+void stats::InputAssigner::recover_containers(
     const std::list<mesos::slave::ContainerState>& containers) {
   std::unique_lock<std::mutex> lock(mutex);
-  LOG(INFO) << "Recovering/re-registering " << containers.size() << " containers...";
-  //TODO in the common case of ephemeral port readers, this doesn't recover the previous port!
-  //  for now, if a slave is restarted, any containers within that slave will stop transmitting data
-  //  we want to re-open the port that this container was originally configured with.
-  //  in theory, we are passed an envvar list via executor_info, but it doesn't have STATSD_UDP_*
-  //  alternate option: store state somewhere on disk, then attempt to recover from that?
-  for (const mesos::slave::ContainerState& container : containers) {
-    LOG(INFO) << "  Registering "
-              << "container_id[" << container.container_id().ShortDebugString() << "] "
-              << "executor_info[" << container.executor_info().ShortDebugString() << "].";
-    port_runner->dispatch(std::bind(&InputAssigner::_register_container, this,
-            container.container_id(), container.executor_info()));
+  //TODO:
+  //  we want to recover the state that the container was originally associated with (id -> ip:port)
+  //  the STATSD_UDP_* envvars aren't returned in ContainerState, so we need to cache state to disk,
+  //  then recover from that when this function is called. the on-disk state should be wiped of
+  //  any containers that aren't present in the provided list.
+  if (!containers.empty()) {
+    LOG(WARNING) << "Recovering endpoints of preexisting containers is unsupported."
+                 << " These preexisting containers will not have metrics until they are restarted:";
+    for (const mesos::slave::ContainerState& container : containers) {
+      LOG(WARNING) << "  container_id[" << container.container_id().ShortDebugString() << "].";
+    }
   }
 }
 
@@ -53,30 +62,6 @@ void stats::InputAssigner::unregister_container(
   LOG(INFO) << "Unregistering container_id[" << container_id.ShortDebugString() << "].";
   port_runner->dispatch(
       std::bind(&InputAssigner::_unregister_container, this, container_id));
-}
-
-Try<stats::UDPEndpoint> stats::InputAssigner::get_statsd_endpoint(
-    const mesos::ExecutorInfo& executor_info) {
-  std::unique_lock<std::mutex> lock(mutex);
-  LOG(INFO) << "Retrieving registered endpoint for "
-            << "executor_info[" << executor_info.ShortDebugString() << "].";
-  // Dispatch the endpoint retrieval from within the io_service thread, avoiding races with any
-  // other endpoint registrations/deregistrations.
-  std::function<Try<stats::UDPEndpoint>()> get_statsd_endpoint_func =
-    std::bind(&InputAssigner::_get_statsd_endpoint, this, std::cref(executor_info));
-  std::shared_ptr<Try<stats::UDPEndpoint>> out =
-    sync_util::dispatch_get<PortRunner, Try<stats::UDPEndpoint>>(
-        "get_statsd_endpoint", *port_runner, get_statsd_endpoint_func);
-  if (!out) {
-    return Try<stats::UDPEndpoint>(Error("Timed out waiting for endpoint retrieval"));
-  }
-  return *out;
-}
-
-void stats::InputAssigner::get_and_insert_response_cb(
-    mesos::ExecutorInfo executor_info, std::shared_ptr<Try<stats::UDPEndpoint>>* out) {
-  Try<stats::UDPEndpoint> ret = _get_statsd_endpoint(executor_info);
-  out->reset(new Try<stats::UDPEndpoint>(ret));
 }
 
 // ----
@@ -93,7 +78,7 @@ stats::SinglePortAssigner::SinglePortAssigner(
 
 stats::SinglePortAssigner::~SinglePortAssigner() { }
 
-void stats::SinglePortAssigner::_register_container(
+Try<stats::UDPEndpoint> stats::SinglePortAssigner::_register_container(
     const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info) {
   if (!single_port_reader) {
     LOG(INFO) << "Creating single-port reader at port[" << single_port_value << "].";
@@ -101,23 +86,15 @@ void stats::SinglePortAssigner::_register_container(
     std::shared_ptr<PortReader> reader = port_runner->create_port_reader(single_port_value);
     Try<UDPEndpoint> endpoint = reader->open();
     if (endpoint.isError()) {
-      LOG(ERROR) << "Unable to open single-port reader at port[" << single_port_value << "]: "
-                 << endpoint.error();
-      return;
+      std::ostringstream oss;
+      oss << "Unable to open single-port reader at port[" << single_port_value << "]: "
+          << endpoint.error();
+      LOG(ERROR) << oss.str();
+      return Try<UDPEndpoint>(Error(oss.str()));
     }
     single_port_reader = reader;
-  } else {
-    Try<UDPEndpoint> endpoint = single_port_reader->endpoint();
-    if (endpoint.isError()) {
-      LOG(INFO) << "Reusing existing single-port reader at endpoint[???].";
-    } else {
-      LOG(INFO) << "Reusing existing single-port reader at "
-                << "endpoint[" << endpoint.get().string() << "].";
-    }
   }
-
-  // Assign the container to the sole port reader.
-  single_port_reader->register_container(container_id, executor_info);
+  return single_port_reader->register_container(container_id, executor_info);
 }
 
 void stats::SinglePortAssigner::_unregister_container(
@@ -140,28 +117,6 @@ void stats::SinglePortAssigner::_unregister_container(
   single_port_reader->unregister_container(container_id);
 }
 
-Try<stats::UDPEndpoint> stats::SinglePortAssigner::_get_statsd_endpoint(
-    const mesos::ExecutorInfo& executor_info) {
-  if (!single_port_reader) {
-    std::ostringstream oss;
-    oss << "Unable to retrieve single-port endpoint for "
-        << "executor[" << executor_info.ShortDebugString() << "]";
-    LOG(ERROR) << oss.str();
-    return Try<UDPEndpoint>(Error(oss.str()));
-  }
-
-  Try<UDPEndpoint> ret = single_port_reader->endpoint();
-  if (ret.isError()) {
-    LOG(ERROR) << "Single-port endpoint unavailable for "
-               << "executor[" << executor_info.ShortDebugString() << "] ";
-  } else {
-    LOG(INFO) << "Returning single-port endpoint for "
-              << "executor[" << executor_info.ShortDebugString() << "] "
-              << "-> endpoint[" << ret.get().string() << "].";
-  }
-  return ret;
-}
-
 // ---
 
 stats::EphemeralPortAssigner::EphemeralPortAssigner(std::shared_ptr<PortRunner> port_runner)
@@ -171,38 +126,43 @@ stats::EphemeralPortAssigner::EphemeralPortAssigner(std::shared_ptr<PortRunner> 
 
 stats::EphemeralPortAssigner::~EphemeralPortAssigner() { }
 
-void stats::EphemeralPortAssigner::_register_container(
+Try<stats::UDPEndpoint> stats::EphemeralPortAssigner::_register_container(
     const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info) {
   // Reuse existing reader if available.
+  // This isn't expected to happen in practice, but just in case..
   auto iter = container_to_reader.find(container_id);
   if (iter != container_to_reader.end()) {
     Try<UDPEndpoint> ret = iter->second->endpoint();
     if (ret.isError()) {
-      LOG(ERROR) << "Existing ephemeral-port endpoint unavailable for "
-                 << "container[" << container_id.ShortDebugString() << "] "
-                 << "executor[" << executor_info.ShortDebugString() << "] ";
-    } else {
-      LOG(INFO) << "Reusing existing ephemeral-port reader for "
-                << "container[" << container_id.ShortDebugString() << "] "
-                << "executor[" << executor_info.ShortDebugString() << "] "
-                << "at endpoint[" << ret.get().string() << "].";
+      std::ostringstream oss;
+      oss << "Existing ephemeral-port endpoint unavailable for "
+          << "container[" << container_id.ShortDebugString() << "] "
+          << "executor[" << executor_info.ShortDebugString() << "] ";
+      LOG(ERROR) << oss.str();
+      return Try<UDPEndpoint>(Error(oss.str()));
     }
-    return;
+    LOG(INFO) << "Reusing existing ephemeral-port reader for "
+              << "container[" << container_id.ShortDebugString() << "] "
+              << "executor[" << executor_info.ShortDebugString() << "] "
+              << "at endpoint[" << ret.get().string() << "].";
+    return ret;
   }
 
   // Create/open/register a new reader against an ephemeral port.
   std::shared_ptr<PortReader> reader = port_runner->create_port_reader(0 /* port */);
   Try<UDPEndpoint> endpoint = reader->open();
   if (endpoint.isError()) {
-    LOG(ERROR) << "Unable to open ephemeral-port reader at port[???]: "
-               << endpoint.error();
-    return;
+    std::ostringstream oss;
+    oss << "Unable to open ephemeral-port reader at port[???]: "
+        << endpoint.error();
+    LOG(ERROR) << oss.str();
+    return Try<UDPEndpoint>(Error(oss.str()));
   }
-  endpoint = reader->register_container(container_id, executor_info);
-  executor_to_container[executor_info.executor_id()] = container_id;
   container_to_reader[container_id] = reader;
+  reader->register_container(container_id, executor_info);
   LOG(INFO) << "New ephemeral-port reader for container[" << container_id.ShortDebugString() << "] "
             << "created at endpoint[" << endpoint.get().string() << "].";
+  return endpoint;
 }
 
 void stats::EphemeralPortAssigner::_unregister_container(
@@ -224,42 +184,6 @@ void stats::EphemeralPortAssigner::_unregister_container(
               << "endpoint[" << endpoint.get().string() << "].";
   }
   container_to_reader.erase(iter);
-}
-
-Try<stats::UDPEndpoint> stats::EphemeralPortAssigner::_get_statsd_endpoint(
-    const mesos::ExecutorInfo& executor_info) {
-  auto container_iter = executor_to_container.find(executor_info.executor_id());
-  if (container_iter == executor_to_container.end()) {
-    std::ostringstream oss;
-    oss << "Unable to retrieve ephemeral-port container for "
-        << "executor[" << executor_info.ShortDebugString() << "]";
-    LOG(ERROR) << oss.str();
-    return Try<UDPEndpoint>(Error(oss.str()));
-  }
-  // We only needed the executor_id->container_id for this one lookup, so remove it now.
-  mesos::ContainerID container_id = container_iter->second;
-  executor_to_container.erase(container_iter);
-
-  auto reader_iter = container_to_reader.find(container_id);
-  if (reader_iter == container_to_reader.end()) {
-    std::ostringstream oss;
-    oss << "Unable to retrieve ephemeral-port endpoint for "
-        << "container[" << container_id.ShortDebugString() << "] "
-        << "executor[" << executor_info.ShortDebugString() << "]";
-    LOG(ERROR) << oss.str();
-    return Try<UDPEndpoint>(Error(oss.str()));
-  }
-
-  Try<UDPEndpoint> ret = reader_iter->second->endpoint();
-  if (ret.isError()) {
-    LOG(ERROR) << "Ephemeral-port endpoint unavailable for "
-              << "executor[" << executor_info.ShortDebugString() << "] ";
-  } else {
-    LOG(INFO) << "Returning ephemeral-port endpoint for "
-              << "executor[" << executor_info.ShortDebugString() << "] "
-              << "-> endpoint[" << ret.get().string() << "].";
-  }
-  return ret;
 }
 
 // ---
@@ -287,49 +211,57 @@ stats::PortRangeAssigner::PortRangeAssigner(
 
 stats::PortRangeAssigner::~PortRangeAssigner() { }
 
-void stats::PortRangeAssigner::_register_container(
+Try<stats::UDPEndpoint> stats::PortRangeAssigner::_register_container(
     const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info) {
   // Reuse existing reader if available.
+  // This isn't expected to happen in practice, but just in case..
   auto iter = container_to_reader.find(container_id);
   if (iter != container_to_reader.end()) {
     Try<UDPEndpoint> ret = iter->second->endpoint();
     if (ret.isError()) {
-      LOG(ERROR) << "Existing ephemeral-port endpoint unavailable for "
-                 << "container[" << container_id.ShortDebugString() << "] "
-                 << "executor[" << executor_info.ShortDebugString() << "] ";
+      std::ostringstream oss;
+      oss << "Existing port-range endpoint unavailable for "
+          << "container[" << container_id.ShortDebugString() << "] "
+          << "executor[" << executor_info.ShortDebugString() << "] ";
+      LOG(ERROR) << oss.str();
+      return Try<UDPEndpoint>(Error(oss.str()));
     } else {
-      LOG(INFO) << "Reusing existing ephemeral-port reader for "
+      LOG(INFO) << "Reusing existing port-range reader for "
                 << "container[" << container_id.ShortDebugString() << "] "
                 << "executor[" << executor_info.ShortDebugString() << "] "
                 << "at endpoint[" << ret.get().string() << "].";
+      return ret;
     }
-    return;
   }
 
   // Get an unused port from the pool range.
   Try<size_t> port = range_pool->take();
   if (port.isError()) {
-    LOG(ERROR) << "Unable to monitor "
-               << "container[" << container_id.ShortDebugString() << "]: " << port.error();
-    return;
+    std::ostringstream oss;
+    oss << "Unable to monitor "
+        << "container[" << container_id.ShortDebugString() << "]: " << port.error();
+    LOG(ERROR) << oss.str();
+    return Try<UDPEndpoint>(Error(oss.str()));
   }
 
   // Create/open/register a new reader against the obtained port.
   std::shared_ptr<PortReader> reader = port_runner->create_port_reader(port.get());
   Try<UDPEndpoint> endpoint = reader->open();
   if (endpoint.isError()) {
-    LOG(ERROR) << "Unable to open port-range reader at port[" << port.get() << "]: "
-               << endpoint.error();
+    std::ostringstream oss;
+    oss << "Unable to open port-range reader at port[" << port.get() << "]: "
+        << endpoint.error();
+    LOG(ERROR) << oss.str();
     range_pool->put(port.get());
-    return;
+    return Try<UDPEndpoint>(Error(oss.str()));
   }
-  endpoint = reader->register_container(container_id, executor_info);
-  executor_to_container[executor_info.executor_id()] = container_id;
+  reader->register_container(container_id, executor_info);
   container_to_reader[container_id] = reader;
   LOG(INFO) << "New port-range reader for "
             << "container[" << container_id.ShortDebugString() << "] "
             << "executor[" << executor_info.ShortDebugString() << "] "
             << "created at endpoint[" << endpoint.get().string() << "].";
+  return endpoint;
 }
 
 void stats::PortRangeAssigner::_unregister_container(
@@ -353,40 +285,4 @@ void stats::PortRangeAssigner::_unregister_container(
     range_pool->put(endpoint_to_close.get().port);
   }
   container_to_reader.erase(iter);
-}
-
-Try<stats::UDPEndpoint> stats::PortRangeAssigner::_get_statsd_endpoint(
-    const mesos::ExecutorInfo& executor_info) {
-  auto container_iter = executor_to_container.find(executor_info.executor_id());
-  if (container_iter == executor_to_container.end()) {
-    std::ostringstream oss;
-    oss << "Unable to retrieve port-range container for "
-        << "executor[" << executor_info.ShortDebugString() << "]";
-    LOG(ERROR) << oss.str();
-    return Try<UDPEndpoint>(Error(oss.str()));
-  }
-  // We only needed the executor_id->container_id for this lookup, so remove it now.
-  mesos::ContainerID container_id = container_iter->second;
-  executor_to_container.erase(container_iter);
-
-  auto reader_iter = container_to_reader.find(container_id);
-  if (reader_iter == container_to_reader.end()) {
-    std::ostringstream oss;
-    oss << "Unable to retrieve port-range endpoint for "
-        << "container[" << container_id.ShortDebugString() << "] "
-        << "executor[" << executor_info.ShortDebugString() << "]";
-    LOG(ERROR) << oss.str();
-    return Try<UDPEndpoint>(Error(oss.str()));
-  }
-
-  Try<UDPEndpoint> ret = reader_iter->second->endpoint();
-  if (ret.isError()) {
-    LOG(ERROR) << "Port-range endpoint unavailable for "
-              << "executor[" << executor_info.ShortDebugString() << "] ";
-  } else {
-    LOG(INFO) << "Returning port-range endpoint for "
-              << "executor[" << executor_info.ShortDebugString() << "] "
-              << "-> endpoint[" << ret.get().string() << "].";
-  }
-  return ret;
 }

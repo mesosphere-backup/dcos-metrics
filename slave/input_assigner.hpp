@@ -2,6 +2,7 @@
 
 #include <list>
 #include <mutex>
+#include <unordered_set>
 
 #include <mesos/slave/isolator.pb.h>
 #include <stout/try.hpp>
@@ -23,26 +24,22 @@ namespace stats {
     InputAssigner(std::shared_ptr<PortRunner> port_runner);
     virtual ~InputAssigner();
 
-    void register_container(
+    Try<UDPEndpoint> register_container(
         const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info);
-    void register_containers(const std::list<mesos::slave::ContainerState>& containers);
+
+    void recover_containers(const std::list<mesos::slave::ContainerState>& containers);
+
     void unregister_container(const mesos::ContainerID& container_id);
 
-    Try<UDPEndpoint> get_statsd_endpoint(const mesos::ExecutorInfo& executor_info);
-
    protected:
-    virtual void _register_container(
+    virtual Try<UDPEndpoint> _register_container(
         const mesos::ContainerID& container_id,
         const mesos::ExecutorInfo& executor_info) = 0;
     virtual void _unregister_container(const mesos::ContainerID& container_id) = 0;
-    virtual Try<UDPEndpoint> _get_statsd_endpoint(const mesos::ExecutorInfo& executor_info) = 0;
 
     std::shared_ptr<PortRunner> port_runner;
 
    private:
-    void get_and_insert_response_cb(
-        mesos::ExecutorInfo executor_info, std::shared_ptr<Try<stats::UDPEndpoint>>* out);
-
     std::mutex mutex;
   };
 
@@ -57,11 +54,9 @@ namespace stats {
     virtual ~SinglePortAssigner();
 
    protected:
-    void _register_container(
+    Try<UDPEndpoint> _register_container(
         const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info);
     void _unregister_container(const mesos::ContainerID& container_id);
-
-    Try<UDPEndpoint> _get_statsd_endpoint(const mesos::ExecutorInfo& executor_info);
 
    private:
     // The port to listen on, passed to all containers.
@@ -82,16 +77,11 @@ namespace stats {
     virtual ~EphemeralPortAssigner();
 
    protected:
-    void _register_container(
+    Try<UDPEndpoint> _register_container(
         const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info);
     void _unregister_container(const mesos::ContainerID& container_id);
 
-    Try<UDPEndpoint> _get_statsd_endpoint(const mesos::ExecutorInfo& executor_info);
-
    private:
-    // Temporary mapping of executor_id to container_id. Used to bridge a call to
-    // register_container(), followed by a call to get_statsd_endpoint().
-    executor_id_map<mesos::ContainerID> executor_to_container;
     // Long-term mapping of container_id to the port reader assigned to that container. This mapping
     // exists for the lifespan of the container.
     container_id_map<std::shared_ptr<PortReader>> container_to_reader;
@@ -108,16 +98,11 @@ namespace stats {
     virtual ~PortRangeAssigner();
 
    protected:
-    void _register_container(
+    Try<UDPEndpoint> _register_container(
         const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info);
     void _unregister_container(const mesos::ContainerID& container_id);
 
-    Try<UDPEndpoint> _get_statsd_endpoint(const mesos::ExecutorInfo& executor_info);
-
    private:
-    // Temporary mapping of executor_id to container_id. Used to bridge a call to
-    // register_container(), followed by a call to get_statsd_endpoint().
-    executor_id_map<mesos::ContainerID> executor_to_container;
     // Long-term mapping of container_id to the port reader assigned to that container. This mapping
     // exists for the lifespan of the container.
     container_id_map<std::shared_ptr<PortReader>> container_to_reader;

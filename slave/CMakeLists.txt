@@ -1,16 +1,22 @@
 cmake_minimum_required(VERSION 2.8)
 
-option(TARGET_DCOS_16 "Whether to build with compatibility for DCOS 1.6")
+option(TARGET_DCOS "Version of DCOS to configure for")
 option(TESTS_ENABLED "Whether to build unit tests." TRUE)
 option(USE_LOCAL_PICOJSON "Whether to use Mesos' or a locally downloaded internal build of picojson (true) or system picojson (false)" TRUE)
 option(USE_LOCAL_PROTOBUF "Whether to use Mesos' or a locally downloaded internal build of protobuf (true) or system protobuf (false)" TRUE)
 option(USE_LOCAL_GLOG "Whether to use Mesos' copy of glog (true) or the system copy of glog (false)" TRUE)
 
-#cmake -DCMAKE_BUILD_TYPE=Release -Dboost_system_LIBRARY=/home/nick/code/dcos-vagrant/metrics-libs-16/opt/mesosphere/lib/libboost_system.so -DTARGET_DCOS_16=true ..
-if(TARGET_DCOS_16)
+if(TARGET_DCOS EQUAL "1.6")
+  #cmake -DCMAKE_BUILD_TYPE=Release -Dboost_system_LIBRARY=/home/nick/code/dcos-vagrant/metrics-libs-16/opt/mesosphere/lib/libboost_system.so -DTARGET_DCOS=1.6 ..
   set(CMAKE_CXX_COMPILER "/usr/bin/g++-4.8")
   set(CMAKE_CXX_FLAGS "-std=c++11")
   set(mesos_VERSION "0.27.1")
+  set(TESTS_ENABLED false)
+elseif(TARGET_DCOS EQUAL "1.7")
+  #cmake -DCMAKE_BUILD_TYPE=Release -Dboost_system_LIBRARY=/home/nick/code/dcos-vagrant/metrics-libs-17ee/opt/mesosphere/lib/libboost_system.so.1.53.0 -DTARGET_DCOS=1.7 ..
+  set(CMAKE_CXX_COMPILER "/usr/bin/g++-4.8")
+  set(CMAKE_CXX_FLAGS "-std=c++11")
+  set(mesos_VERSION "0.28.0")
   set(TESTS_ENABLED false)
 endif()
 
@@ -150,7 +156,6 @@ if(protobuf_LIBRARY)
 endif()
 
 set(SRCS
-  env_hook.cpp
   input_assigner.cpp
   input_assigner_factory.cpp
   isolator_module.cpp
