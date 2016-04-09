@@ -13,6 +13,7 @@
 #include "udp_endpoint.hpp"
 
 namespace stats {
+  class InputStateCache;
   class RangePool;
 
   /**
@@ -21,7 +22,8 @@ namespace stats {
    */
   class InputAssigner {
    public:
-    InputAssigner(std::shared_ptr<PortRunner> port_runner);
+    InputAssigner(
+        std::shared_ptr<PortRunner> port_runner, const mesos::Parameters& parameters);
     virtual ~InputAssigner();
 
     Try<UDPEndpoint> register_container(
@@ -35,11 +37,21 @@ namespace stats {
     virtual Try<UDPEndpoint> _register_container(
         const mesos::ContainerID& container_id,
         const mesos::ExecutorInfo& executor_info) = 0;
+    virtual void _insert_container(
+        const mesos::ContainerID& container_id,
+        const mesos::ExecutorInfo& executor_info,
+        const UDPEndpoint& endpoint) = 0;
     virtual void _unregister_container(const mesos::ContainerID& container_id) = 0;
 
     std::shared_ptr<PortRunner> port_runner;
 
    private:
+    Try<UDPEndpoint> register_and_update_cache(
+        const mesos::ContainerID container_id,
+        const mesos::ExecutorInfo executor_info);
+    void unregister_and_update_cache(const mesos::ContainerID container_id);
+
+    std::unique_ptr<InputStateCache> state_cache;
     std::mutex mutex;
   };
 
@@ -56,6 +68,10 @@ namespace stats {
    protected:
     Try<UDPEndpoint> _register_container(
         const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info);
+    void _insert_container(
+        const mesos::ContainerID& container_id,
+        const mesos::ExecutorInfo& executor_info,
+        const UDPEndpoint& endpoint);
     void _unregister_container(const mesos::ContainerID& container_id);
 
    private:
@@ -73,12 +89,16 @@ namespace stats {
   class EphemeralPortAssigner : public InputAssigner {
    public:
     EphemeralPortAssigner(
-        std::shared_ptr<PortRunner> port_runner);
+        std::shared_ptr<PortRunner> port_runner, const mesos::Parameters& parameters);
     virtual ~EphemeralPortAssigner();
 
    protected:
     Try<UDPEndpoint> _register_container(
         const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info);
+    void _insert_container(
+        const mesos::ContainerID& container_id,
+        const mesos::ExecutorInfo& executor_info,
+        const UDPEndpoint& endpoint);
     void _unregister_container(const mesos::ContainerID& container_id);
 
    private:
@@ -100,6 +120,10 @@ namespace stats {
    protected:
     Try<UDPEndpoint> _register_container(
         const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info);
+    void _insert_container(
+        const mesos::ContainerID& container_id,
+        const mesos::ExecutorInfo& executor_info,
+        const UDPEndpoint& endpoint);
     void _unregister_container(const mesos::ContainerID& container_id);
 
    private:

@@ -40,7 +40,7 @@ std::shared_ptr<stats::InputAssigner> stats::InputAssignerFactory::get(
       impl = new SinglePortAssigner(PortRunnerImpl::create(parameters), parameters);
       break;
     case params::port_mode::EPHEMERAL:
-      impl = new EphemeralPortAssigner(PortRunnerImpl::create(parameters));
+      impl = new EphemeralPortAssigner(PortRunnerImpl::create(parameters), parameters);
       break;
     case params::port_mode::RANGE:
       impl = new PortRangeAssigner(PortRunnerImpl::create(parameters), parameters);
