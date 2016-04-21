@@ -40,13 +40,13 @@ Try<stats::UDPEndpoint> stats::InputAssigner::register_container(
             << "executor_info[" << executor_info.ShortDebugString() << "].";
   // Dispatch the endpoint retrieval from within the io_service thread, avoiding races with any
   // other endpoint registrations/deregistrations.
-  std::function<Try<stats::UDPEndpoint>()> register_container_func =
+  std::function<Try<UDPEndpoint>()> register_container_func =
     std::bind(&InputAssigner::register_and_update_cache, this, container_id, executor_info);
-  std::shared_ptr<Try<stats::UDPEndpoint>> out =
-    sync_util::dispatch_get<PortRunner, Try<stats::UDPEndpoint>>(
+  std::shared_ptr<Try<UDPEndpoint>> out =
+    sync_util::dispatch_get<PortRunner, Try<UDPEndpoint>>(
         "register_and_update_cache", *port_runner, register_container_func);
   if (!out) {
-    return Try<stats::UDPEndpoint>(Error("Timed out waiting for endpoint retrieval"));
+    return Try<UDPEndpoint>(Error("Timed out waiting for endpoint retrieval"));
   }
   return *out;
 }
@@ -55,14 +55,29 @@ void stats::InputAssigner::recover_containers(
     const std::list<mesos::slave::ContainerState>& containers) {
   std::unique_lock<std::mutex> lock(mutex);
 
-  //TODO should all the following calls be run on dispatch thread?
+  // Dispatch the endpoint recovery from within the io_service thread, avoiding races with any
+  // other endpoint registrations/deregistrations.
+  port_runner->dispatch(
+      std::bind(&InputAssigner::recover_containers_imp, this, containers));
+}
 
+void stats::InputAssigner::unregister_container(
+    const mesos::ContainerID& container_id) {
+  std::unique_lock<std::mutex> lock(mutex);
+  LOG(INFO) << "Unregistering container_id[" << container_id.ShortDebugString() << "].";
+  port_runner->dispatch(
+      std::bind(&InputAssigner::unregister_and_update_cache, this, container_id));
+}
+
+// ----
+
+void stats::InputAssigner::recover_containers_imp(
+    const std::list<mesos::slave::ContainerState>& containers) {
   container_id_map<mesos::slave::ContainerState> recovered_containers;
   for (const mesos::slave::ContainerState container : containers) {
     recovered_containers[container.container_id()] = container;
   }
 
-  //TODO dispatch
   container_id_map<UDPEndpoint> state_containers = state_cache->get_containers();
 
   // Reconcile between 'recovered_containers' and 'state_containers':
@@ -90,11 +105,12 @@ void stats::InputAssigner::recover_containers(
     }
   }
 
+  // With the containers sorted above, update their state on our side:
+
   if (!containers_to_remove.empty()) { // #2
     LOG(INFO) << "Removing no-longer-existent containers from on-disk history:";
     for (const mesos::ContainerID& removeme : containers_to_remove) {
       LOG(INFO) << "  container_id[" << removeme.ShortDebugString() << "]";
-      //TODO dispatch
       unregister_and_update_cache(removeme);
     }
   }
@@ -105,7 +121,6 @@ void stats::InputAssigner::recover_containers(
       LOG(INFO) << "  container_id["
                 << insertme.container.container_id().ShortDebugString() << "].";
       // don't need to add to state_cache: it's already there!
-      //TODO dispatch
       _insert_container(
           insertme.container.container_id(), insertme.container.executor_info(), insertme.endpoint);
     }
@@ -117,23 +132,12 @@ void stats::InputAssigner::recover_containers(
     for (const mesos::slave::ContainerState& registerme : containers_to_register) {
       LOG(INFO) << "  container_id["
                 << registerme.container_id().ShortDebugString() << "].";
-      //TODO dispatch
       register_and_update_cache(registerme.container_id(), registerme.executor_info());
     }
   }
 
   LOG(INFO) << "Container recovery complete";
 }
-
-void stats::InputAssigner::unregister_container(
-    const mesos::ContainerID& container_id) {
-  std::unique_lock<std::mutex> lock(mutex);
-  LOG(INFO) << "Unregistering container_id[" << container_id.ShortDebugString() << "].";
-  port_runner->dispatch(
-      std::bind(&InputAssigner::unregister_and_update_cache, this, container_id));
-}
-
-// ----
 
 Try<stats::UDPEndpoint> stats::InputAssigner::register_and_update_cache(
     const mesos::ContainerID container_id,

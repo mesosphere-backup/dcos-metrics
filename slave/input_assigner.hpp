@@ -46,6 +46,7 @@ namespace stats {
     std::shared_ptr<PortRunner> port_runner;
 
    private:
+    void recover_containers_imp(const std::list<mesos::slave::ContainerState>& containers);
     Try<UDPEndpoint> register_and_update_cache(
         const mesos::ContainerID container_id,
         const mesos::ExecutorInfo executor_info);
