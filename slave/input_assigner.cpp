@@ -14,23 +14,25 @@ namespace {
     return port > 0 && port <= MAX_PORT;
   }
 
-  // Local util struct for pairing a ContainerState reference with a UDPEndpoint reference
-  class ContainerEndpointRefs {
+  // Local util struct for pairing a ContainerState with a UDPEndpoint
+  class ContainerEndpoint {
    public:
-    ContainerEndpointRefs(
+    ContainerEndpoint(
         const mesos::slave::ContainerState& container, const stats::UDPEndpoint& endpoint)
       : container(container), endpoint(endpoint) { }
 
-    const mesos::slave::ContainerState& container;
-    const stats::UDPEndpoint& endpoint;
+    const mesos::slave::ContainerState container;
+    const stats::UDPEndpoint endpoint;
   };
 }
 
 stats::InputAssigner::InputAssigner(
-    std::shared_ptr<PortRunner> port_runner, const mesos::Parameters& parameters)
-  : port_runner(port_runner), state_cache(new InputStateCache(parameters)) { }
+    std::shared_ptr<PortRunner> port_runner,
+    std::shared_ptr<InputStateCache> state_cache)
+  : port_runner(port_runner), state_cache(state_cache) { }
 
-stats::InputAssigner::~InputAssigner() { }
+stats::InputAssigner::~InputAssigner() {
+}
 
 Try<stats::UDPEndpoint> stats::InputAssigner::register_container(
     const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info) {
@@ -78,62 +80,75 @@ void stats::InputAssigner::recover_containers_imp(
     recovered_containers[container.container_id()] = container;
   }
 
-  container_id_map<UDPEndpoint> state_containers = state_cache->get_containers();
+  container_id_map<UDPEndpoint> disk_containers = state_cache->get_containers();
 
-  // Reconcile between 'recovered_containers' and 'state_containers':
-  // 1) present in both: pass to _insert_container()
-  // 2) missing in recovered_containers: delete entry from state_cache
-  // 3) missing in state_containers: welp, try _register_container() as best-effort repair
-  //    (in practice this 3rd case shouldn't happen, unless on-disk state was lost)
+  // Reconcile between 'recovered_containers' and 'disk_containers':
+  // 1) found in both: pass both to _insert_container() to register against cached endpoint
+  // 2) found only in state_cache: unregister and delete entry from state_cache
+  // 3) found only in recovered_containers: welp, try _register_container() with unknown endpoint as
+  //    a last-ditch effort to repair. in practice this case shouldn't happen, it implies on-disk
+  //    state was deleted but that containers were kept alive
+  // Also note that we only expect this function to be called on start-up, so any internal state
+  // in the InputAssigner or PortReader(s) *should* be empty.
 
-  std::vector<ContainerEndpointRefs> containers_to_insert;
+  std::vector<ContainerEndpoint> containers_to_insert;
   std::vector<mesos::ContainerID> containers_to_remove;
-  for (auto state_container : state_containers) {
+  for (auto state_container : disk_containers) {
     auto recovered_container = recovered_containers.find(state_container.first);
-    if (recovered_container == recovered_containers.end()) { // #2
-      containers_to_remove.push_back(state_container.first);
-    } else { // #1
+    if (recovered_container != recovered_containers.end()) { // #1
       containers_to_insert.push_back(
-          ContainerEndpointRefs(recovered_container->second, state_container.second));
+          ContainerEndpoint(recovered_container->second, state_container.second));
+    } else { // #2
+      containers_to_remove.push_back(state_container.first);
     }
   }
 
   std::vector<mesos::slave::ContainerState> containers_to_register;
   for (auto recovered_container : recovered_containers) {
-    if (state_containers.find(recovered_container.first) == state_containers.end()) { // #3
+    if (disk_containers.find(recovered_container.first) == disk_containers.end()) { // #3
       containers_to_register.push_back(recovered_container.second);
     }
   }
 
   // With the containers sorted above, update their state on our side:
 
-  if (!containers_to_remove.empty()) { // #2
-    LOG(INFO) << "Removing no-longer-existent containers from on-disk history:";
-    for (const mesos::ContainerID& removeme : containers_to_remove) {
-      LOG(INFO) << "  container_id[" << removeme.ShortDebugString() << "]";
-      unregister_and_update_cache(removeme);
-    }
-  }
-
   if (!containers_to_insert.empty()) { // #1
-    LOG(INFO) << "Recovering container endpoints using on-disk history:";
-    for (const ContainerEndpointRefs& insertme : containers_to_insert) {
-      LOG(INFO) << "  container_id["
-                << insertme.container.container_id().ShortDebugString() << "].";
+    LOG(INFO) << "Recovering " << containers_to_insert.size()
+              << " container endpoints using state cache:";
+    for (const ContainerEndpoint& insertme : containers_to_insert) {
+      LOG(INFO) << "- container["
+                << insertme.container.container_id().ShortDebugString() << "] => "
+                << insertme.endpoint.string();
       // don't need to add to state_cache: it's already there!
       _insert_container(
           insertme.container.container_id(), insertme.container.executor_info(), insertme.endpoint);
     }
+  } else {
+    LOG(INFO) << "No containers to be recovered using state cache.";
+  }
+
+  if (!containers_to_remove.empty()) { // #2
+    LOG(INFO) << "Clearing " << containers_to_remove.size()
+              << " no-longer-existent containers from state cache:";
+    for (const mesos::ContainerID& removeme : containers_to_remove) {
+      LOG(INFO) << "- container[" << removeme.ShortDebugString() << "]";
+      unregister_and_update_cache(removeme);
+    }
+  } else {
+    LOG(INFO) << "No containers to clear from state cache.";
   }
 
   if (!containers_to_register.empty()) { // #3
-    LOG(WARNING) << "Re-registering containers that weren't listed in on-disk history. These"
-                 << " containers may lack functioning metrics until they've been restarted.";
+    LOG(WARNING) << "Blindly re-registering " << containers_to_register.size()
+                 << " containers that weren't listed in on-disk history. "
+                 << "These containers may lack functioning metrics until they've been restarted:";
     for (const mesos::slave::ContainerState& registerme : containers_to_register) {
-      LOG(INFO) << "  container_id["
-                << registerme.container_id().ShortDebugString() << "].";
+      LOG(WARNING) << "- container[" << registerme.container_id().ShortDebugString() << "] => "
+                   << "???";
       register_and_update_cache(registerme.container_id(), registerme.executor_info());
     }
+  } else {
+    LOG(INFO) << "No containers to be blindly re-registered without state cache.";
   }
 
   LOG(INFO) << "Container recovery complete";
@@ -158,8 +173,10 @@ void stats::InputAssigner::unregister_and_update_cache(
 // ----
 
 stats::SinglePortAssigner::SinglePortAssigner(
-    std::shared_ptr<PortRunner> port_runner, const mesos::Parameters& parameters)
-  : InputAssigner(port_runner, parameters),
+    std::shared_ptr<PortRunner> port_runner,
+    std::shared_ptr<InputStateCache> state_cache,
+    const mesos::Parameters& parameters)
+  : InputAssigner(port_runner, state_cache),
     single_port_value(
         params::get_uint(parameters, params::LISTEN_PORT, params::LISTEN_PORT_DEFAULT)) {
   if (!valid_port(single_port_value)) {
@@ -167,39 +184,53 @@ stats::SinglePortAssigner::SinglePortAssigner(
   }
 }
 
-stats::SinglePortAssigner::~SinglePortAssigner() { }
+stats::SinglePortAssigner::~SinglePortAssigner() {
+}
 
 Try<stats::UDPEndpoint> stats::SinglePortAssigner::_register_container(
     const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info) {
-  if (!single_port_reader) {
-    LOG(INFO) << "Creating single-port reader at port[" << single_port_value << "].";
-    // Create/open/register a new port reader only if one doesn't exist.
-    std::shared_ptr<PortReader> reader = port_runner->create_port_reader(single_port_value);
-    Try<UDPEndpoint> endpoint = reader->open();
-    if (endpoint.isError()) {
-      std::ostringstream oss;
-      oss << "Unable to open single-port reader at port[" << single_port_value << "]: "
-          << endpoint.error();
-      LOG(ERROR) << oss.str();
-      return Try<UDPEndpoint>(Error(oss.str()));
-    }
-    single_port_reader = reader;
+  Try<std::shared_ptr<PortReader>> reader = init_reader();
+  if (reader.isError()) {
+    std::ostringstream oss;
+    oss << "Unable to register container[" << container_id.ShortDebugString() << "]: "
+        << reader.error();
+    LOG(ERROR) << oss.str();
+    return Try<stats::UDPEndpoint>(Error(oss.str()));
   }
-  return single_port_reader->register_container(container_id, executor_info);
+
+  return reader.get()->register_container(container_id, executor_info);
 }
 
 void stats::SinglePortAssigner::_insert_container(
     const mesos::ContainerID& container_id,
     const mesos::ExecutorInfo& executor_info,
     const UDPEndpoint& endpoint) {
-  //TODO
+  Try<std::shared_ptr<PortReader>> reader = init_reader();
+  if (reader.isError()) {
+    LOG(ERROR) << "Unable to recover container[" << container_id.ShortDebugString() << "]: "
+               << reader.error();
+    return;
+  }
+
+  Try<UDPEndpoint> cur_endpoint = reader.get()->endpoint();
+  if (cur_endpoint.isError()) {
+    LOG(WARNING) << "Recovered container[" << container_id.ShortDebugString() << "] "
+                 << "is being attached to broken single-port endpoint.";
+  } else if (endpoint.port != cur_endpoint.get().port) {
+    LOG(WARNING) << "Recovered container[" << container_id.ShortDebugString() << "] "
+                 << "is using port[" << endpoint.port << "] "
+                 << "while metrics config specifies port[" << cur_endpoint.get().port << ". "
+                 << "Registering container against port[" << cur_endpoint.get().port << "], "
+                 << "but it won't work.";
+  }
+  reader.get()->register_container(container_id, executor_info);
 }
 
 void stats::SinglePortAssigner::_unregister_container(
     const mesos::ContainerID& container_id) {
   if (!single_port_reader) {
-    LOG(WARNING) << "No single-port reader had been initialized, cannot unregister "
-                 << "container[" << container_id.ShortDebugString() << "]";
+    LOG(INFO) << "No single-port reader had been initialized, cannot unregister "
+              << "container[" << container_id.ShortDebugString() << "].";
     return;
   }
   Try<UDPEndpoint> endpoint = single_port_reader->endpoint();
@@ -215,15 +246,32 @@ void stats::SinglePortAssigner::_unregister_container(
   single_port_reader->unregister_container(container_id);
 }
 
+Try<std::shared_ptr<stats::PortReader>> stats::SinglePortAssigner::init_reader() {
+  if (!single_port_reader) {
+    LOG(INFO) << "Creating single-port reader at port[" << single_port_value << "].";
+    // Create/open/register a new port reader only if one doesn't exist.
+    std::shared_ptr<PortReader> reader = port_runner->create_port_reader(single_port_value);
+    Try<UDPEndpoint> endpoint = reader->open();
+    if (endpoint.isError()) {
+      std::ostringstream oss;
+      oss << "Unable to open single-port reader at port[" << single_port_value << "]: "
+          << endpoint.error();
+      return Try<std::shared_ptr<PortReader>>(Error(oss.str()));
+    }
+    single_port_reader = reader;
+  }
+  return Try<std::shared_ptr<PortReader>>(single_port_reader);
+}
+
 // ---
 
 stats::EphemeralPortAssigner::EphemeralPortAssigner(
-    std::shared_ptr<PortRunner> port_runner, const mesos::Parameters& parameters)
-  : InputAssigner(port_runner, parameters) {
-  // No extra params to validate
-}
+    std::shared_ptr<PortRunner> port_runner,
+    std::shared_ptr<InputStateCache> state_cache)
+  : InputAssigner(port_runner, state_cache) { }
 
-stats::EphemeralPortAssigner::~EphemeralPortAssigner() { }
+stats::EphemeralPortAssigner::~EphemeralPortAssigner() {
+}
 
 Try<stats::UDPEndpoint> stats::EphemeralPortAssigner::_register_container(
     const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info) {
@@ -268,7 +316,26 @@ void stats::EphemeralPortAssigner::_insert_container(
     const mesos::ContainerID& container_id,
     const mesos::ExecutorInfo& executor_info,
     const UDPEndpoint& endpoint) {
-  //TODO
+  // Don't bother with reusing an existing reader like in _register_container above:
+  // Assume that we're getting the latest information about this container, which should
+  // override any existing local state. This shouldn't come up in practice, but just sayin...
+
+  // Skip ephemeral behavior: Create/open/register a new reader against the specified endpoint
+  std::shared_ptr<PortReader> reader = port_runner->create_port_reader(endpoint.port);
+  Try<UDPEndpoint> new_endpoint = reader->open();
+  if (new_endpoint.isError()) {
+    LOG(ERROR) << "Unable to recover ephemeral-port reader at port[" << endpoint.port << "] "
+               << "for container[" << container_id.ShortDebugString() << "]: "
+               << new_endpoint.error();
+    return;
+  }
+  container_to_reader[container_id] = reader;
+  reader->register_container(container_id, executor_info);
+  LOG(INFO) << "Recovered ephemeral-port reader for "
+            << "container[" << container_id.ShortDebugString() << "]: "
+            << "orig_endpoint[" << endpoint.string() << "] => "
+            << "new_endpoint[" << new_endpoint.get().string() << "].";
+  return;
 }
 
 void stats::EphemeralPortAssigner::_unregister_container(
@@ -295,8 +362,10 @@ void stats::EphemeralPortAssigner::_unregister_container(
 // ---
 
 stats::PortRangeAssigner::PortRangeAssigner(
-    std::shared_ptr<PortRunner> port_runner, const mesos::Parameters& parameters)
-  : InputAssigner(port_runner, parameters) {
+    std::shared_ptr<PortRunner> port_runner,
+    std::shared_ptr<InputStateCache> state_cache,
+    const mesos::Parameters& parameters)
+  : InputAssigner(port_runner, state_cache) {
   size_t port_range_start =
     params::get_uint(parameters, params::LISTEN_PORT_START, params::LISTEN_PORT_START_DEFAULT);
   if (!valid_port(port_range_start)) {
@@ -315,7 +384,8 @@ stats::PortRangeAssigner::PortRangeAssigner(
   range_pool.reset(new RangePool(port_range_start, port_range_end));
 }
 
-stats::PortRangeAssigner::~PortRangeAssigner() { }
+stats::PortRangeAssigner::~PortRangeAssigner() {
+}
 
 Try<stats::UDPEndpoint> stats::PortRangeAssigner::_register_container(
     const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info) {
@@ -358,6 +428,7 @@ Try<stats::UDPEndpoint> stats::PortRangeAssigner::_register_container(
     oss << "Unable to open port-range reader at port[" << port.get() << "]: "
         << endpoint.error();
     LOG(ERROR) << oss.str();
+    // return port since we can't use it
     range_pool->put(port.get());
     return Try<UDPEndpoint>(Error(oss.str()));
   }
@@ -374,7 +445,34 @@ void stats::PortRangeAssigner::_insert_container(
     const mesos::ContainerID& container_id,
     const mesos::ExecutorInfo& executor_info,
     const UDPEndpoint& endpoint) {
-  //TODO
+  // Don't bother with reusing an existing reader like in _register_container above:
+  // Assume that we're getting the latest information about this container, which should
+  // override any existing local state. This shouldn't come up in practice, but just sayin...
+
+  // Get the recovered port from the pool.
+  Try<size_t> port = range_pool->get(endpoint.port);
+  if (port.isError()) {
+    LOG(ERROR) << "Unable to recover port[" << endpoint.port << "] for "
+               << "container[" << container_id.ShortDebugString() << "]: " << port.error();
+    return;
+  }
+
+  // Create/open/register a new reader against the recovered port.
+  std::shared_ptr<PortReader> reader = port_runner->create_port_reader(port.get());
+  Try<UDPEndpoint> new_endpoint = reader->open();
+  if (new_endpoint.isError()) {
+    LOG(ERROR) << "Unable to open recovered port-range reader at port[" << port.get() << "]: "
+               << new_endpoint.error();
+    // return port since we can't use it
+    range_pool->put(port.get());
+    return;
+  }
+  reader->register_container(container_id, executor_info);
+  container_to_reader[container_id] = reader;
+  LOG(INFO) << "Recovered port-range reader for "
+            << "container[" << container_id.ShortDebugString() << "]: "
+            << "orig_endpoint[" << endpoint.string() << "] => "
+            << "new_endpoint[" << new_endpoint.get().string() << "].";
 }
 
 void stats::PortRangeAssigner::_unregister_container(

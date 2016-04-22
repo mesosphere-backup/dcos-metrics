@@ -5,6 +5,7 @@
 #include <glog/logging.h>
 
 #include "input_assigner.hpp"
+#include "input_state_cache_impl.hpp"
 #include "port_runner_impl.hpp"
 
 namespace {
@@ -37,13 +38,21 @@ std::shared_ptr<stats::InputAssigner> stats::InputAssignerFactory::get(
   InputAssigner* impl;
   switch (port_mode) {
     case params::port_mode::SINGLE:
-      impl = new SinglePortAssigner(PortRunnerImpl::create(parameters), parameters);
+      impl = new SinglePortAssigner(
+          PortRunnerImpl::create(parameters),
+          std::make_shared<InputStateCacheImpl>(parameters),
+          parameters);
       break;
     case params::port_mode::EPHEMERAL:
-      impl = new EphemeralPortAssigner(PortRunnerImpl::create(parameters), parameters);
+      impl = new EphemeralPortAssigner(
+          PortRunnerImpl::create(parameters),
+          std::make_shared<InputStateCacheImpl>(parameters));
       break;
     case params::port_mode::RANGE:
-      impl = new PortRangeAssigner(PortRunnerImpl::create(parameters), parameters);
+      impl = new PortRangeAssigner(
+          PortRunnerImpl::create(parameters),
+          std::make_shared<InputStateCacheImpl>(parameters),
+          parameters);
       break;
     case params::port_mode::UNKNOWN:
       LOG(FATAL) << "Unknown " << params::LISTEN_PORT_MODE << " config value: " << port_mode_str;

@@ -14,10 +14,8 @@ class MockInputAssigner {
   MOCK_METHOD2(register_container,
       Try<stats::UDPEndpoint>(
           const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info));
-
   MOCK_METHOD1(recover_containers,
       void(const std::list<mesos::slave::ContainerState>& containers));
-
   MOCK_METHOD1(unregister_container,
       void(const mesos::ContainerID& container_id));
 };

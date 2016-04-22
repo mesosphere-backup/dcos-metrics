@@ -158,6 +158,7 @@ endif()
 set(SRCS
   input_assigner.cpp
   input_assigner_factory.cpp
+  input_state_cache_impl.cpp
   isolator_module.cpp
   params.cpp
   port_reader_impl.cpp

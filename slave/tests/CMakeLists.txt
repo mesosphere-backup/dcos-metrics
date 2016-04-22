@@ -19,6 +19,10 @@ add_executable(input_assigner_tests input_assigner_tests.cpp)
 target_link_libraries(input_assigner_tests gmock gtest stats-slave)
 add_test(input_assigner_tests input_assigner_tests)
 
+add_executable(input_state_cache_tests input_state_cache_tests.cpp)
+target_link_libraries(input_state_cache_tests gmock gtest stats-slave)
+add_test(input_state_cache_tests input_state_cache_tests)
+
 add_executable(isolator_module_tests isolator_module_tests.cpp)
 target_link_libraries(isolator_module_tests gmock gtest stats-slave)
 add_test(isolator_module_tests isolator_module_tests)

@@ -2,7 +2,6 @@
 
 #include <list>
 #include <mutex>
-#include <unordered_set>
 
 #include <mesos/slave/isolator.pb.h>
 #include <stout/try.hpp>
@@ -23,7 +22,8 @@ namespace stats {
   class InputAssigner {
    public:
     InputAssigner(
-        std::shared_ptr<PortRunner> port_runner, const mesos::Parameters& parameters);
+        std::shared_ptr<PortRunner> port_runner,
+        std::shared_ptr<InputStateCache> state_cache);
     virtual ~InputAssigner();
 
     Try<UDPEndpoint> register_container(
@@ -52,7 +52,7 @@ namespace stats {
         const mesos::ExecutorInfo executor_info);
     void unregister_and_update_cache(const mesos::ContainerID container_id);
 
-    std::unique_ptr<InputStateCache> state_cache;
+    std::shared_ptr<InputStateCache> state_cache;
     std::mutex mutex;
   };
 
@@ -63,7 +63,9 @@ namespace stats {
   class SinglePortAssigner : public InputAssigner {
    public:
     SinglePortAssigner(
-        std::shared_ptr<PortRunner> port_runner, const mesos::Parameters& parameters);
+        std::shared_ptr<PortRunner> port_runner,
+        std::shared_ptr<InputStateCache> state_cache,
+        const mesos::Parameters& parameters);
     virtual ~SinglePortAssigner();
 
    protected:
@@ -76,6 +78,8 @@ namespace stats {
     void _unregister_container(const mesos::ContainerID& container_id);
 
    private:
+    Try<std::shared_ptr<PortReader>> init_reader();
+
     // The port to listen on, passed to all containers.
     const size_t single_port_value;
     // The sole reader shared by all containers. Any per-container mapping (eg per-IP) is done
@@ -90,7 +94,8 @@ namespace stats {
   class EphemeralPortAssigner : public InputAssigner {
    public:
     EphemeralPortAssigner(
-        std::shared_ptr<PortRunner> port_runner, const mesos::Parameters& parameters);
+        std::shared_ptr<PortRunner> port_runner,
+        std::shared_ptr<InputStateCache> state_cache);
     virtual ~EphemeralPortAssigner();
 
    protected:
@@ -115,7 +120,9 @@ namespace stats {
   class PortRangeAssigner : public InputAssigner {
    public:
     PortRangeAssigner(
-        std::shared_ptr<PortRunner> port_runner, const mesos::Parameters& parameters);
+        std::shared_ptr<PortRunner> port_runner,
+        std::shared_ptr<InputStateCache> state_cache,
+        const mesos::Parameters& parameters);
     virtual ~PortRangeAssigner();
 
    protected:
