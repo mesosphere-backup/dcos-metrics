@@ -10,6 +10,7 @@ namespace stats {
    */
   class InputStateCache {
    public:
+    virtual const std::string& path() const = 0;
     virtual container_id_map<UDPEndpoint> get_containers() = 0;
     virtual void add_container(
         const mesos::ContainerID& container_id, const UDPEndpoint& endpoint) = 0;

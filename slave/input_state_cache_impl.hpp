@@ -10,6 +10,7 @@ namespace stats {
    public:
     InputStateCacheImpl(const mesos::Parameters& parameters);
 
+    const std::string& path() const;
     container_id_map<UDPEndpoint> get_containers();
     void add_container(const mesos::ContainerID& container_id, const UDPEndpoint& endpoint);
     void remove_container(const mesos::ContainerID& container_id);

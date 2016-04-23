@@ -1,5 +1,6 @@
 #include "input_assigner.hpp"
 
+#include <map>
 #include <glog/logging.h>
 
 #include "input_state_cache.hpp"
@@ -75,12 +76,20 @@ void stats::InputAssigner::unregister_container(
 
 void stats::InputAssigner::recover_containers_imp(
     const std::list<mesos::slave::ContainerState>& containers) {
-  container_id_map<mesos::slave::ContainerState> recovered_containers;
+  // use ordered maps to keep ordering consistent in tests:
+  container_id_ord_map<mesos::slave::ContainerState> recovered_containers;
   for (const mesos::slave::ContainerState container : containers) {
     recovered_containers[container.container_id()] = container;
   }
+  container_id_ord_map<UDPEndpoint> disk_containers;
+  {
+      container_id_map<UDPEndpoint> disk_containers_unord = state_cache->get_containers();
+      disk_containers.insert(disk_containers_unord.begin(), disk_containers_unord.end());
+  }
 
-  container_id_map<UDPEndpoint> disk_containers = state_cache->get_containers();
+  LOG(INFO) << "Syncing " << recovered_containers.size() << " recovered containers against "
+            << disk_containers.size() << " state cache containers in "
+            << "path[" << state_cache->path() << "]";
 
   // Reconcile between 'recovered_containers' and 'disk_containers':
   // 1) found in both: pass both to _insert_container() to register against cached endpoint
@@ -116,9 +125,9 @@ void stats::InputAssigner::recover_containers_imp(
     LOG(INFO) << "Recovering " << containers_to_insert.size()
               << " container endpoints using state cache:";
     for (const ContainerEndpoint& insertme : containers_to_insert) {
-      LOG(INFO) << "- container["
+      LOG(INFO) << "container["
                 << insertme.container.container_id().ShortDebugString() << "] => "
-                << insertme.endpoint.string();
+                << insertme.endpoint.string() << " ...";
       // don't need to add to state_cache: it's already there!
       _insert_container(
           insertme.container.container_id(), insertme.container.executor_info(), insertme.endpoint);
@@ -131,24 +140,22 @@ void stats::InputAssigner::recover_containers_imp(
     LOG(INFO) << "Clearing " << containers_to_remove.size()
               << " no-longer-existent containers from state cache:";
     for (const mesos::ContainerID& removeme : containers_to_remove) {
-      LOG(INFO) << "- container[" << removeme.ShortDebugString() << "]";
+      LOG(INFO) << "container[" << removeme.ShortDebugString() << "] ...";
       unregister_and_update_cache(removeme);
     }
   } else {
     LOG(INFO) << "No containers to clear from state cache.";
   }
 
-  if (!containers_to_register.empty()) { // #3
-    LOG(WARNING) << "Blindly re-registering " << containers_to_register.size()
-                 << " containers that weren't listed in on-disk history. "
+  if (!containers_to_register.empty()) { // #3 (shouldn't happen in practice)
+    LOG(WARNING) << "Blindly attempting to re-register " << containers_to_register.size()
+                 << " recovered containers that weren't listed in on-disk history. "
                  << "These containers may lack functioning metrics until they've been restarted:";
     for (const mesos::slave::ContainerState& registerme : containers_to_register) {
-      LOG(WARNING) << "- container[" << registerme.container_id().ShortDebugString() << "] => "
-                   << "???";
+      LOG(WARNING) << "container[" << registerme.container_id().ShortDebugString() << "] => "
+                   << "??? ...";
       register_and_update_cache(registerme.container_id(), registerme.executor_info());
     }
-  } else {
-    LOG(INFO) << "No containers to be blindly re-registered without state cache.";
   }
 
   LOG(INFO) << "Container recovery complete";
@@ -316,7 +323,7 @@ void stats::EphemeralPortAssigner::_insert_container(
     const mesos::ContainerID& container_id,
     const mesos::ExecutorInfo& executor_info,
     const UDPEndpoint& endpoint) {
-  // Don't bother with reusing an existing reader like in _register_container above:
+  // Don't bother with reusing an existing reader for the container like in _register_container.
   // Assume that we're getting the latest information about this container, which should
   // override any existing local state. This shouldn't come up in practice, but just sayin...
 

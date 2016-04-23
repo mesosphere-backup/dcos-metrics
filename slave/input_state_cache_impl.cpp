@@ -4,6 +4,10 @@ stats::InputStateCacheImpl::InputStateCacheImpl(const mesos::Parameters& paramet
   : state_path_dir(
       params::get_str(parameters, params::STATE_PATH_DIR, params::STATE_PATH_DIR_DEFAULT)) { }
 
+const std::string& stats::InputStateCacheImpl::path() const {
+  return state_path_dir;
+}
+
 stats::container_id_map<stats::UDPEndpoint> stats::InputStateCacheImpl::get_containers() {
   //TODO
   return container_id_map<UDPEndpoint>();
