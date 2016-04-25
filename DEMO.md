@@ -72,6 +72,21 @@ In Marathon:
 - Optional settings > URIs = `https://s3-us-west-2.amazonaws.com/nick-dev/metrics-msft/test-sender.tgz`
 - Extra credit: start (or reconfigure) the sender task with >1 instances to test sending stats from multiple sources.
 
+Or in JSON Mode:
+```json
+{
+  "id": "test-sender",
+  "cmd": "./test-sender",
+  "cpus": 1,
+  "mem": 128,
+  "disk": 0,
+  "instances": 1,
+  "uris": [
+    "https://s3-us-west-2.amazonaws.com/nick-dev/metrics-msft/test-sender.tgz"
+  ]
+}
+```
+
 ## Launching a Kafka or Cassandra sender
 
 After the module has been installed on all the slaves, the Kafka brokers and Cassandra nodes will need to be restarted in order to start using it. They will see the advertised metrics capability on startup and will automatically enable metrics export locally. In future DCOS versions, the module will be installed by default, so this restart won't be necessary.
@@ -103,6 +118,21 @@ In Marathon:
 - Command: `./test-receiver`
 - Optional settings > URIs = `https://s3-us-west-2.amazonaws.com/nick-dev/metrics-msft/test-receiver.tgz`
 - Extra credit: start (or reconfigure) the 'metrics' receiver task with >1 instances. This will result in multiple DNS A records for 'metrics.marathon.mesos', and the mesos-slaves will automatically balance their load across them.
+
+Or in JSON Mode:
+```json
+{
+  "id": "metrics",
+  "cmd": "./test-receiver",
+  "cpus": 1,
+  "mem": 128,
+  "disk": 0,
+  "instances": 1,
+  "uris": [
+    "https://s3-us-west-2.amazonaws.com/nick-dev/metrics-msft/test-receiver.tgz"
+  ]
+}
+```
 
 ## Launching a sample graphite receiver
 
