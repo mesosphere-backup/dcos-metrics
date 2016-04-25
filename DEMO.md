@@ -1,6 +1,6 @@
 # Metrics module installation and usage
 
-In DCOS 1.7 EE (or newer), the module is already included. In this case these steps are only relevant if you're interested in using a custom build of the module.
+In DCOS 1.7 EE (or newer), the module is already included, so these steps are mainly meant to be a reference for installing a custom build of the module, or for changing the module config.
 
 ## Installing a custom build of the module (on EACH mesos-slave system)
 
