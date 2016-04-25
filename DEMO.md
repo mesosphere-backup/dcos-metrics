@@ -31,7 +31,7 @@ All configuration is within `/opt/mesosphere/etc/mesos-slave-modules.json`. The 
 - "`chunking`": Whether to group outgoing data into a smaller number of packets. **If your statsd receiver doesn't support multiple newline-separated statsd records in the same UDP packet, this should be 'false'.**
 - "`chunk_size_bytes`": Preferred chunk size for outgoing UDP packets, when "chunking" is enabled. This should be the UDP MTU.
 
-The full list of config options is provided in [params.hpp](https://github.com/mesosphere/dcos-stats/blob/master/slave/params.hpp).
+The full list of config options is provided in [the module README](https://github.com/mesosphere/dcos-stats/blob/master/slave/README.md).
 
 IMPORTANT: Again, any changes to these options don't take effect until the mesos-slave process is restarted using the following steps:
 
