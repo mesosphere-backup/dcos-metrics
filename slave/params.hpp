@@ -100,16 +100,12 @@ namespace stats {
      * On-system settings
      */
 
-    // Directory to store state data for recovery if the agent process is restarted
-    // Structure inside will be:
-    // <state_path_dir>/
-    //  |-- container-<container id 1>.json (contains the assigned host/port for this container)
-    //  |-- container-<container id 2>.json (...)
-    //  |-- ...
+    // Directory to store state data for recovery if the agent process is restarted.
     // This list will be automatically updated as containers are added/removed from the agent.
+    // See input_state_cache_impl.cpp for directory structure.
     const std::string STATE_PATH_DIR = "state_path_dir";
     // Seems to be the convention. See eg 'cni/paths.hpp' in stock mesos isolators
-    const std::string STATE_PATH_DIR_DEFAULT = "/var/run/mesos/isolators/network/metrics";
+    const std::string STATE_PATH_DIR_DEFAULT = "/var/run/mesos/isolators/network/metrics/";
 
     std::string get_str(const mesos::Parameters& parameters, const std::string& key, const std::string& default_value);
     size_t get_uint(const mesos::Parameters& parameters, const std::string& key, size_t default_value);

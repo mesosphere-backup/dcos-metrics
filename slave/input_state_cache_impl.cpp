@@ -13,12 +13,25 @@
  *  ...
  *
  * file format:
- *  { host: "some_host", port: "some_port" }
+ *  { "container_id": "container_id-0",
+ *    "statsd_host": "some_host",
+ *    "statsd_port": some_port }
  */
 
 namespace {
-  const std::string HOST_KEY("host");
-  const std::string PORT_KEY("port");
+  const std::string CONTAINER_ID_KEY("container_id");
+  const std::string HOST_KEY("statsd_host");
+  const std::string PORT_KEY("statsd_port");
+
+  /**
+   * Avoid eg:
+   * - malicious: "/example/path/" + "../../etc/shadow"
+   * - nested: "/example/path/" + "valid-container-id/with-slash"
+   * Solution: Just strip out all slashes from the name.
+   */
+  std::string sanitized_filename(const mesos::ContainerID& container_id) {
+    return strings::remove(container_id.value(), "/");
+  }
 }
 
 stats::InputStateCacheImpl::InputStateCacheImpl(const mesos::Parameters& parameters)
@@ -52,6 +65,18 @@ stats::container_id_map<stats::UDPEndpoint> stats::InputStateCacheImpl::get_cont
       continue;
     }
 
+    Result<JSON::String> container_id_json =
+      content_json.get().find<JSON::String>(CONTAINER_ID_KEY);
+    if (container_id_json.isError()) {
+      LOG(ERROR) << "Unable to parse container id value in cache file[" << pathstr << "] "
+                 << "content[" << content.get() << "]: " << container_id_json.error();
+      continue;
+    } else if (container_id_json.isNone()) {
+      LOG(ERROR) << "Missing container_id value in cache file[" << pathstr << "] "
+                 << "content[" << content.get() << "]";
+      continue;
+    }
+
     Result<JSON::String> host = content_json.get().find<JSON::String>(HOST_KEY);
     if (host.isError()) {
       LOG(ERROR) << "Unable to parse host value in cache file[" << pathstr << "] "
@@ -79,10 +104,14 @@ stats::container_id_map<stats::UDPEndpoint> stats::InputStateCacheImpl::get_cont
     }
 
     mesos::ContainerID container_id;
-    container_id.set_value(Path(pathstr).basename());
-    map.insert(std::make_pair(
-            container_id,
-            stats::UDPEndpoint(host.get().value, port.get().as<size_t>())));
+    container_id.set_value(container_id_json.get().value);
+    stats::UDPEndpoint endpoint(host.get().value, port.get().as<size_t>());
+
+    LOG(INFO) << "Found container file[" << pathstr << "] with "
+              << "container_id[" << container_id.value() << "] => "
+              << "endpoint[" << endpoint.string() << "]";
+
+    map.insert(std::make_pair(container_id, endpoint));
   }
   return map;
 }
@@ -98,17 +127,18 @@ void stats::InputStateCacheImpl::add_container(
     }
   }
 
-  std::string container_path = path::join(state_path_dir, container_id.value());
+  std::string container_path = path::join(state_path_dir, sanitized_filename(container_id));
   LOG(INFO) << "Writing container file[" << container_path << "] with "
             << "endpoint[" << endpoint.string() << "]";
   JSON::Object json_obj;
+  json_obj.values[CONTAINER_ID_KEY] = container_id.value();
   json_obj.values[HOST_KEY] = endpoint.host;
   json_obj.values[PORT_KEY] = endpoint.port;
   Try<Nothing> result = os::write(container_path, stringify(json_obj));
 }
 
 void stats::InputStateCacheImpl::remove_container(const mesos::ContainerID& container_id) {
-  std::string container_path = path::join(state_path_dir, container_id.value());
+  std::string container_path = path::join(state_path_dir, sanitized_filename(container_id));
   LOG(INFO) << "Removing container file[" << container_path << "]";
   Try<Nothing> result = os::rm(container_path);
   if (result.isError()) {
