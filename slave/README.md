@@ -81,3 +81,4 @@ Available parameters for ```modules.json``` (see also [params.hpp](https://githu
 - "```annotation_mode```" (default ```tag_datadog```): How to annotate outgoing stats with information about the mesos task. Available options are ```tag_datadog``` for Datadog tags ([wire format](https://github.com/DataDog/dogstatsd-python/blob/master/statsd.py#L178)), ```tag_prefix``` to include the info in the statsd key prefix, or ```none``` for no annotations.
 - "```chunking```" (default ```true```): Whether to group outgoing statsd data into a smaller number of packets, with values separated by newlines. This format is supported by most statsd clients.
 - "```chunk_size_bytes```" (default ```512```): Preferred chunk size for outgoing UDP packets, when ```chunking``` is ```true```.
+- "```state_path_dir```" (default ```/var/run/mesos/isolators/network/metrics/```): Where to store container state for recovery if the slave is restarted.
