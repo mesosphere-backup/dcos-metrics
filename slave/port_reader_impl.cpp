@@ -82,6 +82,20 @@ Try<stats::UDPEndpoint> stats::PortReaderImpl<PortWriter>::open() {
     oss << "Failed to open reader socket at endpoint[" << bind_endpoint << "]: " << ec;
     return Try<stats::UDPEndpoint>(Error(oss.str()));
   }
+
+  // Enable SO_REUSEADDR: When mesos-slave is restarted, child processes such as
+  // mesos-logrotate-logger and mesos-executor wind up taking ownership of the socket, preventing us
+  // from recovering the socket after a mesos-slave restart (result: bind() => EADDRINUSE).
+  // Due to this behavior, SO_REUSEADDR is required for the agent to recover its own sockets.
+  // To verify that data wasn't being lost after a recovery, the author ran several 'test-sender'
+  // tasks and observed that 'loop_gauge' was incrementing without any skipped values.
+  socket.set_option(boost::asio::socket_base::reuse_address(true), ec);
+  if (ec) {
+    std::ostringstream oss;
+    oss << "Failed to set bind reader socket at endpoint[" << bind_endpoint << "]: " << ec;
+    return Try<stats::UDPEndpoint>(Error(oss.str()));
+  }
+
   socket.bind(bind_endpoint, ec);
   if (ec) {
     std::ostringstream oss;
@@ -283,7 +297,7 @@ void stats::PortReaderImpl<PortWriter>::tag_and_send(
         }
         DLOG(INFO) << "Received " << original_size << " byte entry from "
                    << "endpoint[" << sender_endpoint << "], "
-                   << "forwarding " << size << " bytes with datadog tags";
+                   << "forwarding " << size << " bytes with key prefix tags";
       }
       break;
   }
