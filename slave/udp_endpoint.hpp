@@ -19,6 +19,10 @@ namespace stats {
       return oss.str();
     }
 
+    bool operator==(const UDPEndpoint& other) const {
+      return port == other.port && host == other.host;
+    }
+
     const std::string host;
     const size_t port;
   };

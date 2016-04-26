@@ -2,7 +2,6 @@
 
 #include <list>
 #include <mutex>
-#include <unordered_set>
 
 #include <mesos/slave/isolator.pb.h>
 #include <stout/try.hpp>
@@ -13,6 +12,7 @@
 #include "udp_endpoint.hpp"
 
 namespace stats {
+  class InputStateCache;
   class RangePool;
 
   /**
@@ -21,7 +21,9 @@ namespace stats {
    */
   class InputAssigner {
    public:
-    InputAssigner(std::shared_ptr<PortRunner> port_runner);
+    InputAssigner(
+        std::shared_ptr<PortRunner> port_runner,
+        std::shared_ptr<InputStateCache> state_cache);
     virtual ~InputAssigner();
 
     Try<UDPEndpoint> register_container(
@@ -35,11 +37,22 @@ namespace stats {
     virtual Try<UDPEndpoint> _register_container(
         const mesos::ContainerID& container_id,
         const mesos::ExecutorInfo& executor_info) = 0;
+    virtual void _insert_container(
+        const mesos::ContainerID& container_id,
+        const mesos::ExecutorInfo& executor_info,
+        const UDPEndpoint& endpoint) = 0;
     virtual void _unregister_container(const mesos::ContainerID& container_id) = 0;
 
     std::shared_ptr<PortRunner> port_runner;
 
    private:
+    void recover_containers_imp(const std::list<mesos::slave::ContainerState>& containers);
+    Try<UDPEndpoint> register_and_update_cache(
+        const mesos::ContainerID container_id,
+        const mesos::ExecutorInfo executor_info);
+    void unregister_and_update_cache(const mesos::ContainerID container_id);
+
+    std::shared_ptr<InputStateCache> state_cache;
     std::mutex mutex;
   };
 
@@ -50,15 +63,23 @@ namespace stats {
   class SinglePortAssigner : public InputAssigner {
    public:
     SinglePortAssigner(
-        std::shared_ptr<PortRunner> port_runner, const mesos::Parameters& parameters);
+        std::shared_ptr<PortRunner> port_runner,
+        std::shared_ptr<InputStateCache> state_cache,
+        const mesos::Parameters& parameters);
     virtual ~SinglePortAssigner();
 
    protected:
     Try<UDPEndpoint> _register_container(
         const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info);
+    void _insert_container(
+        const mesos::ContainerID& container_id,
+        const mesos::ExecutorInfo& executor_info,
+        const UDPEndpoint& endpoint);
     void _unregister_container(const mesos::ContainerID& container_id);
 
    private:
+    Try<std::shared_ptr<PortReader>> init_reader();
+
     // The port to listen on, passed to all containers.
     const size_t single_port_value;
     // The sole reader shared by all containers. Any per-container mapping (eg per-IP) is done
@@ -73,12 +94,17 @@ namespace stats {
   class EphemeralPortAssigner : public InputAssigner {
    public:
     EphemeralPortAssigner(
-        std::shared_ptr<PortRunner> port_runner);
+        std::shared_ptr<PortRunner> port_runner,
+        std::shared_ptr<InputStateCache> state_cache);
     virtual ~EphemeralPortAssigner();
 
    protected:
     Try<UDPEndpoint> _register_container(
         const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info);
+    void _insert_container(
+        const mesos::ContainerID& container_id,
+        const mesos::ExecutorInfo& executor_info,
+        const UDPEndpoint& endpoint);
     void _unregister_container(const mesos::ContainerID& container_id);
 
    private:
@@ -94,12 +120,18 @@ namespace stats {
   class PortRangeAssigner : public InputAssigner {
    public:
     PortRangeAssigner(
-        std::shared_ptr<PortRunner> port_runner, const mesos::Parameters& parameters);
+        std::shared_ptr<PortRunner> port_runner,
+        std::shared_ptr<InputStateCache> state_cache,
+        const mesos::Parameters& parameters);
     virtual ~PortRangeAssigner();
 
    protected:
     Try<UDPEndpoint> _register_container(
         const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info);
+    void _insert_container(
+        const mesos::ContainerID& container_id,
+        const mesos::ExecutorInfo& executor_info,
+        const UDPEndpoint& endpoint);
     void _unregister_container(const mesos::ContainerID& container_id);
 
    private:

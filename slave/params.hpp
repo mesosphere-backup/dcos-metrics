@@ -96,6 +96,17 @@ namespace stats {
     const std::string CHUNK_SIZE_BYTES = "chunk_size_bytes";
     const int CHUNK_SIZE_BYTES_DEFAULT = 512;
 
+    /**
+     * On-system settings
+     */
+
+    // Directory to store state data for recovery if the agent process is restarted.
+    // This list will be automatically updated as containers are added/removed from the agent.
+    // See input_state_cache_impl.cpp for directory structure.
+    const std::string STATE_PATH_DIR = "state_path_dir";
+    // Seems to be the convention. See eg 'cni/paths.hpp' in stock mesos isolators
+    const std::string STATE_PATH_DIR_DEFAULT = "/var/run/mesos/isolators/network/metrics/";
+
     std::string get_str(const mesos::Parameters& parameters, const std::string& key, const std::string& default_value);
     size_t get_uint(const mesos::Parameters& parameters, const std::string& key, size_t default_value);
     bool get_bool(const mesos::Parameters& parameters, const std::string& key, bool default_value);

@@ -16,7 +16,7 @@ elseif(TARGET_DCOS EQUAL "1.7")
   #cmake -DCMAKE_BUILD_TYPE=Release -Dboost_system_LIBRARY=/home/nick/code/dcos-vagrant/metrics-libs-17ee/opt/mesosphere/lib/libboost_system.so.1.53.0 -DTARGET_DCOS=1.7 ..
   set(CMAKE_CXX_COMPILER "/usr/bin/g++-4.8")
   set(CMAKE_CXX_FLAGS "-std=c++11")
-  set(mesos_VERSION "0.28.0")
+  set(mesos_VERSION "0.28.1")
   set(TESTS_ENABLED false)
 endif()
 
@@ -158,6 +158,7 @@ endif()
 set(SRCS
   input_assigner.cpp
   input_assigner_factory.cpp
+  input_state_cache_impl.cpp
   isolator_module.cpp
   params.cpp
   port_reader_impl.cpp
@@ -185,6 +186,7 @@ list(APPEND INCLUDES
 message(STATUS "Include dirs: ${INCLUDES}")
 message(STATUS "Libs: ${LIBS}")
 
+add_definitions(-DPICOJSON_USE_INT64) # otherwise we get "undefined symbol: _ZNK8picojson5value2isIlEEbv"
 add_definitions(-std=c++11)
 include_directories(${INCLUDES})
 
