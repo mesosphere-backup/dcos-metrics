@@ -105,7 +105,7 @@ namespace stats {
     // See input_state_cache_impl.cpp for directory structure.
     const std::string STATE_PATH_DIR = "state_path_dir";
     // Seems to be the convention. See eg 'cni/paths.hpp' in stock mesos isolators
-    const std::string STATE_PATH_DIR_DEFAULT = "/var/run/mesos/isolators/network/metrics/";
+    const std::string STATE_PATH_DIR_DEFAULT = "/var/run/mesos/isolators/com_mesosphere_StatsIsolatorModule/";
 
     std::string get_str(const mesos::Parameters& parameters, const std::string& key, const std::string& default_value);
     size_t get_uint(const mesos::Parameters& parameters, const std::string& key, size_t default_value);
