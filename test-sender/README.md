@@ -3,7 +3,7 @@ A small executable which emits metrics data, which may be used to test a metrics
 
 ## Notes:
 
-* Requires ```STATSD_UDP_HOST``` and ```STATSD_UDP_PORT``` in the environment, pointing to where stats should be sent. In Mesos, these should be provided by the Stats slave module to the container where test-sender is running.
+* Requires ```STATSD_UDP_HOST``` and ```STATSD_UDP_PORT``` in the environment, pointing to where stats should be sent. These environment variables are automatically provided by Mesos on DC/OS EE clusters 1.7+.
 * A "```-debug```" option enables additional logs to stdout.
 
 ## Build/run instructions:
