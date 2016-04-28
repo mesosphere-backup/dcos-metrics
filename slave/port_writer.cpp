@@ -67,8 +67,7 @@ stats::PortWriter::PortWriter(std::shared_ptr<boost::asio::io_service> io_servic
     socket(*io_service),
     buffer((char*) malloc(buffer_capacity)),
     buffer_used(0),
-    dropped_bytes(0),
-    shutdown(false) {
+    dropped_bytes(0) {
   LOG(INFO) << "Writer constructed for " << send_host << ":" << send_port;
   if (resolve_period_ms == 0) {
     LOG(FATAL) << "Invalid " << params::DEST_REFRESH_SECONDS << " value: must be non-zero";
@@ -76,19 +75,12 @@ stats::PortWriter::PortWriter(std::shared_ptr<boost::asio::io_service> io_servic
 }
 
 stats::PortWriter::~PortWriter() {
-  LOG(INFO) << "Asynchronously triggering PortWriter shutdown for "
-            << send_host << ":" << send_port;
-  cancel_timers();
-  if (sync_util::dispatch_run(
-          "~PortWriter", *io_service, std::bind(&PortWriter::shutdown_cb, this))) {
-    LOG(INFO) << "PortWriter shutdown succeeded";
-  } else {
-    LOG(ERROR) << "Failed to complete PortWriter shutdown for " << send_host << ":" << send_port;
-  }
+  shutdown();
 }
 
 void stats::PortWriter::start() {
   // Only run the timer callbacks within the io_service thread:
+  LOG(INFO) << "PortWriter starting work";
   io_service->dispatch(std::bind(&PortWriter::dest_resolve_cb, this, boost::system::error_code()));
   if (chunking) {
     start_chunk_flush_timer();
@@ -126,15 +118,15 @@ stats::PortWriter::udp_resolver_t::iterator stats::PortWriter::resolve(
   return resolver.resolve(udp_resolver_t::query(send_host, ""), ec);
 }
 
-void stats::PortWriter::cancel_timers() {
-  boost::system::error_code ec;
-  flush_timer.cancel(ec);
-  if (ec) {
-    LOG(ERROR) << "Flush timer cancellation returned error. err=" << ec;
-  }
-  resolve_timer.cancel(ec);
-  if (ec) {
-    LOG(ERROR) << "Resolve timer cancellation returned error. err=" << ec;
+void stats::PortWriter::shutdown() {
+  LOG(INFO) << "Asynchronously triggering PortWriter shutdown for "
+            << send_host << ":" << send_port;
+  // Run the shutdown work itself from within the scheduler:
+  if (sync_util::dispatch_run(
+          "~PortWriter", *io_service, std::bind(&PortWriter::shutdown_cb, this))) {
+    LOG(INFO) << "PortWriter shutdown succeeded";
+  } else {
+    LOG(ERROR) << "Failed to complete PortWriter shutdown for " << send_host << ":" << send_port;
   }
 }
 
@@ -325,6 +317,17 @@ void stats::PortWriter::send_raw_bytes(const char* bytes, size_t size) {
 
 void stats::PortWriter::shutdown_cb() {
   boost::system::error_code ec;
+
+  flush_timer.cancel(ec);
+  if (ec) {
+    LOG(ERROR) << "Flush timer cancellation returned error. err=" << ec;
+  }
+
+  resolve_timer.cancel(ec);
+  if (ec) {
+    LOG(ERROR) << "Resolve timer cancellation returned error. err=" << ec;
+  }
+
   if (socket.is_open()) {
     if (chunking) {
       chunk_flush_cb(boost::system::error_code());

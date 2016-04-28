@@ -11,21 +11,29 @@ include_directories(
   ${GTEST_INCLUDE_DIR}
   )
 
-add_executable(input_assigner_factory_tests input_assigner_factory_tests.cpp)
-target_link_libraries(input_assigner_factory_tests gtest stats-slave)
-add_test(input_assigner_factory_tests input_assigner_factory_tests)
-
 add_executable(input_assigner_tests input_assigner_tests.cpp)
 target_link_libraries(input_assigner_tests gmock gtest stats-slave)
 add_test(input_assigner_tests input_assigner_tests)
+
+add_executable(input_assigner_strategy_tests input_assigner_strategy_tests.cpp)
+target_link_libraries(input_assigner_strategy_tests gmock gtest stats-slave)
+add_test(input_assigner_strategy_tests input_assigner_strategy_tests)
 
 add_executable(input_state_cache_impl_tests input_state_cache_impl_tests.cpp)
 target_link_libraries(input_state_cache_impl_tests gmock gtest stats-slave)
 add_test(input_state_cache_impl_tests input_state_cache_impl_tests)
 
+add_executable(io_runner_impl_tests io_runner_impl_tests.cpp)
+target_link_libraries(io_runner_impl_tests gmock gtest stats-slave)
+add_test(io_runner_impl_tests io_runner_impl_tests)
+
 add_executable(isolator_module_tests isolator_module_tests.cpp)
 target_link_libraries(isolator_module_tests gmock gtest stats-slave)
 add_test(isolator_module_tests isolator_module_tests)
+
+add_executable(module_access_factory_tests module_access_factory_tests.cpp)
+target_link_libraries(module_access_factory_tests gtest stats-slave)
+add_test(module_access_factory_tests module_access_factory_tests)
 
 add_executable(params_tests params_tests.cpp)
 target_link_libraries(params_tests gtest stats-slave)
@@ -39,10 +47,6 @@ target_link_libraries(port_reader_impl_fuzz gmock gtest stats-slave)
 add_executable(port_reader_impl_tests port_reader_impl_tests.cpp)
 target_link_libraries(port_reader_impl_tests gmock gtest stats-slave)
 add_test(port_reader_impl_tests port_reader_impl_tests)
-
-add_executable(port_runner_impl_tests port_runner_impl_tests.cpp)
-target_link_libraries(port_runner_impl_tests gmock gtest stats-slave)
-add_test(port_runner_impl_tests port_runner_impl_tests)
 
 add_executable(port_writer_tests port_writer_tests.cpp)
 target_link_libraries(port_writer_tests gtest stats-slave)

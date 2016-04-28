@@ -60,7 +60,7 @@ namespace stats {
      * Cancels running timers. Subclasses should call this in their destructor, to avoid the default
      * resolve() being called in the timespan between ~<Subclass>() and ~PortWriter().
      */
-    void cancel_timers();
+    void shutdown();
 
    private:
     typedef boost::asio::ip::udp::endpoint udp_endpoint_t;
@@ -90,7 +90,6 @@ namespace stats {
     char* buffer;
     size_t buffer_used;
     size_t dropped_bytes;
-    bool shutdown;
   };
 
 }

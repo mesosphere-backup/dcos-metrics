@@ -5,7 +5,7 @@
 #include <stout/try.hpp>
 
 #include "input_assigner.hpp"
-#include "input_assigner_factory.hpp"
+#include "module_access_factory.hpp"
 
 namespace {
   const std::string STATSD_ENV_NAME_HOST = "STATSD_UDP_HOST";
@@ -121,7 +121,7 @@ process::Future<Nothing> stats::IsolatorModule<InputAssigner>::cleanup(
 namespace {
   mesos::slave::Isolator* create_isolator_cb(const mesos::Parameters& parameters) {
     return new stats::IsolatorModule<stats::InputAssigner>(
-        stats::InputAssignerFactory::get(parameters));
+        stats::ModuleAccessFactory::get_input_assigner(parameters));
   }
 }
 

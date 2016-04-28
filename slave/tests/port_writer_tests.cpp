@@ -85,9 +85,9 @@ namespace {
     }
 
     virtual ~StubLookupPortWriter() {
-      cancel_timers();
-      stats::sync_util::dispatch_run(
-          "~StubLookupPortWriter", *io_service, std::bind(&flush_service_queue_with_noop));
+      // cancel timers in parent class before we get destroyed:
+      // ensure their timers don't call OUR resolve() after we're destroyed
+      shutdown();
     }
 
    protected:
@@ -293,7 +293,7 @@ TEST(PortWriterTests, resolve_reshuffle_data_sent_single_destination) {
     recv6.insert(test_reader6.read());
   }
   // all sent data should have only been sent to one of the two endpoints
-  EXPECT_TRUE(recv4.size() == 3 ^ recv6.size() == 3);
+  EXPECT_TRUE((recv4.size() == 3) ^ (recv6.size() == 3));
   if (!recv4.empty()) {
     EXPECT_EQ(1, recv4.count(hello));
     EXPECT_EQ(1, recv4.count(hey));

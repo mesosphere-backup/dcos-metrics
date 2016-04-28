@@ -1,11 +1,12 @@
-#include <thread>
 #include <unordered_set>
 
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
-#include "port_runner_impl.hpp"
+#include "io_runner_impl.hpp"
 #include "test_socket.hpp"
+
+#define EXPECT_DETH(a, b) { std::cerr << "Disregard the following warning:"; EXPECT_DEATH(a, b); }
 
 namespace {
   inline mesos::ContainerID container_id(const std::string& id) {
@@ -38,17 +39,15 @@ namespace {
     return oss.str();
   }
 
-  void flush_service_queue_with_noop() {
-    LOG(INFO) << "async queue flushed";
-  }
+  void noop() { }
 }
 
 /**
  * Tests for data going through a full pipeline over localhost:
- * TestWriteSocket(s) -> PortRunner[PortReader(s) -> PortWriter] -> TestReadSocket
+ * TestWriteSocket(s) -> IORunner[PortReader(s) -> PortWriter] -> TestReadSocket
  */
 
-TEST(PortRunnerImplTests, write_then_immediate_shutdown) {
+TEST(IORunnerImplTests, write_then_immediate_shutdown) {
   TestReadSocket reader;
   size_t output_port = reader.listen();
 
@@ -60,9 +59,11 @@ TEST(PortRunnerImplTests, write_then_immediate_shutdown) {
   param = params.add_parameter();
   param->set_key(stats::params::DEST_PORT);
   param->set_value(std::to_string(output_port));
-  std::shared_ptr<stats::PortRunner> runner = stats::PortRunnerImpl::create(params);
 
-  std::shared_ptr<stats::PortReader> reader1 = runner->create_port_reader(0);
+  stats::IORunnerImpl runner;
+  runner.init(params);
+
+  std::shared_ptr<stats::PortReader> reader1 = runner.create_port_reader(0);
   size_t input_port1 = reader1->open().get().port;
   mesos::ContainerID container1 = container_id("cid1");
   mesos::ExecutorInfo executor1 = exec_info("fid1", "eid1");
@@ -72,7 +73,7 @@ TEST(PortRunnerImplTests, write_then_immediate_shutdown) {
 
   writer1.write("writer1:1");
 
-  std::shared_ptr<stats::PortReader> reader2 = runner->create_port_reader(0);
+  std::shared_ptr<stats::PortReader> reader2 = runner.create_port_reader(0);
   size_t input_port2 = reader2->open().get().port;
   // no container registered
   TestWriteSocket writer2;
@@ -80,7 +81,7 @@ TEST(PortRunnerImplTests, write_then_immediate_shutdown) {
 
   writer2.write("writer2:1");
 
-  std::shared_ptr<stats::PortReader> reader3 = runner->create_port_reader(0);
+  std::shared_ptr<stats::PortReader> reader3 = runner.create_port_reader(0);
   size_t input_port3 = reader3->open().get().port;
   mesos::ContainerID container3 = container_id("cid3");
   mesos::ExecutorInfo executor3 = exec_info("fid3", "eid3");
@@ -98,10 +99,9 @@ TEST(PortRunnerImplTests, write_then_immediate_shutdown) {
   reader1.reset();
   reader2.reset();
   reader3.reset();
-  runner.reset();
 }
 
-TEST(PortRunnerImplTests, data_flow_multi_stream) {
+TEST(IORunnerImplTests, data_flow_multi_stream) {
   TestReadSocket reader;
   size_t output_port = reader.listen();
 
@@ -114,9 +114,10 @@ TEST(PortRunnerImplTests, data_flow_multi_stream) {
   param->set_key(stats::params::DEST_PORT);
   param->set_value(std::to_string(output_port));
 
-  std::shared_ptr<stats::PortRunner> runner = stats::PortRunnerImpl::create(params);
+  stats::IORunnerImpl runner;
+  runner.init(params);
 
-  std::shared_ptr<stats::PortReader> reader1 = runner->create_port_reader(0);
+  std::shared_ptr<stats::PortReader> reader1 = runner.create_port_reader(0);
   size_t input_port1 = reader1->open().get().port;
   mesos::ContainerID container1 = container_id("cid1");
   mesos::ExecutorInfo executor1 = exec_info("fid1", "eid1");
@@ -126,7 +127,7 @@ TEST(PortRunnerImplTests, data_flow_multi_stream) {
 
   writer1.write("writer1:1");
 
-  std::shared_ptr<stats::PortReader> reader2 = runner->create_port_reader(0);
+  std::shared_ptr<stats::PortReader> reader2 = runner.create_port_reader(0);
   size_t input_port2 = reader2->open().get().port;
   // no container registered
   TestWriteSocket writer2;
@@ -134,7 +135,7 @@ TEST(PortRunnerImplTests, data_flow_multi_stream) {
 
   writer2.write("writer2:1");
 
-  std::shared_ptr<stats::PortReader> reader3 = runner->create_port_reader(0);
+  std::shared_ptr<stats::PortReader> reader3 = runner.create_port_reader(0);
   size_t input_port3 = reader3->open().get().port;
   mesos::ContainerID container3 = container_id("cid3");
   mesos::ExecutorInfo executor3 = exec_info("fid3", "eid3");
@@ -172,7 +173,7 @@ TEST(PortRunnerImplTests, data_flow_multi_stream) {
   EXPECT_TRUE(stat_rows.count(annotated_row("writer3:3", container3, executor3)));
 }
 
-TEST(PortRunnerImplTests, data_flow_multi_stream_unchunked) {
+TEST(IORunnerImplTests, data_flow_multi_stream_unchunked) {
   TestReadSocket reader;
   size_t output_port = reader.listen();
 
@@ -189,9 +190,10 @@ TEST(PortRunnerImplTests, data_flow_multi_stream_unchunked) {
   param->set_key(stats::params::CHUNKING);
   param->set_value("false");
 
-  std::shared_ptr<stats::PortRunner> runner = stats::PortRunnerImpl::create(params);
+  stats::IORunnerImpl runner;
+  runner.init(params);
 
-  std::shared_ptr<stats::PortReader> reader1 = runner->create_port_reader(0);
+  std::shared_ptr<stats::PortReader> reader1 = runner.create_port_reader(0);
   size_t input_port1 = reader1->open().get().port;
   mesos::ContainerID container1 = container_id("cid1");
   mesos::ExecutorInfo executor1 = exec_info("fid1", "eid1");
@@ -201,7 +203,7 @@ TEST(PortRunnerImplTests, data_flow_multi_stream_unchunked) {
 
   writer1.write("writer1:1");
 
-  std::shared_ptr<stats::PortReader> reader2 = runner->create_port_reader(0);
+  std::shared_ptr<stats::PortReader> reader2 = runner.create_port_reader(0);
   size_t input_port2 = reader2->open().get().port;
   // no container registered
   TestWriteSocket writer2;
@@ -209,7 +211,7 @@ TEST(PortRunnerImplTests, data_flow_multi_stream_unchunked) {
 
   writer2.write("writer2:1");
 
-  std::shared_ptr<stats::PortReader> reader3 = runner->create_port_reader(0);
+  std::shared_ptr<stats::PortReader> reader3 = runner.create_port_reader(0);
   size_t input_port3 = reader3->open().get().port;
   mesos::ContainerID container3 = container_id("cid3");
   mesos::ExecutorInfo executor3 = exec_info("fid3", "eid3");
@@ -247,7 +249,7 @@ TEST(PortRunnerImplTests, data_flow_multi_stream_unchunked) {
   EXPECT_TRUE(stat_rows.count(annotated_row("writer3:3", container3, executor3)));
 }
 
-TEST(PortRunnerImplTests, data_flow_multi_stream_unannotated) {
+TEST(IORunnerImplTests, data_flow_multi_stream_unannotated) {
   TestReadSocket reader;
   size_t output_port = reader.listen();
 
@@ -264,9 +266,10 @@ TEST(PortRunnerImplTests, data_flow_multi_stream_unannotated) {
   param->set_key(stats::params::ANNOTATION_MODE);
   param->set_value(stats::params::ANNOTATION_MODE_NONE);
 
-  std::shared_ptr<stats::PortRunner> runner = stats::PortRunnerImpl::create(params);
+  stats::IORunnerImpl runner;
+  runner.init(params);
 
-  std::shared_ptr<stats::PortReader> reader1 = runner->create_port_reader(0);
+  std::shared_ptr<stats::PortReader> reader1 = runner.create_port_reader(0);
   size_t input_port1 = reader1->open().get().port;
   mesos::ContainerID container1 = container_id("cid1");
   mesos::ExecutorInfo executor1 = exec_info("fid1", "eid1");
@@ -276,7 +279,7 @@ TEST(PortRunnerImplTests, data_flow_multi_stream_unannotated) {
 
   writer1.write("writer1:1");
 
-  std::shared_ptr<stats::PortReader> reader2 = runner->create_port_reader(0);
+  std::shared_ptr<stats::PortReader> reader2 = runner.create_port_reader(0);
   size_t input_port2 = reader2->open().get().port;
   // no container registered
   TestWriteSocket writer2;
@@ -284,7 +287,7 @@ TEST(PortRunnerImplTests, data_flow_multi_stream_unannotated) {
 
   writer2.write("writer2:1");
 
-  std::shared_ptr<stats::PortReader> reader3 = runner->create_port_reader(0);
+  std::shared_ptr<stats::PortReader> reader3 = runner.create_port_reader(0);
   size_t input_port3 = reader3->open().get().port;
   mesos::ContainerID container3 = container_id("cid3");
   mesos::ExecutorInfo executor3 = exec_info("fid3", "eid3");
@@ -320,6 +323,39 @@ TEST(PortRunnerImplTests, data_flow_multi_stream_unannotated) {
   EXPECT_TRUE(stat_rows.count("writer3:1"));
   EXPECT_TRUE(stat_rows.count("writer3:2|@0.3|#tag2"));
   EXPECT_TRUE(stat_rows.count("writer3:3"));
+}
+
+TEST(IORunnerImplTests, init_fails) {
+  stats::IORunnerImpl runner;
+  EXPECT_DETH(runner.dispatch(std::bind(noop)), ".*init\\(\\) wasn't called before dispatch\\(\\).*");
+  EXPECT_DETH(runner.create_port_reader(0),
+      ".*init\\(\\) wasn't called before create_port_reader\\(\\)");
+  EXPECT_DETH(runner.update_usage(process::Future<mesos::ResourceUsage>()),
+      ".*init\\(\\) wasn't called before update_usage\\(\\)");
+
+  mesos::Parameters params;
+  mesos::Parameter* param = params.add_parameter();
+  param->set_key(stats::params::ANNOTATION_MODE);
+  param->set_value("asdf");
+
+  EXPECT_DETH(runner.init(params), ".*Unknown annotation_mode config value: asdf.*");
+
+  param->set_value(stats::params::ANNOTATION_MODE_NONE);
+
+  TestReadSocket reader;
+  size_t output_port = reader.listen();
+
+  param = params.add_parameter();
+  param->set_key(stats::params::DEST_HOST);
+  param->set_value("127.0.0.1");
+
+  param = params.add_parameter();
+  param->set_key(stats::params::DEST_PORT);
+  param->set_value(std::to_string(output_port));
+
+  runner.init(params);
+
+  EXPECT_DETH(runner.init(params), ".*init\\(\\) was called twice.*");
 }
 
 int main(int argc, char **argv) {

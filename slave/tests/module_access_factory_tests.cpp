@@ -3,25 +3,27 @@
 
 #include <thread>
 
-#include "input_assigner_factory.hpp"
+#include "params.hpp"
+#include "module_access_factory.hpp"
 
 #define EXPECT_DETH(a, b) { std::cerr << "Disregard the following warning:"; EXPECT_DEATH(a, b); }
 
-class InputAssignerFactoryTests  : public ::testing::Test {
+class ModuleAccessFactoryTests  : public ::testing::Test {
  protected:
   void TearDown() {
-    stats::InputAssignerFactory::reset_for_test();
+    stats::ModuleAccessFactory::reset_for_test();
   }
 };
 
-TEST_F(InputAssignerFactoryTests, stress_multithread_usage) {
+TEST_F(ModuleAccessFactoryTests, stress_multithread_usage) {
   mesos::Parameters params;
 
   std::list<std::thread*> thread_ptrs;
   for (int i = 0; i < 250; ++i) {
     //Note: Tried getting AND resetting in each thread, but this led to glogging races.
     //      That behavior isn't supported anyway.
-    thread_ptrs.push_back(new std::thread(std::bind(stats::InputAssignerFactory::get, params)));
+    thread_ptrs.push_back(new std::thread(
+            std::bind(stats::ModuleAccessFactory::get_input_assigner, params)));
   }
   for (std::thread* thread : thread_ptrs) {
     thread->join();
@@ -30,34 +32,38 @@ TEST_F(InputAssignerFactoryTests, stress_multithread_usage) {
   thread_ptrs.clear();
 }
 
-TEST_F(InputAssignerFactoryTests, get_drop_params) {
+TEST_F(ModuleAccessFactoryTests, get_input_assigner_drop_params) {
   mesos::Parameters params;
   mesos::Parameter* param = params.add_parameter();
   param->set_key(stats::params::DEST_HOST);
   param->set_value("127.0.0.1");
 
-  stats::InputAssignerFactory::get(params);
-  EXPECT_DETH(stats::InputAssignerFactory::get(params),
+  stats::ModuleAccessFactory::get_input_assigner(params);
+  EXPECT_DETH(stats::ModuleAccessFactory::get_input_assigner(params),
       "These module parameters are in the wrong module!")
 }
 
-TEST_F(InputAssignerFactoryTests, get_correct_params) {
+TEST_F(ModuleAccessFactoryTests, get_input_assigner_correct_params) {
   mesos::Parameters params;
   mesos::Parameter* param = params.add_parameter();
   param->set_key(stats::params::DEST_HOST);
   param->set_value("127.0.0.1");
 
-  stats::InputAssignerFactory::get(params);
-  stats::InputAssignerFactory::get(mesos::Parameters());
+  stats::ModuleAccessFactory::get_input_assigner(params);
+  stats::ModuleAccessFactory::get_input_assigner(mesos::Parameters());
 }
 
-TEST_F(InputAssignerFactoryTests, get_unknown) {
+TEST_F(ModuleAccessFactoryTests, get_input_assigner_unknown) {
   mesos::Parameters params;
   mesos::Parameter* param = params.add_parameter();
   param->set_key(stats::params::LISTEN_PORT_MODE);
   param->set_value("bogus value");
 
-  EXPECT_DETH(stats::InputAssignerFactory::get(params), "Unknown listen_port_mode.*")
+  EXPECT_DETH(stats::ModuleAccessFactory::get_input_assigner(params), "Unknown listen_port_mode.*")
+}
+
+TEST_F(ModuleAccessFactoryTests, get_io_runner) {
+  EXPECT_TRUE(false) << "TODO update above tests to include get_io_runner";
 }
 
 int main(int argc, char **argv) {

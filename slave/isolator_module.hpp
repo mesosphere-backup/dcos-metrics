@@ -7,15 +7,8 @@
 
 namespace stats {
 
-  class InputAssigner;
-
   template <typename InputAssigner>
   class IsolatorProcess;
-  typedef IsolatorProcess<InputAssigner> isolator_process_t;
-
-  template <typename InputAssigner>
-  class IsolatorModule;
-  typedef IsolatorModule<InputAssigner> isolator_module_t;
 
   /**
    * Templated to allow mockery of InputAssigner.
@@ -43,24 +36,20 @@ namespace stats {
       return None();
     }
 
-    process::Future<Nothing> isolate(
-        const mesos::ContainerID& container_id, pid_t pid) {
+    process::Future<Nothing> isolate(const mesos::ContainerID&, pid_t) {
       return Nothing();
     }
 
-    process::Future<mesos::slave::ContainerLimitation> watch(
-        const mesos::ContainerID& container_id) {
+    process::Future<mesos::slave::ContainerLimitation> watch(const mesos::ContainerID&) {
       // Empty future required: An empty proto will result in the task being killed.
       return process::Future<mesos::slave::ContainerLimitation>();
     }
 
-    process::Future<Nothing> update(
-        const mesos::ContainerID& container_id, const mesos::Resources& resources) {
+    process::Future<Nothing> update(const mesos::ContainerID&, const mesos::Resources&) {
       return Nothing();
     }
 
-    process::Future<mesos::ResourceStatistics> usage(
-        const mesos::ContainerID& container_id) {
+    process::Future<mesos::ResourceStatistics> usage(const mesos::ContainerID&) {
       return mesos::ResourceStatistics();
     }
 

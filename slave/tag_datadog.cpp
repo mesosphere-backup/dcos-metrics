@@ -71,7 +71,7 @@ stats::tag_datadog::TagMode stats::tag_datadog::prepare_for_tags(
     memcpy(scratch_buffer.data(), tag_section_ptr, tag_section_size);
 
     // Move forward the data following the tag section
-    size_t after_tag_section_size = size - before_tag_section_size - tag_section_size;
+    int64_t after_tag_section_size = size - before_tag_section_size - tag_section_size;
     if (after_tag_section_size > (after_tag_section_ptr - tag_section_ptr)) {
       // memmove required: Copying between ranges which overlap within the same buffer.
       memmove(tag_section_ptr, after_tag_section_ptr, after_tag_section_size);
