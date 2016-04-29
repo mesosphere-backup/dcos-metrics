@@ -3,10 +3,24 @@
 
 #include <thread>
 
-#include "params.hpp"
+#include "input_assigner.hpp"
+#include "io_runner.hpp"
 #include "module_access_factory.hpp"
+#include "params.hpp"
 
 #define EXPECT_DETH(a, b) { std::cerr << "Disregard the following warning:"; EXPECT_DEATH(a, b); }
+
+namespace {
+  inline mesos::ContainerID container_id(const std::string& id) {
+    mesos::ContainerID cid;
+    cid.set_value(id);
+    return cid;
+  }
+
+  void noop() {
+    LOG(INFO) << "noop";
+  }
+}
 
 class ModuleAccessFactoryTests  : public ::testing::Test {
  protected:
@@ -15,55 +29,134 @@ class ModuleAccessFactoryTests  : public ::testing::Test {
   }
 };
 
-TEST_F(ModuleAccessFactoryTests, stress_multithread_usage) {
-  mesos::Parameters params;
-
-  std::list<std::thread*> thread_ptrs;
-  for (int i = 0; i < 250; ++i) {
-    //Note: Tried getting AND resetting in each thread, but this led to glogging races.
-    //      That behavior isn't supported anyway.
-    thread_ptrs.push_back(new std::thread(
-            std::bind(stats::ModuleAccessFactory::get_input_assigner, params)));
-  }
-  for (std::thread* thread : thread_ptrs) {
-    thread->join();
-    delete thread;
-  }
-  thread_ptrs.clear();
-}
-
-TEST_F(ModuleAccessFactoryTests, get_input_assigner_drop_params) {
-  mesos::Parameters params;
-  mesos::Parameter* param = params.add_parameter();
-  param->set_key(stats::params::DEST_HOST);
-  param->set_value("127.0.0.1");
-
-  stats::ModuleAccessFactory::get_input_assigner(params);
-  EXPECT_DETH(stats::ModuleAccessFactory::get_input_assigner(params),
-      "These module parameters are in the wrong module!")
-}
-
-TEST_F(ModuleAccessFactoryTests, get_input_assigner_correct_params) {
-  mesos::Parameters params;
-  mesos::Parameter* param = params.add_parameter();
-  param->set_key(stats::params::DEST_HOST);
-  param->set_value("127.0.0.1");
-
-  stats::ModuleAccessFactory::get_input_assigner(params);
+TEST_F(ModuleAccessFactoryTests, too_many_calls) {
   stats::ModuleAccessFactory::get_input_assigner(mesos::Parameters());
+  stats::ModuleAccessFactory::get_input_assigner(mesos::Parameters());
+  EXPECT_DETH(stats::ModuleAccessFactory::get_input_assigner(mesos::Parameters()),
+      ".*Got 3 module instantiations, but only expected 2.*");
+
+  stats::ModuleAccessFactory::reset_for_test();
+
+  stats::ModuleAccessFactory::get_io_runner(mesos::Parameters());
+  stats::ModuleAccessFactory::get_io_runner(mesos::Parameters());
+  EXPECT_DETH(stats::ModuleAccessFactory::get_io_runner(mesos::Parameters()),
+      ".*Got 3 module instantiations, but only expected 2.*");
+
+  stats::ModuleAccessFactory::reset_for_test();
+
+  stats::ModuleAccessFactory::get_io_runner(mesos::Parameters());
+  stats::ModuleAccessFactory::get_input_assigner(mesos::Parameters());
+  EXPECT_DETH(stats::ModuleAccessFactory::get_io_runner(mesos::Parameters()),
+      ".*Got 3 module instantiations, but only expected 2.*");
+
+  stats::ModuleAccessFactory::reset_for_test();
+
+  stats::ModuleAccessFactory::get_input_assigner(mesos::Parameters());
+  stats::ModuleAccessFactory::get_io_runner(mesos::Parameters());
+  EXPECT_DETH(stats::ModuleAccessFactory::get_input_assigner(mesos::Parameters()),
+      ".*Got 3 module instantiations, but only expected 2.*");
+
+  stats::ModuleAccessFactory::reset_for_test();
+
 }
 
-TEST_F(ModuleAccessFactoryTests, get_input_assigner_unknown) {
+TEST_F(ModuleAccessFactoryTests, params_via_input_assigner_first) {
+  mesos::Parameters params;
+  mesos::Parameter* param = params.add_parameter();
+  param->set_key(stats::params::DEST_HOST);
+  param->set_value("127.0.0.1");
+
+  {
+    std::shared_ptr<stats::InputAssigner> assigner =
+      stats::ModuleAccessFactory::get_input_assigner(params);
+    EXPECT_DETH(assigner->unregister_container(container_id("hi")),
+        ".*init\\(\\) wasn't called before unregister_container\\(\\).*");
+  }
+
+  {
+    std::shared_ptr<stats::IORunner> runner =
+      stats::ModuleAccessFactory::get_io_runner(mesos::Parameters());
+    runner->dispatch(noop);
+  }
+
+  stats::ModuleAccessFactory::reset_for_test();
+}
+
+TEST_F(ModuleAccessFactoryTests, params_via_input_assigner_second) {
+  mesos::Parameters params;
+  mesos::Parameter* param = params.add_parameter();
+  param->set_key(stats::params::DEST_HOST);
+  param->set_value("127.0.0.1");
+
+  {
+    std::shared_ptr<stats::IORunner> runner =
+      stats::ModuleAccessFactory::get_io_runner(mesos::Parameters());
+    EXPECT_DETH(runner->dispatch(noop),
+        ".*init\\(\\) wasn't called before dispatch\\(\\).*");
+  }
+
+  {
+    std::shared_ptr<stats::InputAssigner> assigner =
+      stats::ModuleAccessFactory::get_input_assigner(params);
+    assigner->unregister_container(container_id("hi"));
+  }
+
+  stats::ModuleAccessFactory::reset_for_test();
+}
+
+TEST_F(ModuleAccessFactoryTests, params_via_io_runner_first) {
+  mesos::Parameters params;
+  mesos::Parameter* param = params.add_parameter();
+  param->set_key(stats::params::DEST_HOST);
+  param->set_value("127.0.0.1");
+
+  {
+    std::shared_ptr<stats::IORunner> runner =
+      stats::ModuleAccessFactory::get_io_runner(params);
+    EXPECT_DETH(runner->dispatch(noop),
+      ".*init\\(\\) wasn't called before dispatch\\(\\).*");
+  }
+
+  {
+    std::shared_ptr<stats::InputAssigner> assigner =
+      stats::ModuleAccessFactory::get_input_assigner(mesos::Parameters());
+    assigner->unregister_container(container_id("hi"));
+  }
+
+  stats::ModuleAccessFactory::reset_for_test();
+}
+
+TEST_F(ModuleAccessFactoryTests, params_via_io_runner_second) {
+  mesos::Parameters params;
+  mesos::Parameter* param = params.add_parameter();
+  param->set_key(stats::params::DEST_HOST);
+  param->set_value("127.0.0.1");
+
+  {
+    std::shared_ptr<stats::InputAssigner> assigner =
+      stats::ModuleAccessFactory::get_input_assigner(mesos::Parameters());
+    EXPECT_DETH(assigner->unregister_container(container_id("hi")),
+        ".*init\\(\\) wasn't called before unregister_container\\(\\).*");
+  }
+
+  {
+    std::shared_ptr<stats::IORunner> runner =
+      stats::ModuleAccessFactory::get_io_runner(params);
+    runner->dispatch(noop);
+  }
+
+  stats::ModuleAccessFactory::reset_for_test();
+}
+
+TEST_F(ModuleAccessFactoryTests, unknown_port_mode) {
   mesos::Parameters params;
   mesos::Parameter* param = params.add_parameter();
   param->set_key(stats::params::LISTEN_PORT_MODE);
   param->set_value("bogus value");
 
-  EXPECT_DETH(stats::ModuleAccessFactory::get_input_assigner(params), "Unknown listen_port_mode.*")
-}
-
-TEST_F(ModuleAccessFactoryTests, get_io_runner) {
-  EXPECT_TRUE(false) << "TODO update above tests to include get_io_runner";
+  stats::ModuleAccessFactory::get_io_runner(params);
+  EXPECT_DETH(stats::ModuleAccessFactory::get_input_assigner(
+          mesos::Parameters()), "Unknown listen_port_mode.*")
 }
 
 int main(int argc, char **argv) {

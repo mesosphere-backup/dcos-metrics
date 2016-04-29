@@ -14,6 +14,11 @@ namespace {
    * Params can potentially be distributed across multiple module sections in modules.json.
    * This code goes to a lot of effort to only initialize params AFTER all expected sections have
    * been processed. This prevents the module breaking if params are read "too early" or "too late".
+   *
+   * We expect to be called twice:
+   * - Isolator module fetches the InputAssigner
+   * - Resource estimator module fetches the IORunner
+   * These are both init()ed only after *both* have been fetched, to ensure that we have all params.
    */
   const size_t EXPECTED_MODULE_COUNT = 2;
 
@@ -46,7 +51,7 @@ namespace {
       return;
     } else if (all_parameters.size() > EXPECTED_MODULE_COUNT) {
       LOG(FATAL) << "Got " << all_parameters.size() << " module instantiations, but only expected "
-                 << EXPECTED_MODULE_COUNT << ".";
+                 << EXPECTED_MODULE_COUNT << ". Misconfigured modules.json?";
       return;
     }
 
@@ -59,7 +64,7 @@ namespace {
         *merged_parameters.add_parameter() = param;
       }
     }
-    LOG(INFO) << "Initializing module with  " << merged_parameters.parameter_size() << " merged "
+    LOG(INFO) << "Initializing module with " << merged_parameters.parameter_size() << " merged "
               << "parameters across " << all_parameters.size() << " module instantiations: "
               << merged_parameters.ShortDebugString();
 
@@ -95,16 +100,16 @@ namespace {
 std::shared_ptr<stats::InputAssigner> stats::ModuleAccessFactory::get_input_assigner(
     const mesos::Parameters& module_parameters) {
   std::unique_lock<std::mutex> lock(global_state_mutex);
-  LOG(INFO) << "Returning InputAssigner to module";
   init_everything_if_enough_instantiations(module_parameters);
+  LOG(INFO) << "Returning InputAssigner to module";
   return get_global_input_assigner();
 }
 
 std::shared_ptr<stats::IORunner> stats::ModuleAccessFactory::get_io_runner(
     const mesos::Parameters& module_parameters) {
   std::unique_lock<std::mutex> lock(global_state_mutex);
-  LOG(INFO) << "Returning IORunner to module";
   init_everything_if_enough_instantiations(module_parameters);
+  LOG(INFO) << "Returning IORunner to module";
   return get_global_io_runner();
 }
 

@@ -12,10 +12,11 @@ It's recommended that you try these steps end-to-end on a single mesos-slave bef
 3. Back up the current versions of `/opt/mesosphere/etc/mesos-slave-common` and `/opt/mesosphere/etc/mesos-slave-modules.json`.
 4. Perform the following changes to `mesos-slave-common` and `mesos-slave-modules.json` as needed:
   - `mesos-slave-common`
-    - Append `,com_mesosphere_StatsIsolatorModule` to the end of `MESOS_ISOLATION`.
+    - Append `,com_mesosphere_StatsIsolatorModule` to the end of the line defining `MESOS_ISOLATION`.
+    - Add a line defining `MESOS_RESOURCE_ESTIMATOR=com_mesosphere_StatsResourceEstimatorModule`.
     - REMOVE any existing line defining `MESOS_HOOKS=com_mesosphere_StatsEnvHook`. Recent builds of the module no longer need this.
   - `mesos-slave-modules.json`
-    - Add a configuration block for `/opt/mesosphere/lib/libstats-slave.so` which only lists `com_mesosphere_StatsIsolatorModule`. Recent builds of the module no longer need `com_mesosphere_StatsEnvHook`.
+    - Add a configuration block for `/opt/mesosphere/lib/libstats-slave.so` which lists `com_mesosphere_StatsIsolatorModule` and `com_mesosphere_StatsResourceEstimatorModule`. The latter replaces the previously needed `com_mesosphere_StatsEnvHook`.
 5. Make any other changes to settings in `mesos-slave-modules.json` as needed. See below.
 6. Last chance to back out! Revert `mesos-slave-common` and `mesos-slave-modules.json` to their original state if you want to abort now. The library files added to `/opt/mesosphere/lib/` are effectively unused until the configs in `/opt/mesosphere/etc/` are referencing them.
 7. Restart the `mesos-slave` process, see below.

@@ -47,7 +47,8 @@ Try<stats::UDPEndpoint> stats::SinglePortStrategy::register_container(
     return Try<stats::UDPEndpoint>(Error(oss.str()));
   }
 
-  return reader.get()->register_container(container_id, executor_info);
+  reader.get()->register_container(container_id, executor_info);
+  return reader.get()->endpoint();
 }
 
 void stats::SinglePortStrategy::insert_container(

@@ -24,7 +24,7 @@ namespace stats {
 
     Try<UDPEndpoint> endpoint() const;
 
-    Try<stats::UDPEndpoint> register_container(
+    void register_container(
         const mesos::ContainerID& container_id,
         const mesos::ExecutorInfo& executor_info);
 

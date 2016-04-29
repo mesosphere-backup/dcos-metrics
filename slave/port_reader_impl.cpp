@@ -137,11 +137,10 @@ Try<stats::UDPEndpoint> stats::PortReaderImpl<PortWriter>::endpoint() const {
 }
 
 template <typename PortWriter>
-Try<stats::UDPEndpoint> stats::PortReaderImpl<PortWriter>::register_container(
+void stats::PortReaderImpl<PortWriter>::register_container(
     const mesos::ContainerID& container_id,
     const mesos::ExecutorInfo& executor_info) {
   registered_containers[container_id] = executor_info;
-  return endpoint();
 }
 
 template <typename PortWriter>

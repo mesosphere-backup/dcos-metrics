@@ -13,7 +13,7 @@ stats::IORunnerImpl::IORunnerImpl() { }
 
 stats::IORunnerImpl::~IORunnerImpl() {
   // Clean shutdown in a specific order.
-  if (io_service_thread) {
+  if (io_service) {
     writer.reset();
     io_service->stop();
     io_service_thread->join();
@@ -30,9 +30,8 @@ void stats::IORunnerImpl::init(const mesos::Parameters& parameters) {
   }
 
   listen_host = params::get_str(parameters, params::LISTEN_HOST, params::LISTEN_HOST_DEFAULT);
-  annotation_mode =
-    params::to_annotation_mode(
-        params::get_str(parameters, params::ANNOTATION_MODE, params::ANNOTATION_MODE_DEFAULT));
+  annotation_mode = params::to_annotation_mode(
+      params::get_str(parameters, params::ANNOTATION_MODE, params::ANNOTATION_MODE_DEFAULT));
   if (annotation_mode == params::annotation_mode::Value::UNKNOWN) {
     LOG(FATAL) << "Unknown " << params::ANNOTATION_MODE << " config value: "
                << params::get_str(parameters, params::ANNOTATION_MODE, params::ANNOTATION_MODE_DEFAULT);
@@ -48,6 +47,7 @@ void stats::IORunnerImpl::init(const mesos::Parameters& parameters) {
 void stats::IORunnerImpl::dispatch(std::function<void()> func) {
   if (!io_service) {
     LOG(FATAL) << "IORunner::init() wasn't called before dispatch()";
+    return;
   }
   io_service->dispatch(func);
 }
@@ -55,6 +55,7 @@ void stats::IORunnerImpl::dispatch(std::function<void()> func) {
 std::shared_ptr<stats::PortReader> stats::IORunnerImpl::create_port_reader(size_t port) {
   if (!io_service) {
     LOG(FATAL) << "IORunner::init() wasn't called before create_port_reader()";
+    return std::shared_ptr<stats::PortReader>();
   }
   return std::shared_ptr<PortReader>(
       new PortReaderImpl<PortWriter>(
@@ -64,8 +65,10 @@ std::shared_ptr<stats::PortReader> stats::IORunnerImpl::create_port_reader(size_
 void stats::IORunnerImpl::update_usage(process::Future<mesos::ResourceUsage> usage) {
   if (!io_service) {
     LOG(FATAL) << "IORunner::init() wasn't called before update_usage()";
+    return;
   }
   //TODO dispatch: get usage proto, print
+  LOG(INFO) << "USAGE DUMP:\n" << usage.get().DebugString();
 }
 
 void stats::IORunnerImpl::run_io_service() {

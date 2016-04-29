@@ -40,9 +40,8 @@ namespace stats {
      * be used for tagging data that comes through the listen socket. This interface allows
      * registering multiple containers to a single port/reader, but that behavior is only supported
      * in an ip-per-container scenario.
-     * Returns the result of calling endpoint(), or an error if the registration failed.
      */
-    virtual Try<UDPEndpoint> register_container(
+    virtual void register_container(
         const mesos::ContainerID& container_id,
         const mesos::ExecutorInfo& executor_info) = 0;
 

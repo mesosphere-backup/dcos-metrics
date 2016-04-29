@@ -113,10 +113,14 @@ TEST_F(InputAssignerStategyTests, single_port) {
   param->set_value(std::to_string(create_port)); // passed to PortReader creation, otherwise unused
 
   stats::SinglePortStrategy strategy(mock_runner, params);
-  mesos::ContainerID ci1 = container_id("cid1"), ci2 = container_id("cid2");
-  mesos::ExecutorInfo ei1 = exec_info("fid1", "eid1"), ei2 = exec_info("fid2", "eid2");
+  mesos::ContainerID ci1 = container_id("cid1"),
+    ci2 = container_id("cid2"),
+    ci3 = container_id("cid3");
+  mesos::ExecutorInfo ei1 = exec_info("fid1", "eid1"),
+    ei2 = exec_info("fid2", "eid2"),
+    ei3 = exec_info("fid3", "eid3");
   const std::string host1("host1");
-  const size_t port1 = 1234, port2 = 4321;
+  const size_t port1 = 1234, port2 = 2345;
 
   EXPECT_CALL(*mock_runner, dispatch(_)).WillRepeatedly(Invoke(execute));
 
@@ -128,34 +132,63 @@ TEST_F(InputAssignerStategyTests, single_port) {
   // Registration of ci1/ei1 creates reader and succeeds
   EXPECT_CALL(*mock_runner, create_port_reader(create_port)).WillOnce(Return(mock_reader1));
   EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(try_endpoint("ignored", 0)));
-  EXPECT_CALL(*mock_reader1, register_container(ContainerIdMatch(ci1), ExecInfoMatch(ei1)))
-    .WillOnce(Return(try_endpoint(host1, port1)));
-  //EXPECT_CALL(*mock_state_cache,
-  //    add_container(ContainerIdMatch(ci1), stats::UDPEndpoint(host1, port1)));
+  EXPECT_CALL(*mock_reader1, register_container(ContainerIdMatch(ci1), ExecInfoMatch(ei1)));
+  EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port1)));
   Try<stats::UDPEndpoint> endpt = strategy.register_container(ci1, ei1);
   EXPECT_EQ(host1, endpt.get().host);
   EXPECT_EQ(port1, endpt.get().port);
 
   // Registration of ci2/ei2 reuses reader and succeeds
-  EXPECT_CALL(*mock_reader1, register_container(ContainerIdMatch(ci2), ExecInfoMatch(ei2)))
-    .WillOnce(Return(try_endpoint(host1, port2)));
-  //EXPECT_CALL(*mock_state_cache,
-  //    add_container(ContainerIdMatch(ci2), stats::UDPEndpoint(host1, port2)));
+  EXPECT_CALL(*mock_reader1, register_container(ContainerIdMatch(ci2), ExecInfoMatch(ei2)));
+  EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port2)));
   endpt = strategy.register_container(ci2, ei2);
   EXPECT_EQ(host1, endpt.get().host);
   EXPECT_EQ(port2, endpt.get().port);
 
-  // Unregister ci2/ei2
-  EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port2)));
+  // Unregister ci2/ei2. Endpoint fails but deregistration proceeds anyway
+  EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(
+          Try<stats::UDPEndpoint>(Error("test fail"))));
   EXPECT_CALL(*mock_reader1, unregister_container(ContainerIdMatch(ci2)));
-  //EXPECT_CALL(*mock_state_cache, remove_container(ContainerIdMatch(ci2)));
   strategy.unregister_container(ci2);
+
+  // Insertion of ci3/ei3 fails to get endpoint for comparison (just continues with a warning)
+  EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(
+      Return(Try<stats::UDPEndpoint>(Error("test fail"))));
+  EXPECT_CALL(*mock_reader1, register_container(ContainerIdMatch(ci3), ExecInfoMatch(ei3)));
+  strategy.insert_container(ci3, ei3, stats::UDPEndpoint(host1, port1));
+
+  // Insertion of ci3/ei3 against mismatched port number is ignored (with a warning)
+  EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port2)));
+  EXPECT_CALL(*mock_reader1, register_container(ContainerIdMatch(ci3), ExecInfoMatch(ei3)));
+  strategy.insert_container(ci3, ei3, stats::UDPEndpoint(host1, port1));
+
+  // Insert ci3/ei3 succeeds
+  EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port1)));
+  EXPECT_CALL(*mock_reader1, register_container(ContainerIdMatch(ci3), ExecInfoMatch(ei3)));
+  strategy.insert_container(ci3, ei3, stats::UDPEndpoint(host1, port1));
+
+  // Unregister ci3/ei3 against failed endpoint is ignored (with a warning)
+  EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(
+      Return(Try<stats::UDPEndpoint>(Error("test fail"))));
+  EXPECT_CALL(*mock_reader1, unregister_container(ContainerIdMatch(ci3)));
+  strategy.unregister_container(ci3);
+
+  // Unregister ci3/ei3 succeeds
+  EXPECT_CALL(*mock_reader1, endpoint()).WillOnce(Return(try_endpoint(host1, port1)));
+  EXPECT_CALL(*mock_reader1, unregister_container(ContainerIdMatch(ci3)));
+  strategy.unregister_container(ci3);
 }
+
+// ---
 
 TEST_F(InputAssignerStategyTests, ephemeral_port) {
   stats::EphemeralPortStrategy strategy(mock_runner);
-  mesos::ContainerID ci1 = container_id("cid1"), ci2 = container_id("cid2");
-  mesos::ExecutorInfo ei1 = exec_info("fid1", "eid1"), ei2 = exec_info("fid2", "eid2");
+  mesos::ContainerID ci1 = container_id("cid1"),
+    ci2 = container_id("cid2"),
+    ci3 = container_id("cid3");
+  mesos::ExecutorInfo ei1 = exec_info("fid1", "eid1"),
+    ei2 = exec_info("fid2", "eid2"),
+    ei3 = exec_info("fid3", "eid3");
   const std::string host1("host1"), host2("host2");
   const size_t port1 = 1234, port2 = 4321;
 
@@ -169,10 +202,7 @@ TEST_F(InputAssignerStategyTests, ephemeral_port) {
   // Registration of ci1/ei1 creates reader and succeeds
   EXPECT_CALL(*mock_runner, create_port_reader(0)).WillOnce(Return(mock_reader1));
   EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(try_endpoint(host1, port1)));
-  EXPECT_CALL(*mock_reader1, register_container(ContainerIdMatch(ci1), ExecInfoMatch(ei1)))
-    .WillOnce(Return(try_endpoint("ignored1", 54321)));
-  //EXPECT_CALL(*mock_state_cache,
-  //    add_container(ContainerIdMatch(ci1), stats::UDPEndpoint(host1, port1)));
+  EXPECT_CALL(*mock_reader1, register_container(ContainerIdMatch(ci1), ExecInfoMatch(ei1)));
   Try<stats::UDPEndpoint> endpt = strategy.register_container(ci1, ei1);
   EXPECT_EQ(host1, endpt.get().host);
   EXPECT_EQ(port1, endpt.get().port);
@@ -180,31 +210,44 @@ TEST_F(InputAssignerStategyTests, ephemeral_port) {
   // Registration of ci2/ei2 creates a new separate reader
   EXPECT_CALL(*mock_runner, create_port_reader(0)).WillOnce(Return(mock_reader2));
   EXPECT_CALL(*mock_reader2, open()).WillOnce(Return(try_endpoint(host2, port2)));
-  EXPECT_CALL(*mock_reader2, register_container(ContainerIdMatch(ci2), ExecInfoMatch(ei2)))
-    .WillOnce(Return(try_endpoint("ignored2", 54321)));
-  //EXPECT_CALL(*mock_state_cache,
-  //    add_container(ContainerIdMatch(ci2), stats::UDPEndpoint(host2, port2)));
+  EXPECT_CALL(*mock_reader2, register_container(ContainerIdMatch(ci2), ExecInfoMatch(ei2)));
   endpt = strategy.register_container(ci2, ei2);
   EXPECT_EQ(host2, endpt.get().host);
   EXPECT_EQ(port2, endpt.get().port);
 
   // Unregister ci2/ei2
   EXPECT_CALL(*mock_reader2, endpoint()).WillOnce(Return(try_endpoint(host2, port2)));
-  //EXPECT_CALL(*mock_state_cache, remove_container(ContainerIdMatch(ci2)));
   strategy.unregister_container(ci2);
   // Unregister same thing again, no reader access this time
-  //EXPECT_CALL(*mock_state_cache, remove_container(ContainerIdMatch(ci2)));
   strategy.unregister_container(ci2);
 
   // Unregister ci1/ei1 with broken endpoint. Still works.
   EXPECT_CALL(*mock_reader1, endpoint())
     .WillOnce(Return(Try<stats::UDPEndpoint>(Error("ignored"))));
-  //EXPECT_CALL(*mock_state_cache, remove_container(ContainerIdMatch(ci1)));
   strategy.unregister_container(ci1);
   // Unregister same thing again, no reader access this time
-  //EXPECT_CALL(*mock_state_cache, remove_container(ContainerIdMatch(ci1)));
   strategy.unregister_container(ci1);
+
+  // Insertion of ci3/ei3 fails to get endpoint
+  EXPECT_CALL(*mock_runner, create_port_reader(port1)).WillOnce(Return(mock_reader1));
+  EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(Try<stats::UDPEndpoint>(Error("test fail"))));
+  strategy.insert_container(ci3, ei3, stats::UDPEndpoint("ignored", port1));
+
+  // Insert ci3/ei3 succeeds
+  EXPECT_CALL(*mock_runner, create_port_reader(port2)).WillOnce(Return(mock_reader2));
+  EXPECT_CALL(*mock_reader2, open()).WillOnce(Return(try_endpoint("ignored", 1231231)));
+  EXPECT_CALL(*mock_reader2, register_container(ContainerIdMatch(ci3), ExecInfoMatch(ei3)));
+  strategy.insert_container(ci3, ei3, stats::UDPEndpoint(host2, port2));
+
+  // Unregister ci3/ei3 with broken endpoint. Still works.
+  EXPECT_CALL(*mock_reader2, endpoint()).WillOnce(
+      Return(Try<stats::UDPEndpoint>(Error("test fail"))));
+  strategy.unregister_container(ci3);
+  // Unregister ci3/ei3 again, no reader access this time
+  strategy.unregister_container(ci3);
 }
+
+// ---
 
 TEST_F(InputAssignerStategyTests, port_range_bad_ports) {
   mesos::Parameters params;
@@ -263,8 +306,12 @@ TEST_F(InputAssignerStategyTests, port_range) {
   param->set_value(std::to_string(end_port));
 
   stats::PortRangeStrategy strategy(mock_runner, params);
-  mesos::ContainerID ci1 = container_id("cid1"), ci2 = container_id("cid2");
-  mesos::ExecutorInfo ei1 = exec_info("fid1", "eid1"), ei2 = exec_info("fid2", "eid2");
+  mesos::ContainerID ci1 = container_id("cid1"),
+    ci2 = container_id("cid2"),
+    ci3 = container_id("cid3");
+  mesos::ExecutorInfo ei1 = exec_info("fid1", "eid1"),
+    ei2 = exec_info("fid2", "eid2"),
+    ei3 = exec_info("fid3", "eid3");
   const std::string host1("host1"), host2("host2");
   const size_t port1 = 100, port2 = 101, port3 = 102;
 
@@ -278,10 +325,7 @@ TEST_F(InputAssignerStategyTests, port_range) {
   // Registration of ci1/ei1 succeeds (against same port; it was put back after the fail)
   EXPECT_CALL(*mock_runner, create_port_reader(port1)).WillOnce(Return(mock_reader1));
   EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(try_endpoint(host1, port1)));
-  EXPECT_CALL(*mock_reader1, register_container(ContainerIdMatch(ci1), ExecInfoMatch(ei1)))
-    .WillOnce(Return(try_endpoint("ignored1", 54321)));
-  //EXPECT_CALL(*mock_state_cache,
-  //    add_container(ContainerIdMatch(ci1), stats::UDPEndpoint(host1, port1)));
+  EXPECT_CALL(*mock_reader1, register_container(ContainerIdMatch(ci1), ExecInfoMatch(ei1)));
   Try<stats::UDPEndpoint> endpt = strategy.register_container(ci1, ei1);
   EXPECT_EQ(host1, endpt.get().host);
   EXPECT_EQ(port1, endpt.get().port);
@@ -289,48 +333,60 @@ TEST_F(InputAssignerStategyTests, port_range) {
   // Registration of ci2/ei2 creates a new separate reader against the next port in the pool
   EXPECT_CALL(*mock_runner, create_port_reader(port2)).WillOnce(Return(mock_reader2));
   EXPECT_CALL(*mock_reader2, open()).WillOnce(Return(try_endpoint(host2, port2)));
-  EXPECT_CALL(*mock_reader2, register_container(ContainerIdMatch(ci2), ExecInfoMatch(ei2)))
-    .WillOnce(Return(try_endpoint("ignored2", 54321)));
-  //EXPECT_CALL(*mock_state_cache,
-  //    add_container(ContainerIdMatch(ci2), stats::UDPEndpoint(host2, port2)));
+  EXPECT_CALL(*mock_reader2, register_container(ContainerIdMatch(ci2), ExecInfoMatch(ei2)));
   endpt = strategy.register_container(ci2, ei2);
   EXPECT_EQ(host2, endpt.get().host);
   EXPECT_EQ(port2, endpt.get().port);
 
   // Unregister ci2/ei2 with successful endpoint, which is returned
   EXPECT_CALL(*mock_reader2, endpoint()).WillOnce(Return(try_endpoint(host2, port2)));
-  //EXPECT_CALL(*mock_state_cache, remove_container(ContainerIdMatch(ci2)));
   strategy.unregister_container(ci2);
   // Unregister same thing again, no reader access this time
-  //EXPECT_CALL(*mock_state_cache, remove_container(ContainerIdMatch(ci2)));
   strategy.unregister_container(ci2);
 
   // Unregister ci1/ei1 with broken endpoint, which cannot be returned to the pool
   EXPECT_CALL(*mock_reader1, endpoint())
     .WillOnce(Return(Try<stats::UDPEndpoint>(Error("ignored"))));
-  //EXPECT_CALL(*mock_state_cache, remove_container(ContainerIdMatch(ci1)));
   strategy.unregister_container(ci1);
   // Unregister same thing again, no reader access this time
-  //EXPECT_CALL(*mock_state_cache, remove_container(ContainerIdMatch(ci1)));
   strategy.unregister_container(ci1);
 
   // Then re-register ci1/ei1, which gets port2 this time since port1 couldn't be freed
   EXPECT_CALL(*mock_runner, create_port_reader(port2)).WillOnce(Return(mock_reader1));
   EXPECT_CALL(*mock_reader1, open()).WillOnce(Return(try_endpoint(host1, port2)));
-  EXPECT_CALL(*mock_reader1, register_container(ContainerIdMatch(ci1), ExecInfoMatch(ei1)))
-    .WillOnce(Return(try_endpoint("ignored1", 54321)));
-  //EXPECT_CALL(*mock_state_cache,
-  //    add_container(ContainerIdMatch(ci1), stats::UDPEndpoint(host1, port2)));
+  EXPECT_CALL(*mock_reader1, register_container(ContainerIdMatch(ci1), ExecInfoMatch(ei1)));
   strategy.register_container(ci1, ei1);
 
   // And re-register ci2/ei2, which now gets port3
   EXPECT_CALL(*mock_runner, create_port_reader(port3)).WillOnce(Return(mock_reader2));
   EXPECT_CALL(*mock_reader2, open()).WillOnce(Return(try_endpoint(host2, port3)));
-  EXPECT_CALL(*mock_reader2, register_container(ContainerIdMatch(ci2), ExecInfoMatch(ei2)))
-    .WillOnce(Return(try_endpoint("ignored2", 54321)));
-  //EXPECT_CALL(*mock_state_cache,
-  //    add_container(ContainerIdMatch(ci2), stats::UDPEndpoint(host2, port3)));
+  EXPECT_CALL(*mock_reader2, register_container(ContainerIdMatch(ci2), ExecInfoMatch(ei2)));
   strategy.register_container(ci2, ei2);
+
+  // Insertion of ci3/ei3 against port3 doesn't proceed since it's already taken
+  strategy.insert_container(ci3, ei3, stats::UDPEndpoint("ignored", port3));
+
+  // Unregister ci2 to recover port3, then re-attempt insert on port3, which fails to open
+  EXPECT_CALL(*mock_reader2, endpoint()).WillOnce(Return(try_endpoint(host2, port3)));
+  strategy.unregister_container(ci2);
+
+  // port3 fails to open. port3 should be returned to the pool before the call exits w/o registering
+  EXPECT_CALL(*mock_runner, create_port_reader(port3)).WillOnce(Return(mock_reader2));
+  EXPECT_CALL(*mock_reader2, open()).WillOnce(Return(Try<stats::UDPEndpoint>(Error("test fail"))));
+  strategy.insert_container(ci3, ei3, stats::UDPEndpoint("ignored", port3));
+
+  // Finally, try again and get port3 successfully this time
+  EXPECT_CALL(*mock_runner, create_port_reader(port3)).WillOnce(Return(mock_reader2));
+  EXPECT_CALL(*mock_reader2, open()).WillOnce(Return(try_endpoint("ignored", 1231231)));
+  EXPECT_CALL(*mock_reader2, register_container(ContainerIdMatch(ci3), ExecInfoMatch(ei3)));
+  strategy.insert_container(ci3, ei3, stats::UDPEndpoint("ignored", port3));
+
+  // Unregister ci3/ei3 with broken endpoint. Still works.
+  EXPECT_CALL(*mock_reader2, endpoint()).WillOnce(
+      Return(Try<stats::UDPEndpoint>(Error("test fail"))));
+  strategy.unregister_container(ci3);
+  // Unregister ci3/ei3 again, no reader access this time
+  strategy.unregister_container(ci3);
 }
 
 int main(int argc, char **argv) {
