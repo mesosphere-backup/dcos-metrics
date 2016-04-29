@@ -16,6 +16,6 @@ namespace stats {
     void remove_container(const mesos::ContainerID& container_id);
 
    private:
-    const std::string state_path_dir;
+    const std::string config_state_dir, container_state_dir;
   };
 }

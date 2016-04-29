@@ -11,7 +11,7 @@ namespace stats {
   class InputStateCache {
    public:
     /**
-     * Returns the location of the cache for logging purposes.
+     * Returns the configured location of the cache for logging purposes.
      */
     virtual const std::string& path() const = 0;
 

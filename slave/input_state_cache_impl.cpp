@@ -7,18 +7,21 @@
 /*
  * dir format:
  * DIR/
- *  container_id-0.json
- *  container_id-1.json
- *  container_id-2.json
- *  ...
+ *  containers/
+ *    container_id-0.json
+ *    container_id-1.json
+ *    container_id-2.json
+ *    ...
  *
- * file format:
+ * file format in container jsons:
  *  { "container_id": "container_id-0",
  *    "statsd_host": "some_host",
  *    "statsd_port": some_port }
  */
 
 namespace {
+  const std::string CONTAINER_CACHE_DIR("containers");
+
   const std::string CONTAINER_ID_KEY("container_id");
   const std::string HOST_KEY("statsd_host");
   const std::string PORT_KEY("statsd_port");
@@ -35,23 +38,23 @@ namespace {
 }
 
 stats::InputStateCacheImpl::InputStateCacheImpl(const mesos::Parameters& parameters)
-  : state_path_dir(
-      params::get_str(parameters, params::STATE_PATH_DIR, params::STATE_PATH_DIR_DEFAULT)) { }
+  : config_state_dir(params::get_str(parameters, params::STATE_PATH_DIR, params::STATE_PATH_DIR_DEFAULT)),
+    container_state_dir(path::join(config_state_dir, CONTAINER_CACHE_DIR)) { }
 
 const std::string& stats::InputStateCacheImpl::path() const {
-  return state_path_dir;
+  return config_state_dir;
 }
 
 stats::container_id_map<stats::UDPEndpoint> stats::InputStateCacheImpl::get_containers() {
-  Try<std::list<std::string>> files = os::ls(state_path_dir);
+  Try<std::list<std::string>> files = os::ls(container_state_dir);
   container_id_map<UDPEndpoint> map;
   if (files.isError()) {
-    LOG(ERROR) << "Unable to list content of cache dir[" << state_path_dir << "]: "
+    LOG(ERROR) << "Unable to list content of cache dir[" << container_state_dir << "]: "
                << files.error();
     return map;
   }
   for (const std::string& filename : files.get()) {
-    std::string pathstr(path::join(state_path_dir, filename));
+    std::string pathstr(path::join(container_state_dir, filename));
     Try<std::string> content = os::read(pathstr);
     if (content.isError()) {
       LOG(ERROR) << "Unable to read content of cache file[" << pathstr << "]: " << content.error();
@@ -118,16 +121,16 @@ stats::container_id_map<stats::UDPEndpoint> stats::InputStateCacheImpl::get_cont
 
 void stats::InputStateCacheImpl::add_container(
     const mesos::ContainerID& container_id, const UDPEndpoint& endpoint) {
-  if (!os::exists(state_path_dir)) {
-    LOG(INFO) << "Creating new state directory[" << state_path_dir << "]";
-    Try<Nothing> result = os::mkdir(state_path_dir);
+  if (!os::exists(container_state_dir)) {
+    LOG(INFO) << "Creating new container state directory[" << container_state_dir << "]";
+    Try<Nothing> result = os::mkdir(container_state_dir);
     if (result.isError()) {
-      LOG(ERROR) << "Failed to create directory[" << state_path_dir << "]: " << result.error();
+      LOG(ERROR) << "Failed to create container state directory[" << container_state_dir << "]: " << result.error();
       return;
     }
   }
 
-  std::string container_path = path::join(state_path_dir, sanitized_filename(container_id));
+  std::string container_path = path::join(container_state_dir, sanitized_filename(container_id));
   LOG(INFO) << "Writing container file[" << container_path << "] with "
             << "endpoint[" << endpoint.string() << "]";
   JSON::Object json_obj;
@@ -138,7 +141,7 @@ void stats::InputStateCacheImpl::add_container(
 }
 
 void stats::InputStateCacheImpl::remove_container(const mesos::ContainerID& container_id) {
-  std::string container_path = path::join(state_path_dir, sanitized_filename(container_id));
+  std::string container_path = path::join(container_state_dir, sanitized_filename(container_id));
   LOG(INFO) << "Removing container file[" << container_path << "]";
   Try<Nothing> result = os::rm(container_path);
   if (result.isError()) {

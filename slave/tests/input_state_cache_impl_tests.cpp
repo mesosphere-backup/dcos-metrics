@@ -16,8 +16,11 @@ class InputStateCacheTests : public ::testing::Test {
     }
     root_path_ = template_copy + "/";
     // use a nested path within the created directory: ensure that code handles nested mkdir
-    path_ = root_path_ + "isolators/network/metrics/";
-    LOG(INFO) << "Using root_path[" << root_path_ << "] path[" << path_ << "]";
+    config_path_ = root_path_ + "test/config/path/";
+    container_path_ = config_path_ + "containers/";
+    LOG(INFO) << "Using root_path[" << root_path_ << "] "
+              << "config_path[" << config_path_ << "] "
+              << "container_path [" << container_path_ << "]";
   }
 
   virtual void TearDown() {
@@ -32,7 +35,7 @@ class InputStateCacheTests : public ::testing::Test {
     mesos::Parameters params;
     mesos::Parameter* param = params.add_parameter();
     param->set_key(stats::params::STATE_PATH_DIR);
-    param->set_value(path());
+    param->set_value(config_path());
     return params;
   }
 
@@ -45,19 +48,21 @@ class InputStateCacheTests : public ::testing::Test {
   const std::string& root_path() const {
     return root_path_;
   }
-  const std::string& path() const {
-    return path_;
+  const std::string& config_path() const {
+    return config_path_;
+  }
+  const std::string& container_path() const {
+    return container_path_;
   }
 
  private:
   // both with trailing slash:
-  std::string root_path_;
-  std::string path_;
+  std::string root_path_, config_path_, container_path_;
 };
 
 TEST_F(InputStateCacheTests, init_does_very_little) {
   stats::InputStateCacheImpl cache(get_path_params());
-  EXPECT_EQ(path(), cache.path());
+  EXPECT_EQ(config_path(), cache.path());
   EXPECT_TRUE(os::exists(root_path()));
   EXPECT_FALSE(os::exists(cache.path()));
   EXPECT_TRUE(cache.get_containers().empty());
@@ -74,7 +79,7 @@ TEST_F(InputStateCacheTests, single_get_add_get_remove_get) {
     EXPECT_TRUE(cache.get_containers().empty());
 
     cache.add_container(id, endpoint);
-    EXPECT_TRUE(os::exists(path() + id.value()));
+    EXPECT_TRUE(os::exists(container_path() + id.value()));
   }
   {
     stats::InputStateCacheImpl cache(get_path_params());
@@ -83,9 +88,9 @@ TEST_F(InputStateCacheTests, single_get_add_get_remove_get) {
     EXPECT_EQ(1, map.size());
     EXPECT_EQ(endpoint, map.find(id)->second);
 
-    EXPECT_TRUE(os::exists(path() + id.value()));
+    EXPECT_TRUE(os::exists(container_path() + id.value()));
     cache.remove_container(id);
-    EXPECT_FALSE(os::exists(path() + id.value()));
+    EXPECT_FALSE(os::exists(container_path() + id.value()));
   }
   {
     stats::InputStateCacheImpl cache(get_path_params());
@@ -100,17 +105,17 @@ TEST_F(InputStateCacheTests, multi_get_add_get_remove_get) {
   stats::InputStateCacheImpl cache(get_path_params());
   EXPECT_TRUE(cache.get_containers().empty());
 
-  EXPECT_FALSE(os::exists(path() + id1.value()));
+  EXPECT_FALSE(os::exists(container_path() + id1.value()));
   cache.add_container(id1, endpoint1);
-  EXPECT_TRUE(os::exists(path() + id1.value()));
+  EXPECT_TRUE(os::exists(container_path() + id1.value()));
 
   stats::container_id_map<stats::UDPEndpoint> map = cache.get_containers();
   EXPECT_EQ(1, map.size());
   EXPECT_EQ(endpoint1, map.find(id1)->second);
 
-  EXPECT_FALSE(os::exists(path() + id2.value()));
+  EXPECT_FALSE(os::exists(container_path() + id2.value()));
   cache.add_container(id2, endpoint2);
-  EXPECT_TRUE(os::exists(path() + id2.value()));
+  EXPECT_TRUE(os::exists(container_path() + id2.value()));
 
   map = cache.get_containers();
   EXPECT_EQ(2, map.size());
@@ -135,7 +140,7 @@ TEST_F(InputStateCacheTests, malicious_container_id) {
 
   // expect bad id to result in sanitized path:
   cache.add_container(bad_id, endpoint);
-  EXPECT_TRUE(os::exists(path() + "......etcshadow"));
+  EXPECT_TRUE(os::exists(container_path() + "......etcshadow"));
 
   // original verbatim path is returned in container list:
   stats::container_id_map<stats::UDPEndpoint> map = cache.get_containers();
@@ -144,7 +149,7 @@ TEST_F(InputStateCacheTests, malicious_container_id) {
 
   // removal of bad id finds sanitized path:
   cache.remove_container(bad_id);
-  EXPECT_FALSE(os::exists(path() + "......etcshadow"));
+  EXPECT_FALSE(os::exists(container_path() + "......etcshadow"));
 }
 
 int main(int argc, char **argv) {
