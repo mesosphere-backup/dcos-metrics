@@ -1,71 +1,20 @@
-# Metrics module installation and usage
+# Metrics module usage
 
-In DCOS 1.7 EE (or newer), the module is already included, so these steps are mainly meant to be a reference for installing a custom build of the module, or for changing the module config.
+This module is included in DCOS EE (only), starting with 1.7.
 
-## Installing a custom build of the module
+In DCOS 1.7 EE, the module supports forwarding metrics in `statsd` format to `metrics.marathon.mesos`. Support for additional export destinations is planned for DCOS 1.8 EE.
 
-The metrics module must be installed on **EACH** mesos-slave system that you want to forward metrics from.
-It's recommended that you try these steps end-to-end on a single mesos-slave before continuing to other mesos-slaves, to ensure that you have the configuration you want BEFORE deploying it across the cluster.
+Here are some examples for trying out metrics support on a 1.7+ EE cluster:
 
-1. Build the module against a version of Mesos matches what your cluster is running.
-2. Copy the customized `libstats-slave.so` (and any additional dependency libs) into `/opt/mesosphere/lib/`
-3. Back up the current versions of `/opt/mesosphere/etc/mesos-slave-common` and `/opt/mesosphere/etc/mesos-slave-modules.json`.
-4. Perform the following changes to `mesos-slave-common` and `mesos-slave-modules.json` as needed:
-  - `mesos-slave-common`
-    - Append `,com_mesosphere_StatsIsolatorModule` to the end of the line defining `MESOS_ISOLATION`.
-    - Add a line defining `MESOS_RESOURCE_ESTIMATOR=com_mesosphere_StatsResourceEstimatorModule`.
-    - REMOVE any existing line defining `MESOS_HOOKS=com_mesosphere_StatsEnvHook`. Recent builds of the module no longer need this.
-  - `mesos-slave-modules.json`
-    - Add a configuration block for `/opt/mesosphere/lib/libstats-slave.so` which lists `com_mesosphere_StatsIsolatorModule` and `com_mesosphere_StatsResourceEstimatorModule`. The latter replaces the previously needed `com_mesosphere_StatsEnvHook`.
-5. Make any other changes to settings in `mesos-slave-modules.json` as needed. See below.
-6. Last chance to back out! Revert `mesos-slave-common` and `mesos-slave-modules.json` to their original state if you want to abort now. The library files added to `/opt/mesosphere/lib/` are effectively unused until the configs in `/opt/mesosphere/etc/` are referencing them.
-7. Restart the `mesos-slave` process, see below.
-8. Verify that the module is working by checking `mesos-slave` logs, see below.
+## Emitting Metrics
 
-## Configuring/customizing the module
+Here are some examples of ways to run services that support container metrics.
 
-All configuration is within `/opt/mesosphere/etc/mesos-slave-modules.json`. The `mesos-slave` process must be restarted for any changes to take effect (see below for how to do this). Here are some explanations of the parameters:
-- **"`dest_host`": Hostname/IP for where to forward data received from tasks.**
-- "`dest_refresh_seconds`": Duration in seconds between DNS lookups of dest_host. Automatically detects changes in the DNS record and redirects output to the new destination.
-- "`dest_port`": Port to use when forwarding stats to dest_host.
-- "`annotation_mode`": How (or whether) to tag outgoing data with information about the Mesos task. Available modes are "key_prefix" (prefix statsd keys with the info), "tag_datadog" (use the datadog tag extension), or "none" (no tagging, data forwarded without modification). **If your statsd receiver doesn't support datadog-format statsd tags, this should be 'key_prefix' or 'none'.**
-- "`chunking`": Whether to group outgoing data into a smaller number of packets. **If your statsd receiver doesn't support multiple newline-separated statsd records in the same UDP packet, this should be 'false'.**
-- "`chunk_size_bytes`": Preferred chunk size for outgoing UDP packets, when "chunking" is enabled. This should be the UDP MTU.
+Emitting metrics is simple: The program just needs to look for `STATSD_UDP_HOST` and `STATSD_UDP_PORT` environment variables. When they're present, the host:port they advertise may be used as a destination for statsd-formatted metrics data. See [test-sender/test-sender.go](test-sender.go) for an example.
 
-The full list of config options is provided in [the module README](https://github.com/mesosphere/dcos-stats/blob/master/slave/README.md).
+### Launching a test sender
 
-IMPORTANT: Again, any changes to these options don't take effect until the mesos-slave process is restarted using the following steps:
-
-## Restarting `mesos-slave`
-
-The `mesos-slave` process must be restarted whenever the module config changes for the changes to take effect.
-
-To restart the mesos-slave process following a configuration change, perform the following steps:
-
-1. Copy the current slave state into a backup location:
-  - `$ cp -a /var/lib/mesos/slave /var/lib/mesos/slave.bak`
-2. Restart the `mesos-slave` process:
-  - `$ systemctl restart dcos-mesos-slave` (or `dcos-mesos-slave-public`)
-3. Check `mesos-slave`'s status (any of these):
-  - `$ systemctl status dcos-mesos-slave` (or `dcos-mesos-slave-public`)
-  - `$ journalctl -f`
-  - `$ journalctl -e -n 100`
-
-## Verifying the module works (any of the following)
-
-Check the mesos-slave logs for something like this near the beginning:
-
-```input_assigner_factory.cpp:31 Creating new stats InputAssigner with parameters: [... json config content …]```
-
-Check the mesos-slave logs for a message like this every minute (assuming a 'metrics' process hasn't been started yet, as described below):
-
-```port_writer.cpp:180 Error when resolving host[metrics.marathon.mesos]. Dropping data and trying again in 60 seconds. err=asio.netdb:1, err2=system:22```
-
-Start a process in marathon that just runs `env` and look for envvars named `STATSD_UDP_HOST` and `STATSD_UDP_PORT`, or run the `test-sender` process as described below.
-
-## Launching a test sender
-
-A sample program that just emits various arbitrary stats (eg 'currentto the endpoint advertised via `STATSD_UDP_HOST`/`STATSD_UDP_PORT` environment variables. The sample program's Go source code is included in the .tgz.
+A sample program that just emits various arbitrary stats (eg the endpoint advertised via `STATSD_UDP_HOST`/`STATSD_UDP_PORT` environment variables. The sample program's Go source code is included in the .tgz.
 
 In Marathon:
 - ID: `test-sender` (the precise name isn't important)
@@ -88,11 +37,11 @@ Or in JSON Mode:
 }
 ```
 
-## Launching a Kafka or Cassandra sender
+### Launching a Kafka or Cassandra sender
 
-After the module has been installed on all the slaves, the Kafka brokers and Cassandra nodes will need to be restarted in order to start using it. They will see the advertised metrics capability on startup and will automatically enable metrics export locally. In future DCOS versions, the module will be installed by default, so this restart won't be necessary.
+The Kafka and Cassandra framework executors already support auto-detection of the `STATSD_UDP_HOST`/`STATSD_UDP_PORT` environment variables, configuring the underlying service to send metrics to that location. At the moment, the frameworks don't send stats of their own, but they could do that too.
 
-### Kafka
+#### Kafka
 
 As Kafka brokers start, they will automatically be configured for metrics export, and will show the following in `stdout`:
 
@@ -101,7 +50,7 @@ As Kafka brokers start, they will automatically be configured for metrics export
 [2016-04-07 18:15:18,782] INFO Started Reporter with host=127.0.0.1, port=35542, polling_period_secs=10, prefix= (com.airbnb.metrics.StatsDReporter)
 ```
 
-### Cassandra
+#### Cassandra
 
 As Cassandra nodes start, they will automatically be configured for metrics export, and will show the following in `cassandra-stdout.log`:
 
@@ -110,17 +59,19 @@ INFO  18:16:42 Trying to load metrics-reporter-config from file: metrics-reporte
 INFO  18:16:42 Enabling StatsDReporter to 127.0.0.1:50030
 ```
 
-## Launching a test receiver
+## Receiving Metrics
 
-This is just a shell script that runs `nc -ul 8125`. A minute or two after the job comes up, 'metrics.marathon.mesos' will be resolved by the mesos-slaves, at which point stats will start being printed to stdout.
+All agents running the metrics module periodically do an A Record lookup of `metrics.marathon.mesos` (aka a Marathon job named `metrics`). Until it resolves, metrics data will be dropped at the agents, since there's nowhere for them to go, but containers are still given `STATSD_UDP_HOST`/`STATSD_UDP_PORT` endpoints at this point, so forwarding can begin immediately once `metrics.marathon.mesos` begins to resolve.
 
-In Marathon:
-- ID: `metrics` (this name matters, it maps to `metrics.marathon.mesos` configured in `modules.json` on the slaves)
-- Command: `./test-receiver`
-- Optional settings > URIs = `https://s3-us-west-2.amazonaws.com/nick-dev/metrics-msft/test-receiver.tgz`
-- Extra credit: start (or reconfigure) the 'metrics' receiver task with >1 instances. This will result in multiple DNS A records for 'metrics.marathon.mesos', and the mesos-slaves will automatically balance their load across them.
+Once `metrics.marathon.mesos` resolves to one or more A Records, the module picks one A Record at random and starts sending metrics to port `8125` (the standard statsd port) at that location. The `metrics.marathon.mesos` hostname continues to be periodically resolved, and any material changes to the returned list of records (entries changed/added/removed) will trigger a reselection of a random A Record.
 
-Or in JSON Mode:
+If `metrics.marathon.mesos` no longer resolves after sending is begun (ie the `metrics` Marathon job is stopped), the module will continue to send metrics to its current destination, rather than dropping data. This is intended to avoid any issues/bugs with DNS itself causing metrics to stop flowing. This behavior may be revisited later.
+
+### Launching a test receiver
+
+This is just a shell script that runs `nc -ul 8125`. A minute or two after the job comes up, `metrics.marathon.mesos` will be resolved by the mesos-slaves, at which point `nc` will start printing anything it receives to stdout.
+
+In Marathon, create the following job in JSON Mode:
 ```json
 {
   "id": "metrics",
@@ -137,12 +88,9 @@ Or in JSON Mode:
 
 ## Launching a sample graphite receiver
 
-Runs a sample copy of Graphite in a Docker container. This is just a stock set of packages that someone put up on Dockerhub. Note that **using this receiver requires `annotation_mode` = `key_prefix`**. `tag_datadog` is NOT supported.
+Runs a sample copy of Graphite in a Docker container. This is just a stock Docker image that someone put up on Dockerhub. Note that **using this receiver requires `annotation_mode` = `key_prefix`**, which is the default in DCOS. `tag_datadog` is NOT supported.
 
-Defining the container config with all its ports via the web UI is very clunky, so lets just call the REST API.
-
-Save the following config as `statsd-docker-marathon.json`, then push it to the Marathon API using `curl -X POST --header 'Content-Type: application/json' -d @statsd-docker-marathon.json http://$DCOS_URI/marathon/v2/apps`, or by using JSON Mode in more recent Marathon versions.
-
+In Marathon, create the following job in JSON Mode:
 ```json
 {
   "id": "/metrics",
@@ -171,13 +119,13 @@ Save the following config as `statsd-docker-marathon.json`, then push it to the 
 }
 ```
 
-The image should deploy to a public slave instance (due to the `slave_public` resource role). Once it's up and running, you need to find the ip of the node it's running on, then connect to one of the following:
-- Visit http://the-node-ip (port 80) to view Graphite
+The image should deploy to a public agent instance (due to the `slave_public` resource role). Once it's up and running, you need to find the ip of the node it's running on:
+1. Go to http://<your_cluster>/mesos and determine the id of the public agent.
+2. SSH into that node with `dcos node ssh --master-proxy --mesos-id=<the id>`
+3. Run `curl http://ipinfo.io/ip` on the node to get its public IP.
+
+Once you have the public node IP, you may connect to the docker image with any of the following:
+- Visit http://<public_agent_ip> (port 80) to view Graphite
 - `telnet` into port 8126 to view the statsd daemon's console (tip: type `help`)
+
 Once the image has been up for a few minutes, it should start getting stats from `mesos-slaves` as `metrics.marathon.mesos` starts to resolve to it. In Graphite's left panel, navigate into `Metrics > stats > gauges > [fmwk_id] > [executor_id] > [container_id] > ...` to view the gauges produced by the application. Most applications seem to stick to gauge-type metrics, while the example `test-sender` produces several types.
-
-## Uninstalling the module
-
-1. Undo the changes made to `/opt/mesosphere/etc/mesos-slave-common` and `/opt/mesosphere/etc/mesos-slave-modules.json` by restoring the original files (you kept backups, right?).
-2. The library files added to `/opt/mesosphere/lib/` should also be backed out.
-3. Restart `mesos-slave` using the steps described before.
