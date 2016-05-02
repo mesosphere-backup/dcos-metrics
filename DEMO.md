@@ -2,7 +2,7 @@
 
 In DCOS 1.7 EE (or newer), the module is already included, so these steps are mainly meant to be a reference for installing a custom build of the module, or for changing the module config.
 
-## Installing a custom build of the module (on EACH mesos-slave system)
+## Installing a custom build of the module
 
 The metrics module must be installed on **EACH** mesos-slave system that you want to forward metrics from.
 It's recommended that you try these steps end-to-end on a single mesos-slave before continuing to other mesos-slaves, to ensure that you have the configuration you want BEFORE deploying it across the cluster.
