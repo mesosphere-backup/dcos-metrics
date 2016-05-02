@@ -2,13 +2,13 @@
 
 Monitoring component to be run against ```mesos-slave```s. Contains an Isolator Module which tracks Task bringup/shutdown and advertises StatsD endpoints into Task environments. This module is included in EE versions of DCOS starting with 1.7, see the [dcos-image package](https://github.com/mesosphere/dcos-image/blob/master/packages/mesos-metrics-module/).
 
-## Prerequisites:
+## Prerequisites
 
 - CMake
 - [Mesos' build prerequisites](http://mesos.apache.org/gettingstarted/)
 - Boost ASIO (install ```libasio-dev```)
 
-## Build instructions:
+## Build instructions
 
 Building this module requires a local copy of the mesos source, as well as a build from that source. You can use the provided ```get-mesos.sh``` script to get those.
 
@@ -44,41 +44,63 @@ host:dcos-stats/slave/build$ cmake \
 host:dcos-stats/slave/build$ make -j4
 ```
 
-## Install instructions
+## Installing a custom build of the module
 
-On a system running ```mesos-slave```:
+This is mainly for reference if you're doing module development. Otherwise you can just use the preconfigured version that's included on DCOS EE 1.7+.
 
-1. Copy ```dcos-stats/slave/build/modules.json``` and ```dcos-stats/slave/build/libstats-slave.so``` to the slave machine.
-   * The ```libstats-slave.so``` build must match your version of Mesos. Run ```ldd libstats-slave.so``` to see which version is expected.
-   * On DCOS, you will also need to install ```libboost_system.so``` into ```/opt/mesosphere/lib/```. Run ```ldd libstats-slave.so``` to see which version is needed.
-2. Customize ```modules.json``` as needed:
-   - The example config has a ```file``` parameter which assumes that ```libstats-slave.so``` is located in ```/home/vagrant/```. Update this parameter to point to where ```libstats-slave.so``` was copied earlier.
-   - The example config defaults to outputting stats to ```metrics.marathon.mesos:8125```. Update the ```dest_host``` parameter to send stats elsewhere if needed. If the stats destination is running in Marathon, you should be able to use something like ```appname.marathon.mesos``` here.
-   - A full list of parameters is documented below under "Customization".
-3. Enable the module in ```mesos-slave``` by configuring commandline arguments. Edit ```/opt/mesosphere/etc/mesos-slave-common``` to contain the following declarations:
-   - Add (if not present): ```MESOS_MODULES=/path/to/your/modules.json```
-   - Update ```MESOS_ISOLATION=cgroups/cpu,cgroups/mem,com_mesosphere_StatsIsolatorModule```. The content may vary, but ```com_mesosphere_StatsIsolatorModule``` must be present.
-4. Restart ```mesos-slave```.
-    1. Delete (or move) the current ```mesos-slave``` state: ```mv /var/lib/mesos/slave /var/lib/mesos/slave.old```
-    2. Run ```systemctl restart dcos-mesos-slave```, and ```systemctl status dcos-mesos-slave```.
-5. Verify that the module was successfully installed. Confirm in the logs that the module code is being initialized: ```grep InputAssigner /var/log/mesos/mesos-slave.INFO```. Any parameters you provided in ```modules.json``` should be included here. Something like this: ```Reusing existing stats InputAssigner with parameters: parameter { key: "dest_host" value: "metrics.marathon.mesos" }```
+The metrics module must be installed on **EACH** mesos-slave system that you want to forward metrics from.
+It's recommended that you try these steps end-to-end on a single mesos-slave before continuing to other mesos-slaves, to ensure that you have the configuration you want BEFORE deploying it across the cluster.
 
-## Customization
+1. Build the module against a version of Mesos matches what your cluster is running.
+2. Copy the customized `libstats-slave.so` (and any additional dependency libs) into `/opt/mesosphere/lib/`
+3. Back up the current versions of `/opt/mesosphere/etc/mesos-slave-common` and `/opt/mesosphere/etc/mesos-slave-modules.json`.
+4. Perform the following changes to `mesos-slave-common` and `mesos-slave-modules.json` as needed:
+  - `mesos-slave-common`
+    - Append `,com_mesosphere_StatsIsolatorModule` to the end of the line defining `MESOS_ISOLATION`.
+    - Add a line defining `MESOS_RESOURCE_ESTIMATOR=com_mesosphere_StatsResourceEstimatorModule`.
+    - REMOVE any existing line defining `MESOS_HOOKS=com_mesosphere_StatsEnvHook`. Recent builds of the module no longer need this.
+  - `mesos-slave-modules.json`
+    - Add a configuration block for `/opt/mesosphere/lib/libstats-slave.so` which lists `com_mesosphere_StatsIsolatorModule` and `com_mesosphere_StatsResourceEstimatorModule`. The latter replaces the previously needed `com_mesosphere_StatsEnvHook`.
+5. Make any other changes to settings in `mesos-slave-modules.json` as needed. See below.
+6. Last chance to back out! Revert `mesos-slave-common` and `mesos-slave-modules.json` to their original state if you want to abort now. The library files added to `/opt/mesosphere/lib/` are effectively unused until the configs in `/opt/mesosphere/etc/` are referencing them.
+7. Restart the `mesos-slave` process, see below.
+8. Verify that the module is working by checking `mesos-slave` logs, see below.
 
-Available parameters for ```modules.json``` (see also [params.hpp](https://github.com/mesosphere/dcos-stats/blob/master/slave/params.hpp)):
+## Configuring/customizing the module
 
-- "```listen_host```" (default ```localhost```): Host to listen on for stats input from tasks.
-- "```listen_port_mode```" (default ```ephemeral```): Method to use for opening listen ports for stats input from tasks.
-    - "```ephemeral```": Use OS-defined ephemeral ports for listen sockets. See ```/proc/sys/net/ipv4/ip_local_port_range```.
-    - "```single```": Use a single port across all tasks on the slave. Only advisable in ip-per-container environments. Requires the following additional arguments:
-        - "```listen_port```": Port to listen on in ```single``` mode
-    - "```range```": Use a defined range of ports for listening to tasks on the slave. Each task will use one port, monitoring data will be dropped if the number of tasks exceeds the number of ports. Requires the following additional arguments:
-        - "```listen_port_start```": Start of range in ```range``` mode (inclusive)
-        - "```listen_port_end```": End of range in ```range``` mode (inclusive)
-- "```dest_host```" (default ```statsd.monitoring.mesos```): Where to forward stats received from tasks.
-- "```dest_refresh_seconds```" (default ```300```, or 5 minutes): Duration in seconds between DNS lookups of ```dest_host```. Automatically detects changes in DNS and redirects output to the new destination.
-- "```dest_port```" (default ```8125```): Where to forward stats received from tasks.
-- "```annotation_mode```" (default ```tag_datadog```): How to annotate outgoing stats with information about the mesos task. Available options are ```tag_datadog``` for Datadog tags ([wire format](https://github.com/DataDog/dogstatsd-python/blob/master/statsd.py#L178)), ```tag_prefix``` to include the info in the statsd key prefix, or ```none``` for no annotations.
-- "```chunking```" (default ```true```): Whether to group outgoing statsd data into a smaller number of packets, with values separated by newlines. This format is supported by most statsd clients.
-- "```chunk_size_bytes```" (default ```512```): Preferred chunk size for outgoing UDP packets, when ```chunking``` is ```true```.
-- "```state_path_dir```" (default ```/var/run/mesos/isolators/network/metrics/```): Where to store container state for recovery if the slave is restarted.
+All configuration is within `/opt/mesosphere/etc/mesos-slave-modules.json`. The `mesos-slave` process must be restarted for any changes to take effect (see below for how to do this). Here are some explanations of the parameters:
+- **"`dest_host`": Hostname/IP for where to forward data received from tasks.**
+- "`dest_refresh_seconds`": Duration in seconds between DNS lookups of dest_host. Automatically detects changes in the DNS record and redirects output to the new destination.
+- "`dest_port`": Port to use when forwarding stats to dest_host.
+- "`annotation_mode`": How (or whether) to tag outgoing data with information about the Mesos task. Available modes are "key_prefix" (prefix statsd keys with the info), "tag_datadog" (use the datadog tag extension), or "none" (no tagging, data forwarded without modification). **If your statsd receiver doesn't support datadog-format statsd tags, this should be 'key_prefix' or 'none'.**
+- "`chunking`": Whether to group outgoing data into a smaller number of packets. **If your statsd receiver doesn't support multiple newline-separated statsd records in the same UDP packet, this should be 'false'.**
+- "`chunk_size_bytes`": Preferred chunk size for outgoing UDP packets, when "chunking" is enabled. This should be the UDP MTU.
+
+The full list of config options is in [params.hpp](params.hpp).
+
+IMPORTANT: Again, any changes to these options don't take effect until the mesos-slave process is restarted using the following steps:
+
+## Restarting `mesos-slave`
+
+The `mesos-slave` process must be restarted for any module config changes to take effect. This may or may not require dropping the containers managed by that process.
+
+1. Copy the current slave state into a backup location:
+  - `$ cp -a /var/lib/mesos/slave /var/lib/mesos/slave.bak`
+2. Restart the `mesos-slave` process:
+  - `$ systemctl restart dcos-mesos-slave` (or `dcos-mesos-slave-public`)
+3. Check `mesos-slave`'s status (any of these):
+  - `$ systemctl status dcos-mesos-slave` (or `dcos-mesos-slave-public`)
+  - `$ journalctl -f`
+  - `$ journalctl -e -n 100`
+
+## Verifying the module works (any of the following)
+
+Check the mesos-slave logs for something like this near the beginning:
+
+```input_assigner_factory.cpp:31 Creating new stats InputAssigner with parameters: [... json config content …]```
+
+Check the mesos-slave logs for a message like this every minute (assuming a 'metrics' process hasn't been started yet, as described below):
+
+```port_writer.cpp:180 Error when resolving host[metrics.marathon.mesos]. Dropping data and trying again in 60 seconds. err=asio.netdb:1, err2=system:22```
+
+Start a process in marathon that just runs `env` and look for envvars named `STATSD_UDP_HOST` and `STATSD_UDP_PORT`, or run the `test-sender` process as described in [DEMO.md](../DEMO.md).
