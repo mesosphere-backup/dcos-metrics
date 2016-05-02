@@ -104,3 +104,9 @@ Check the mesos-slave logs for a message like this every minute (assuming a 'met
 ```port_writer.cpp:180 Error when resolving host[metrics.marathon.mesos]. Dropping data and trying again in 60 seconds. err=asio.netdb:1, err2=system:22```
 
 Start a process in marathon that just runs `env` and look for envvars named `STATSD_UDP_HOST` and `STATSD_UDP_PORT`, or run the `test-sender` process as described in [DEMO.md](../DEMO.md).
+
+## Uninstalling the module
+
+1. Undo the changes made to `/opt/mesosphere/etc/mesos-slave-common` and `/opt/mesosphere/etc/mesos-slave-modules.json` by restoring the original files (you kept backups, right?).
+2. The library files added to `/opt/mesosphere/lib/` should also be backed out.
+3. Restart `mesos-slave` using the steps described before.
