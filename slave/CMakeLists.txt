@@ -154,19 +154,18 @@ if(protobuf_LIBRARY)
 endif()
 
 set(SRCS
-  input_assigner.cpp
-  input_assigner_strategy.cpp
-  input_state_cache_impl.cpp
+  container_assigner.cpp
+  container_assigner_strategy.cpp
+  container_reader_impl.cpp
+  container_state_cache_impl.cpp
   io_runner_impl.cpp
   isolator_module.cpp
   module_access_factory.cpp
   params.cpp
-  port_reader_impl.cpp
-  port_writer.cpp
   resource_estimator_module.cpp
   sync_util.cpp
-  tag_datadog.cpp
-  tag_key_prefix.cpp
+  statsd_output_writer.cpp
+  statsd_tagger.cpp
   )
 configure_file(
   "${PROJECT_SOURCE_DIR}/modules.json.in"

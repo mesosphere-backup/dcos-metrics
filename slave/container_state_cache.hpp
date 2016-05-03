@@ -8,7 +8,7 @@ namespace stats {
    * Writes container state to disk, so that it can be recovered if the agent is restarted.
    * This interface definition is mainly here for easy mockery.
    */
-  class InputStateCache {
+  class ContainerStateCache {
    public:
     /**
      * Returns the configured location of the cache for logging purposes.

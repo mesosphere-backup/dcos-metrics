@@ -1,9 +1,18 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
-#include "tag_datadog.cpp" // allow testing of memnmem()
+#include "statsd_tagger.cpp" // allow testing of replace_all() and memnmem()
 
-TEST(TagDatadogTests, memnmem) {
+namespace {
+  const char FIND = '.', REPLACE = '_';
+
+  void test_replace_all(std::string from, const std::string& expect_to) {
+    replace_all((char*)from.data(), from.size(), FIND, REPLACE);
+    EXPECT_EQ(expect_to, from);
+  }
+}
+
+TEST(TaggerTests, memnmem) {
   std::string hello("hello"), hey("hey"), hi("hi"), empty("");
   EXPECT_EQ(NULL, memnmem_imp((char*) empty.data(), empty.size(), empty.data(), empty.size()));
   EXPECT_EQ(NULL, memnmem_imp((char*) hi.data(), hi.size(), empty.data(), empty.size()));
@@ -37,7 +46,7 @@ TEST(TagDatadogTests, memnmem) {
       memnmem_imp((char*) hhiheyhello.data(), hhiheyhello.size(), heyhello.data(), heyhello.size()));
 }
 
-TEST(TagDatadogTests, prepare_for_tags) {
+TEST(TaggerTests, prepare_for_tags) {
   std::vector<char> scratch_buffer;
   std::string hello("hello"), hi("hi"), h("h"), empty("");
 
@@ -171,6 +180,19 @@ TEST(TagDatadogTests, prepare_for_tags) {
       stats::tag_datadog::prepare_for_tags(
           (char*) hello_2emptytagval_empty.data(), hello_2emptytagval_empty.size(), scratch_buffer));
   EXPECT_STREQ("hello||#,", hello_2emptytagval_empty.data());
+}
+
+TEST(TaggerTests, replace_all) {
+  test_replace_all("", "");
+  test_replace_all(".", "_");
+  test_replace_all("a", "a");
+  test_replace_all(".a", "_a");
+  test_replace_all("a.", "a_");
+  test_replace_all("a.a", "a_a");
+  test_replace_all(".a.", "_a_");
+  test_replace_all("a.a.a", "a_a_a");
+  test_replace_all("hello there.", "hello there_");
+  test_replace_all(".sotehuson.noseth.oideson.", "_sotehuson_noseth_oideson_");
 }
 
 int main(int argc, char **argv) {

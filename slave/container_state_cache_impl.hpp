@@ -1,14 +1,14 @@
 #pragma once
 
-#include "input_state_cache.hpp"
+#include "container_state_cache.hpp"
 
 namespace stats {
   /**
    * Writes container state to disk, so that it can be recovered if the agent is restarted.
    */
-  class InputStateCacheImpl : public InputStateCache {
+  class ContainerStateCacheImpl : public ContainerStateCache {
    public:
-    InputStateCacheImpl(const mesos::Parameters& parameters);
+    ContainerStateCacheImpl(const mesos::Parameters& parameters);
 
     const std::string& path() const;
     container_id_map<UDPEndpoint> get_containers();

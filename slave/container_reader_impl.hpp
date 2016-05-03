@@ -3,22 +3,21 @@
 #include <boost/asio.hpp>
 
 #include "mesos_hash.hpp"
-#include "port_reader.hpp"
+#include "container_reader.hpp"
+#include "output_writer.hpp"
 
 namespace stats {
   /**
-   * The default/prod implementation of PortReader.
+   * The default/prod implementation of ContainerReader.
    * PortWriter is templated out to allow for easy mockery of PortWriter in tests.
    */
-  template <typename PortWriter>
-  class PortReaderImpl : public PortReader {
+  class ContainerReaderImpl : public ContainerReader {
    public:
-    PortReaderImpl(
+    ContainerReaderImpl(
         const std::shared_ptr<boost::asio::io_service>& io_service,
-        const std::shared_ptr<PortWriter>& port_writer,
-        const UDPEndpoint& requested_endpoint,
-        params::annotation_mode::Value annotation_mode);
-    virtual ~PortReaderImpl();
+        const std::shared_ptr<OutputWriter>& output_writer,
+        const UDPEndpoint& requested_endpoint);
+    virtual ~ContainerReaderImpl();
 
     Try<UDPEndpoint> open();
 
@@ -35,17 +34,15 @@ namespace stats {
 
     void start_recv();
     void recv_cb(boost::system::error_code ec, size_t bytes_transferred);
-    void tag_and_send(std::vector<char>& entry_buffer, size_t size);
-    void flush_cb();
+    void write_message(const char* data, size_t size);
     void shutdown_cb();
 
-    const std::shared_ptr<PortWriter> port_writer;
+    const std::shared_ptr<OutputWriter> output_writer;
     const UDPEndpoint requested_endpoint;
-    const params::annotation_mode::Value annotation_mode;
 
     std::shared_ptr<boost::asio::io_service> io_service;
     boost::asio::ip::udp::socket socket;
-    std::vector<char> buffer, tag_reorder_scratch_buffer, multiline_scratch_buffer;
+    std::vector<char> socket_buffer;
     udp_endpoint_t sender_endpoint;
 
     std::unique_ptr<UDPEndpoint> actual_endpoint;

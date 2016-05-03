@@ -10,8 +10,8 @@
 #include "udp_endpoint.hpp"
 
 namespace stats {
-  class InputAssignerStrategy;
-  class InputStateCache;
+  class ContainerAssignerStrategy;
+  class ContainerStateCache;
   class IORunner;
   class RangePool;
 
@@ -19,22 +19,22 @@ namespace stats {
    * Base class for a port assignment. Holds common logic for the different strategy
    * implementations.
    */
-  class InputAssigner {
+  class ContainerAssigner {
    public:
     /**
      * Creates an uninitialized instance. init() must be called before anything else.
      */
-    InputAssigner();
+    ContainerAssigner();
 
-    virtual ~InputAssigner();
+    virtual ~ContainerAssigner();
 
     /**
      * Must be called before any other access to this instance.
      */
     void init(
         std::shared_ptr<IORunner> io_runner,
-        std::shared_ptr<InputStateCache> state_cache,
-        std::shared_ptr<InputAssignerStrategy> strategy);
+        std::shared_ptr<ContainerStateCache> state_cache,
+        std::shared_ptr<ContainerAssignerStrategy> strategy);
 
     Try<UDPEndpoint> register_container(
         const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info);
@@ -49,8 +49,8 @@ namespace stats {
     void unregister_and_update_cache(const mesos::ContainerID container_id);
 
     std::shared_ptr<IORunner> io_runner;
-    std::shared_ptr<InputStateCache> state_cache;
-    std::shared_ptr<InputAssignerStrategy> strategy;
+    std::shared_ptr<ContainerStateCache> state_cache;
+    std::shared_ptr<ContainerAssignerStrategy> strategy;
     std::mutex mutex;
   };
 }

@@ -1,23 +1,21 @@
 #pragma once
 
-#include <set>
-
 #include <boost/asio.hpp>
-#include <mesos/mesos.pb.h>
-#include <stout/nothing.hpp>
-#include <stout/try.hpp>
 
+#include "output_writer.hpp"
 #include "params.hpp"
 
 namespace stats {
 
+  class StatsdTagger;
+
   /**
-   * A PortWriter accepts data from one or more PortReaders and forwards it to an external endpoint.
-   * The data may be buffered into chunks before being sent out -- statsd supports separating
-   * multiple metrics by newlines.
-   * In practice, there is one singleton PortWriter instance per mesos-slave.
+   * A StatsdOutputWriter accepts data from one or more ContainerReaders, then tags and forwards it
+   * to an external statsd endpoint. The data may be buffered into chunks before being sent out --
+   * statsd supports separating multiple metrics by newlines.
+   * In practice, there is one singleton StatsdOutputWriter instance per mesos-slave.
    */
-  class PortWriter {
+  class StatsdOutputWriter : public OutputWriter {
    public:
     /**
      * Default maximum time to wait before sending a pending chunk.
@@ -26,16 +24,17 @@ namespace stats {
     const static size_t DEFAULT_CHUNK_TIMEOUT_MS = 1000;
 
     /**
-     * Creates a PortWriter which shares the provided io_service for async operations.
+     * Creates a StatsdOutputWriter which shares the provided io_service for async operations.
      * Additional arguments are exposed here to allow customization in unit tests.
      *
      * open() must be called before write()ing data, or else that data will be lost.
      */
-    PortWriter(std::shared_ptr<boost::asio::io_service> io_service,
+    StatsdOutputWriter(std::shared_ptr<boost::asio::io_service> io_service,
         const mesos::Parameters& parameters,
         size_t chunk_timeout_ms_for_tests = DEFAULT_CHUNK_TIMEOUT_MS,
         size_t resolve_period_ms_for_tests = 0);
-    virtual ~PortWriter();
+
+    virtual ~StatsdOutputWriter();
 
     /**
      * Starts internal timers for flushing data and refreshing the host.
@@ -43,10 +42,15 @@ namespace stats {
     void start();
 
     /**
-     * Writes the provided payload to the socket, either immediately or
-     * after letting it sit in a chunk buffer.
+     * Outputs the provided statsd message associated with the given container information, or NULL
+     * container information if none is available. The provided data should only be for a single
+     * statsd message. Multiline payloads should be passed individually.
      */
-    void write(const char* bytes, size_t size);
+    void write_container_statsd(
+        const mesos::ContainerID* container_id, const mesos::ExecutorInfo* executor_info,
+        const char* data, size_t size);
+
+    void write_resource_usage(const process::Future<mesos::ResourceUsage>& usage);
 
    protected:
     typedef boost::asio::ip::udp::resolver udp_resolver_t;
@@ -58,7 +62,7 @@ namespace stats {
 
     /**
      * Cancels running timers. Subclasses should call this in their destructor, to avoid the default
-     * resolve() being called in the timespan between ~<Subclass>() and ~PortWriter().
+     * resolve() being called in the timespan between ~<Subclass>() and ~StatsdOutputWriter().
      */
     void shutdown();
 
@@ -76,8 +80,8 @@ namespace stats {
 
     const std::string send_host;
     const size_t send_port;
-    const size_t buffer_capacity;
     const bool chunking;
+    const size_t chunk_capacity;
     const size_t chunk_timeout_ms;
     const size_t resolve_period_ms;
 
@@ -87,9 +91,10 @@ namespace stats {
     udp_endpoint_t current_endpoint;
     std::multiset<boost::asio::ip::address> last_resolved_addresses;
     boost::asio::ip::udp::socket socket;
-    char* buffer;
-    size_t buffer_used;
+    char* output_buffer;
+    size_t chunk_used;
     size_t dropped_bytes;
+    std::shared_ptr<StatsdTagger> tagger;
   };
 
 }

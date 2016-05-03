@@ -2,9 +2,9 @@
 
 #include <gmock/gmock.h>
 
-#include "input_assigner_strategy.hpp"
+#include "container_assigner_strategy.hpp"
 
-class MockInputAssignerStrategy : public stats::InputAssignerStrategy {
+class MockContainerAssignerStrategy : public stats::ContainerAssignerStrategy {
  public:
   MOCK_METHOD2(register_container, Try<stats::UDPEndpoint>(
           const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info));

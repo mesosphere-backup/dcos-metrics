@@ -3,7 +3,7 @@
 #include <process/future.hpp>
 #include <mesos/mesos.pb.h>
 
-#include "port_reader.hpp"
+#include "container_reader.hpp"
 
 namespace stats {
   /**
@@ -26,7 +26,7 @@ namespace stats {
      * Creates a new PortReader against the provided port which is powered by an internal async
      * scheduler, and which hasn't been open()ed yet.
      */
-    virtual std::shared_ptr<PortReader> create_port_reader(size_t port) = 0;
+    virtual std::shared_ptr<ContainerReader> create_container_reader(size_t port) = 0;
 
     /**
      * Submits an update to container resource state to the internal async scheduler.

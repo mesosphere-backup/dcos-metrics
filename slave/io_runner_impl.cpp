@@ -7,7 +7,8 @@
 
 #include <glog/logging.h>
 
-#include "port_reader_impl.hpp"
+#include "container_reader_impl.hpp"
+#include "statsd_output_writer.hpp"
 
 stats::IORunnerImpl::IORunnerImpl() { }
 
@@ -30,16 +31,10 @@ void stats::IORunnerImpl::init(const mesos::Parameters& parameters) {
   }
 
   listen_host = params::get_str(parameters, params::LISTEN_HOST, params::LISTEN_HOST_DEFAULT);
-  annotation_mode = params::to_annotation_mode(
-      params::get_str(parameters, params::ANNOTATION_MODE, params::ANNOTATION_MODE_DEFAULT));
-  if (annotation_mode == params::annotation_mode::Value::UNKNOWN) {
-    LOG(FATAL) << "Unknown " << params::ANNOTATION_MODE << " config value: "
-               << params::get_str(parameters, params::ANNOTATION_MODE, params::ANNOTATION_MODE_DEFAULT);
-  }
 
   io_service.reset(new boost::asio::io_service);
-  //TODO one or more PortWriter implementations, each for a different output type
-  writer.reset(new PortWriter(io_service, parameters));
+  //TODO one or more OutputWriter implementations, each for a different output type
+  writer.reset(new StatsdOutputWriter(io_service, parameters));
   writer->start();
   io_service_thread.reset(new std::thread(std::bind(&IORunnerImpl::run_io_service, this)));
 }
@@ -52,14 +47,13 @@ void stats::IORunnerImpl::dispatch(std::function<void()> func) {
   io_service->dispatch(func);
 }
 
-std::shared_ptr<stats::PortReader> stats::IORunnerImpl::create_port_reader(size_t port) {
+std::shared_ptr<stats::ContainerReader> stats::IORunnerImpl::create_container_reader(size_t port) {
   if (!io_service) {
-    LOG(FATAL) << "IORunner::init() wasn't called before create_port_reader()";
-    return std::shared_ptr<stats::PortReader>();
+    LOG(FATAL) << "IORunner::init() wasn't called before create_container_reader()";
+    return std::shared_ptr<stats::ContainerReader>();
   }
-  return std::shared_ptr<PortReader>(
-      new PortReaderImpl<PortWriter>(
-          io_service, writer, UDPEndpoint(listen_host, port), annotation_mode));
+  return std::shared_ptr<ContainerReader>(
+      new ContainerReaderImpl(io_service, writer, UDPEndpoint(listen_host, port)));
 }
 
 void stats::IORunnerImpl::update_usage(process::Future<mesos::ResourceUsage> usage) {
@@ -67,8 +61,8 @@ void stats::IORunnerImpl::update_usage(process::Future<mesos::ResourceUsage> usa
     LOG(FATAL) << "IORunner::init() wasn't called before update_usage()";
     return;
   }
-  //TODO dispatch: get usage proto, print
-  LOG(INFO) << "USAGE DUMP:\n" << usage.get().DebugString();
+  // Run the resource usage handling within the IO thread.
+  dispatch(std::bind(&OutputWriter::write_resource_usage, writer.get(), usage));
 }
 
 void stats::IORunnerImpl::run_io_service() {

@@ -4,9 +4,9 @@
 
 #include <glog/logging.h>
 
-#include "input_assigner.hpp"
-#include "input_assigner_strategy.hpp"
-#include "input_state_cache_impl.hpp"
+#include "container_assigner.hpp"
+#include "container_assigner_strategy.hpp"
+#include "container_state_cache_impl.hpp"
 #include "io_runner_impl.hpp"
 
 namespace {
@@ -16,14 +16,14 @@ namespace {
    * been processed. This prevents the module breaking if params are read "too early" or "too late".
    *
    * We expect to be called twice:
-   * - Isolator module fetches the InputAssigner
+   * - Isolator module fetches the ContainerAssigner
    * - Resource estimator module fetches the IORunner
    * These are both init()ed only after *both* have been fetched, to ensure that we have all params.
    */
   const size_t EXPECTED_MODULE_COUNT = 2;
 
   std::mutex global_state_mutex;
-  std::shared_ptr<stats::InputAssigner> global_input_assigner;
+  std::shared_ptr<stats::ContainerAssigner> global_container_assigner;
   std::shared_ptr<stats::IORunnerImpl> global_io_runner;
   std::vector<mesos::Parameters> all_parameters;
 
@@ -35,12 +35,12 @@ namespace {
     return global_io_runner;
   }
 
-  std::shared_ptr<stats::InputAssigner> get_global_input_assigner() {
-    if (global_input_assigner) {
-      return global_input_assigner;
+  std::shared_ptr<stats::ContainerAssigner> get_global_container_assigner() {
+    if (global_container_assigner) {
+      return global_container_assigner;
     }
-    global_input_assigner.reset(new stats::InputAssigner);
-    return global_input_assigner;
+    global_container_assigner.reset(new stats::ContainerAssigner);
+    return global_container_assigner;
   }
 
   void init_everything_if_enough_instantiations(const mesos::Parameters& params) {
@@ -71,7 +71,7 @@ namespace {
     std::shared_ptr<stats::IORunnerImpl> io_runner = get_global_io_runner();
     io_runner->init(merged_parameters);
 
-    std::shared_ptr<stats::InputAssignerStrategy> strategy;
+    std::shared_ptr<stats::ContainerAssignerStrategy> strategy;
     {
       std::string port_mode_str = stats::params::get_str(merged_parameters,
           stats::params::LISTEN_PORT_MODE, stats::params::LISTEN_PORT_MODE_DEFAULT);
@@ -91,18 +91,18 @@ namespace {
           break;
       }
     }
-    std::shared_ptr<stats::InputStateCacheImpl> state_cache(
-        new stats::InputStateCacheImpl(merged_parameters));
-    get_global_input_assigner()->init(io_runner, state_cache, strategy);
+    std::shared_ptr<stats::ContainerStateCacheImpl> state_cache(
+        new stats::ContainerStateCacheImpl(merged_parameters));
+    get_global_container_assigner()->init(io_runner, state_cache, strategy);
   }
 }
 
-std::shared_ptr<stats::InputAssigner> stats::ModuleAccessFactory::get_input_assigner(
+std::shared_ptr<stats::ContainerAssigner> stats::ModuleAccessFactory::get_container_assigner(
     const mesos::Parameters& module_parameters) {
   std::unique_lock<std::mutex> lock(global_state_mutex);
   init_everything_if_enough_instantiations(module_parameters);
-  LOG(INFO) << "Returning InputAssigner to module";
-  return get_global_input_assigner();
+  LOG(INFO) << "Returning ContainerAssigner to module";
+  return get_global_container_assigner();
 }
 
 std::shared_ptr<stats::IORunner> stats::ModuleAccessFactory::get_io_runner(
@@ -116,7 +116,7 @@ std::shared_ptr<stats::IORunner> stats::ModuleAccessFactory::get_io_runner(
 void stats::ModuleAccessFactory::reset_for_test() {
   std::unique_lock<std::mutex> lock(global_state_mutex);
   LOG(INFO) << "Wiping existing state, if any";
-  global_input_assigner.reset();
+  global_container_assigner.reset();
   global_io_runner.reset();
   all_parameters.clear();
 }

@@ -12,7 +12,8 @@ namespace stats {
   class ResourceEstimatorProcess;
 
   /**
-   * Templated to allow mockery of InputAssigner.
+   * Implements the mesos ResourceEstimator interface, to hook into mesos' stats on container
+   * resources.
    */
   class ResourceEstimatorModule : public mesos::slave::ResourceEstimator {
    public:

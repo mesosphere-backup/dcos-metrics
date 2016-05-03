@@ -7,22 +7,22 @@
 
 namespace stats {
   /**
-   * A PortReader opens a listen port and reads for incoming statsd data. The data may be
+   * A ContainerReader opens a listen port and reads for incoming statsd data. The data may be
    * annotatated with container information before it is passed to the provided PortWriter.
-   * In practice, there is one PortReader per listen port. Without ip-per-container, this means
-   * there is one PortReader for each container, since each is given a different port. Once
-   * ip-per-container is supported, this may change to a single PortReader for all containers on a
-   * mesos-slave, since all may share the same endpoint with distinct source ips.
+   * In practice, there is one ContainerReader per listen port. Without ip-per-container, this means
+   * there is one ContainerReader for each container, since each is given a different port. Once
+   * ip-per-container is supported, this may change to a single ContainerReader for all containers
+   * on a mesos-slave, since all may share the same endpoint with distinct source ips.
    *
-   * This interface class is implemented in port_reader_impl.*. The interface is kept distinct from
-   * the implementation to allow for easier mocking.
+   * This interface class is implemented in container_reader_impl.*. The interface is kept distinct
+   * from the implementation to allow for easier mocking.
    */
-  class PortReader {
+  class ContainerReader {
    public:
     /**
      * Cleanly flushes and shuts down the socket before destruction.
      */
-    virtual ~PortReader() { }
+    virtual ~ContainerReader() { }
 
     /**
      * Opens a listen socket at the location specified in the constructor.

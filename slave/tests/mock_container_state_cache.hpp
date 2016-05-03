@@ -2,9 +2,9 @@
 
 #include <gmock/gmock.h>
 
-#include "input_state_cache.hpp"
+#include "container_state_cache.hpp"
 
-class MockInputStateCache : public stats::InputStateCache {
+class MockContainerStateCache : public stats::ContainerStateCache {
  public:
   MOCK_CONST_METHOD0(path, const std::string&());
   MOCK_METHOD0(get_containers, stats::container_id_map<stats::UDPEndpoint>());

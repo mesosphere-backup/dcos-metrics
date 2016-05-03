@@ -4,13 +4,13 @@
 
 #include <thread>
 
-#include "input_state_cache_impl.hpp"
+#include "container_state_cache_impl.hpp"
 
-class InputStateCacheTests : public ::testing::Test {
+class ContainerStateCacheTests : public ::testing::Test {
  protected:
   virtual void SetUp() {
     //mkdir /tmp/test-<pid>
-    std::string template_copy = "input_state_cache_impl_tests-XXXXXX";
+    std::string template_copy = "container_state_cache_impl_tests-XXXXXX";
     if (mkdtemp((char*)template_copy.c_str()) == NULL) {
       LOG(FATAL) << "Failed to create tmpdir";
     }
@@ -60,29 +60,29 @@ class InputStateCacheTests : public ::testing::Test {
   std::string root_path_, config_path_, container_path_;
 };
 
-TEST_F(InputStateCacheTests, init_does_very_little) {
-  stats::InputStateCacheImpl cache(get_path_params());
+TEST_F(ContainerStateCacheTests, init_does_very_little) {
+  stats::ContainerStateCacheImpl cache(get_path_params());
   EXPECT_EQ(config_path(), cache.path());
   EXPECT_TRUE(os::exists(root_path()));
   EXPECT_FALSE(os::exists(cache.path()));
   EXPECT_TRUE(cache.get_containers().empty());
 }
 
-TEST_F(InputStateCacheTests, single_get_add_get_remove_get) {
+TEST_F(ContainerStateCacheTests, single_get_add_get_remove_get) {
   mesos::ContainerID id = container_id("hello");
   stats::UDPEndpoint endpoint("host-hello", 123);
 
   // use scoping to sorta validate that state is preserved across instances:
 
   {
-    stats::InputStateCacheImpl cache(get_path_params());
+    stats::ContainerStateCacheImpl cache(get_path_params());
     EXPECT_TRUE(cache.get_containers().empty());
 
     cache.add_container(id, endpoint);
     EXPECT_TRUE(os::exists(container_path() + id.value()));
   }
   {
-    stats::InputStateCacheImpl cache(get_path_params());
+    stats::ContainerStateCacheImpl cache(get_path_params());
     stats::container_id_map<stats::UDPEndpoint> map = cache.get_containers();
 
     EXPECT_EQ(1, map.size());
@@ -93,16 +93,16 @@ TEST_F(InputStateCacheTests, single_get_add_get_remove_get) {
     EXPECT_FALSE(os::exists(container_path() + id.value()));
   }
   {
-    stats::InputStateCacheImpl cache(get_path_params());
+    stats::ContainerStateCacheImpl cache(get_path_params());
     EXPECT_TRUE(cache.get_containers().empty());
   }
 }
 
-TEST_F(InputStateCacheTests, multi_get_add_get_remove_get) {
+TEST_F(ContainerStateCacheTests, multi_get_add_get_remove_get) {
   mesos::ContainerID id1 = container_id("hello"), id2 = container_id("hi");
   stats::UDPEndpoint endpoint1("host-hello", 123), endpoint2("host-hi", 234);
 
-  stats::InputStateCacheImpl cache(get_path_params());
+  stats::ContainerStateCacheImpl cache(get_path_params());
   EXPECT_TRUE(cache.get_containers().empty());
 
   EXPECT_FALSE(os::exists(container_path() + id1.value()));
@@ -132,11 +132,11 @@ TEST_F(InputStateCacheTests, multi_get_add_get_remove_get) {
   EXPECT_TRUE(cache.get_containers().empty());
 }
 
-TEST_F(InputStateCacheTests, malicious_container_id) {
+TEST_F(ContainerStateCacheTests, malicious_container_id) {
   mesos::ContainerID bad_id = container_id("../../../etc/shadow");
   stats::UDPEndpoint endpoint("host-bad", 123);
 
-  stats::InputStateCacheImpl cache(get_path_params());
+  stats::ContainerStateCacheImpl cache(get_path_params());
 
   // expect bad id to result in sanitized path:
   cache.add_container(bad_id, endpoint);

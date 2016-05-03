@@ -11,17 +11,21 @@ include_directories(
   ${GTEST_INCLUDE_DIR}
   )
 
-add_executable(input_assigner_tests input_assigner_tests.cpp)
-target_link_libraries(input_assigner_tests gmock gtest stats-slave)
-add_test(input_assigner_tests input_assigner_tests)
+add_executable(container_assigner_tests container_assigner_tests.cpp)
+target_link_libraries(container_assigner_tests gmock gtest stats-slave)
+add_test(container_assigner_tests container_assigner_tests)
 
-add_executable(input_assigner_strategy_tests input_assigner_strategy_tests.cpp)
-target_link_libraries(input_assigner_strategy_tests gmock gtest stats-slave)
-add_test(input_assigner_strategy_tests input_assigner_strategy_tests)
+add_executable(container_assigner_strategy_tests container_assigner_strategy_tests.cpp)
+target_link_libraries(container_assigner_strategy_tests gmock gtest stats-slave)
+add_test(container_assigner_strategy_tests container_assigner_strategy_tests)
 
-add_executable(input_state_cache_impl_tests input_state_cache_impl_tests.cpp)
-target_link_libraries(input_state_cache_impl_tests gmock gtest stats-slave)
-add_test(input_state_cache_impl_tests input_state_cache_impl_tests)
+add_executable(container_reader_impl_tests container_reader_impl_tests.cpp)
+target_link_libraries(container_reader_impl_tests gmock gtest stats-slave)
+add_test(container_reader_impl_tests container_reader_impl_tests)
+
+add_executable(container_state_cache_impl_tests container_state_cache_impl_tests.cpp)
+target_link_libraries(container_state_cache_impl_tests gmock gtest stats-slave)
+add_test(container_state_cache_impl_tests container_state_cache_impl_tests)
 
 add_executable(io_runner_impl_tests io_runner_impl_tests.cpp)
 target_link_libraries(io_runner_impl_tests gmock gtest stats-slave)
@@ -39,19 +43,6 @@ add_executable(params_tests params_tests.cpp)
 target_link_libraries(params_tests gtest stats-slave)
 add_test(params_tests params_tests)
 
-add_executable(port_reader_impl_fuzz port_reader_impl_fuzz.cpp)
-target_link_libraries(port_reader_impl_fuzz gmock gtest stats-slave)
-# disabled by default
-#add_test(port_reader_impl_fuzz port_reader_impl_fuzz)
-
-add_executable(port_reader_impl_tests port_reader_impl_tests.cpp)
-target_link_libraries(port_reader_impl_tests gmock gtest stats-slave)
-add_test(port_reader_impl_tests port_reader_impl_tests)
-
-add_executable(port_writer_tests port_writer_tests.cpp)
-target_link_libraries(port_writer_tests gtest stats-slave)
-add_test(port_writer_tests port_writer_tests)
-
 add_executable(range_pool_tests range_pool_tests.cpp)
 target_link_libraries(range_pool_tests gtest stats-slave)
 add_test(range_pool_tests range_pool_tests)
@@ -60,10 +51,15 @@ add_executable(sync_util_tests sync_util_tests.cpp)
 target_link_libraries(sync_util_tests gtest stats-slave)
 add_test(sync_util_tests sync_util_tests)
 
-add_executable(tag_datadog_tests tag_datadog_tests.cpp)
-target_link_libraries(tag_datadog_tests gtest stats-slave)
-add_test(tag_datadog_tests tag_datadog_tests)
+add_executable(statsd_tagger_tests statsd_tagger_tests.cpp)
+target_link_libraries(statsd_tagger_tests gtest stats-slave)
+add_test(statsd_tagger_tests statsd_tagger_tests)
 
-add_executable(tag_key_prefix_tests tag_key_prefix_tests.cpp)
-target_link_libraries(tag_key_prefix_tests gtest stats-slave)
-add_test(tag_key_prefix_tests tag_key_prefix_tests)
+add_executable(statsd_output_writer_fuzz statsd_output_writer_fuzz.cpp)
+target_link_libraries(statsd_output_writer_fuzz gmock gtest stats-slave)
+# disabled by default
+#add_test(statsd_output_writer_fuzz statsd_output_writer_fuzz)
+
+add_executable(statsd_output_writer_tests statsd_output_writer_tests.cpp)
+target_link_libraries(statsd_output_writer_tests gtest stats-slave)
+add_test(statsd_output_writer_tests statsd_output_writer_tests)

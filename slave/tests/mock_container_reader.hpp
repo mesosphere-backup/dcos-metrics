@@ -2,9 +2,9 @@
 
 #include <gmock/gmock.h>
 
-#include "port_reader.hpp"
+#include "container_reader.hpp"
 
-class MockPortReader : public stats::PortReader {
+class MockContainerReader : public stats::ContainerReader {
  public:
   MOCK_METHOD0(open, Try<stats::UDPEndpoint>());
   MOCK_METHOD0(close, void());

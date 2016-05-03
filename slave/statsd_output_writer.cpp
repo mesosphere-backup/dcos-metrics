@@ -1,18 +1,20 @@
-#include "port_writer.hpp"
-#include "sync_util.hpp"
+#include "statsd_output_writer.hpp"
 
 #include <glog/logging.h>
 
+#include "statsd_tagger.hpp"
+#include "sync_util.hpp"
+
 #define UDP_MAX_PACKET_BYTES 65536 /* UDP size limit in IPv4 (may be larger in IPv6) */
 
-namespace stats {
-  size_t select_buffer_capacity(const mesos::Parameters& parameters) {
-    size_t params_size =
-      params::get_uint(parameters, params::CHUNK_SIZE_BYTES, params::CHUNK_SIZE_BYTES_DEFAULT);
+namespace {
+  size_t get_chunk_size(const mesos::Parameters& parameters) {
+    size_t params_size = stats::params::get_uint(
+        parameters, stats::params::CHUNK_SIZE_BYTES, stats::params::CHUNK_SIZE_BYTES_DEFAULT);
     if (params_size == 0) {
       LOG(WARNING) << "Ignoring invalid requested UDP packet size " << params_size << ", "
-                   << "using " << params::CHUNK_SIZE_BYTES_DEFAULT;
-      return params::CHUNK_SIZE_BYTES_DEFAULT;
+                   << "using " << stats::params::CHUNK_SIZE_BYTES_DEFAULT;
+      return stats::params::CHUNK_SIZE_BYTES_DEFAULT;
     }
     if (params_size > UDP_MAX_PACKET_BYTES) {
       LOG(WARNING) << "Ignoring excessive requested UDP packet size " << params_size << ", "
@@ -21,41 +23,16 @@ namespace stats {
     }
     return params_size;
   }
-
-  bool add_to_buffer(char* buffer, size_t buffer_capacity, size_t& buffer_used,
-      const char* to_add, size_t to_add_size) {
-    if (to_add_size == 0) {
-      return true;
-    }
-    if (buffer_used == 0) {
-      // Buffer is empty, no newline separator is needed yet.
-      if (to_add_size > buffer_capacity) {
-        return false;// Too big
-      }
-    } else {
-      // Appending to existing buffer, with newline char as separator.
-      if ((buffer_used + to_add_size + 1) > buffer_capacity) {// "1" includes newline char
-        return false;// Too big
-      }
-      // Insert a newline separator before adding the new row
-      buffer[buffer_used] = '\n';
-      ++buffer_used;
-    }
-    // Add the new data following any existing data.
-    memcpy(buffer + buffer_used, to_add, to_add_size);
-    buffer_used += to_add_size;
-    return true;
-  }
 }
 
-stats::PortWriter::PortWriter(std::shared_ptr<boost::asio::io_service> io_service,
+stats::StatsdOutputWriter::StatsdOutputWriter(std::shared_ptr<boost::asio::io_service> io_service,
     const mesos::Parameters& parameters,
     size_t chunk_timeout_ms_for_tests/*=1000*/,
     size_t resolve_period_ms_for_tests/*=0*/)
   : send_host(params::get_str(parameters, params::DEST_HOST, params::DEST_HOST_DEFAULT)),
     send_port(params::get_uint(parameters, params::DEST_PORT, params::DEST_PORT_DEFAULT)),
-    buffer_capacity(select_buffer_capacity(parameters)),
     chunking(params::get_bool(parameters, params::CHUNKING, params::CHUNKING_DEFAULT)),
+    chunk_capacity(get_chunk_size(parameters)),
     chunk_timeout_ms(chunk_timeout_ms_for_tests),
     resolve_period_ms((resolve_period_ms_for_tests != 0)
         ? resolve_period_ms_for_tests
@@ -65,77 +42,136 @@ stats::PortWriter::PortWriter(std::shared_ptr<boost::asio::io_service> io_servic
     flush_timer(*io_service),
     resolve_timer(*io_service),
     socket(*io_service),
-    buffer((char*) malloc(buffer_capacity)),
-    buffer_used(0),
+    output_buffer((char*) malloc(UDP_MAX_PACKET_BYTES)),
+    chunk_used(0),
     dropped_bytes(0) {
-  LOG(INFO) << "Writer constructed for " << send_host << ":" << send_port;
+  LOG(INFO) << "StatsdOutputWriter constructed for " << send_host << ":" << send_port;
+  switch (params::to_annotation_mode(
+          params::get_str(parameters, params::ANNOTATION_MODE, params::ANNOTATION_MODE_DEFAULT))) {
+    case params::annotation_mode::Value::UNKNOWN:
+      LOG(FATAL) << "Unknown " << params::ANNOTATION_MODE << " config value: "
+                 << params::get_str(
+                     parameters, params::ANNOTATION_MODE, params::ANNOTATION_MODE_DEFAULT);
+      break;
+    case params::annotation_mode::Value::NONE:
+      tagger.reset(new NullTagger);
+      break;
+    case params::annotation_mode::Value::TAG_DATADOG:
+      tagger.reset(new DatadogTagger);
+      break;
+    case params::annotation_mode::Value::KEY_PREFIX:
+      tagger.reset(new KeyPrefixTagger);
+      break;
+  }
   if (resolve_period_ms == 0) {
     LOG(FATAL) << "Invalid " << params::DEST_REFRESH_SECONDS << " value: must be non-zero";
   }
 }
 
-stats::PortWriter::~PortWriter() {
+stats::StatsdOutputWriter::~StatsdOutputWriter() {
   shutdown();
 }
 
-void stats::PortWriter::start() {
+void stats::StatsdOutputWriter::start() {
   // Only run the timer callbacks within the io_service thread:
-  LOG(INFO) << "PortWriter starting work";
-  io_service->dispatch(std::bind(&PortWriter::dest_resolve_cb, this, boost::system::error_code()));
+  LOG(INFO) << "StatsdOutputWriter starting work";
+  io_service->dispatch(std::bind(&StatsdOutputWriter::dest_resolve_cb, this, boost::system::error_code()));
   if (chunking) {
     start_chunk_flush_timer();
   }
 }
 
-void stats::PortWriter::write(const char* bytes, size_t size) {
-  if (chunking) {
-    if (add_to_buffer(buffer, buffer_capacity, buffer_used, bytes, size)) {
-      // Data added to buffer. Will be flushed when buffer is full or when flush timer goes off.
-      return;
-    }
+void stats::StatsdOutputWriter::write_container_statsd(
+    const mesos::ContainerID* container_id, const mesos::ExecutorInfo* executor_info,
+    const char* in_data, size_t in_size) {
+  size_t needed_size =
+    tagger->calculate_size(container_id, executor_info, in_data, in_size);
 
-    // New data doesn't fit in the buffer's available space. Send/empty the buffer and try again.
-    send_raw_bytes(buffer, buffer_used);
-    buffer_used = 0;
-    if (add_to_buffer(buffer, buffer_capacity, buffer_used, bytes, size)) {
-      // Data now fit in buffer after freeing space with a manual flush. To be flushed again later.
-      return;
-    }
-
-    // Data is too big to fit in an empty buffer. Skip the buffer and send the data as-is (below).
-    // Note that the data doesn't jump the 'queue' since we've already sent the contents of the
-    // current buffer.
-    LOG(WARNING) << "Ignoring requested packet max[" << buffer_capacity << "]: "
-                 << "Sending metric of size " << size;
+  if (needed_size > UDP_MAX_PACKET_BYTES) {
+    // the buffer's just too small, period. send untagged data directly, skipping the buffer.
+    // this shouldn't happen in practice.
+    send_raw_bytes(in_data, in_size);
+    return;
   }
 
-  send_raw_bytes(bytes, size);
+  // chunking disabled
+  if (!chunking) {
+    // tag and send the data immediately
+    tagger->tag_copy(container_id, executor_info, in_data, in_size, output_buffer);
+    send_raw_bytes(output_buffer, needed_size);
+    return;
+  }
+
+  // starting a new chunk
+  if (chunk_used == 0) {
+    if (needed_size < chunk_capacity) {
+      // add the tagged data directly to the start of the chunk (no preceding newline)
+      tagger->tag_copy(container_id, executor_info, in_data, in_size, output_buffer);
+      chunk_used = needed_size;
+    } else {
+      // too big for a chunk, tag and send immediately
+      tagger->tag_copy(container_id, executor_info, in_data, in_size, output_buffer);
+      send_raw_bytes(output_buffer, needed_size);
+    }
+    return;
+  }
+
+  // appending to existing chunk
+  if (needed_size + 1 < chunk_capacity - chunk_used) {//include newline char
+    // the data fits in the current chunk. append the data and exit
+    output_buffer[chunk_used] = '\n';
+    ++chunk_used;
+    tagger->tag_copy(container_id, executor_info, in_data, in_size,
+        output_buffer + chunk_used);
+    chunk_used += needed_size;
+    return;
+  }
+
+  // the space needed exceeds the current chunk. send the current buffer before continuing.
+  send_raw_bytes(output_buffer, chunk_used);
+  chunk_used = 0;
+
+  if (needed_size < chunk_capacity) {
+    // add the tagged data directly to the start of the chunk (no preceding newline)
+    tagger->tag_copy(container_id, executor_info, in_data, in_size, output_buffer);
+    chunk_used = needed_size;
+  } else {
+    // still too big for a chunk, tag and send immediately
+    tagger->tag_copy(container_id, executor_info, in_data, in_size, output_buffer);
+    send_raw_bytes(output_buffer, needed_size);
+  }
 }
 
-stats::PortWriter::udp_resolver_t::iterator stats::PortWriter::resolve(
+void stats::StatsdOutputWriter::write_resource_usage(
+    const process::Future<mesos::ResourceUsage>& usage) {
+  //TODO dispatch: get usage proto, print
+  LOG(INFO) << "USAGE DUMP:\n" << usage.get().DebugString();
+}
+
+stats::StatsdOutputWriter::udp_resolver_t::iterator stats::StatsdOutputWriter::resolve(
     boost::system::error_code& ec) {
   udp_resolver_t resolver(*io_service);
   return resolver.resolve(udp_resolver_t::query(send_host, ""), ec);
 }
 
-void stats::PortWriter::shutdown() {
-  LOG(INFO) << "Asynchronously triggering PortWriter shutdown for "
+void stats::StatsdOutputWriter::shutdown() {
+  LOG(INFO) << "Asynchronously triggering StatsdOutputWriter shutdown for "
             << send_host << ":" << send_port;
   // Run the shutdown work itself from within the scheduler:
   if (sync_util::dispatch_run(
-          "~PortWriter", *io_service, std::bind(&PortWriter::shutdown_cb, this))) {
-    LOG(INFO) << "PortWriter shutdown succeeded";
+          "~StatsdOutputWriter", *io_service, std::bind(&StatsdOutputWriter::shutdown_cb, this))) {
+    LOG(INFO) << "StatsdOutputWriter shutdown succeeded";
   } else {
-    LOG(ERROR) << "Failed to complete PortWriter shutdown for " << send_host << ":" << send_port;
+    LOG(ERROR) << "Failed to complete StatsdOutputWriter shutdown for " << send_host << ":" << send_port;
   }
 }
 
-void stats::PortWriter::start_dest_resolve_timer() {
+void stats::StatsdOutputWriter::start_dest_resolve_timer() {
   resolve_timer.expires_from_now(boost::posix_time::milliseconds(resolve_period_ms));
-  resolve_timer.async_wait(std::bind(&PortWriter::dest_resolve_cb, this, std::placeholders::_1));
+  resolve_timer.async_wait(std::bind(&StatsdOutputWriter::dest_resolve_cb, this, std::placeholders::_1));
 }
 
-void stats::PortWriter::dest_resolve_cb(boost::system::error_code ec) {
+void stats::StatsdOutputWriter::dest_resolve_cb(boost::system::error_code ec) {
   if (ec) {
     if (boost::asio::error::operation_aborted) {
       // We're being destroyed. Don't look at local state, it may be destroyed already.
@@ -268,12 +304,12 @@ void stats::PortWriter::dest_resolve_cb(boost::system::error_code ec) {
   start_dest_resolve_timer();
 }
 
-void stats::PortWriter::start_chunk_flush_timer() {
+void stats::StatsdOutputWriter::start_chunk_flush_timer() {
   flush_timer.expires_from_now(boost::posix_time::milliseconds(chunk_timeout_ms));
-  flush_timer.async_wait(std::bind(&PortWriter::chunk_flush_cb, this, std::placeholders::_1));
+  flush_timer.async_wait(std::bind(&StatsdOutputWriter::chunk_flush_cb, this, std::placeholders::_1));
 }
 
-void stats::PortWriter::chunk_flush_cb(boost::system::error_code ec) {
+void stats::StatsdOutputWriter::chunk_flush_cb(boost::system::error_code ec) {
   //DLOG(INFO) << "Flush triggered";
   if (ec) {
     if (boost::asio::error::operation_aborted) {
@@ -285,13 +321,13 @@ void stats::PortWriter::chunk_flush_cb(boost::system::error_code ec) {
     }
   }
 
-  send_raw_bytes(buffer, buffer_used);
-  buffer_used = 0;
+  send_raw_bytes(output_buffer, chunk_used);
+  chunk_used = 0;
 
   start_chunk_flush_timer();
 }
 
-void stats::PortWriter::send_raw_bytes(const char* bytes, size_t size) {
+void stats::StatsdOutputWriter::send_raw_bytes(const char* bytes, size_t size) {
   if (size == 0) {
     //DLOG(INFO) << "Skipping scheduled send of zero bytes";
     return;
@@ -315,7 +351,7 @@ void stats::PortWriter::send_raw_bytes(const char* bytes, size_t size) {
   }
 }
 
-void stats::PortWriter::shutdown_cb() {
+void stats::StatsdOutputWriter::shutdown_cb() {
   boost::system::error_code ec;
 
   flush_timer.cancel(ec);
@@ -337,6 +373,6 @@ void stats::PortWriter::shutdown_cb() {
       LOG(ERROR) << "Error on writer socket close. err=" << ec;
     }
   }
-  free(buffer);
-  buffer = NULL;
+  free(output_buffer);
+  output_buffer = NULL;
 }

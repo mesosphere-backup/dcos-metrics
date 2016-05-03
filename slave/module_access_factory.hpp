@@ -6,12 +6,12 @@
 #include <mesos/mesos.pb.h>
 
 namespace stats {
-  class InputAssigner;
+  class ContainerAssigner;
   class IORunner;
 
   /**
    * Factory for use by Stats mesos modules which manages module parameter reconciliation. Creates
-   * un-initialized instances of InputAssigners and IORunners, then later initializes them once
+   * un-initialized instances of ContainerAssigners and IORunners, then later initializes them once
    * enough parameter instances have come in.
    *
    * The retrieval function is thread-safe. See headers of respective returned objects to determine
@@ -20,9 +20,9 @@ namespace stats {
   class ModuleAccessFactory {
    public:
     /**
-     * Returns an InputAssigner and saves the provided params for immediate or eventual use.
+     * Returns an ContainerAssigner and saves the provided params for immediate or eventual use.
      */
-    static std::shared_ptr<InputAssigner> get_input_assigner(
+    static std::shared_ptr<ContainerAssigner> get_container_assigner(
         const mesos::Parameters& module_parameters);
 
     /**
@@ -31,7 +31,7 @@ namespace stats {
     static std::shared_ptr<IORunner> get_io_runner(const mesos::Parameters& module_parameters);
 
     /**
-     * Resets the internal state, wiping any locally cached InputAssigners which were previously
+     * Resets the internal state, wiping any locally cached ContainerAssigners which were previously
      * built via get(). Meant for testing only.
      */
     static void reset_for_test();

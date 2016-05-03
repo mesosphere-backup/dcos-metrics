@@ -2,11 +2,10 @@
 
 #include <thread>
 
-#include "input_assigner.hpp"
-#include "mock_input_assigner_strategy.hpp"
-#include "mock_input_state_cache.hpp"
+#include "container_assigner.hpp"
+#include "mock_container_assigner_strategy.hpp"
+#include "mock_container_state_cache.hpp"
 #include "mock_io_runner.hpp"
-#include "mock_port_reader.hpp"
 
 #define EXPECT_DETH(a, b) { std::cerr << "Disregard the following warning:"; EXPECT_DEATH(a, b); }
 
@@ -43,7 +42,7 @@ namespace {
     return state;
   }
 
-  void register_get_unregister(stats::InputAssigner& assigner, size_t id) {
+  void register_get_unregister(stats::ContainerAssigner& assigner, size_t id) {
     std::cout << "thread " << id << " start" << std::endl;
     std::ostringstream oss;
     oss << "c" << id;
@@ -81,38 +80,38 @@ MATCHER_P(ExecInfoMatch, proto_value, "mesos::ExecutorInfo") {
     && arg.framework_id().value() == proto_value.framework_id().value();
 }
 
-class InputAssignerTests : public ::testing::Test {
+class ContainerAssignerTests : public ::testing::Test {
  public:
-  InputAssignerTests()
+  ContainerAssignerTests()
     : mock_runner(new MockIORunner),
-      mock_state_cache(new MockInputStateCache),
-      mock_strategy(new MockInputAssignerStrategy) { }
+      mock_state_cache(new MockContainerStateCache),
+      mock_strategy(new MockContainerAssignerStrategy) { }
 
  protected:
   std::shared_ptr<MockIORunner> mock_runner;
-  std::shared_ptr<MockInputStateCache> mock_state_cache;
-  std::shared_ptr<MockInputAssignerStrategy> mock_strategy;
+  std::shared_ptr<MockContainerStateCache> mock_state_cache;
+  std::shared_ptr<MockContainerAssignerStrategy> mock_strategy;
 };
 
-TEST_F(InputAssignerTests, init_fails) {
-  stats::InputAssigner input_assigner;
-  EXPECT_DETH(input_assigner.register_container(container_id("hi"), exec_info("hey", "hello")),
+TEST_F(ContainerAssignerTests, init_fails) {
+  stats::ContainerAssigner container_assigner;
+  EXPECT_DETH(container_assigner.register_container(container_id("hi"), exec_info("hey", "hello")),
       ".*init\\(\\) wasn't called before register_container\\(\\).*");
   std::list<mesos::slave::ContainerState> states;
-  EXPECT_DETH(input_assigner.recover_containers(states),
+  EXPECT_DETH(container_assigner.recover_containers(states),
       ".*init\\(\\) wasn't called before recover_containers\\(\\).*");
-  EXPECT_DETH(input_assigner.unregister_container(container_id("hi")),
+  EXPECT_DETH(container_assigner.unregister_container(container_id("hi")),
       ".*init\\(\\) wasn't called before unregister_container\\(\\).*");
 
-  input_assigner.init(mock_runner, mock_state_cache, mock_strategy);
+  container_assigner.init(mock_runner, mock_state_cache, mock_strategy);
 
-  EXPECT_DETH(input_assigner.init(mock_runner, mock_state_cache, mock_strategy),
+  EXPECT_DETH(container_assigner.init(mock_runner, mock_state_cache, mock_strategy),
       ".*init\\(\\) was called twice.*");
 }
 
-TEST_F(InputAssignerTests, multithread) {
-  stats::InputAssigner input_assigner;
-  input_assigner.init(mock_runner, mock_state_cache, mock_strategy);
+TEST_F(ContainerAssignerTests, multithread) {
+  stats::ContainerAssigner container_assigner;
+  container_assigner.init(mock_runner, mock_state_cache, mock_strategy);
   EXPECT_CALL(*mock_runner, dispatch(_)).WillRepeatedly(Invoke(execute));
   EXPECT_CALL(*mock_strategy, register_container(_, _))
     .WillRepeatedly(Return(try_endpoint("ignored", 0)));
@@ -125,7 +124,7 @@ TEST_F(InputAssignerTests, multithread) {
     //Note: Tried getting AND resetting in each thread, but this led to glogging races.
     //      That behavior isn't supported anyway.
     thread_ptrs.push_back(new std::thread(
-            std::bind(register_get_unregister, std::ref(input_assigner), i)));
+            std::bind(register_get_unregister, std::ref(container_assigner), i)));
   }
   for (std::thread* thread : thread_ptrs) {
     thread->join();
@@ -134,9 +133,9 @@ TEST_F(InputAssignerTests, multithread) {
   thread_ptrs.clear();
 }
 
-TEST_F(InputAssignerTests, recovery) {
-  stats::InputAssigner input_assigner;
-  input_assigner.init(mock_runner, mock_state_cache, mock_strategy);
+TEST_F(ContainerAssignerTests, recovery) {
+  stats::ContainerAssigner container_assigner;
+  container_assigner.init(mock_runner, mock_state_cache, mock_strategy);
 
   // Permutations:
   //   | recovery | disk || expect result
@@ -148,19 +147,19 @@ TEST_F(InputAssignerTests, recovery) {
 
   EXPECT_CALL(*mock_runner, dispatch(_)).WillRepeatedly(Invoke(execute));
 
-  std::list<mesos::slave::ContainerState> recover_input; // Y**
+  std::list<mesos::slave::ContainerState> recover_container; // Y**
 
-  recover_input.push_back(container_state("YY", "fid1", "eid1"));
-  recover_input.push_back(container_state("YN", "fid2", "eid2"));
+  recover_container.push_back(container_state("YY", "fid1", "eid1"));
+  recover_container.push_back(container_state("YN", "fid2", "eid2"));
 
-  stats::container_id_map<stats::UDPEndpoint> disk_input; // *Y*
+  stats::container_id_map<stats::UDPEndpoint> disk_container; // *Y*
 
-  disk_input.insert({container_id("YY"), stats::UDPEndpoint("host1", 1)});
-  disk_input.insert({container_id("NY"), stats::UDPEndpoint("host3", 2)});
+  disk_container.insert({container_id("YY"), stats::UDPEndpoint("host1", 1)});
+  disk_container.insert({container_id("NY"), stats::UDPEndpoint("host3", 2)});
 
   // set up expected outcomes when we call recover:
 
-  EXPECT_CALL(*mock_state_cache, get_containers()).WillOnce(Return(disk_input));
+  EXPECT_CALL(*mock_state_cache, get_containers()).WillOnce(Return(disk_container));
   const std::string path("SOME PATH");
   EXPECT_CALL(*mock_state_cache, path()).WillOnce(ReturnRef(path));
 
@@ -181,7 +180,7 @@ TEST_F(InputAssignerTests, recovery) {
   EXPECT_CALL(*mock_strategy, unregister_container(ContainerStrMatch("NY")));
   EXPECT_CALL(*mock_state_cache, remove_container(ContainerStrMatch("NY")));
 
-  input_assigner.recover_containers(recover_input);
+  container_assigner.recover_containers(recover_container);
 }
 
 // no port_range_multithread test: mock would need to pass through the range pool's returned ports

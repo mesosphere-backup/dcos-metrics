@@ -3,7 +3,7 @@
 
 #include <thread>
 
-#include "input_assigner.hpp"
+#include "container_assigner.hpp"
 #include "io_runner.hpp"
 #include "module_access_factory.hpp"
 #include "params.hpp"
@@ -30,9 +30,9 @@ class ModuleAccessFactoryTests  : public ::testing::Test {
 };
 
 TEST_F(ModuleAccessFactoryTests, too_many_calls) {
-  stats::ModuleAccessFactory::get_input_assigner(mesos::Parameters());
-  stats::ModuleAccessFactory::get_input_assigner(mesos::Parameters());
-  EXPECT_DETH(stats::ModuleAccessFactory::get_input_assigner(mesos::Parameters()),
+  stats::ModuleAccessFactory::get_container_assigner(mesos::Parameters());
+  stats::ModuleAccessFactory::get_container_assigner(mesos::Parameters());
+  EXPECT_DETH(stats::ModuleAccessFactory::get_container_assigner(mesos::Parameters()),
       ".*Got 3 module instantiations, but only expected 2.*");
 
   stats::ModuleAccessFactory::reset_for_test();
@@ -45,15 +45,15 @@ TEST_F(ModuleAccessFactoryTests, too_many_calls) {
   stats::ModuleAccessFactory::reset_for_test();
 
   stats::ModuleAccessFactory::get_io_runner(mesos::Parameters());
-  stats::ModuleAccessFactory::get_input_assigner(mesos::Parameters());
+  stats::ModuleAccessFactory::get_container_assigner(mesos::Parameters());
   EXPECT_DETH(stats::ModuleAccessFactory::get_io_runner(mesos::Parameters()),
       ".*Got 3 module instantiations, but only expected 2.*");
 
   stats::ModuleAccessFactory::reset_for_test();
 
-  stats::ModuleAccessFactory::get_input_assigner(mesos::Parameters());
+  stats::ModuleAccessFactory::get_container_assigner(mesos::Parameters());
   stats::ModuleAccessFactory::get_io_runner(mesos::Parameters());
-  EXPECT_DETH(stats::ModuleAccessFactory::get_input_assigner(mesos::Parameters()),
+  EXPECT_DETH(stats::ModuleAccessFactory::get_container_assigner(mesos::Parameters()),
       ".*Got 3 module instantiations, but only expected 2.*");
 
   stats::ModuleAccessFactory::reset_for_test();
@@ -67,8 +67,8 @@ TEST_F(ModuleAccessFactoryTests, params_via_input_assigner_first) {
   param->set_value("127.0.0.1");
 
   {
-    std::shared_ptr<stats::InputAssigner> assigner =
-      stats::ModuleAccessFactory::get_input_assigner(params);
+    std::shared_ptr<stats::ContainerAssigner> assigner =
+      stats::ModuleAccessFactory::get_container_assigner(params);
     EXPECT_DETH(assigner->unregister_container(container_id("hi")),
         ".*init\\(\\) wasn't called before unregister_container\\(\\).*");
   }
@@ -96,8 +96,8 @@ TEST_F(ModuleAccessFactoryTests, params_via_input_assigner_second) {
   }
 
   {
-    std::shared_ptr<stats::InputAssigner> assigner =
-      stats::ModuleAccessFactory::get_input_assigner(params);
+    std::shared_ptr<stats::ContainerAssigner> assigner =
+      stats::ModuleAccessFactory::get_container_assigner(params);
     assigner->unregister_container(container_id("hi"));
   }
 
@@ -118,8 +118,8 @@ TEST_F(ModuleAccessFactoryTests, params_via_io_runner_first) {
   }
 
   {
-    std::shared_ptr<stats::InputAssigner> assigner =
-      stats::ModuleAccessFactory::get_input_assigner(mesos::Parameters());
+    std::shared_ptr<stats::ContainerAssigner> assigner =
+      stats::ModuleAccessFactory::get_container_assigner(mesos::Parameters());
     assigner->unregister_container(container_id("hi"));
   }
 
@@ -133,8 +133,8 @@ TEST_F(ModuleAccessFactoryTests, params_via_io_runner_second) {
   param->set_value("127.0.0.1");
 
   {
-    std::shared_ptr<stats::InputAssigner> assigner =
-      stats::ModuleAccessFactory::get_input_assigner(mesos::Parameters());
+    std::shared_ptr<stats::ContainerAssigner> assigner =
+      stats::ModuleAccessFactory::get_container_assigner(mesos::Parameters());
     EXPECT_DETH(assigner->unregister_container(container_id("hi")),
         ".*init\\(\\) wasn't called before unregister_container\\(\\).*");
   }
@@ -155,7 +155,7 @@ TEST_F(ModuleAccessFactoryTests, unknown_port_mode) {
   param->set_value("bogus value");
 
   stats::ModuleAccessFactory::get_io_runner(params);
-  EXPECT_DETH(stats::ModuleAccessFactory::get_input_assigner(
+  EXPECT_DETH(stats::ModuleAccessFactory::get_container_assigner(
           mesos::Parameters()), "Unknown listen_port_mode.*")
 }
 

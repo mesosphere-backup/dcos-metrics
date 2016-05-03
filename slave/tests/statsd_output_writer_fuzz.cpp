@@ -4,15 +4,15 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
-#include "mock_port_writer.hpp"
-#include "port_reader_impl.cpp"
+#include "stub_lookup_statsd_output_writer.hpp"
 #include "sync_util.hpp"
 #include "test_socket.hpp"
 
-using ::testing::_;
-using ::testing::Return;
+//using ::testing::_;
+//using ::testing::Return;
 
 namespace {
+
   class ServiceThread {
    public:
     ServiceThread() : svc_(new boost::asio::io_service) {
@@ -25,12 +25,6 @@ namespace {
 
     std::shared_ptr<boost::asio::io_service> svc() {
       return svc_;
-    }
-
-    std::shared_ptr<MockPortWriter> mock() {
-      std::shared_ptr<MockPortWriter> mock(new MockPortWriter());
-      EXPECT_CALL(*mock, write(_,_)).WillRepeatedly(Return());
-      return mock;
     }
 
     void join() {
@@ -59,17 +53,27 @@ namespace {
     LOG(INFO) << "async queue flushed";
   }
 
-  void fuzz(stats::params::annotation_mode::Value annotation_mode) {
+  void fuzz(const std::string& annotation_mode, bool chunking) {
     std::random_device dev;
     std::mt19937 engine{dev()};
     std::uniform_int_distribution<int> len_dist(1, 1024);
     std::uniform_int_distribution<int> char_dist(0, 255);
 
+    TestReadSocket test_reader;
+    size_t listen_port = test_reader.listen();
+
     size_t pkt_count = 100;
     ServiceThread thread;
 
-    stats::PortReaderImpl<MockPortWriter> reader(thread.svc(), thread.mock(),
-        stats::UDPEndpoint("127.0.0.1", 0), annotation_mode);
+    writer_ptr_t writer;
+    if (chunking) {
+      writer = StubLookupStatsdOutputWriter::with_lookup_result_chunking(
+          annotation_mode, thread.svc(), listen_port, std::vector<boost::asio::ip::udp::endpoint>(), 10, 100);
+    } else {
+      writer = StubLookupStatsdOutputWriter::with_lookup_result(
+          annotation_mode, thread.svc(), listen_port, std::vector<boost::asio::ip::udp::endpoint>());
+    }
+    writer->start();
 
     {
       mesos::ContainerID container_id;
@@ -77,18 +81,10 @@ namespace {
       mesos::ExecutorInfo executor_info;
       executor_info.mutable_executor_id()->set_value("e");
       executor_info.mutable_framework_id()->set_value("f");
-      reader.register_container(container_id, executor_info);
-
-      Try<stats::UDPEndpoint> result = reader.open();
-      EXPECT_FALSE(result.isError()) << result.error();
-      size_t reader_port = result.get().port;
-
-      TestWriteSocket test_writer;
-      test_writer.connect(reader_port);
 
       printf("SEND START\n");
       for (size_t pkt_num = 0; pkt_num < pkt_count; ++pkt_num) {
-        std::string fuzzy;
+        std::vector<char> fuzzy;
         size_t pkt_len = len_dist(engine);
         size_t insert_val_idx = len_dist(engine);
         size_t insert_tag_section_idx = len_dist(engine);
@@ -99,13 +95,15 @@ namespace {
             fuzzy.push_back(':');
           }
           if (c_num == insert_tag_section_idx) {
-            fuzzy.append("|#");
+            fuzzy.push_back('|');
+            fuzzy.push_back('#');
           }
           if (c_num == insert_other_section_idx) {
-            fuzzy.append("|@");
+            fuzzy.push_back('|');
+            fuzzy.push_back('@');
           }
         }
-        test_writer.write(fuzzy);
+        writer->write_container_statsd(&container_id, &executor_info, fuzzy.data(), fuzzy.size());
       }
       printf("SEND END\n");
 
@@ -120,12 +118,20 @@ namespace {
   }
 }
 
-TEST(PortReaderImplTests, datadog_annotations_fuzz_data) {
-  fuzz(stats::params::annotation_mode::Value::TAG_DATADOG);
+TEST(StatsdOutputWriterFuzzTests, datadog_annotations_unchunked) {
+  fuzz(stats::params::ANNOTATION_MODE_TAG_DATADOG, false);
 }
 
-TEST(PortReaderImplTests, prefix_annotations_fuzz_data) {
-  fuzz(stats::params::annotation_mode::Value::KEY_PREFIX);
+TEST(StatsdOutputWriterFuzzTests, prefix_annotations_unchunked) {
+  fuzz(stats::params::ANNOTATION_MODE_KEY_PREFIX, false);
+}
+
+TEST(StatsdOutputWriterFuzzTests, datadog_annotations_chunked) {
+  fuzz(stats::params::ANNOTATION_MODE_TAG_DATADOG, true);
+}
+
+TEST(StatsdOutputWriterFuzzTests, prefix_annotations_chunked) {
+  fuzz(stats::params::ANNOTATION_MODE_KEY_PREFIX, true);
 }
 
 int main(int argc, char **argv) {

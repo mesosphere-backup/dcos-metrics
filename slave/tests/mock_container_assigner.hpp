@@ -9,7 +9,7 @@
 
 #include "udp_endpoint.hpp"
 
-class MockInputAssigner {
+class MockContainerAssigner {
  public:
   MOCK_METHOD2(register_container,
       Try<stats::UDPEndpoint>(

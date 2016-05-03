@@ -4,7 +4,7 @@
 #include <process/dispatch.hpp>
 #include <process/process.hpp>
 
-#include "input_assigner.hpp"
+#include "container_assigner.hpp"
 #include "module_access_factory.hpp"
 
 namespace stats {

@@ -7,16 +7,16 @@
 
 namespace stats {
 
-  template <typename InputAssigner>
+  template <typename ContainerAssigner>
   class IsolatorProcess;
 
   /**
-   * Templated to allow mockery of InputAssigner.
+   * Templated to allow mockery of ContainerAssigner.
    */
-  template <typename InputAssigner>
+  template <typename ContainerAssigner>
   class IsolatorModule : public mesos::slave::Isolator {
    public:
-    IsolatorModule(std::shared_ptr<InputAssigner> input_assigner);
+    IsolatorModule(std::shared_ptr<ContainerAssigner> input_assigner);
     virtual ~IsolatorModule();
 
     process::Future<Nothing> recover(
@@ -54,7 +54,7 @@ namespace stats {
     }
 
    private:
-    std::unique_ptr<IsolatorProcess<InputAssigner>> impl;
+    std::unique_ptr<IsolatorProcess<ContainerAssigner>> impl;
   };
 
 }

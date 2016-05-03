@@ -1,7 +1,7 @@
 #include <glog/logging.h>
 
 #include "isolator_module.cpp"
-#include "mock_input_assigner.hpp"
+#include "mock_container_assigner.hpp"
 
 using testing::Return;
 
@@ -11,8 +11,8 @@ TEST(IsolatorModuleTests, recover_smoke) {
   param->set_key("test");
   param->set_value("value");
 
-  std::shared_ptr<MockInputAssigner> mock_assigner(new MockInputAssigner());
-  stats::IsolatorModule<MockInputAssigner> mod(mock_assigner);
+  std::shared_ptr<MockContainerAssigner> mock_assigner(new MockContainerAssigner());
+  stats::IsolatorModule<MockContainerAssigner> mod(mock_assigner);
 
   mesos::ExecutorInfo exec_info;
   exec_info.mutable_executor_id()->set_value("test executor");
@@ -40,8 +40,8 @@ TEST(IsolatorModuleTests, prepare_returns_success) {
   param->set_key("test");
   param->set_value("value");
 
-  std::shared_ptr<MockInputAssigner> mock_assigner(new MockInputAssigner());
-  stats::IsolatorModule<MockInputAssigner> mod(mock_assigner);
+  std::shared_ptr<MockContainerAssigner> mock_assigner(new MockContainerAssigner());
+  stats::IsolatorModule<MockContainerAssigner> mod(mock_assigner);
 
   mesos::ContainerID container_id;
   container_id.set_value("test container");
@@ -73,8 +73,8 @@ TEST(IsolatorModuleTests, prepare_returns_error) {
   param->set_key("test");
   param->set_value("value");
 
-  std::shared_ptr<MockInputAssigner> mock_assigner(new MockInputAssigner());
-  stats::IsolatorModule<MockInputAssigner> mod(mock_assigner);
+  std::shared_ptr<MockContainerAssigner> mock_assigner(new MockContainerAssigner());
+  stats::IsolatorModule<MockContainerAssigner> mod(mock_assigner);
 
   mesos::ContainerID container_id;
   container_id.set_value("test container");
@@ -97,8 +97,8 @@ TEST(IsolatorModuleTests, cleanup_smoke) {
   param->set_key("test");
   param->set_value("value");
 
-  std::shared_ptr<MockInputAssigner> mock_assigner(new MockInputAssigner());
-  stats::IsolatorModule<MockInputAssigner> mod(mock_assigner);
+  std::shared_ptr<MockContainerAssigner> mock_assigner(new MockContainerAssigner());
+  stats::IsolatorModule<MockContainerAssigner> mod(mock_assigner);
 
   mesos::ContainerID container_id;
   container_id.set_value("test container");

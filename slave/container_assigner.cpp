@@ -1,10 +1,10 @@
-#include "input_assigner.hpp"
+#include "container_assigner.hpp"
 
 #include <map>
 #include <glog/logging.h>
 
-#include "input_assigner_strategy.hpp"
-#include "input_state_cache_impl.hpp"
+#include "container_assigner_strategy.hpp"
+#include "container_state_cache_impl.hpp"
 #include "params.hpp"
 #include "io_runner.hpp"
 #include "range_pool.hpp"
@@ -27,8 +27,8 @@ namespace {
   void noop() { }
 }
 
-stats::InputAssigner::InputAssigner() { }
-stats::InputAssigner::~InputAssigner() {
+stats::ContainerAssigner::ContainerAssigner() { }
+stats::ContainerAssigner::~ContainerAssigner() {
   // Dispatch a no-op job to 'flush the pipes' of any recently-dispatched actions before we exit
   sync_util::dispatch_run("~IORunnerImpl", *io_runner, noop);
   strategy.reset();
@@ -36,13 +36,13 @@ stats::InputAssigner::~InputAssigner() {
   io_runner.reset();
 }
 
-void stats::InputAssigner::init(
+void stats::ContainerAssigner::init(
     std::shared_ptr<IORunner> io_runner,
-    std::shared_ptr<InputStateCache> state_cache,
-    std::shared_ptr<InputAssignerStrategy> strategy) {
+    std::shared_ptr<ContainerStateCache> state_cache,
+    std::shared_ptr<ContainerAssignerStrategy> strategy) {
   std::unique_lock<std::mutex> lock(mutex);
   if (this->strategy) {
-    LOG(FATAL) << "InputAssigner::init() was called twice";
+    LOG(FATAL) << "ContainerAssigner::init() was called twice";
     return;
   }
   this->io_runner = io_runner;
@@ -50,12 +50,12 @@ void stats::InputAssigner::init(
   this->strategy = strategy;
 }
 
-Try<stats::UDPEndpoint> stats::InputAssigner::register_container(
+Try<stats::UDPEndpoint> stats::ContainerAssigner::register_container(
     const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info) {
   std::unique_lock<std::mutex> lock(mutex);
   if (!strategy) {
     std::ostringstream oss;
-    oss << "InputAssigner::init() wasn't called before register_container()";
+    oss << "ContainerAssigner::init() wasn't called before register_container()";
     LOG(FATAL) << oss.str();
     return Try<UDPEndpoint>(Error(oss.str()));
   }
@@ -66,7 +66,7 @@ Try<stats::UDPEndpoint> stats::InputAssigner::register_container(
   // Dispatch the endpoint retrieval from within the io_service thread, avoiding races with any
   // other endpoint registrations/deregistrations.
   std::function<Try<UDPEndpoint>()> register_container_func =
-    std::bind(&InputAssigner::register_and_update_cache, this, container_id, executor_info);
+    std::bind(&ContainerAssigner::register_and_update_cache, this, container_id, executor_info);
   std::shared_ptr<Try<UDPEndpoint>> out =
     sync_util::dispatch_get<IORunner, Try<UDPEndpoint>>(
         "register_and_update_cache", *io_runner, register_container_func);
@@ -76,35 +76,35 @@ Try<stats::UDPEndpoint> stats::InputAssigner::register_container(
   return *out;
 }
 
-void stats::InputAssigner::recover_containers(
+void stats::ContainerAssigner::recover_containers(
     const std::list<mesos::slave::ContainerState>& containers) {
   std::unique_lock<std::mutex> lock(mutex);
   if (!strategy) {
-    LOG(FATAL) << "InputAssigner::init() wasn't called before recover_containers()";
+    LOG(FATAL) << "ContainerAssigner::init() wasn't called before recover_containers()";
     return;
   }
 
   // Dispatch the endpoint recovery from within the io_service thread, avoiding races with any
   // other endpoint registrations/deregistrations.
   io_runner->dispatch(
-      std::bind(&InputAssigner::recover_containers_imp, this, containers));
+      std::bind(&ContainerAssigner::recover_containers_imp, this, containers));
 }
 
-void stats::InputAssigner::unregister_container(const mesos::ContainerID& container_id) {
+void stats::ContainerAssigner::unregister_container(const mesos::ContainerID& container_id) {
   std::unique_lock<std::mutex> lock(mutex);
   if (!strategy) {
-    LOG(FATAL) << "InputAssigner::init() wasn't called before unregister_container()";
+    LOG(FATAL) << "ContainerAssigner::init() wasn't called before unregister_container()";
     return;
   }
 
   LOG(INFO) << "Unregistering container_id[" << container_id.ShortDebugString() << "].";
   io_runner->dispatch(
-      std::bind(&InputAssigner::unregister_and_update_cache, this, container_id));
+      std::bind(&ContainerAssigner::unregister_and_update_cache, this, container_id));
 }
 
 // ---- Private:
 
-void stats::InputAssigner::recover_containers_imp(
+void stats::ContainerAssigner::recover_containers_imp(
     const std::list<mesos::slave::ContainerState>& containers) {
   // use ordered maps to have some consistent ordering in logs:
   container_id_ord_map<mesos::slave::ContainerState> recovered_containers;
@@ -128,7 +128,7 @@ void stats::InputAssigner::recover_containers_imp(
   //    a last-ditch effort to repair. in practice this case shouldn't happen, it implies on-disk
   //    state was deleted but that containers were kept alive
   // Also note that we only expect this function to be called on start-up, so any internal state
-  // in the InputAssigner or PortReader(s) *should* be empty.
+  // in the ContainerAssigner or PortReader(s) *should* be empty.
 
   std::vector<ContainerEndpoint> containers_to_insert;
   std::vector<mesos::ContainerID> containers_to_remove;
@@ -191,7 +191,7 @@ void stats::InputAssigner::recover_containers_imp(
   LOG(INFO) << "Container recovery complete";
 }
 
-Try<stats::UDPEndpoint> stats::InputAssigner::register_and_update_cache(
+Try<stats::UDPEndpoint> stats::ContainerAssigner::register_and_update_cache(
     const mesos::ContainerID container_id, const mesos::ExecutorInfo executor_info) {
   Try<stats::UDPEndpoint> endpoint = strategy->register_container(container_id, executor_info);
   if (endpoint.isSome()) {
@@ -200,7 +200,7 @@ Try<stats::UDPEndpoint> stats::InputAssigner::register_and_update_cache(
   return endpoint;
 }
 
-void stats::InputAssigner::unregister_and_update_cache(const mesos::ContainerID container_id) {
+void stats::ContainerAssigner::unregister_and_update_cache(const mesos::ContainerID container_id) {
   strategy->unregister_container(container_id);
   state_cache->remove_container(container_id);
 }

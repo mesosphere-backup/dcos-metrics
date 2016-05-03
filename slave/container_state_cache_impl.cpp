@@ -1,4 +1,4 @@
-#include "input_state_cache_impl.hpp"
+#include "container_state_cache_impl.hpp"
 
 #include <stout/fs.hpp>
 #include <stout/json.hpp>
@@ -37,15 +37,15 @@ namespace {
   }
 }
 
-stats::InputStateCacheImpl::InputStateCacheImpl(const mesos::Parameters& parameters)
+stats::ContainerStateCacheImpl::ContainerStateCacheImpl(const mesos::Parameters& parameters)
   : config_state_dir(params::get_str(parameters, params::STATE_PATH_DIR, params::STATE_PATH_DIR_DEFAULT)),
     container_state_dir(path::join(config_state_dir, CONTAINER_CACHE_DIR)) { }
 
-const std::string& stats::InputStateCacheImpl::path() const {
+const std::string& stats::ContainerStateCacheImpl::path() const {
   return config_state_dir;
 }
 
-stats::container_id_map<stats::UDPEndpoint> stats::InputStateCacheImpl::get_containers() {
+stats::container_id_map<stats::UDPEndpoint> stats::ContainerStateCacheImpl::get_containers() {
   Try<std::list<std::string>> files = os::ls(container_state_dir);
   container_id_map<UDPEndpoint> map;
   if (files.isError()) {
@@ -119,7 +119,7 @@ stats::container_id_map<stats::UDPEndpoint> stats::InputStateCacheImpl::get_cont
   return map;
 }
 
-void stats::InputStateCacheImpl::add_container(
+void stats::ContainerStateCacheImpl::add_container(
     const mesos::ContainerID& container_id, const UDPEndpoint& endpoint) {
   if (!os::exists(container_state_dir)) {
     LOG(INFO) << "Creating new container state directory[" << container_state_dir << "]";
@@ -140,7 +140,7 @@ void stats::InputStateCacheImpl::add_container(
   Try<Nothing> result = os::write(container_path, stringify(json_obj));
 }
 
-void stats::InputStateCacheImpl::remove_container(const mesos::ContainerID& container_id) {
+void stats::ContainerStateCacheImpl::remove_container(const mesos::ContainerID& container_id) {
   std::string container_path = path::join(container_state_dir, sanitized_filename(container_id));
   LOG(INFO) << "Removing container file[" << container_path << "]";
   Try<Nothing> result = os::rm(container_path);

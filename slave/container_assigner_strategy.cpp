@@ -1,4 +1,4 @@
-#include "input_assigner_strategy.hpp"
+#include "container_assigner_strategy.hpp"
 
 #include <glog/logging.h>
 
@@ -38,7 +38,7 @@ stats::SinglePortStrategy::~SinglePortStrategy() { }
 
 Try<stats::UDPEndpoint> stats::SinglePortStrategy::register_container(
     const mesos::ContainerID& container_id, const mesos::ExecutorInfo& executor_info) {
-  Try<std::shared_ptr<PortReader>> reader = init_reader();
+  Try<std::shared_ptr<ContainerReader>> reader = init_reader();
   if (reader.isError()) {
     std::ostringstream oss;
     oss << "Unable to register container[" << container_id.ShortDebugString() << "]: "
@@ -55,7 +55,7 @@ void stats::SinglePortStrategy::insert_container(
     const mesos::ContainerID& container_id,
     const mesos::ExecutorInfo& executor_info,
     const UDPEndpoint& endpoint) {
-  Try<std::shared_ptr<PortReader>> reader = init_reader();
+  Try<std::shared_ptr<ContainerReader>> reader = init_reader();
   if (reader.isError()) {
     LOG(ERROR) << "Unable to recover container[" << container_id.ShortDebugString() << "]: "
                << reader.error();
@@ -78,12 +78,12 @@ void stats::SinglePortStrategy::insert_container(
 
 void stats::SinglePortStrategy::unregister_container(
     const mesos::ContainerID& container_id) {
-  if (!single_port_reader) {
+  if (!single_container_reader) {
     LOG(INFO) << "No single-port reader had been initialized, cannot unregister "
               << "container[" << container_id.ShortDebugString() << "].";
     return;
   }
-  Try<UDPEndpoint> endpoint = single_port_reader->endpoint();
+  Try<UDPEndpoint> endpoint = single_container_reader->endpoint();
   if (endpoint.isError()) {
     LOG(WARNING) << "Unregistering container[" << container_id.ShortDebugString() << "] "
                  << "from broken single-port endpoint "
@@ -93,24 +93,24 @@ void stats::SinglePortStrategy::unregister_container(
               << "from single-port endpoint[" << endpoint.get().string() << "].";
   }
   // Unassign this container from the reader, but leave the reader itself (and its port) open.
-  single_port_reader->unregister_container(container_id);
+  single_container_reader->unregister_container(container_id);
 }
 
-Try<std::shared_ptr<stats::PortReader>> stats::SinglePortStrategy::init_reader() {
-  if (!single_port_reader) {
+Try<std::shared_ptr<stats::ContainerReader>> stats::SinglePortStrategy::init_reader() {
+  if (!single_container_reader) {
     LOG(INFO) << "Creating single-port reader at port[" << single_port_value << "].";
     // Create/open/register a new port reader only if one doesn't exist.
-    std::shared_ptr<PortReader> reader = io_runner->create_port_reader(single_port_value);
+    std::shared_ptr<ContainerReader> reader = io_runner->create_container_reader(single_port_value);
     Try<UDPEndpoint> endpoint = reader->open();
     if (endpoint.isError()) {
       std::ostringstream oss;
       oss << "Unable to open single-port reader at port[" << single_port_value << "]: "
           << endpoint.error();
-      return Try<std::shared_ptr<PortReader>>(Error(oss.str()));
+      return Try<std::shared_ptr<ContainerReader>>(Error(oss.str()));
     }
-    single_port_reader = reader;
+    single_container_reader = reader;
   }
-  return Try<std::shared_ptr<PortReader>>(single_port_reader);
+  return Try<std::shared_ptr<ContainerReader>>(single_container_reader);
 }
 
 // ---
@@ -142,7 +142,7 @@ Try<stats::UDPEndpoint> stats::EphemeralPortStrategy::register_container(
   }
 
   // Create/open/register a new reader against an ephemeral port.
-  std::shared_ptr<PortReader> reader = io_runner->create_port_reader(0 /* port */);
+  std::shared_ptr<ContainerReader> reader = io_runner->create_container_reader(0 /* port */);
   Try<UDPEndpoint> endpoint = reader->open();
   if (endpoint.isError()) {
     std::ostringstream oss;
@@ -167,7 +167,7 @@ void stats::EphemeralPortStrategy::insert_container(
   // override any existing local state. This shouldn't come up in practice, but just sayin...
 
   // Skip ephemeral behavior: Create/open/register a new reader against the specified endpoint
-  std::shared_ptr<PortReader> reader = io_runner->create_port_reader(endpoint.port);
+  std::shared_ptr<ContainerReader> reader = io_runner->create_container_reader(endpoint.port);
   Try<UDPEndpoint> new_endpoint = reader->open();
   if (new_endpoint.isError()) {
     LOG(ERROR) << "Unable to recover ephemeral-port reader at port[" << endpoint.port << "] "
@@ -264,7 +264,7 @@ Try<stats::UDPEndpoint> stats::PortRangeStrategy::register_container(
   }
 
   // Create/open/register a new reader against the obtained port.
-  std::shared_ptr<PortReader> reader = io_runner->create_port_reader(port.get());
+  std::shared_ptr<ContainerReader> reader = io_runner->create_container_reader(port.get());
   Try<UDPEndpoint> endpoint = reader->open();
   if (endpoint.isError()) {
     std::ostringstream oss;
@@ -301,7 +301,7 @@ void stats::PortRangeStrategy::insert_container(
   }
 
   // Create/open/register a new reader against the recovered port.
-  std::shared_ptr<PortReader> reader = io_runner->create_port_reader(port.get());
+  std::shared_ptr<ContainerReader> reader = io_runner->create_container_reader(port.get());
   Try<UDPEndpoint> new_endpoint = reader->open();
   if (new_endpoint.isError()) {
     LOG(ERROR) << "Unable to open recovered port-range reader at port[" << port.get() << "]: "
