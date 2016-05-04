@@ -245,6 +245,7 @@ void stats::DatadogTagger::calculate_tag_section(const char* in_data, const size
     // data|#unknown or data|#fid:<fid>,eid:<eid>,cid:<cid>
     tag_mode = TagMode::FIRST_TAG;
     tag_insert_index = in_size;
+    return;
   }
 
   // Data already has a tag section. Figure out how to append into that section.
@@ -273,10 +274,12 @@ void stats::DatadogTagger::calculate_tag_section(const char* in_data, const size
       // Rare case: Tag section is empty or has a dangling comma. We should omit our comma.
       // fid:<fid>,eid:<eid>,cid:<cid>
       tag_mode = TagMode::APPEND_TAG_NO_DELIM;
+      break;
     default:
       // Typical case: Add tag with a preceding delimiter
       // ,fid:<fid>,eid:<eid>,cid:<cid>
       tag_mode = TagMode::APPEND_TAG;
+      break;
   }
 }
 
