@@ -27,16 +27,35 @@ namespace {
       const std::string& tag_prefix = "|#") {
     std::ostringstream oss;
     oss << msg << tag_prefix
-        << "container_id:" << cid.value()
+        << "framework_id:" << einfo.framework_id().value()
         << ",executor_id:" << einfo.executor_id().value()
-        << ",framework_id:" << einfo.framework_id().value();
+        << ",container_id:" << cid.value();
     return oss.str();
   }
-  inline std::string annotated_row_unregistered(
-      const std::string& msg, const std::string& tag_prefix = "|#") {
+  inline std::string annotated_row_unregistered(const std::string& msg,
+      const std::string& tag_prefix = "|#", const std::string& tag_suffix = "") {
     std::ostringstream oss;
-    oss << msg << tag_prefix << "unknown_container";
+    oss << msg << tag_prefix << "unknown_container" << tag_suffix;
     return oss.str();
+  }
+
+  mesos::Parameters get_params(size_t port,
+      const std::string& annotation_mode = stats::params::ANNOTATION_MODE_TAG_DATADOG) {
+    mesos::Parameters params;
+
+    mesos::Parameter* param = params.add_parameter();
+    param->set_key(stats::params::DEST_HOST);
+    param->set_value("127.0.0.1");
+
+    param = params.add_parameter();
+    param->set_key(stats::params::DEST_PORT);
+    param->set_value(std::to_string(port));
+
+    param = params.add_parameter();
+    param->set_key(stats::params::ANNOTATION_MODE);
+    param->set_value(annotation_mode);
+
+    return params;
   }
 
   void noop() { }
@@ -51,14 +70,7 @@ TEST(IORunnerImplTests, write_then_immediate_shutdown) {
   TestReadSocket reader;
   size_t output_port = reader.listen();
 
-  mesos::Parameters params;
-  mesos::Parameter* param = params.add_parameter();
-  param->set_key(stats::params::DEST_HOST);
-  param->set_value("127.0.0.1");
-
-  param = params.add_parameter();
-  param->set_key(stats::params::DEST_PORT);
-  param->set_value(std::to_string(output_port));
+  mesos::Parameters params = get_params(output_port);
 
   stats::IORunnerImpl runner;
   runner.init(params);
@@ -105,14 +117,7 @@ TEST(IORunnerImplTests, data_flow_multi_stream) {
   TestReadSocket reader;
   size_t output_port = reader.listen();
 
-  mesos::Parameters params;
-  mesos::Parameter* param = params.add_parameter();
-  param->set_key(stats::params::DEST_HOST);
-  param->set_value("127.0.0.1");
-
-  param = params.add_parameter();
-  param->set_key(stats::params::DEST_PORT);
-  param->set_value(std::to_string(output_port));
+  mesos::Parameters params = get_params(output_port);
 
   stats::IORunnerImpl runner;
   runner.init(params);
@@ -166,7 +171,7 @@ TEST(IORunnerImplTests, data_flow_multi_stream) {
   EXPECT_TRUE(stat_rows.count(annotated_row("writer1:2|@0.2", container1, executor1)));
   EXPECT_TRUE(stat_rows.count(annotated_row("writer1:3", container1, executor1)));
   EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:1")));
-  EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:2", "|@0.5|#tag2,")));
+  EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:2", "|#tag2,", "|@0.5")));
   EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:3", "|#tag3,")));
   EXPECT_TRUE(stat_rows.count(annotated_row("writer3:1", container3, executor3)));
   EXPECT_TRUE(stat_rows.count(annotated_row("writer3:2", container3, executor3, "|@0.3|#tag2,")));
@@ -177,16 +182,9 @@ TEST(IORunnerImplTests, data_flow_multi_stream_unchunked) {
   TestReadSocket reader;
   size_t output_port = reader.listen();
 
-  mesos::Parameters params;
+  mesos::Parameters params = get_params(output_port);
+
   mesos::Parameter* param = params.add_parameter();
-  param->set_key(stats::params::DEST_HOST);
-  param->set_value("127.0.0.1");
-
-  param = params.add_parameter();
-  param->set_key(stats::params::DEST_PORT);
-  param->set_value(std::to_string(output_port));
-
-  param = params.add_parameter();
   param->set_key(stats::params::CHUNKING);
   param->set_value("false");
 
@@ -242,7 +240,7 @@ TEST(IORunnerImplTests, data_flow_multi_stream_unchunked) {
   EXPECT_TRUE(stat_rows.count(annotated_row("writer1:2|@0.2", container1, executor1)));
   EXPECT_TRUE(stat_rows.count(annotated_row("writer1:3", container1, executor1)));
   EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:1")));
-  EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:2", "|@0.5|#tag2,")));
+  EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:2", "|#tag2,", "|@0.5")));
   EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:3", "|#tag3,")));
   EXPECT_TRUE(stat_rows.count(annotated_row("writer3:1", container3, executor3)));
   EXPECT_TRUE(stat_rows.count(annotated_row("writer3:2", container3, executor3, "|@0.3|#tag2,")));
@@ -253,18 +251,7 @@ TEST(IORunnerImplTests, data_flow_multi_stream_unannotated) {
   TestReadSocket reader;
   size_t output_port = reader.listen();
 
-  mesos::Parameters params;
-  mesos::Parameter* param = params.add_parameter();
-  param->set_key(stats::params::DEST_HOST);
-  param->set_value("127.0.0.1");
-
-  param = params.add_parameter();
-  param->set_key(stats::params::DEST_PORT);
-  param->set_value(std::to_string(output_port));
-
-  param = params.add_parameter();
-  param->set_key(stats::params::ANNOTATION_MODE);
-  param->set_value(stats::params::ANNOTATION_MODE_NONE);
+  mesos::Parameters params = get_params(output_port, stats::params::ANNOTATION_MODE_NONE);
 
   stats::IORunnerImpl runner;
   runner.init(params);

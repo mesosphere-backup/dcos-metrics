@@ -9,9 +9,7 @@
 #include "test_socket.hpp"
 
 namespace {
-  std::vector<char> HELLO = {'h', 'e', 'l', 'l', 'o'},
-    HEY = {'h', 'e', 'y'},
-    HI = {'h', 'i'};
+  const std::string HELLO("hello"), HEY("hey"), HI("hi");
 
   inline mesos::ContainerID container_id(const std::string& id) {
     mesos::ContainerID cid;
@@ -27,7 +25,7 @@ namespace {
 
   const mesos::ContainerID CONTAINER_ID1 = container_id("c1"), CONTAINER_ID2 = container_id("c2");
   const mesos::ExecutorInfo EXECUTOR_INFO1 = exec_info("f1", "e1"),
-    EXECUTOR_INFO2 = exec_info("ftwo", "etwo");
+    EXECUTOR_INFO2 = exec_info("f2", "e2");
 
   const boost::asio::ip::udp::endpoint DEST_LOCAL_ENDPOINT(
       boost::asio::ip::address::from_string("127.0.0.1"), 0 /* port */);
@@ -234,15 +232,16 @@ TEST(StatsdOutputWriterTests, chunking_on_flush_when_full) {
   {
     writer_ptr_t writer = StubLookupStatsdOutputWriter::with_chunk_size(
         stats::params::ANNOTATION_MODE_TAG_DATADOG,
-        thread.svc(), listen_port, 10 /* chunk_size */, 9999999 /* chunk_timeout_ms */);
+        thread.svc(), listen_port, 150 /* chunk_size */, 9999999 /* chunk_timeout_ms */);
     writer->start();
 
-    writer->write_container_statsd(&CONTAINER_ID1, &EXECUTOR_INFO1, HELLO.data(), HELLO.size());// 5 bytes
+    writer->write_container_statsd(&CONTAINER_ID1, &EXECUTOR_INFO1, HELLO.data(), HELLO.size());// 53 bytes
     EXPECT_EQ("", test_reader.read(1 /* timeout_ms */));
-    writer->write_container_statsd(&CONTAINER_ID2, &EXECUTOR_INFO2, HEY.data(), HEY.size());// 9 bytes (5 + 1 + 3)
+    writer->write_container_statsd(&CONTAINER_ID2, &EXECUTOR_INFO2, HEY.data(), HEY.size());// 51 bytes
     EXPECT_EQ("", test_reader.read(1 /* timeout_ms */));
-    writer->write_container_statsd(&CONTAINER_ID1, &EXECUTOR_INFO1, HI.data(), HI.size());// 12 bytes (5 + 1 + 3 + 1 + 2), chunk is flushed before adding "hi"
-    EXPECT_EQ("hello\nhey", test_reader.read(1 /* timeout_ms */));
+    writer->write_container_statsd(&CONTAINER_ID1, &EXECUTOR_INFO1, HI.data(), HI.size());// 50 bytes (FLUSH)
+    EXPECT_EQ("hello|#framework_id:f1,executor_id:e1,container_id:c1\n"
+        "hey|#framework_id:f2,executor_id:e2,container_id:c2", test_reader.read(1 /* timeout_ms */));
 
     EXPECT_EQ("", test_reader.read(1 /* timeout_ms */));
 
@@ -250,7 +249,7 @@ TEST(StatsdOutputWriterTests, chunking_on_flush_when_full) {
   }
   thread.join();
 
-  EXPECT_EQ("hi|#tags", test_reader.read(1 /* timeout_ms */));
+  EXPECT_EQ("hi|#framework_id:f1,executor_id:e1,container_id:c1", test_reader.read(1 /* timeout_ms */));
 }
 
 TEST(StatsdOutputWriterTests, chunking_on_flush_timer) {
@@ -261,7 +260,7 @@ TEST(StatsdOutputWriterTests, chunking_on_flush_timer) {
   {
     writer_ptr_t writer = StubLookupStatsdOutputWriter::with_chunk_size(
         stats::params::ANNOTATION_MODE_KEY_PREFIX,
-        thread.svc(), listen_port, 10 /* chunk_size */, 1 /* chunk_timeout_ms */);
+        thread.svc(), listen_port, 100 /* chunk_size */, 1 /* chunk_timeout_ms */);
     writer->start();
 
     writer->write_container_statsd(&CONTAINER_ID1, &EXECUTOR_INFO1, HELLO.data(), HELLO.size());
@@ -280,34 +279,40 @@ TEST(StatsdOutputWriterTests, chunking_on_flush_timer) {
   thread.join();
 }
 
-TEST(StatsdOutputWriterTests, annotations_off) {
+TEST(StatsdOutputWriterTests, chunked_annotations_off) {
   TestReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
   {
-    writer_ptr_t writer = StubLookupStatsdOutputWriter::without_chunking(
-        stats::params::ANNOTATION_MODE_NONE, thread.svc(), listen_port);
+    writer_ptr_t writer = StubLookupStatsdOutputWriter::with_chunk_size(
+        stats::params::ANNOTATION_MODE_NONE,
+        thread.svc(), listen_port, 100 /* chunk_size */, 1 /* chunk_timeout_ms */);
     writer->start();
+    // let resolve finish before sending data:
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
 
     writer->write_container_statsd(&CONTAINER_ID1, &EXECUTOR_INFO1, HELLO.data(), HELLO.size());
     writer->write_container_statsd(&CONTAINER_ID2, &EXECUTOR_INFO2, HEY.data(), HEY.size());
-    writer->write_container_statsd(NULL, NULL, HEY.data(), HI.size());
+    writer->write_container_statsd(NULL, NULL, HI.data(), HI.size());
     stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
     EXPECT_EQ("hello\nhey\nhi", test_reader.read(100 /* timeout_ms */));
   }
   thread.join();
 }
 
-TEST(StatsdOutputWriterTests, datadog_annotations_no_containerinfo) {
+TEST(StatsdOutputWriterTests, chunked_datadog_annotations_no_containerinfo) {
   TestReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
   {
-    writer_ptr_t writer = StubLookupStatsdOutputWriter::without_chunking(
-        stats::params::ANNOTATION_MODE_TAG_DATADOG, thread.svc(), listen_port);
+    writer_ptr_t writer = StubLookupStatsdOutputWriter::with_chunk_size(
+        stats::params::ANNOTATION_MODE_TAG_DATADOG,
+        thread.svc(), listen_port, 100 /* chunk_size */, 1 /* chunk_timeout_ms */);
     writer->start();
+    // let resolve finish before sending data:
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
 
     writer->write_container_statsd(NULL, NULL, HELLO.data(), HELLO.size());
     writer->write_container_statsd(NULL, NULL, HEY.data(), HEY.size());
@@ -317,29 +322,30 @@ TEST(StatsdOutputWriterTests, datadog_annotations_no_containerinfo) {
   thread.join();
 }
 
-TEST(StatsdOutputWriterTests, datadog_annotations) {
+TEST(StatsdOutputWriterTests, chunked_datadog_annotations) {
   TestReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
   {
-    writer_ptr_t writer = StubLookupStatsdOutputWriter::without_chunking(
-        stats::params::ANNOTATION_MODE_TAG_DATADOG, thread.svc(), listen_port);
+    writer_ptr_t writer = StubLookupStatsdOutputWriter::with_chunk_size(
+        stats::params::ANNOTATION_MODE_TAG_DATADOG,
+        thread.svc(), listen_port, 150 /* chunk_size */, 1 /* chunk_timeout_ms */);
     writer->start();
+    // let resolve finish before sending data:
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
 
     writer->write_container_statsd(&CONTAINER_ID1, &EXECUTOR_INFO1, HELLO.data(), HELLO.size());
     writer->write_container_statsd(&CONTAINER_ID2, &EXECUTOR_INFO2, HEY.data(), HEY.size());
     stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
-    EXPECT_EQ("hello|#unknown_container\nhey|#unknown_container", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("hello|#framework_id:f1,executor_id:e1,container_id:c1\n"
+        "hey|#framework_id:f2,executor_id:e2,container_id:c2", test_reader.read(100 /* timeout_ms */));
   }
   thread.join();
 }
 
 TEST(StatsdOutputWriterTests, datadog_annotations_tagged_input) {
-  std::vector<char>
-    hello = {'h', 'e', 'l', 'l', 'o', '|', '#', 't', 'a', 'g', '1', '|', '@', '0', '.', '1'},
-    hey = {'h', 'e', 'y', '|', '@', '0', '.', '2', '|', '#', 't', 'a', 'g', '2'},
-    hi = {'h', 'i', '|', '#', '|', '@', '0', '.', '3'};
+  std::string hello("hello|#tag1|@0.1"), hey("hey|@0.2|#tag2"), hi("hi|#|@0.3");
   std::string tag("container_id:c,executor_id:e,framework_id:f");
 
   TestReadSocket test_reader;
@@ -350,12 +356,47 @@ TEST(StatsdOutputWriterTests, datadog_annotations_tagged_input) {
     writer_ptr_t writer = StubLookupStatsdOutputWriter::without_chunking(
         stats::params::ANNOTATION_MODE_TAG_DATADOG, thread.svc(), listen_port);
     writer->start();
+    // let resolve finish before sending data:
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+
+    writer->write_container_statsd(&CONTAINER_ID1, &EXECUTOR_INFO1, hello.data(), hello.size());
+    EXPECT_EQ("hello|#tag1,framework_id:f1,executor_id:e1,container_id:c1|@0.1",
+        test_reader.read(100 /* timeout_ms */));
+    writer->write_container_statsd(&CONTAINER_ID2, &EXECUTOR_INFO2, hey.data(), hey.size());
+    EXPECT_EQ("hey|@0.2|#tag2,framework_id:f2,executor_id:e2,container_id:c2",
+        test_reader.read(100 /* timeout_ms */));
+    writer->write_container_statsd(&CONTAINER_ID2, &EXECUTOR_INFO2, hi.data(), hi.size());
+    EXPECT_EQ("hi|#framework_id:f2,executor_id:e2,container_id:c2|@0.3",
+        test_reader.read(100 /* timeout_ms */));
+  }
+  thread.join();
+}
+
+TEST(StatsdOutputWriterTests, chunked_datadog_annotations_tagged_input) {
+  std::string hello("hello|#tag1|@0.1"), hey("hey|@0.2|#tag2"), hi("hi|#|@0.3");
+  std::string tag("container_id:c,executor_id:e,framework_id:f");
+
+  TestReadSocket test_reader;
+  size_t listen_port = test_reader.listen();
+
+  ServiceThread thread;
+  {
+    writer_ptr_t writer = StubLookupStatsdOutputWriter::with_chunk_size(
+        stats::params::ANNOTATION_MODE_TAG_DATADOG,
+        thread.svc(), listen_port, 150 /* chunk_size */, 1 /* chunk_timeout_ms */);
+    writer->start();
+    // let resolve finish before sending data:
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
 
     writer->write_container_statsd(&CONTAINER_ID1, &EXECUTOR_INFO1, hello.data(), hello.size());
     writer->write_container_statsd(&CONTAINER_ID2, &EXECUTOR_INFO2, hey.data(), hey.size());
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+    EXPECT_EQ("hello|#tag1,framework_id:f1,executor_id:e1,container_id:c1|@0.1\n"
+        "hey|@0.2|#tag2,framework_id:f2,executor_id:e2,container_id:c2",
+        test_reader.read(100 /* timeout_ms */));
     writer->write_container_statsd(&CONTAINER_ID2, &EXECUTOR_INFO2, hi.data(), hi.size());
     stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
-    EXPECT_EQ("hello|@0.1|#tag1,unknown_container\nhey|@0.2|#tag2,unknown_container\nhi|@0.3|#unknown_container",
+    EXPECT_EQ("hi|#framework_id:f2,executor_id:e2,container_id:c2|@0.3",
         test_reader.read(100 /* timeout_ms */));
   }
   thread.join();
@@ -370,21 +411,20 @@ TEST(StatsdOutputWriterTests, prefix_annotations_no_containerinfo) {
     writer_ptr_t writer = StubLookupStatsdOutputWriter::without_chunking(
         stats::params::ANNOTATION_MODE_KEY_PREFIX, thread.svc(), listen_port);
     writer->start();
+    // let resolve finish before sending data:
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
 
     writer->write_container_statsd(NULL, NULL, HELLO.data(), HELLO.size());
+    EXPECT_EQ("unknown_container." + HELLO, test_reader.read(100 /* timeout_ms */));
     writer->write_container_statsd(NULL, NULL, HEY.data(), HEY.size());
+    EXPECT_EQ("unknown_container." + HEY, test_reader.read(100 /* timeout_ms */));
     writer->write_container_statsd(NULL, NULL, HI.data(), HI.size());
-    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
-    EXPECT_EQ("unknown_container.hello\nunknown_container.hey\nunknown_container.hi",
-        test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("unknown_container." + HI, test_reader.read(100 /* timeout_ms */));
   }
   thread.join();
 }
 
 TEST(StatsdOutputWriterTests, prefix_annotations) {
-  std::string hello("hello"), hey("hey"), hi("hi");
-  std::string prefix("f.e.c.");
-
   TestReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
@@ -393,12 +433,41 @@ TEST(StatsdOutputWriterTests, prefix_annotations) {
     writer_ptr_t writer = StubLookupStatsdOutputWriter::without_chunking(
         stats::params::ANNOTATION_MODE_KEY_PREFIX, thread.svc(), listen_port);
     writer->start();
+    // let resolve finish before sending data:
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
 
     writer->write_container_statsd(&CONTAINER_ID1, &EXECUTOR_INFO1, HELLO.data(), HELLO.size());
+    EXPECT_EQ("f1.e1.c1." + HELLO, test_reader.read(100 /* timeout_ms */));
     writer->write_container_statsd(&CONTAINER_ID2, &EXECUTOR_INFO2, HEY.data(), HEY.size());
+    EXPECT_EQ("f2.e2.c2." + HEY, test_reader.read(100 /* timeout_ms */));
     writer->write_container_statsd(&CONTAINER_ID2, &EXECUTOR_INFO2, HI.data(), HI.size());
+    EXPECT_EQ("f2.e2.c2." + HI, test_reader.read(100 /* timeout_ms */));
+  }
+  thread.join();
+}
+
+TEST(StatsdOutputWriterTests, chunked_prefix_annotations_tagged_input) {
+  std::string hello("hello|#tag1|@0.1"), hey("hey|@0.2|#tag2"), hi("hi|#|@0.3");
+
+  TestReadSocket test_reader;
+  size_t listen_port = test_reader.listen();
+
+  ServiceThread thread;
+  {
+    writer_ptr_t writer = StubLookupStatsdOutputWriter::with_chunk_size(
+        stats::params::ANNOTATION_MODE_KEY_PREFIX,
+        thread.svc(), listen_port, 150 /* chunk_size */, 1 /* chunk_timeout_ms */);
+    writer->start();
+    // let resolve finish before sending data:
     stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
-    EXPECT_EQ("f.e.c.hello\nf.e.c.hey\nf.e.c.hi",
+
+    writer->write_container_statsd(&CONTAINER_ID1, &EXECUTOR_INFO1, hello.data(), hello.size());
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+    writer->write_container_statsd(&CONTAINER_ID2, &EXECUTOR_INFO2, hey.data(), hey.size());
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+    writer->write_container_statsd(&CONTAINER_ID2, &EXECUTOR_INFO2, hi.data(), hi.size());
+    stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+    EXPECT_EQ("f1.e1.c1." + hello + "\nf2.e2.c2." + hey + "\nf2.e2.c2." + hi,
         test_reader.read(100 /* timeout_ms */));
   }
   thread.join();
@@ -406,7 +475,6 @@ TEST(StatsdOutputWriterTests, prefix_annotations) {
 
 TEST(StatsdOutputWriterTests, prefix_annotations_tagged_input) {
   std::string hello("hello|#tag1|@0.1"), hey("hey|@0.2|#tag2"), hi("hi|#|@0.3");
-  std::string prefix("f.e.c.");
 
   TestReadSocket test_reader;
   size_t listen_port = test_reader.listen();
@@ -416,13 +484,15 @@ TEST(StatsdOutputWriterTests, prefix_annotations_tagged_input) {
     writer_ptr_t writer = StubLookupStatsdOutputWriter::without_chunking(
         stats::params::ANNOTATION_MODE_KEY_PREFIX, thread.svc(), listen_port);
     writer->start();
-
-    writer->write_container_statsd(&CONTAINER_ID1, &EXECUTOR_INFO1, HELLO.data(), HELLO.size());
-    writer->write_container_statsd(&CONTAINER_ID2, &EXECUTOR_INFO2, HEY.data(), HEY.size());
-    writer->write_container_statsd(&CONTAINER_ID2, &EXECUTOR_INFO2, HI.data(), HI.size());
+    // let resolve finish before sending data:
     stats::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
-    EXPECT_EQ("f.e.c.hello|#tag1|@0.1\nf.e.c.hey|@0.2|#tag2\nf.e.c.hi|#|@0.3",
-        test_reader.read(100 /* timeout_ms */));
+
+    writer->write_container_statsd(&CONTAINER_ID1, &EXECUTOR_INFO1, hello.data(), hello.size());
+    EXPECT_EQ("f1.e1.c1." + hello, test_reader.read(100 /* timeout_ms */));
+    writer->write_container_statsd(&CONTAINER_ID2, &EXECUTOR_INFO2, hey.data(), hey.size());
+    EXPECT_EQ("f2.e2.c2." + hey, test_reader.read(100 /* timeout_ms */));
+    writer->write_container_statsd(&CONTAINER_ID2, &EXECUTOR_INFO2, hi.data(), hi.size());
+    EXPECT_EQ("f2.e2.c2." + hi, test_reader.read(100 /* timeout_ms */));
   }
   thread.join();
 }
