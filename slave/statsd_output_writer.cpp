@@ -144,7 +144,7 @@ void stats::StatsdOutputWriter::write_container_statsd(
 
 void stats::StatsdOutputWriter::write_resource_usage(
     const process::Future<mesos::ResourceUsage>& usage) {
-  //TODO dispatch: get usage proto, print
+  //TODO convert to statsd, and emit via calls to write_container_statsd
   LOG(INFO) << "USAGE DUMP:\n" << usage.get().DebugString();
 }
 
