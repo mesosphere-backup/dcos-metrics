@@ -2,8 +2,8 @@
 Routing of metrics from Infinity services to a customer-operated dashboard.
 
 - ```module```: C++ code for the mesos-agent module. Advertises metrics endpoints to containers, and tags/forwards any metrics obtained at those advertised endpoints upstream. This module is installed  by default on DCOS EE 1.7+.
-- ```router```: Go code for a Router framework. Receives metrics from mesos-agents, then manipulates/filters/forwards those metrics to one or more customer-owned endpoints. This may be abandoned in favor of just sending metrics straight to a Kafka instance in the cluster.
-- ```test-sender```: Sample code for a process which emits some metrics to an endpoint advertised by the mesos-agent module.
+- ```collector```: Go code for the mesos-agent metrics collector. Receives metrics from the mesos-agent module, as well as other processes on the system, and forwards that data to a Kafka instance and/or exposes the data to a local partner metrics agent.
+- ```test-sender```: Sample code for a containerized process which emits arbitrary statsd metrics to an endpoint advertised by the mesos-agent module. Reference for service development on DC/OS.
 
 Docs:
 - **[Using the module](DEMO.md)**
