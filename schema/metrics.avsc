@@ -1,0 +1,56 @@
+[ {
+    "name": "Datapoint",
+    "type": "record",
+    "namespace": "dcos.metrics",
+    "doc": "A floating point value associated with a timestamp.",
+    "fields": [  {
+        "name": "time",
+        "type": "long",
+        "logicalType": "timestamp-millis"
+    }, {
+        "name": "value",
+        "type": "double",
+        "doc": "A floating point value."
+    } ]
+},
+{
+    "name": "Metric",
+    "type": "record",
+    "namespace": "dcos.metrics",
+    "doc": "A named record containing one or more timed Datapoints.",
+    "fields": [ {
+        "name": "name",
+        "type": "string",
+        "doc": "User-visible label associated with these datapoints, which is unique per topic"
+    }, {
+        "name": "datapoints",
+        "type": {
+            "type": "array",
+            "items": "dcos.metrics.Datapoint"
+        }
+    } ]
+},
+{
+    "name": "MetricList",
+    "type": "record",
+    "namespace": "dcos.metrics",
+    "doc": "One or more named Metrics associated with a given topic and set of tags.",
+    "fields": [ {
+        "name": "topic",
+        "type": "string",
+        "doc": "The topic or 'channel' that this metric should be grouped into for subscription purposes. For example, the service that originated the metrics."
+    }, {
+        "name": "tags",
+        "type": {
+            "type": "array",
+            "items": "string"
+        },
+        "doc": "Labels which further identify or categorise the source of the metrics, for example, the service node that originated the metrics."
+    }, {
+        "name": "metrics",
+        "type": {
+            "type": "array",
+            "items": "dcos.metrics.Metric"
+        }
+    } ]
+} ]

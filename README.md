@@ -1,9 +1,11 @@
 # dcos-stats
-Routing of metrics from Infinity services to a customer-operated dashboard.
 
-- ```module```: C++ code for the mesos-agent module. Advertises metrics endpoints to containers, and tags/forwards any metrics obtained at those advertised endpoints upstream. This module is installed  by default on DCOS EE 1.7+.
-- ```collector```: Go code for the mesos-agent metrics collector. Receives metrics from the mesos-agent module, as well as other processes on the system, and forwards that data to a Kafka instance and/or exposes the data to a local partner metrics agent.
-- ```test-sender```: Sample code for a containerized process which emits arbitrary statsd metrics to an endpoint advertised by the mesos-agent module. Reference for service development on DC/OS.
+Routing of metrics from DC/OS.
+
+- `module`: C++ code for the mesos-agent module. Advertises metrics endpoints to containers, and tags/forwards any metrics obtained at those advertised endpoints upstream. This module is installed  by default on DCOS EE 1.7+.
+- `collector`: Go code for the metrics collector running on every agent node. Receives metrics from the mesos-agent module as well as other processes on the system, forwarding that data to a Kafka instance and/or exposing the data to local partner processes.
+- `schema`: Avro schemas shared by the module and the collector.
+- `test-sender`: Sample code for a containerized process which emits arbitrary statsd metrics to an endpoint advertised by the mesos-agent module. Reference for service development on DC/OS.
 
 Docs:
 - **[Using the module](DEMO.md)**
