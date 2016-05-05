@@ -21,7 +21,7 @@ namespace metrics {
     annotation_mode::Value to_annotation_mode(const std::string& param);
 
     /**
-     * Input settings
+     * Container input settings
      */
 
     // The host to listen on. Should stay with "localhost" except in ip-per-container environments.
@@ -78,7 +78,7 @@ namespace metrics {
     const std::string OUTPUT_STATSD_ANNOTATION_MODE_NONE = "none";
     const std::string OUTPUT_STATSD_ANNOTATION_MODE_TAG_DATADOG = "tag_datadog";
     const std::string OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX = "key_prefix";
-    const std::string OUTPUT_STATSD_ANNOTATION_MODE_DEFAULT = OUTPUT_STATSD_ANNOTATION_MODE_TAG_DATADOG;
+    const std::string OUTPUT_STATSD_ANNOTATION_MODE_DEFAULT = OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX;
 
     // Whether to group output metrics into a smaller number of packets.
     const std::string OUTPUT_STATSD_CHUNKING = "output_statsd_chunking";
@@ -89,7 +89,7 @@ namespace metrics {
     const int OUTPUT_STATSD_CHUNK_SIZE_BYTES_DEFAULT = 512;
 
     /**
-     * On-system settings
+     * Container cache settings
      */
 
     // Directory to store state data for recovery if the agent process is restarted.

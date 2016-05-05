@@ -4,8 +4,8 @@
         "modules": [ {
             "name": "com_mesosphere_MetricsIsolatorModule",
             "parameters": [
-                { "key": "dest_host", "value": "metrics.marathon.mesos" },
-                { "key": "dest_refresh_seconds", "value": "60" }
+                { "key": "output_statsd_host", "value": "metrics.marathon.mesos" },
+                { "key": "output_statsd_host_refresh_seconds", "value": "60" }
             ]
         }, {
             "name": "com_mesosphere_MetricsResourceEstimatorModule"
