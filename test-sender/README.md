@@ -1,12 +1,14 @@
 # test-sender
 A small executable which emits metrics data, which may be used to test a metrics forwarding stack.
 
+See [DEMO.md](../DEMO.md#launching-a-test-sender) for usage.
+
 ## Notes:
 
 * Requires ```STATSD_UDP_HOST``` and ```STATSD_UDP_PORT``` in the environment, pointing to where stats should be sent. These environment variables are automatically provided by Mesos on DC/OS EE clusters 1.7+.
 * A "```-debug```" option enables additional logs to stdout.
 
-## Build/run instructions:
+## Prerequisites:
 
 ```
 apt-get install golang-go
@@ -25,8 +27,6 @@ dcos-stats/test-sender$ ./test-sender -h
 dcos-stats/test-sender$ STATSD_UDP_HOST="127.0.0.1" STATSD_UDP_PORT="8125" ./test-sender -debug
 ```
 
-## Run in Marathon (with Stats module installed in Mesos):
+## Run in Marathon:
 
-```
-/path/to/test-sender
-```
+See [DEMO.md](../DEMO.md#launching-a-test-sender).
