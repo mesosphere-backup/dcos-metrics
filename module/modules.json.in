@@ -1,0 +1,14 @@
+{
+    "libraries": [ {
+        "file": "/home/vagrant/libmetrics-module@CMAKE_SHARED_LIBRARY_SUFFIX@",
+        "modules": [ {
+            "name": "com_mesosphere_MetricsIsolatorModule",
+            "parameters": [
+                { "key": "dest_host", "value": "metrics.marathon.mesos" },
+                { "key": "dest_refresh_seconds", "value": "60" }
+            ]
+        }, {
+            "name": "com_mesosphere_MetricsResourceEstimatorModule"
+        }]
+    } ]
+}

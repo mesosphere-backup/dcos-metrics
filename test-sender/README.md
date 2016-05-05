@@ -5,7 +5,7 @@ See [DEMO.md](../DEMO.md#launching-a-test-sender) for usage.
 
 ## Notes:
 
-* Requires ```STATSD_UDP_HOST``` and ```STATSD_UDP_PORT``` in the environment, pointing to where stats should be sent. These environment variables are automatically provided by Mesos on DC/OS EE clusters 1.7+.
+* Requires ```STATSD_UDP_HOST``` and ```STATSD_UDP_PORT``` in the environment, pointing to where metrics should be sent. These environment variables are automatically provided by Mesos on DC/OS EE clusters 1.7+.
 * A "```-debug```" option enables additional logs to stdout.
 
 ## Prerequisites:

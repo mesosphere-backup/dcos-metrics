@@ -14,13 +14,13 @@ Emitting metrics is simple: The program just needs to look for `STATSD_UDP_HOST`
 
 ### Launching a test sender
 
-A sample program that just emits various arbitrary stats (eg the endpoint advertised via `STATSD_UDP_HOST`/`STATSD_UDP_PORT` environment variables. The sample program's Go source code is included in the .tgz.
+A sample program that just emits various arbitrary metrics to the endpoint advertised via `STATSD_UDP_HOST`/`STATSD_UDP_PORT` environment variables. The sample program's Go source code is included in the .tgz.
 
 In Marathon:
 - ID: `test-sender` (the precise name isn't important)
 - Command: `./test-sender`
 - Optional settings > URIs = `https://s3-us-west-2.amazonaws.com/nick-dev/metrics-msft/test-sender.tgz`
-- Extra credit: start (or reconfigure) the sender task with >1 instances to test sending stats from multiple sources.
+- Extra credit: start (or reconfigure) the sender task with >1 instances to test sending metrics from multiple sources.
 
 Or in JSON Mode:
 ```json
@@ -39,7 +39,7 @@ Or in JSON Mode:
 
 ### Launching a Kafka or Cassandra sender
 
-The Kafka and Cassandra framework executors already support auto-detection of the `STATSD_UDP_HOST`/`STATSD_UDP_PORT` environment variables, configuring the underlying service to send metrics to that location. At the moment, the frameworks don't send stats of their own, but they could do that too.
+The Kafka and Cassandra framework executors already support auto-detection of the `STATSD_UDP_HOST`/`STATSD_UDP_PORT` environment variables, configuring the underlying service to send metrics to that location. At the moment, the frameworks don't send metrics of their own, but they could do that too.
 
 #### Kafka
 
@@ -69,7 +69,7 @@ If `metrics.marathon.mesos` no longer resolves after sending is begun (ie the `m
 
 ### Launching a test receiver
 
-This is just a shell script that runs `nc -ul 8125`. A minute or two after the job comes up, `metrics.marathon.mesos` will be resolved by the mesos-slaves, at which point `nc` will start printing anything it receives to stdout.
+This is just a shell script that runs `nc -ul 8125`. A minute or two after the job comes up, `metrics.marathon.mesos` will be resolved by the mesos-agents, at which point `nc` will start printing anything it receives to stdout.
 
 In Marathon, create the following job in JSON Mode:
 ```json
@@ -128,4 +128,4 @@ Once you have the public node IP, you may connect to the docker image with any o
 - Visit http://<public_agent_ip> (port 80) to view Graphite
 - `telnet` into port 8126 to view the statsd daemon's console (tip: type `help`)
 
-Once the image has been up for a few minutes, it should start getting stats from `mesos-slaves` as `metrics.marathon.mesos` starts to resolve to it. In Graphite's left panel, navigate into `Metrics > stats > gauges > [fmwk_id] > [executor_id] > [container_id] > ...` to view the gauges produced by the application. Most applications seem to stick to gauge-type metrics, while the example `test-sender` produces several types.
+Once the image has been up for a few minutes, it should start getting metrics from mesos-agents as `metrics.marathon.mesos` starts to resolve to it. In Graphite's left panel, navigate into `Metrics > stats > gauges > [fmwk_id] > [executor_id] > [container_id] > ...` to view the gauges produced by the application. Most applications seem to stick to gauge-type metrics, while the example `test-sender` produces several types.
