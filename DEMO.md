@@ -14,7 +14,7 @@ It's recommended that you try these steps end-to-end on a single mesos-slave bef
   - `mesos-slave-common`
     - Append `,com_mesosphere_StatsIsolatorModule` to the end of the line defining `MESOS_ISOLATION`.
     - Add a line defining `MESOS_RESOURCE_ESTIMATOR=com_mesosphere_StatsResourceEstimatorModule`.
-    - REMOVE any existing line defining `MESOS_HOOKS=com_mesosphere_StatsEnvHook`. Recent builds of the module no longer need this.
+    - REMOVE any existing line defining `MESOS_HOOKS=com_mesosphere_StatsEnvHook`. Recent builds of the module no longer support this.
   - `mesos-slave-modules.json`
     - Add a configuration block for `/opt/mesosphere/lib/libstats-slave.so` which lists `com_mesosphere_StatsIsolatorModule` and `com_mesosphere_StatsResourceEstimatorModule`. The latter replaces the previously needed `com_mesosphere_StatsEnvHook`.
 5. Make any other changes to settings in `mesos-slave-modules.json` as needed. See below.
