@@ -6,10 +6,10 @@ Inputs metrics [sent over TCP](../schema/) from local sources:
 - The [mesos-agent module](../module/), for metrics relating to containers
 - Other DCOS processes on the system
 
-Output is metrics to the following destinations:
+Outputs metrics to the following destinations:
 - Kafka metrics service
 - Local partner processes, if any
 
 A basic HTTP server provides:
-- Returning TCP endpoints for inputs to use
+- Returning input/output TCP endpoints for local processes to use
 - On-the-fly configuration changes
