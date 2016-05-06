@@ -14,15 +14,19 @@ The schema defines a `MetricsList` type, which is used for the following dataflo
 
 ## Transport
 
+[Avro's RPC standard](http://avro.apache.org/docs/current/spec.html#Protocol+Wire+Format) appears to suffer a stark lack of adoption across Avro library implementations (even the official Avro C/C++ libraries lack support), so we're foregoing it for now in favor of something much more rudamentary.
+
 ### Over TCP
 
-For each socket connection, the communication MUST begin with the sender sending the binary schema, followed by zero or more binary MetricsList records. A binary schema is valid for as long as the socket is open. The schema must be re-sent if the socket is reconnected.
+This is effectively just streaming an [OCF file](http://avro.apache.org/docs/current/spec.html#Object+Container+Files) over TCP. The sender starts by sending the Schema and Codec, followed by zero or more `MetricsList` records for as long as the socket remains open. If the connection is closed, the following connection must repeat the header information as if starting a new file.
 
-The receiver doesn't have any explicit responses for accepting or refusing data from the sender. If the receiver encounters corrupt data (including lack of the required schema), it may close the connection.
+The receiver doesn't have any explicit responses for acknowledging or refusing data from the sender. If the receiver encounters corrupt data (including lack of the required header information), it may simply close the connection in response.
 
 ### Over Kafka
 
-Each Kafka message MUST begin with the binary schema, followed by zero or more binary MetricsList records. Schema overhead may be reduced by increasing the number of MetricsList records per Kafka message.
+As with each TCP session, each Kafka message is effectively treated as a self-contained [OCF file](http://avro.apache.org/docs/current/spec.html#Object+Container+Files), where each message starts with a copy of the header/schema, followed by zero or more `MetricsList` entries. This enables Kafka Consumers to quickly start successfully reading data, without needing to cross-reference with a schema retrieved elsewhere (which in turn has its own complexities). Schema overhead may be reduced by increasing the number of `MetricsList` records per Kafka message.
+
+This format is intentionally starting off as simple as possible, but may be revisited later if it turns out to be unsustainable.
 
 ## Demo/Validation
 
