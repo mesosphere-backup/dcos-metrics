@@ -30,27 +30,27 @@ This format is intentionally starting off as simple as possible, but may be revi
 
 ## Demo/Validation
 
-These examples use [avro-tools-1.7.7.jar](http://www.apache.org/dyn/closer.cgi/avro/avro-1.7.7/java/avro-tools-1.7.7.jar).
+These examples use [avro-tools-1.8.0.jar](http://www.apache.org/dyn/closer.cgi/avro/avro-1.8.0/java/avro-tools-1.8.0.jar).
 
 Generate Java code from the schema:
 
 ```
-java -jar avro-tools-1.7.7.jar compile schema metrics.avsc .
+java -jar avro-tools-1.8.0.jar compile schema metrics.avsc .
 find dcos/
 ```
 
 Convert sample metrics JSON to a binary file, then view info about the file:
 
 ```
-java -jar avro-tools-1.7.7.jar fromjson --schema-file metrics.avsc --codec deflate sample.json > sample.avro
-java -jar avro-tools-1.7.7.jar getschema sample.avro
-java -jar avro-tools-1.7.7.jar tojson --pretty sample.avro
+java -jar avro-tools-1.8.0.jar fromjson --schema-file metrics.avsc --codec deflate sample.json > sample.avro
+java -jar avro-tools-1.8.0.jar getschema sample.avro
+java -jar avro-tools-1.8.0.jar tojson --pretty sample.avro
 ```
 
 Generate records containing random data:
 
 ```
-java -jar avro-tools-1.7.7.jar random --schema-file metrics.avsc --codec deflate --count 10 random.avro
-java -jar avro-tools-1.7.7.jar getschema random.avro
-java -jar avro-tools-1.7.7.jar tojson --pretty random.avro
+java -jar avro-tools-1.8.0.jar random --schema-file metrics.avsc --codec deflate --count 10 random.avro
+java -jar avro-tools-1.8.0.jar getschema random.avro
+java -jar avro-tools-1.8.0.jar tojson --pretty random.avro
 ```
