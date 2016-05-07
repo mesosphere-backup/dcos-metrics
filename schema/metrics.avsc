@@ -1,35 +1,3 @@
-[ {
-    "name": "Datapoint",
-    "type": "record",
-    "namespace": "dcos.metrics",
-    "doc": "A floating point value associated with a timestamp.",
-    "fields": [  {
-        "name": "time",
-        "type": "long",
-        "logicalType": "timestamp-millis"
-    }, {
-        "name": "value",
-        "type": "double",
-        "doc": "A floating point value."
-    } ]
-},
-{
-    "name": "Metric",
-    "type": "record",
-    "namespace": "dcos.metrics",
-    "doc": "A named record containing one or more timed Datapoints.",
-    "fields": [ {
-        "name": "name",
-        "type": "string",
-        "doc": "User-visible label associated with these datapoints, which is unique per topic"
-    }, {
-        "name": "datapoints",
-        "type": {
-            "type": "array",
-            "items": "dcos.metrics.Datapoint"
-        }
-    } ]
-},
 {
     "name": "MetricList",
     "type": "record",
@@ -50,7 +18,37 @@
         "name": "metrics",
         "type": {
             "type": "array",
-            "items": "dcos.metrics.Metric"
+            "items": {
+                "name": "Metric",
+                "type": "record",
+                "namespace": "dcos.metrics",
+                "doc": "A named record containing one or more timed Datapoints.",
+                "fields": [ {
+                    "name": "name",
+                    "type": "string",
+                    "doc": "User-visible label associated with these datapoints, which is unique per topic"
+                }, {
+                    "name": "datapoints",
+                    "type": {
+                        "type": "array",
+                        "items": {
+                            "name": "Datapoint",
+                            "type": "record",
+                            "namespace": "dcos.metrics",
+                            "doc": "A floating point value associated with a timestamp.",
+                            "fields": [  {
+                                "name": "time",
+                                "type": "long",
+                                "logicalType": "timestamp-millis"
+                            }, {
+                                "name": "value",
+                                "type": "double",
+                                "doc": "A floating point value."
+                            } ]
+                        }
+                    }
+                } ]
+            }
         }
     } ]
-} ]
+}

@@ -1,50 +1,46 @@
 {
-  "dcos.metrics.MetricList": {
-    "topic": "service-kafka-prod",
-    "tags": [ "kafka", "framework_id_1", "executor_id_1", "container_id_1" ],
-    "metrics": [
-      {
-        "name": "cpu.usage",
-        "datapoints": [
-          { "time": 1000, "value": 0.5 },
-          { "time": 1005, "value": 0.4 },
-          { "time": 1010, "value": 0.6 },
-          { "time": 1015, "value": 0.7 }
-        ]
-      }, {
-        "name": "ram.usage",
-        "datapoints": [
-          { "time": 1002, "value": 50.0 },
-          { "time": 1005, "value": 46.0 },
-          { "time": 1013, "value": 62.0 },
-          { "time": 1018, "value": 78.0 }
-        ]
-      }
-    ]
-  }
+  "topic": "service-kafka-prod",
+  "tags": [ "kafka", "framework_id_1", "executor_id_1", "container_id_1" ],
+  "metrics": [
+    {
+      "name": "cpu.usage",
+      "datapoints": [
+        { "time": 1000, "value": 0.5 },
+        { "time": 1005, "value": 0.4 },
+        { "time": 1010, "value": 0.6 },
+        { "time": 1015, "value": 0.7 }
+      ]
+    }, {
+      "name": "ram.usage",
+      "datapoints": [
+        { "time": 1002, "value": 50.0 },
+        { "time": 1005, "value": 46.0 },
+        { "time": 1013, "value": 62.0 },
+        { "time": 1018, "value": 78.0 }
+      ]
+    }
+  ]
 }
 {
-  "dcos.metrics.MetricList": {
-    "topic": "service-kafka-dev",
-    "tags": [ "kafka", "framework_id_2", "executor_id_2", "container_id_2" ],
-    "metrics": [
-      {
-        "name": "cpu.usage",
-        "datapoints": [
-          { "time": 1000, "value": 0.9 },
-          { "time": 1008, "value": 0.6 },
-          { "time": 1010, "value": 0.2 },
-          { "time": 1012, "value": 0.1 }
-        ]
-      }, {
-        "name": "ram.usage",
-        "datapoints": [
-          { "time": 1003, "value": 71.0 },
-          { "time": 1005, "value": 38.0 },
-          { "time": 1010, "value": 92.0 },
-          { "time": 1017, "value": 23.0 }
-        ]
-      }
-    ]
-  }
+  "topic": "service-kafka-dev",
+  "tags": [ "kafka", "framework_id_2", "executor_id_2", "container_id_2" ],
+  "metrics": [
+    {
+      "name": "cpu.usage",
+      "datapoints": [
+        { "time": 1000, "value": 0.9 },
+        { "time": 1008, "value": 0.6 },
+        { "time": 1010, "value": 0.2 },
+        { "time": 1012, "value": 0.1 }
+      ]
+    }, {
+      "name": "ram.usage",
+      "datapoints": [
+        { "time": 1003, "value": 71.0 },
+        { "time": 1005, "value": 38.0 },
+        { "time": 1010, "value": 92.0 },
+        { "time": 1017, "value": 23.0 }
+      ]
+    }
+  ]
 }
