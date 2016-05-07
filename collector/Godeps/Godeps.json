@@ -1,0 +1,44 @@
+{
+	"ImportPath": "github.com/mesosphere/dcos-stats/collector",
+	"GoVersion": "go1.5",
+	"GodepVersion": "v63",
+	"Packages": [
+		".",
+		"./scripts/",
+		"./cmd/random-producer/"
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/Shopify/sarama",
+			"Comment": "v1.8.0-49-g89bd629",
+			"Rev": "89bd629b50e1a69c40d40ded1c82a767b4859442"
+		},
+		{
+			"ImportPath": "github.com/davecgh/go-spew/spew",
+			"Rev": "5215b55f46b2b919f50a1df0eaa5886afe4e3b3d"
+		},
+		{
+			"ImportPath": "github.com/eapache/go-resiliency/breaker",
+			"Comment": "v1.0.0-4-gb86b1ec",
+			"Rev": "b86b1ec0dd4209a588dc1285cdd471e73525c0b3"
+		},
+		{
+			"ImportPath": "github.com/eapache/queue",
+			"Comment": "v1.0.2",
+			"Rev": "ded5959c0d4e360646dc9e9908cff48666781367"
+		},
+		{
+			"ImportPath": "github.com/golang/snappy",
+			"Rev": "d7b1e156f50d3c4664f683603af70e3e47fa0aa2"
+		},
+		{
+			"ImportPath": "github.com/klauspost/crc32",
+			"Comment": "v1.0",
+			"Rev": "19b0b332c9e4516a6370a0456e6182c3b5036720"
+		},
+		{
+			"ImportPath": "github.com/linkedin/goavro",
+			"Rev": "b9868e46e3fbcc794f40e396bc8ba7d1d97b8095"
+		}
+	]
+}
