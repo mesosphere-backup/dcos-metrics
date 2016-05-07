@@ -14,7 +14,7 @@ func connectionEndpoint(framework string) (endpoint string, err error) {
 	// SRV lookup to get scheduler's port number:
 	// _framework._tcp.marathon.mesos.
 	cname, addrs, err := net.LookupSRV(framework, "tcp", "marathon.mesos")
-	log.Printf("Lookup SRV %s => %s\n", cname, addrs)
+	log.Printf("Lookup SRV %s => %+v\n", cname, addrs)
 	if err != nil {
 		return "", err
 	}
@@ -34,8 +34,7 @@ func httpGet(endpoint string) (body []byte, err error) {
 
 func extractBrokers(body []byte) (brokers []string, err error) {
 	var jsonData map[string]interface{}
-	err = json.Unmarshal(body, &jsonData)
-	if err != nil {
+	if err = json.Unmarshal(body, &jsonData); err != nil {
 		return nil, err
 	}
 	// expect "dns" entry containing a list of strings
@@ -51,7 +50,7 @@ func extractBrokers(body []byte) (brokers []string, err error) {
 func LookupBrokers(framework string) (brokers []string, err error) {
 	schedulerEndpoint, err := connectionEndpoint(framework)
 	if err != nil {
-		log.Fatalf("Scheduler endpoint lookup failed: ", err)
+		log.Fatal("Scheduler endpoint lookup failed: ", err)
 	}
 	body, err := httpGet(schedulerEndpoint)
 	if err != nil {

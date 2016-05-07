@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"github.com/Shopify/sarama"
 	"github.com/linkedin/goavro"
 	"github.com/mesosphere/dcos-stats/collector"
-	"github.com/Shopify/sarama"
 	"log"
 	"os"
 	"strings"
@@ -14,23 +14,23 @@ import (
 )
 
 var (
-	brokersFlag = flag.String("brokers", os.Getenv("KAFKA_PEERS"), "The Kafka brokers to connect to, as a comma separated list.")
-	frameworkFlag = flag.String("framework", "", "The Kafka framework to query for brokers. (overrides '-brokers')")
+	brokersFlag     = flag.String("brokers", os.Getenv("KAFKA_PEERS"), "The Kafka brokers to connect to, as a comma separated list.")
+	frameworkFlag   = flag.String("framework", "", "The Kafka framework to query for brokers. (overrides '-brokers')")
 	kafkaOutputFlag = flag.Bool("kafka", true, "Enable sending data to Kafka.")
-	fileOutputFlag = flag.Bool("file", false, "Write chunk-N.avro files containing generated chunks.")
-	topicFlag = flag.String("topic", "sample_metrics", "The Kafka topic to write data against.")
-	verboseFlag = flag.Bool("verbose", false, "Turn on extra logging.")
-	chunkCountFlag = flag.Int("count", 5, "Number of chunks to send.")
-	chunkSizeFlag = flag.Int("size", 3, "Size of each chunk to be sent.")
+	fileOutputFlag  = flag.Bool("file", false, "Write chunk-N.avro files containing generated chunks.")
+	topicFlag       = flag.String("topic", "sample_metrics", "The Kafka topic to write data against.")
+	verboseFlag     = flag.Bool("verbose", false, "Turn on extra logging.")
+	chunkCountFlag  = flag.Int("count", 5, "Number of chunks to send.")
+	chunkSizeFlag   = flag.Int("size", 3, "Size of each chunk to be sent.")
 )
 
 func newRandRecord(schema goavro.RecordSetter) *goavro.Record {
-    rec, err := goavro.NewRecord(
+	rec, err := goavro.NewRecord(
 		schema,
 		goavro.RecordEnclosingNamespace("dcos.metrics"))
-    if err != nil {
-        log.Fatal("Failed to create record from schema: ", err)
-    }
+	if err != nil {
+		log.Fatal("Failed to create record from schema: ", err)
+	}
 	rec.Set("topic", *topicFlag)
 	rec.Set("tags", make([]interface{}, 0))
 	rec.Set("metrics", make([]interface{}, 0))
@@ -69,14 +69,14 @@ func getBrokers() []string {
 	} else if *brokersFlag != "" {
 		brokerList := strings.Split(*brokersFlag, ",")
 		if len(brokerList) == 0 {
-			log.Fatalf("No brokers in list: ", *brokersFlag)
+			log.Fatal("No brokers in list: ", *brokersFlag)
 		}
 		return brokerList
 	} else {
 		flag.Usage()
 		log.Fatal("Either -framework or -brokers must be specified, or -kafka must be false.")
 	}
-	return nil;
+	return nil
 }
 
 func main() {
@@ -139,8 +139,7 @@ func main() {
 			if err != nil {
 				log.Fatalf("Couldn't create output %s: %s", filename, err)
 			}
-			_, err = outfile.Write(buf.Bytes())
-			if err != nil {
+			if _, err = outfile.Write(buf.Bytes()); err != nil {
 				log.Fatalf("Couldn't write to %s: %s", filename, err)
 			}
 		}
