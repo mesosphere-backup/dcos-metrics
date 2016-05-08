@@ -14,6 +14,11 @@
 			"Rev": "89bd629b50e1a69c40d40ded1c82a767b4859442"
 		},
 		{
+			"ImportPath": "github.com/antonholmquist/jason",
+			"Comment": "v1.0.0-14-g4238031",
+			"Rev": "423803175a265e07c3f35cd8faf009eac345efb8"
+		},
+		{
 			"ImportPath": "github.com/davecgh/go-spew/spew",
 			"Rev": "5215b55f46b2b919f50a1df0eaa5886afe4e3b3d"
 		},

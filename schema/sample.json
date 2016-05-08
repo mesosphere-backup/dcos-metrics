@@ -1,6 +1,11 @@
 {
   "topic": "service-kafka-prod",
-  "tags": [ "kafka", "framework_id_1", "executor_id_1", "container_id_1" ],
+  "tags": [
+    { "key": "framework_name", "value": "kafka-prod" },
+    { "key": "framework_id", "value": "fid_1" },
+    { "key": "executor_id", "value": "eid_1" },
+    { "key": "container_id", "value": "cid_1" }
+  ],
   "metrics": [
     {
       "name": "cpu.usage",
@@ -23,7 +28,12 @@
 }
 {
   "topic": "service-kafka-dev",
-  "tags": [ "kafka", "framework_id_2", "executor_id_2", "container_id_2" ],
+  "tags": [
+    { "key": "framework_name", "value": "kafka-dev" },
+    { "key": "framework_id", "value": "fid_2" },
+    { "key": "executor_id", "value": "eid_2" },
+    { "key": "container_id", "value": "cid_2" }
+  ],
   "metrics": [
     {
       "name": "cpu.usage",
