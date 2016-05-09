@@ -24,25 +24,27 @@ Prerequisites:
 - git
 - [Go 1.5+](https://golang.org/dl/)
 
-This start-to-finish example assumes `dcos-stats` is placed in `~/code/dcos-stats` and that `GOPATH` is placed in `~/go`. Adjust these assumptions to fit your preferences.
-
-First, get the code and set up the environment:
+First, get the code and set up the environment (edit `/YOUR/CODEPATH` and `/YOUR/GOPATH` as needed):
 
 ```bash
-mkdir -p ~/code
-cd ~/code
-git clone git@github.com:mesosphere/dcos-stats
-export GO15VENDOREXPERIMENT=1 # required only if using Go 1.5. for Go 1.6+ this step can be skipped
+export CODEPATH=/YOUR/CODEPATH # eg ~/code
 export GOPATH=/YOUR/GOPATH # eg ~/go
+export GO15VENDOREXPERIMENT=1 # only required if using Go 1.5. for Go 1.6+ this step can be skipped
+
+mkdir -p $CODEPATH
+cd $CODEPATH
+
+git clone git@github.com:mesosphere/dcos-stats
 mkdir -p $GOPATH/src/github.com/mesosphere
-ln -s ~/code/dcos-stats $GOPATH/src/github.com/mesosphere/dcos-stats
+ln -s $CODEPATH/dcos-stats $GOPATH/src/github.com/mesosphere/dcos-stats
 ```
 
 Then preprocess the Avro schema and build the code:
 
 ```bash
 cd $GOPATH/src/github.com/mesosphere/dcos-stats/collector
-go generate # creates "metrics_schema_generated.go"
+go generate # creates "metrics_schema_generated.go" in collector dir
+
 cd cmd/sample-producer
 go build # creates "sample-producer" executable
 ./sample-producer -h
