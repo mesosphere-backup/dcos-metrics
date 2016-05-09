@@ -5,8 +5,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/antonholmquist/jason"
 	"github.com/Shopify/sarama"
+	"github.com/antonholmquist/jason"
 	"github.com/linkedin/goavro"
 	"github.com/mesosphere/dcos-stats/collector"
 	"github.com/mesosphere/dcos-stats/collector/metrics-schema"
@@ -30,16 +30,16 @@ var (
 	ipCommandFlag   = flag.String("ipcmd", "/opt/mesosphere/bin/detect_ip", "A command to execute which writes the agent IP to stdout")
 
 	datapointNamespace = goavro.RecordEnclosingNamespace(metrics_schema.DatapointNamespace)
-	datapointSchema = goavro.RecordSchema(metrics_schema.DatapointSchema)
+	datapointSchema    = goavro.RecordSchema(metrics_schema.DatapointSchema)
 
 	metricListNamespace = goavro.RecordEnclosingNamespace(metrics_schema.MetricListNamespace)
-	metricListSchema = goavro.RecordSchema(metrics_schema.MetricListSchema)
+	metricListSchema    = goavro.RecordSchema(metrics_schema.MetricListSchema)
 
 	metricNamespace = goavro.RecordEnclosingNamespace(metrics_schema.MetricNamespace)
-	metricSchema = goavro.RecordSchema(metrics_schema.MetricSchema)
+	metricSchema    = goavro.RecordSchema(metrics_schema.MetricSchema)
 
 	tagNamespace = goavro.RecordEnclosingNamespace(metrics_schema.TagNamespace)
-	tagSchema = goavro.RecordSchema(metrics_schema.TagSchema)
+	tagSchema    = goavro.RecordSchema(metrics_schema.TagSchema)
 )
 
 // run detect_ip => "10.0.3.26\n"
@@ -107,7 +107,7 @@ func convertJsonStatistics(rawJson []byte) (recs []*goavro.Record, err error) {
 				continue // skip bad value
 			}
 			timestampMillis := int64(timestampFloat * 1000)
-			for key, val := range(objval.Map()) {
+			for key, val := range objval.Map() {
 				// treat as float, with single datapoint
 				if key == "timestamp" {
 					continue // avoid being too redundant
@@ -120,13 +120,13 @@ func convertJsonStatistics(rawJson []byte) (recs []*goavro.Record, err error) {
 				floatVal, err := val.Float64()
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "Failed to convert value %s to float64: %+v\n", key, val)
-					continue;
+					continue
 				}
 				datapoint.Set("value", floatVal)
 
 				metric, err := goavro.NewRecord(metricNamespace, metricSchema)
 				metric.Set("name", key)
-				metric.Set("datapoints", []interface{}{ datapoint })
+				metric.Set("datapoints", []interface{}{datapoint})
 				metrics = append(metrics, metric)
 			}
 		}
@@ -240,7 +240,7 @@ func main() {
 	chunkid := 0
 	for true {
 		// Get/parse stats from agent
-		rawJson, err := httpGet(fmt.Sprintf("http://%s:5051/monitor/statistics.json", agentIp));
+		rawJson, err := httpGet(fmt.Sprintf("http://%s:5051/monitor/statistics.json", agentIp))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to retrieve stats from agent at %s: %s\n", agentIp, err)
 			// sleep and retry
@@ -271,7 +271,7 @@ func main() {
 		}
 
 		err = avroWriter.Close() // ensure flush to buf occurs before buf is used
-		if (err != nil) {
+		if err != nil {
 			log.Fatal("Couldn't flush output: ", err)
 		}
 		if *kafkaOutputFlag {
