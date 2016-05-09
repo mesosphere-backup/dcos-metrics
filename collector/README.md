@@ -59,7 +59,7 @@ If you see errors about `cannot find package "github.com/.../metrics-schema"`, y
 3. Run `sample-producer` as a task in Marathon, by editing the following JSON config:
   - Set `instances` to the number of instances to run. At most one instance will run on each agent node. If you have 5 nodes and you launch 6 instances, the 6th instance will stay in an "Unscheduled" state in Marathon.
   - Edit `kafka` in the env to match the name of your deployed Kafka cluster, if needed.
-  - If you want to run the producer on your Public nodes, you must create a separate additional task in Marathon, with a different `id`, which also specifies `"acceptedResourceRoles": [ "slave_public" ]`.
+  - If you want to run the producer on your Public nodes, you must create a separate additional task in Marathon, with a different `id`, which also includes `acceptedResourceRoles": [ "slave_public" ]` in its config.
 
 ```json
 {
@@ -67,8 +67,8 @@ If you see errors about `cannot find package "github.com/.../metrics-schema"`, y
   "env": {
     "KAFKA_FRAMEWORK": "kafka"
   },
-  
   "id": "sample-producer",
+  
   "cmd": "env && chmod +x ./sample-producer && ./sample-producer -framework $KAFKA_FRAMEWORK",
   "cpus": 1,
   "mem": 128,
