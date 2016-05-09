@@ -1,6 +1,55 @@
 {
 	"comment": "",
 	"ignore": "test",
-	"package": [],
+	"package": [
+		{
+			"checksumSHA1": "jwc+h9nKaQLjpuCB++c6Md19vpQ=",
+			"path": "github.com/Shopify/sarama",
+			"revision": "89bd629b50e1a69c40d40ded1c82a767b4859442",
+			"revisionTime": "2016-05-05T14:38:49Z"
+		},
+		{
+			"checksumSHA1": "azOYNy3r6+bHDNcMnsa5G1eP52Y=",
+			"path": "github.com/antonholmquist/jason",
+			"revision": "423803175a265e07c3f35cd8faf009eac345efb8",
+			"revisionTime": "2016-02-10T09:18:53Z"
+		},
+		{
+			"checksumSHA1": "5rPfda8jFccr3A6heL+JAmi9K9g=",
+			"path": "github.com/davecgh/go-spew/spew",
+			"revision": "5215b55f46b2b919f50a1df0eaa5886afe4e3b3d",
+			"revisionTime": "2015-11-05T21:09:06Z"
+		},
+		{
+			"checksumSHA1": "y2Kh4iPlgCPXSGTCcFpzePYdzzg=",
+			"path": "github.com/eapache/go-resiliency/breaker",
+			"revision": "b86b1ec0dd4209a588dc1285cdd471e73525c0b3",
+			"revisionTime": "2016-01-04T19:15:39Z"
+		},
+		{
+			"checksumSHA1": "AEGF/lRMFJukJAnRqdCVQ/0I+BY=",
+			"path": "github.com/eapache/queue",
+			"revision": "ded5959c0d4e360646dc9e9908cff48666781367",
+			"revisionTime": "2015-06-06T11:53:03Z"
+		},
+		{
+			"checksumSHA1": "UsY6N958JNjS0qzLTAtER7+tVPY=",
+			"path": "github.com/golang/snappy",
+			"revision": "d7b1e156f50d3c4664f683603af70e3e47fa0aa2",
+			"revisionTime": "2016-05-04T22:17:12Z"
+		},
+		{
+			"checksumSHA1": "hX+j017F4PEtIUGflAneDtLC6hs=",
+			"path": "github.com/klauspost/crc32",
+			"revision": "19b0b332c9e4516a6370a0456e6182c3b5036720",
+			"revisionTime": "2016-02-19T14:26:09Z"
+		},
+		{
+			"checksumSHA1": "9gHj6j0sa8eeWbYcqJzOJFIqVz0=",
+			"path": "github.com/linkedin/goavro",
+			"revision": "b9868e46e3fbcc794f40e396bc8ba7d1d97b8095",
+			"revisionTime": "2016-04-14T09:54:25Z"
+		}
+	],
 	"rootPath": "github.com/mesosphere/dcos-stats/collector"
 }

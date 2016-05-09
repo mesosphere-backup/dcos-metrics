@@ -52,6 +52,18 @@ go build
 
 If you see errors about `cannot find package "github.com/.../metrics-schema"`, you forgot to perform `go generate` in the `dcos-stats/collector/` directory.
 
+#### Updating vendor dependencies
+
+This project uses [`govendor`](https://github.com/kardianos/govendor) to manage library dependencies in the `vendor/` directory. This is used for adding new dependencies, removing old dependencies, and dependency versions.
+
+```bash
+go get github.com/kardianos/govendor
+cd $CODEPATH/dcos-stats/collector
+govendor add +external
+govendor status
+govendor list
+```
+
 ### Deploy
 
 1. Configure and deploy a Kafka instance on your DC/OS cluster. By default it will be named `kafka`.
