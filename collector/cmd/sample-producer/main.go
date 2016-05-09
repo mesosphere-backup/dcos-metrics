@@ -275,12 +275,14 @@ func main() {
 			log.Fatal("Couldn't flush output: ", err)
 		}
 		if *kafkaOutputFlag {
+			log.Printf("Sending avro-formatted stats for %d containers.", len(recs))
 			kafkaProducer.Input() <- &sarama.ProducerMessage{
 				Topic: *topicFlag,
 				Value: sarama.ByteEncoder(buf.Bytes()),
 			}
 		}
 		if *fileOutputFlag {
+			log.Printf("Sending avro-formatted stats for %d containers.", len(recs))
 			filename := fmt.Sprintf("chunk-%d.avro", chunkid)
 			chunkid++
 			outfile, err := os.Create(filename)
