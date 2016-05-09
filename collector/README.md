@@ -43,17 +43,23 @@ Then preprocess the Avro schema and build the code:
 
 ```bash
 cd $GOPATH/src/github.com/mesosphere/dcos-stats/collector
-go generate # creates "metrics_schema_generated.go" in collector dir
+go generate # creates 'metrics-schema' package
 
-cd cmd/sample-producer
-go build # creates "sample-producer" executable
+cd cmd/sample-producer/
+go build
 ./sample-producer -h
 ```
 
-If you see errors about `undefined: collector.[*]Namespace` and `undefined: collector.[*]Schema`, you forgot to run `go generate` in the `dcos-stats/collector/` directory to create `dcos-stats/collector/metrics_schema_generated.go`.
+If you see errors about `cannot find package "github.com/.../metrics-schema"`, you forgot to perform `go generate` in the `dcos-stats/collector/` directory.
 
 ### Deploy
 
-1. Install/configure the Kafka framework on your DCOS cluster. By default it will be named `kafka`.
-2. Upload the `sample-producer` executable you built to an agent node. Ideally the agent node should have containers currently running on it. If no containers are running, `sample-producer` will send nothing to Kafka until containers have appeared.
-3. Run the producer as `./sample-producer -framework <kafka-fmwk-name>` (add an `&` to launch as a background task). Assuming the targeted Kafka framework is up and running, `sample-producer` should automatically detect the brokers and start forwarding stats from `http://<agent-ip>:5051/monitor/statistics.json` to those brokers.
+1. Configure and deploy a Kafka instance on your DC/OS cluster. By default it will be named `kafka`.
+2. Upload the `sample-producer` executable you built to somewhere that's visible to your cluster (eg S3).
+3. Run `sample-producer` as a task in Marathon, by editing the following JSON config. Edit `-framework kafka` to match the name of your deployed Kafka cluster, if needed:
+
+```json
+TODO marathon task config: require port 8124 (even if sample-producer isn't using it)
+```
+
+As `sample-producer` is deployed on every node, each instance should automatically start forwarding stats from `http://<local-agent-ip>:5051/monitor/statistics.json` to the brokers it got from querying the Kafka Scheduler. If the agent isn't running any containers, or if the Kafka Scheduler isn't reachable, it should automatically retry until either situation changes.
