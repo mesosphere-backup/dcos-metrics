@@ -54,7 +54,7 @@ If you see errors about `cannot find package "github.com/.../metrics-schema"`, y
 
 #### Updating vendor dependencies
 
-This project uses [`govendor`](https://github.com/kardianos/govendor) to manage library dependencies in the `vendor/` directory. This is used for adding new dependencies, removing old dependencies, and dependency versions.
+This project uses [`govendor`](https://github.com/kardianos/govendor) to manage library dependencies in the `vendor/` directory. This is used for adding new dependencies, removing old dependencies, and updating dependency versions.
 
 ```bash
 go get github.com/kardianos/govendor
