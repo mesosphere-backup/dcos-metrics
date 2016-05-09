@@ -26,6 +26,8 @@ Prerequisites:
 
 This start-to-finish example assumes `dcos-stats` is placed in `~/code/dcos-stats` and that `GOPATH` is placed in `~/go`. Adjust these assumptions to fit your preferences.
 
+First, get the code and set up the environment:
+
 ```bash
 mkdir -p ~/code
 cd ~/code
@@ -34,10 +36,19 @@ export GO15VENDOREXPERIMENT=1 # required only if using Go 1.5. for Go 1.6+ this 
 export GOPATH=/YOUR/GOPATH # eg ~/go
 mkdir -p $GOPATH/src/github.com/mesosphere
 ln -s ~/code/dcos-stats $GOPATH/src/github.com/mesosphere/dcos-stats
-cd $GOPATH/src/github.com/mesosphere/dcos-stats/collector/cmd/sample-producer
-go build
+```
+
+Then preprocess the Avro schema and build the code:
+
+```bash
+cd $GOPATH/src/github.com/mesosphere/dcos-stats/collector
+go generate # creates "metrics_schema_generated.go"
+cd cmd/sample-producer
+go build # creates "sample-producer" executable
 ./sample-producer -h
 ```
+
+If you see errors about `undefined: collector.[*]Namespace` and `undefined: collector.[*]Schema`, you forgot to run `go generate` in the `dcos-stats/collector/` directory to create `dcos-stats/collector/metrics_schema_generated.go`.
 
 ### Deploy
 
