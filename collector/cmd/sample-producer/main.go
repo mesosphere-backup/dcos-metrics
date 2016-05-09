@@ -9,6 +9,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/linkedin/goavro"
 	"github.com/mesosphere/dcos-stats/collector"
+	"github.com/mesosphere/dcos-stats/collector/metrics-schema"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -28,17 +29,17 @@ var (
 	pollPeriodFlag  = flag.Int("period", 15, "Seconds to wait between stats refreshes")
 	ipCommandFlag   = flag.String("ipcmd", "/opt/mesosphere/bin/detect_ip", "A command to execute which writes the agent IP to stdout")
 
-	datapointNamespace = goavro.RecordEnclosingNamespace(collector.DatapointNamespace)
-	datapointSchema = goavro.RecordSchema(collector.DatapointSchema)
+	datapointNamespace = goavro.RecordEnclosingNamespace(metrics_schema.DatapointNamespace)
+	datapointSchema = goavro.RecordSchema(metrics_schema.DatapointSchema)
 
-	metricListNamespace = goavro.RecordEnclosingNamespace(collector.MetricListNamespace)
-	metricListSchema = goavro.RecordSchema(collector.MetricListSchema)
+	metricListNamespace = goavro.RecordEnclosingNamespace(metrics_schema.MetricListNamespace)
+	metricListSchema = goavro.RecordSchema(metrics_schema.MetricListSchema)
 
-	metricNamespace = goavro.RecordEnclosingNamespace(collector.MetricNamespace)
-	metricSchema = goavro.RecordSchema(collector.MetricSchema)
+	metricNamespace = goavro.RecordEnclosingNamespace(metrics_schema.MetricNamespace)
+	metricSchema = goavro.RecordSchema(metrics_schema.MetricSchema)
 
-	tagNamespace = goavro.RecordEnclosingNamespace(collector.TagNamespace)
-	tagSchema = goavro.RecordSchema(collector.TagSchema)
+	tagNamespace = goavro.RecordEnclosingNamespace(metrics_schema.TagNamespace)
+	tagSchema = goavro.RecordSchema(metrics_schema.TagSchema)
 )
 
 // run detect_ip => "10.0.3.26\n"
@@ -224,7 +225,7 @@ func main() {
 
 	// Wrap buf in an AvroWriter
 	buf := new(bytes.Buffer)
-	codec, err := goavro.NewCodec(collector.MetricListSchema)
+	codec, err := goavro.NewCodec(metrics_schema.MetricListSchema)
 	if err != nil {
 		log.Fatal("Failed to initialize avro codec: ", err)
 	}

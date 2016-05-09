@@ -28,16 +28,30 @@ As with each TCP session, each Kafka message is effectively treated as a self-co
 
 This format is intentionally starting off as simple as possible, but may be revisited later if it turns out to be unsustainable.
 
+## Code generation
+
+Whenever the schema is changed, the preprocessed code in `java/` and `go/` MUST be updated to reflect the changes.
+
+### Java
+
+Java code is generated using [avro-tools-1.8.0.jar](http://www.apache.org/dyn/closer.cgi/avro/avro-1.8.0/java/avro-tools-1.8.0.jar).:
+
+```
+java -jar avro-tools-1.8.0.jar compile schema metrics.avsc java/
+find java/
+```
+
+### Go
+
+Go code is generated using `go generate`:
+
+```
+cd go/
+go run generator.go -infile ../metrics.avsc -outfile schema.go
+cat schema.go
+```
+
 ## Demo/Validation
-
-These examples use [avro-tools-1.8.0.jar](http://www.apache.org/dyn/closer.cgi/avro/avro-1.8.0/java/avro-tools-1.8.0.jar).
-
-Generate Java code from the schema:
-
-```
-java -jar avro-tools-1.8.0.jar compile schema metrics.avsc .
-find dcos/
-```
 
 Convert sample metrics JSON to a binary file, then view info about the file:
 
