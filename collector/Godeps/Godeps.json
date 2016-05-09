@@ -5,7 +5,7 @@
 	"Packages": [
 		".",
 		"./scripts/",
-		"./cmd/random-producer/"
+		"./cmd/sample-producer/"
 	],
 	"Deps": [
 		{
