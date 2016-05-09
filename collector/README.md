@@ -41,6 +41,6 @@ go build
 
 ### Deploy
 
-1. Install/configure the Kafka framework on your DCOS cluster.
+1. Install/configure the Kafka framework on your DCOS cluster. By default it will be named `kafka`.
 2. Upload the `sample-producer` executable you built to an agent node. Ideally the agent node should have containers currently running on it. If no containers are running, `sample-producer` will send nothing to Kafka until containers have appeared.
 3. Run the producer as `./sample-producer -framework <kafka-fmwk-name>` (add an `&` to launch as a background task). Assuming the targeted Kafka framework is up and running, `sample-producer` should automatically detect the brokers and start forwarding stats from `http://<agent-ip>:5051/monitor/statistics.json` to those brokers.
