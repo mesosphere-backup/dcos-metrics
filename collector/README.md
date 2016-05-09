@@ -56,10 +56,39 @@ If you see errors about `cannot find package "github.com/.../metrics-schema"`, y
 
 1. Configure and deploy a Kafka instance on your DC/OS cluster. By default it will be named `kafka`.
 2. Upload the `sample-producer` executable you built to somewhere that's visible to your cluster (eg S3).
-3. Run `sample-producer` as a task in Marathon, by editing the following JSON config. Edit `-framework kafka` to match the name of your deployed Kafka cluster, if needed:
+3. Run `sample-producer` as a task in Marathon, by editing the following JSON config:
+
+- Set `instances` to the number of instances to run. At most one instance will run on each agent node. If you have 5 nodes and you launch 6 instances, the 6th instance will stay in an "Unscheduled" state in Marathon.
+- Edit `kafka` in the env to match the name of your deployed Kafka cluster, if needed.
+- If you want to run the producer on your Public nodes, you must create a separate additional task in Marathon, with a different `id`, which also specifies `"acceptedResourceRoles": [ "slave_public" ]`.
 
 ```json
-TODO marathon task config: require port 8124 (even if sample-producer isn't using it)
+{
+  "instances": 100,
+  "env": {
+    "KAFKA_FRAMEWORK": "kafka"
+  },
+  
+  "id": "sample-producer",
+  "cmd": "env && chmod +x ./sample-producer && ./sample-producer -framework $KAFKA_FRAMEWORK",
+  "cpus": 1,
+  "mem": 128,
+  "disk": 0,
+  "uris": [
+    "https://s3-us-west-2.amazonaws.com/nick-dev/sample-producer"
+  ],
+  "portDefinitions": [
+    {
+      "port": 8124,
+      "protocol": "tcp",
+      "name": null,
+      "labels": null
+    }
+  ],
+  "requirePorts" : true
+}
 ```
 
-As `sample-producer` is deployed on every node, each instance should automatically start forwarding stats from `http://<local-agent-ip>:5051/monitor/statistics.json` to the brokers it got from querying the Kafka Scheduler. If the agent isn't running any containers, or if the Kafka Scheduler isn't reachable, it should automatically retry until either situation changes.
+As `sample-producer` is deployed on every node, each instance should automatically start forwarding stats from `http://<local-agent-ip>:5051/monitor/statistics.json` to the brokers it got from querying the Kafka Scheduler.
+
+If the Kafka framework isn't reachable (not deployed yet? wrong name passed to `-framework` arg?), then `sample-producer` will loop until it comes up (complaining to `stderr` every few seconds).
