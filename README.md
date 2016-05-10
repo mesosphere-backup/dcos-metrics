@@ -2,6 +2,8 @@
 
 Routing of metrics from DC/OS.
 
+![architecture diagram](architecture.png)
+
 - `module`: C++ code for the mesos-agent module. Advertises metrics endpoints to containers, and tags/forwards any metrics obtained at those advertised endpoints upstream. This module is installed  by default on DCOS EE 1.7+.
 - `collector`: Go code for the metrics collector process running on every agent node. Receives metrics from the mesos-agent module as well as other processes on the system, forwarding that data to a Kafka instance and/or exposing the data to local partner processes.
 - `schema`: Avro schemas shared by everybody that processes metrics.
