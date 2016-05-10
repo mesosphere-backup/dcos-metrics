@@ -15,7 +15,7 @@ namespace metrics {
    public:
     ContainerReaderImpl(
         const std::shared_ptr<boost::asio::io_service>& io_service,
-        const std::shared_ptr<OutputWriter>& output_writer,
+        const std::vector<output_writer_ptr_t>& writers,
         const UDPEndpoint& requested_endpoint);
     virtual ~ContainerReaderImpl();
 
@@ -37,7 +37,7 @@ namespace metrics {
     void write_message(const char* data, size_t size);
     void shutdown_cb();
 
-    const std::shared_ptr<OutputWriter> output_writer;
+    const std::vector<output_writer_ptr_t> writers;
     const UDPEndpoint requested_endpoint;
 
     std::shared_ptr<boost::asio::io_service> io_service;

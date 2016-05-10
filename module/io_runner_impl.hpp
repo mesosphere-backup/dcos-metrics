@@ -50,7 +50,7 @@ namespace metrics {
     params::annotation_mode::Value annotation_mode;
 
     std::shared_ptr<boost::asio::io_service> io_service;
-    std::shared_ptr<OutputWriter> writer;
+    std::vector<output_writer_ptr_t> writers;
     std::unique_ptr<std::thread> io_service_thread;
   };
 }

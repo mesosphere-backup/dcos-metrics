@@ -65,13 +65,15 @@ namespace {
       return svc_;
     }
 
-    std::shared_ptr<MockOutputWriter> mock() {
+    std::vector<metrics::output_writer_ptr_t> mocks() {
+      std::vector<metrics::output_writer_ptr_t> mocks;
       std::shared_ptr<MockOutputWriter> mock(new MockOutputWriter);
       EXPECT_CALL(*mock, write_container_statsd(_,_,_,_)).WillRepeatedly(Invoke(
               std::bind(&ServiceThread::dispatch_add_pkt_cb, this,
                   std::placeholders::_1, std::placeholders::_2,
                   std::placeholders::_3, std::placeholders::_4)));
-      return mock;
+      mocks.push_back(mock);
+      return mocks;
     }
 
     void join() {
@@ -148,7 +150,7 @@ TEST(ContainerReaderImplTests, one_line) {
   ServiceThread thread(3);
   {
     metrics::ContainerReaderImpl reader(
-        thread.svc(), thread.mock(), metrics::UDPEndpoint("127.0.0.1", 0));
+        thread.svc(), thread.mocks(), metrics::UDPEndpoint("127.0.0.1", 0));
 
     Try<metrics::UDPEndpoint> result = reader.open();
     EXPECT_FALSE(result.isError()) << result.error();
@@ -175,7 +177,7 @@ TEST(ContainerReaderImplTests, multiline) {
   ServiceThread thread(3);
   {
     metrics::ContainerReaderImpl reader(
-        thread.svc(), thread.mock(), metrics::UDPEndpoint("127.0.0.1", 0));
+        thread.svc(), thread.mocks(), metrics::UDPEndpoint("127.0.0.1", 0));
 
     Try<metrics::UDPEndpoint> result = reader.open();
     EXPECT_FALSE(result.isError()) << result.error();
@@ -200,7 +202,7 @@ TEST(ContainerReaderImplTests, multiline_leading_ending_newlines) {
   ServiceThread thread(3);
   {
     metrics::ContainerReaderImpl reader(
-        thread.svc(), thread.mock(), metrics::UDPEndpoint("127.0.0.1", 0));
+        thread.svc(), thread.mocks(), metrics::UDPEndpoint("127.0.0.1", 0));
 
     Try<metrics::UDPEndpoint> result = reader.open();
     EXPECT_FALSE(result.isError()) << result.error();
@@ -224,7 +226,7 @@ TEST(ContainerReaderImplTests, zero_registered_containers) {
   ServiceThread thread(3);
   {
     metrics::ContainerReaderImpl reader(
-        thread.svc(), thread.mock(), metrics::UDPEndpoint("127.0.0.1", 0));
+        thread.svc(), thread.mocks(), metrics::UDPEndpoint("127.0.0.1", 0));
 
     Try<metrics::UDPEndpoint> result = reader.open();
     EXPECT_FALSE(result.isError()) << result.error();
@@ -255,7 +257,7 @@ TEST(ContainerReaderImplTests, one_registered_container) {
   ServiceThread thread(3);
   {
     metrics::ContainerReaderImpl reader(
-        thread.svc(), thread.mock(), metrics::UDPEndpoint("127.0.0.1", 0));
+        thread.svc(), thread.mocks(), metrics::UDPEndpoint("127.0.0.1", 0));
 
     reader.register_container(container_id, exec_info);
 
@@ -289,7 +291,7 @@ TEST(ContainerReaderImplTests, one_registered_container_multiline_leading_ending
   ServiceThread thread(3);
   {
     metrics::ContainerReaderImpl reader(
-        thread.svc(), thread.mock(), metrics::UDPEndpoint("127.0.0.1", 0));
+        thread.svc(), thread.mocks(), metrics::UDPEndpoint("127.0.0.1", 0));
 
     reader.register_container(container_id, exec_info);
 
@@ -315,7 +317,7 @@ TEST(ContainerReaderImplTests, multi_registered_containers) {
   ServiceThread thread(3);
   {
     metrics::ContainerReaderImpl reader(
-        thread.svc(), thread.mock(), metrics::UDPEndpoint("127.0.0.1", 0));
+        thread.svc(), thread.mocks(), metrics::UDPEndpoint("127.0.0.1", 0));
 
     mesos::ContainerID container_id;
     container_id.set_value("a");

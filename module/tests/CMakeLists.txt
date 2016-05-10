@@ -46,6 +46,10 @@ add_executable(range_pool_tests range_pool_tests.cpp)
 target_link_libraries(range_pool_tests gtest metrics-module)
 add_test(range_pool_tests range_pool_tests)
 
+add_executable(socket_sender_tests socket_sender_tests.cpp)
+target_link_libraries(socket_sender_tests gtest metrics-module)
+add_test(socket_sender_tests socket_sender_tests)
+
 add_executable(sync_util_tests sync_util_tests.cpp)
 target_link_libraries(sync_util_tests gtest metrics-module)
 add_test(sync_util_tests sync_util_tests)

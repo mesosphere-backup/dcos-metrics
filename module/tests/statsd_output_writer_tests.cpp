@@ -4,7 +4,8 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
-#include "stub_lookup_statsd_output_writer.hpp"
+#include "statsd_output_writer.hpp"
+#include "stub_socket_sender.hpp"
 #include "sync_util.hpp"
 #include "test_socket.hpp"
 
@@ -31,6 +32,28 @@ namespace {
       boost::asio::ip::address::from_string("127.0.0.1"), 0 /* port */);
   const boost::asio::ip::udp::endpoint DEST_LOCAL_ENDPOINT6(
       boost::asio::ip::address::from_string("::1"), 0 /* port */);
+
+  mesos::Parameters build_params(
+      const std::string& annotation_mode, size_t chunk_size = 0) {
+    mesos::Parameters params;
+    mesos::Parameter* param;
+    param = params.add_parameter();
+    param->set_key(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE);
+    param->set_value(annotation_mode);
+    if (chunk_size > 0) {
+      param = params.add_parameter();
+      param->set_key(metrics::params::OUTPUT_STATSD_CHUNKING);
+      param->set_value("true");
+      param = params.add_parameter();
+      param->set_key(metrics::params::OUTPUT_STATSD_CHUNK_SIZE_BYTES);
+      param->set_value(std::to_string(chunk_size));
+    } else {
+      param = params.add_parameter();
+      param->set_key(metrics::params::OUTPUT_STATSD_CHUNKING);
+      param->set_value("false");
+    }
+    return params;
+  }
 
   void flush_service_queue_with_noop() {
     LOG(INFO) << "async queue flushed";
@@ -85,126 +108,16 @@ namespace {
   };
 }
 
-TEST(StatsdOutputWriterTests, resolve_fails_data_dropped) {
-  TestReadSocket test_reader;
-  size_t listen_port = test_reader.listen();
-
-  ServiceThread thread;
-  {
-    writer_ptr_t writer = StubLookupStatsdOutputWriter::with_lookup_error(
-        metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_NONE,
-        thread.svc(), listen_port, boost::asio::error::netdb_errors::host_not_found);
-    writer->start();
-
-    metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
-
-    writer->write_container_statsd(NULL, NULL, HELLO.data(), HELLO.size());
-    metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
-    EXPECT_FALSE(test_reader.available());
-
-    writer->write_container_statsd(NULL, NULL, HEY.data(), HEY.size());
-    metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
-    EXPECT_FALSE(test_reader.available());
-
-    writer->write_container_statsd(NULL, NULL, HI.data(), HI.size());
-    metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
-    EXPECT_FALSE(test_reader.available());
-  }
-  thread.join();
-
-  EXPECT_FALSE(test_reader.available());
-}
-
-TEST(StatsdOutputWriterTests, resolve_empty_data_dropped) {
-  TestReadSocket test_reader;
-  size_t listen_port = test_reader.listen();
-
-  ServiceThread thread;
-  {
-    writer_ptr_t writer = StubLookupStatsdOutputWriter::with_lookup_result(
-        metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_NONE,
-        thread.svc(), listen_port, std::vector<boost::asio::ip::udp::endpoint>());
-    writer->start();
-
-    metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
-
-    writer->write_container_statsd(NULL, NULL, HELLO.data(), HELLO.size());
-    metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
-    EXPECT_FALSE(test_reader.available());
-
-    writer->write_container_statsd(NULL, NULL, HEY.data(), HEY.size());
-    metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
-    EXPECT_FALSE(test_reader.available());
-
-    writer->write_container_statsd(NULL, NULL, HI.data(), HI.size());
-    metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
-    EXPECT_FALSE(test_reader.available());
-  }
-  thread.join();
-
-  EXPECT_FALSE(test_reader.available());
-}
-
-TEST(StatsdOutputWriterTests, resolve_reshuffle_data_sent_single_destination) {
-  TestReadSocket test_reader4, test_reader6;
-  size_t listen_port = test_reader4.listen(DEST_LOCAL_ENDPOINT.address(), 0);
-  size_t listen_port6 = test_reader6.listen(DEST_LOCAL_ENDPOINT6.address(), listen_port);
-  EXPECT_EQ(listen_port, listen_port6);
-
-  ServiceThread thread;
-  {
-    // have the resolver return a weighted mix of ipv4 + ipv6 endpoints for localhost
-    std::vector<boost::asio::ip::udp::endpoint> endpoints;
-    endpoints.push_back(DEST_LOCAL_ENDPOINT);
-    endpoints.push_back(DEST_LOCAL_ENDPOINT);
-    endpoints.push_back(DEST_LOCAL_ENDPOINT6);
-    endpoints.push_back(DEST_LOCAL_ENDPOINT);
-    endpoints.push_back(DEST_LOCAL_ENDPOINT6);
-    writer_ptr_t writer = StubLookupStatsdOutputWriter::with_lookup_result(
-        metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_NONE,
-        thread.svc(), listen_port, endpoints);
-    writer->start();
-
-    // flush a bunch to ensure resolve code is exercised between writes:
-    metrics::sync_util::dispatch_run("flush1", *thread.svc(), &flush_service_queue_with_noop);
-    writer->write_container_statsd(NULL, NULL, HELLO.data(), HELLO.size());
-    metrics::sync_util::dispatch_run("flush2", *thread.svc(), &flush_service_queue_with_noop);
-    writer->write_container_statsd(NULL, NULL, HEY.data(), HEY.size());
-    metrics::sync_util::dispatch_run("flush3", *thread.svc(), &flush_service_queue_with_noop);
-    writer->write_container_statsd(NULL, NULL, HI.data(), HI.size());
-    metrics::sync_util::dispatch_run("flush4", *thread.svc(), &flush_service_queue_with_noop);
-  }
-  thread.join();
-
-  std::set<std::string> recv4, recv6;
-  while (test_reader4.available()) {
-    recv4.insert(test_reader4.read());
-  }
-  while (test_reader6.available()) {
-    recv6.insert(test_reader6.read());
-  }
-  // all sent data should have only been sent to one of the two endpoints
-  EXPECT_TRUE((recv4.size() == 3) ^ (recv6.size() == 3));
-  if (!recv4.empty()) {
-    EXPECT_EQ(1, recv4.count("hello"));
-    EXPECT_EQ(1, recv4.count("hey"));
-    EXPECT_EQ(1, recv4.count("hi"));
-  }
-  if (!recv6.empty()) {
-    EXPECT_EQ(1, recv6.count("hello"));
-    EXPECT_EQ(1, recv6.count("hey"));
-    EXPECT_EQ(1, recv6.count("hi"));
-  }
-}
-
 TEST(StatsdOutputWriterTests, chunking_off) {
   TestReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
   {
-    writer_ptr_t writer = StubLookupStatsdOutputWriter::without_chunking(
-        metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX, thread.svc(), listen_port);
+    metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
+            thread.svc(),
+            build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX),
+            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port)));
     writer->start();
 
     // value is dropped because we didn't give writer a chance to resolve the host:
@@ -230,9 +143,11 @@ TEST(StatsdOutputWriterTests, chunking_on_flush_when_full) {
 
   ServiceThread thread;
   {
-    writer_ptr_t writer = StubLookupStatsdOutputWriter::with_chunk_size(
-        metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_TAG_DATADOG,
-        thread.svc(), listen_port, 150 /* chunk_size */, 9999999 /* chunk_timeout_ms */);
+    metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
+            thread.svc(),
+            build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_TAG_DATADOG, 150 /* chunk_size */),
+            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port),
+            9999999 /* chunk_timeout_ms */));
     writer->start();
 
     writer->write_container_statsd(&CONTAINER_ID1, &EXECUTOR_INFO1, HELLO.data(), HELLO.size());// 53 bytes
@@ -258,9 +173,11 @@ TEST(StatsdOutputWriterTests, chunking_on_flush_timer) {
 
   ServiceThread thread;
   {
-    writer_ptr_t writer = StubLookupStatsdOutputWriter::with_chunk_size(
-        metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX,
-        thread.svc(), listen_port, 100 /* chunk_size */, 1 /* chunk_timeout_ms */);
+    metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
+            thread.svc(),
+            build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX, 100 /* chunk_size */),
+            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port),
+            1 /* chunk_timeout_ms */));
     writer->start();
 
     writer->write_container_statsd(&CONTAINER_ID1, &EXECUTOR_INFO1, HELLO.data(), HELLO.size());
@@ -285,9 +202,11 @@ TEST(StatsdOutputWriterTests, chunked_annotations_off) {
 
   ServiceThread thread;
   {
-    writer_ptr_t writer = StubLookupStatsdOutputWriter::with_chunk_size(
-        metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_NONE,
-        thread.svc(), listen_port, 100 /* chunk_size */, 1 /* chunk_timeout_ms */);
+    metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
+            thread.svc(),
+            build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_NONE, 100 /* chunk_size */),
+            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port),
+            1 /* chunk_timeout_ms */));
     writer->start();
     // let resolve finish before sending data:
     metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
@@ -307,9 +226,11 @@ TEST(StatsdOutputWriterTests, chunked_datadog_annotations_no_containerinfo) {
 
   ServiceThread thread;
   {
-    writer_ptr_t writer = StubLookupStatsdOutputWriter::with_chunk_size(
-        metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_TAG_DATADOG,
-        thread.svc(), listen_port, 100 /* chunk_size */, 1 /* chunk_timeout_ms */);
+    metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
+            thread.svc(),
+            build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_TAG_DATADOG, 100 /* chunk_size */),
+            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port),
+            1 /* chunk_timeout_ms */));
     writer->start();
     // let resolve finish before sending data:
     metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
@@ -328,9 +249,11 @@ TEST(StatsdOutputWriterTests, chunked_datadog_annotations) {
 
   ServiceThread thread;
   {
-    writer_ptr_t writer = StubLookupStatsdOutputWriter::with_chunk_size(
-        metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_TAG_DATADOG,
-        thread.svc(), listen_port, 150 /* chunk_size */, 1 /* chunk_timeout_ms */);
+    metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
+            thread.svc(),
+            build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_TAG_DATADOG, 150 /* chunk_size */),
+            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port),
+            1 /* chunk_timeout_ms */));
     writer->start();
     // let resolve finish before sending data:
     metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
@@ -353,8 +276,10 @@ TEST(StatsdOutputWriterTests, datadog_annotations_tagged_input) {
 
   ServiceThread thread;
   {
-    writer_ptr_t writer = StubLookupStatsdOutputWriter::without_chunking(
-        metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_TAG_DATADOG, thread.svc(), listen_port);
+    metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
+            thread.svc(),
+            build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_TAG_DATADOG),
+            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port)));
     writer->start();
     // let resolve finish before sending data:
     metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
@@ -381,9 +306,11 @@ TEST(StatsdOutputWriterTests, chunked_datadog_annotations_tagged_input) {
 
   ServiceThread thread;
   {
-    writer_ptr_t writer = StubLookupStatsdOutputWriter::with_chunk_size(
-        metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_TAG_DATADOG,
-        thread.svc(), listen_port, 150 /* chunk_size */, 1 /* chunk_timeout_ms */);
+    metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
+            thread.svc(),
+            build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_TAG_DATADOG, 150 /* chunk_size */),
+            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port),
+            1 /* chunk_timeout_ms */));
     writer->start();
     // let resolve finish before sending data:
     metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
@@ -408,8 +335,10 @@ TEST(StatsdOutputWriterTests, prefix_annotations_no_containerinfo) {
 
   ServiceThread thread;
   {
-    writer_ptr_t writer = StubLookupStatsdOutputWriter::without_chunking(
-        metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX, thread.svc(), listen_port);
+    metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
+            thread.svc(),
+            build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX),
+            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port)));
     writer->start();
     // let resolve finish before sending data:
     metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
@@ -430,8 +359,10 @@ TEST(StatsdOutputWriterTests, prefix_annotations) {
 
   ServiceThread thread;
   {
-    writer_ptr_t writer = StubLookupStatsdOutputWriter::without_chunking(
-        metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX, thread.svc(), listen_port);
+    metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
+            thread.svc(),
+            build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX),
+            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port)));
     writer->start();
     // let resolve finish before sending data:
     metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
@@ -454,9 +385,11 @@ TEST(StatsdOutputWriterTests, chunked_prefix_annotations_tagged_input) {
 
   ServiceThread thread;
   {
-    writer_ptr_t writer = StubLookupStatsdOutputWriter::with_chunk_size(
-        metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX,
-        thread.svc(), listen_port, 150 /* chunk_size */, 1 /* chunk_timeout_ms */);
+    metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
+            thread.svc(),
+            build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX, 150 /* chunk_size */),
+            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port),
+            1 /* chunk_timeout_ms */));
     writer->start();
     // let resolve finish before sending data:
     metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
@@ -481,8 +414,10 @@ TEST(StatsdOutputWriterTests, prefix_annotations_tagged_input) {
 
   ServiceThread thread;
   {
-    writer_ptr_t writer = StubLookupStatsdOutputWriter::without_chunking(
-        metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX, thread.svc(), listen_port);
+    metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
+            thread.svc(),
+            build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX),
+            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port)));
     writer->start();
     // let resolve finish before sending data:
     metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
@@ -500,7 +435,7 @@ TEST(StatsdOutputWriterTests, prefix_annotations_tagged_input) {
 int main(int argc, char **argv) {
   ::google::InitGoogleLogging(argv[0]);
   // avoid non-threadsafe logging code for these tests
-  FLAGS_logtostderr = 1;
+  //FLAGS_logtostderr = 1;
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

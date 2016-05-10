@@ -154,6 +154,7 @@ if(protobuf_LIBRARY)
 endif()
 
 set(SRCS
+  #collector_output_writer.cpp
   container_assigner.cpp
   container_assigner_strategy.cpp
   container_reader_impl.cpp
@@ -164,6 +165,7 @@ set(SRCS
   params.cpp
   resource_estimator_module.cpp
   sync_util.cpp
+  socket_sender.cpp
   statsd_output_writer.cpp
   statsd_tagger.cpp)
 configure_file(

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/asio.hpp>
+#include <glog/logging.h>
 
 #include "udp_endpoint.hpp"
 

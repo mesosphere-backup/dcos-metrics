@@ -12,9 +12,9 @@ typedef boost::asio::ip::udp::resolver resolver_t;
 
 metrics::ContainerReaderImpl::ContainerReaderImpl(
     const std::shared_ptr<boost::asio::io_service>& io_service,
-    const std::shared_ptr<OutputWriter>& output_writer,
+    const std::vector<output_writer_ptr_t>& writers,
     const UDPEndpoint& requested_endpoint)
-  : output_writer(output_writer),
+  : writers(writers),
     requested_endpoint(requested_endpoint),
     io_service(io_service),
     socket(*io_service),
@@ -188,14 +188,18 @@ void metrics::ContainerReaderImpl::write_message(const char* data, size_t size) 
   switch (registered_containers.size()) {
     case 0:
       // No containers assigned to this reader, nothing to pair the data with.
-      output_writer->write_container_statsd(NULL, NULL, data, size);
+      for (output_writer_ptr_t writer : writers) {
+        writer->write_container_statsd(NULL, NULL, data, size);
+      }
       break;
     case 1:
       // Typical/expected case: One container per UDP port.
       {
         auto container_entry = *registered_containers.cbegin();
-        output_writer->write_container_statsd(
-            &container_entry.first, &container_entry.second, data, size);
+        for (output_writer_ptr_t writer : writers) {
+          writer->write_container_statsd(
+              &container_entry.first, &container_entry.second, data, size);
+        }
       }
       break;
     default:
@@ -203,7 +207,9 @@ void metrics::ContainerReaderImpl::write_message(const char* data, size_t size) 
       // data came from.
       // FIXME: This is where ip-per-container support would be added, using the ip provided
       // in the 'endpoint' param.
-      output_writer->write_container_statsd(NULL, NULL, data, size);
+      for (output_writer_ptr_t writer : writers) {
+        writer->write_container_statsd(NULL, NULL, data, size);
+      }
       break;
   }
 }

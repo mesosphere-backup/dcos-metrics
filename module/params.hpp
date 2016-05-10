@@ -53,6 +53,26 @@ namespace metrics {
     const std::string LISTEN_PORT_MODE_DEFAULT = LISTEN_PORT_MODE_EPHEMERAL;
 
     /**
+     * Collector output settings
+     */
+
+    // Whether export to a Collector process is enabled.
+    const std::string OUTPUT_COLLECTOR_ENABLED = "output_collector_enabled";
+    const bool OUTPUT_COLLECTOR_ENABLED_DEFAULT = true;
+
+    const std::string OUTPUT_COLLECTOR_HOST = "output_collector_host";
+    const std::string OUTPUT_COLLECTOR_HOST_DEFAULT = "127.0.0.1";
+
+    // The period in seconds between host resolutions. Automatically detects changes in DNS records,
+    // with automatic selection of a random A record if multiple entries are configured.
+    const std::string OUTPUT_COLLECTOR_HOST_REFRESH_SECONDS = "output_collector_host_refresh_seconds";
+    const size_t OUTPUT_COLLECTOR_HOST_REFRESH_SECONDS_DEFAULT = 60;
+
+    // The TCP port to send to.
+    const std::string OUTPUT_COLLECTOR_PORT = "output_collector_port";
+    const size_t OUTPUT_COLLECTOR_PORT_DEFAULT = 8124;
+
+    /**
      * StatsD output settings
      */
 
@@ -69,7 +89,7 @@ namespace metrics {
     const std::string OUTPUT_STATSD_HOST_REFRESH_SECONDS = "output_statsd_host_refresh_seconds";
     const size_t OUTPUT_STATSD_HOST_REFRESH_SECONDS_DEFAULT = 60;
 
-    // The port to send to.
+    // The UDP port to send to.
     const std::string OUTPUT_STATSD_PORT = "output_statsd_port";
     const size_t OUTPUT_STATSD_PORT_DEFAULT = 8125;
 

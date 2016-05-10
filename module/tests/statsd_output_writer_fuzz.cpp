@@ -4,9 +4,10 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
-#include "stub_lookup_statsd_output_writer.hpp"
 #include "sync_util.hpp"
 #include "test_socket.hpp"
+#include "statsd_output_writer.hpp"
+#include "stub_socket_sender.hpp"
 
 namespace {
 
@@ -50,6 +51,28 @@ namespace {
     LOG(INFO) << "async queue flushed";
   }
 
+  mesos::Parameters build_params(
+      const std::string& annotation_mode, size_t chunk_size) {
+    mesos::Parameters params;
+    mesos::Parameter* param;
+    param = params.add_parameter();
+    param->set_key(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE);
+    param->set_value(annotation_mode);
+    if (chunk_size > 0) {
+      param = params.add_parameter();
+      param->set_key(metrics::params::OUTPUT_STATSD_CHUNKING);
+      param->set_value("true");
+      param = params.add_parameter();
+      param->set_key(metrics::params::OUTPUT_STATSD_CHUNK_SIZE_BYTES);
+      param->set_value(std::to_string(chunk_size));
+    } else {
+      param = params.add_parameter();
+      param->set_key(metrics::params::OUTPUT_STATSD_CHUNKING);
+      param->set_value("false");
+    }
+    return params;
+  }
+
   void fuzz(const std::string& annotation_mode, bool chunking) {
     std::random_device dev;
     std::mt19937 engine{dev()};
@@ -62,14 +85,11 @@ namespace {
     size_t pkt_count = 100;
     ServiceThread thread;
 
-    writer_ptr_t writer;
-    if (chunking) {
-      writer = StubLookupStatsdOutputWriter::with_lookup_result_chunking(
-          annotation_mode, thread.svc(), listen_port, std::vector<boost::asio::ip::udp::endpoint>(), 10, 100);
-    } else {
-      writer = StubLookupStatsdOutputWriter::with_lookup_result(
-          annotation_mode, thread.svc(), listen_port, std::vector<boost::asio::ip::udp::endpoint>());
-    }
+    metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
+            thread.svc(),
+            build_params(annotation_mode, chunking ? 10 : 0),
+            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port),
+            100 /* chunk timeout */));
     writer->start();
 
     {

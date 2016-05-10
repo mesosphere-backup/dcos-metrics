@@ -32,4 +32,5 @@ namespace metrics {
     virtual void write_resource_usage(const process::Future<mesos::ResourceUsage>& usage) = 0;
   };
 
+  typedef std::shared_ptr<OutputWriter> output_writer_ptr_t;
 }
