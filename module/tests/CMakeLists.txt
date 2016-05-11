@@ -5,10 +5,9 @@ project(metrics-module-tests)
 # Defines ${GTEST_INCLUDE_DIR}/${GMOCK_INCLUDE_DIR} and "gtest"/"gmock" libs
 include(InstallGTestGMock.cmake)
 
-include_directories(
-  ${CMAKE_SOURCE_DIR}
-  ${GMOCK_INCLUDE_DIR}
-  ${GTEST_INCLUDE_DIR})
+include_directories(${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}) # for metrics schema
+# for library headers, hide any warnings:
+include_directories(SYSTEM ${GMOCK_INCLUDE_DIR} ${GTEST_INCLUDE_DIR})
 
 add_executable(container_assigner_tests container_assigner_tests.cpp)
 target_link_libraries(container_assigner_tests gmock gtest metrics-module)

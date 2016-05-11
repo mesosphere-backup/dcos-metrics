@@ -21,7 +21,7 @@ endif()
 ExternalProject_Add(
   ext_picojson
   URL ${PICOJSON_TGZ}
-  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/picojson
+  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ext_picojson
   CONFIGURE_COMMAND ""
   BUILD_COMMAND ""
   INSTALL_COMMAND ""

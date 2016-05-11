@@ -115,6 +115,8 @@ else()
   message(STATUS "Using system protobuf: incl:${protobuf_INCLUDE_DIR} lib:${protobuf_LIBRARY}")
 endif()
 
+include(InstallAvro.cmake)
+
 find_library(boost_system_LIBRARY NAMES boost_system HINTS ${default_LIB_DIR})
 if(NOT boost_system_LIBRARY)
   message(FATAL_ERROR "Boost System library is required by Boost ASIO.\napt-get: Install 'libboost-system-dev'\nyum: install 'boost-system'\n...or run cmake with eg 'cmake -Dboost_system_LIBRARY=/opt/mesosphere/lib/libboost_system.so ..'")
@@ -143,9 +145,9 @@ endif()
 
 set(LIBS
   pthread
+  ${avro_LIBRARY}
   ${boost_system_LIBRARY}
-  ${mesos_LIBRARY}
-  )
+  ${mesos_LIBRARY})
 if(glog_LIBRARY)
   list(APPEND LIBS ${glog_LIBRARY})
 endif()
@@ -172,16 +174,17 @@ configure_file(
   "${PROJECT_SOURCE_DIR}/modules.json.in"
   "${PROJECT_BINARY_DIR}/modules.json")
 
-list(APPEND INCLUDES
+list(APPEND EXTERN_INCLUDES
   ${boost_asio_INCLUDE_DIR}
   ${mesos_INCLUDE_DIR}
   ${mesos_PROTOBUF_INCLUDE_DIR}
   ${process_INCLUDE_DIR}
   ${stout_INCLUDE_DIR}
+  ${avro_INCLUDE_DIR}
   ${picojson_INCLUDE_DIR} # internally required by stout
   ${protobuf_INCLUDE_DIR})
 
-message(STATUS "Include dirs: ${INCLUDES}")
+message(STATUS "Include dirs: ${EXTERN_INCLUDES}")
 message(STATUS "Libs: ${LIBS}")
 
 add_definitions(-DPICOJSON_USE_INT64) # otherwise we get "undefined symbol: _ZNK8picojson5value2isIlEEbv"
@@ -189,11 +192,14 @@ add_definitions(-DPICOJSON_USE_INT64) # otherwise we get "undefined symbol: _ZNK
 if(CMAKE_CXX_COMPILER_ID STREQUAL GNU OR CMAKE_CXX_COMPILER_ID STREQUAL Clang)
   set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra")
 endif()
-include_directories(${INCLUDES})
+include_directories(${CMAKE_BINARY_DIR}) # for metrics schema
+# for library headers, hide any warnings:
+include_directories(SYSTEM ${EXTERN_INCLUDES})
 
 add_library(metrics-module SHARED ${SRCS})
 target_link_libraries(metrics-module ${LIBS})
 # ensure header dependencies are unpacked before we start building
+add_dependencies(metrics-module ext_avro)
 if(USE_LOCAL_PROTOBUF)
   add_dependencies(metrics-module ext_protobuf)
 endif()
@@ -208,6 +214,28 @@ if(TESTS_ENABLED)
 else()
   message(STATUS "Unit tests disabled.")
 endif()
+
+# generate avro schema structs:
+set(AVRO_SCHEMA_INPUT ${CMAKE_SOURCE_DIR}/../schema/metrics.avsc)
+set(AVRO_SCHEMA_STRUCT_OUTPUT ${CMAKE_BINARY_DIR}/metrics_schema_struct.hpp)
+add_custom_command(
+  OUTPUT ${AVRO_SCHEMA_STRUCT_OUTPUT}
+  COMMAND ${avrogencpp_EXECUTABLE} -i ${AVRO_SCHEMA_INPUT} -n metrics_schema -o ${AVRO_SCHEMA_STRUCT_OUTPUT}
+  DEPENDS ext_avro
+  COMMENT "Generating metrics schema Struct header")
+add_custom_target(generate-avro-structs
+  DEPENDS ${AVRO_SCHEMA_STRUCT_OUTPUT} ${AVRO_SCHEMA_INPUT})
+add_dependencies(metrics-module generate-avro-structs)
+# generate avro schema json:
+set(AVRO_SCHEMA_JSON_OUTPUT ${CMAKE_BINARY_DIR}/metrics_schema_json.hpp)
+add_custom_command(
+  OUTPUT ${AVRO_SCHEMA_JSON_OUTPUT}
+  COMMAND sh ${CMAKE_SOURCE_DIR}/generate_metrics_schema_json.sh ${AVRO_SCHEMA_INPUT} ${AVRO_SCHEMA_JSON_OUTPUT}
+  DEPENDS ext_avro
+  COMMENT "Generating metrics schema JSON header")
+add_custom_target(generate-avro-json
+  DEPENDS ${AVRO_SCHEMA_JSON_OUTPUT} ${AVRO_SCHEMA_INPUT})
+add_dependencies(metrics-module generate-avro-json)
 
 install(TARGETS metrics-module
   RUNTIME DESTINATION bin

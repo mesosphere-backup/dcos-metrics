@@ -21,7 +21,7 @@ endif()
 ExternalProject_Add(
   ext_protobuf
   URL ${PROTOBUF_TGZ}
-  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/protobuf
+  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ext_protobuf
   CONFIGURE_COMMAND ""
   BUILD_COMMAND ""
   INSTALL_COMMAND ""

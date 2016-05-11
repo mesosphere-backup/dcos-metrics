@@ -22,6 +22,8 @@ Once mesos is built, you can build the module code.
 ```
 host:dcos-stats/module$ sudo apt-get install \
   build-essential cmake libasio-dev libboost-system-dev libgoogle-glog-dev
+host:dcos-stats/module$ sudo apt-get install \
+  libboost-filesystem-dev libboost-program-options-dev # needed by avro library
 host:dcos-stats/module$ mkdir -p build; cd build
 host:dcos-stats/module/build$ cmake -Dmesos_VERSION=0.26.0 .. # match version passed to get-mesos.sh
 host:dcos-stats/module/build$ make -j4
