@@ -106,7 +106,7 @@ If the Kafka framework isn't reachable (not deployed yet? wrong name passed to `
 
 Once `sample-producer` is up and running, the data it's producing may be viewed by running this task (see `stdout` once it's launched):
 
-```
+```json
 {
   "id": "sample-consumer",
   "cmd": "JAVA_HOME=./jre* ./kafka_2.10-0.9.0.1/bin/kafka-console-consumer.sh --topic sample_metrics --zookeeper master.mesos:2181/kafka",
