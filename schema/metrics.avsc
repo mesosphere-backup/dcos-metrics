@@ -14,7 +14,7 @@
             "type": "array",
             "items": {
                 "name": "Tag",
-                "doc": "A tag label associated with a MetricList.",
+                "doc": "Metadatum associated with a list of Datapoints",
                 "type": "record",
                 "namespace": "dcos.metrics",
                 "fields": [ {
@@ -27,12 +27,12 @@
             }
         }
     }, {
-        "name": "metrics",
+        "name": "datapoints",
         "type": {
             "type": "array",
             "items": {
-                "name": "Metric",
-                "doc": "A named record containing one or more timed Datapoints.",
+                "name": "Datapoint",
+                "doc": "A named record containing a floating point value associated with a timestamp.",
                 "type": "record",
                 "namespace": "dcos.metrics",
                 "fields": [ {
@@ -40,25 +40,14 @@
                     "doc": "User-visible label associated with these datapoints, which is unique per topic",
                     "type": "string"
                 }, {
-                    "name": "datapoints",
-                    "type": {
-                        "type": "array",
-                        "items": {
-                            "name": "Datapoint",
-                            "doc": "A floating point value associated with a timestamp.",
-                            "type": "record",
-                            "namespace": "dcos.metrics",
-                            "fields": [ {
-                                "name": "time",
-                                "logicalType": "timestamp-millis",
-                                "type": "long"
-                            }, {
-                                "name": "value",
-                                "doc": "A floating point value.",
-                                "type": "double"
-                            } ]
-                        }
-                    }
+                    "name": "time",
+                    "doc": "Time that the event occurred, in milliseconds from the epoch (see logicalType)",
+                    "logicalType": "timestamp-millis",
+                    "type": "long"
+                }, {
+                    "name": "value",
+                    "doc": "A floating point value.",
+                    "type": "double"
                 } ]
             }
         }

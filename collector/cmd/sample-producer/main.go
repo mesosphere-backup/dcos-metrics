@@ -35,9 +35,6 @@ var (
 	metricListNamespace = goavro.RecordEnclosingNamespace(metrics_schema.MetricListNamespace)
 	metricListSchema    = goavro.RecordSchema(metrics_schema.MetricListSchema)
 
-	metricNamespace = goavro.RecordEnclosingNamespace(metrics_schema.MetricNamespace)
-	metricSchema    = goavro.RecordSchema(metrics_schema.MetricSchema)
-
 	tagNamespace = goavro.RecordEnclosingNamespace(metrics_schema.TagNamespace)
 	tagSchema    = goavro.RecordSchema(metrics_schema.TagSchema)
 )
@@ -79,7 +76,7 @@ func convertJsonStatistics(rawJson []byte) (recs []*goavro.Record, err error) {
 			log.Fatal("Failed to create MetricsList record: ", err)
 		}
 		tags := make([]interface{}, 0)
-		metrics := make([]interface{}, 0)
+		datapoints := make([]interface{}, 0)
 		for entrykey, entryval := range container.Map() {
 			// try as string
 			strval, err := entryval.String()
@@ -113,6 +110,7 @@ func convertJsonStatistics(rawJson []byte) (recs []*goavro.Record, err error) {
 					continue // avoid being too redundant
 				}
 				datapoint, err := goavro.NewRecord(datapointNamespace, datapointSchema)
+				datapoint.Set("name", key)
 				if err != nil {
 					log.Fatalf("Failed to create Datapoint record for value %s: %s", key, err)
 				}
@@ -123,11 +121,7 @@ func convertJsonStatistics(rawJson []byte) (recs []*goavro.Record, err error) {
 					continue
 				}
 				datapoint.Set("value", floatVal)
-
-				metric, err := goavro.NewRecord(metricNamespace, metricSchema)
-				metric.Set("name", key)
-				metric.Set("datapoints", []interface{}{datapoint})
-				metrics = append(metrics, metric)
+				datapoints = append(datapoints, datapoint)
 			}
 		}
 		metricListRec, err := goavro.NewRecord(metricListNamespace, metricListSchema)
@@ -136,7 +130,7 @@ func convertJsonStatistics(rawJson []byte) (recs []*goavro.Record, err error) {
 		}
 		metricListRec.Set("topic", *topicFlag)
 		metricListRec.Set("tags", tags)
-		metricListRec.Set("metrics", metrics)
+		metricListRec.Set("datapoints", datapoints)
 		recs[i] = metricListRec
 	}
 	return recs, nil
