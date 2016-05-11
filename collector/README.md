@@ -100,6 +100,23 @@ govendor list
 }
 ```
 
-As `sample-producer` is deployed on every node, each instance should automatically start forwarding stats from `http://<local-agent-ip>:5051/monitor/statistics.json` to the brokers it got from querying the Kafka Scheduler.
+As `sample-producer` is deployed on every node, each instance should automatically start forwarding stats from `http://<local-agent-ip>:5051/monitor/statistics.json` to the brokers it got from querying the Kafka Scheduler. Once all nodes have been filled, the Marathon task will enter a `Waiting` state, but all nodes will have a running copy at this point.
 
 If the Kafka framework isn't reachable (not deployed yet? wrong name passed to `-framework` arg?), then `sample-producer` will loop until it comes up (complaining to `stderr` every few seconds).
+
+Once `sample-producer` is up and running, the data it's producing may be viewed by running this task (see `stdout` once it's launched):
+
+```json
+{
+  "id": "sample-consumer",
+  "cmd": "JAVA_HOME=./jre* ./kafka_2.10-0.9.0.1/bin/kafka-console-consumer.sh --topic sample_metrics --zookeeper master.mesos:2181/kafka",
+  "cpus": 1,
+  "mem": 512,
+  "disk": 0,
+  "instances": 1,
+  "uris": [
+    "https://s3.amazonaws.com/downloads.mesosphere.io/kafka/assets/kafka_2.10-0.9.0.1.tgz",
+    "https://s3.amazonaws.com/downloads.mesosphere.io/kafka/assets/jre-8u72-linux-x64.tar.gz"
+  ]
+}
+```
