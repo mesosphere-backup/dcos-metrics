@@ -60,17 +60,25 @@ namespace metrics {
     const std::string OUTPUT_COLLECTOR_ENABLED = "output_collector_enabled";
     const bool OUTPUT_COLLECTOR_ENABLED_DEFAULT = true;
 
-    const std::string OUTPUT_COLLECTOR_HOST = "output_collector_host";
-    const std::string OUTPUT_COLLECTOR_HOST_DEFAULT = "127.0.0.1";
-
-    // The period in seconds between host resolutions. Automatically detects changes in DNS records,
-    // with automatic selection of a random A record if multiple entries are configured.
-    const std::string OUTPUT_COLLECTOR_HOST_REFRESH_SECONDS = "output_collector_host_refresh_seconds";
-    const size_t OUTPUT_COLLECTOR_HOST_REFRESH_SECONDS_DEFAULT = 60;
+    // DNS lookup for the collector endpoint is unsupported.
+    const std::string OUTPUT_COLLECTOR_IP = "output_collector_ip";
+    const std::string OUTPUT_COLLECTOR_IP_DEFAULT = "127.0.0.1";
 
     // The TCP port to send to.
     const std::string OUTPUT_COLLECTOR_PORT = "output_collector_port";
     const size_t OUTPUT_COLLECTOR_PORT_DEFAULT = 8124;
+
+    // Whether to group output metrics into a smaller number of packets.
+    const std::string OUTPUT_COLLECTOR_CHUNKING = "output_collector_chunking";
+    const bool OUTPUT_COLLECTOR_CHUNKING_DEFAULT = true;
+
+    // The number of datapoints to accumulate in a chunk.
+    const std::string OUTPUT_COLLECTOR_CHUNK_SIZE_DATAPOINTS = "output_collector_chunk_size_datapoints";
+    const int OUTPUT_COLLECTOR_CHUNK_SIZE_DATAPOINTS_DEFAULT = 100;
+
+    // The maximum period to wait before sending values accumulated in a chunk.
+    const std::string OUTPUT_COLLECTOR_CHUNK_TIMEOUT_SECONDS = "output_collector_chunk_timeout_seconds";
+    const int OUTPUT_COLLECTOR_CHUNK_TIMEOUT_SECONDS_DEFAULT = 15;
 
     /**
      * StatsD output settings
@@ -107,6 +115,9 @@ namespace metrics {
     // The MTU to enforce for chunked packets.
     const std::string OUTPUT_STATSD_CHUNK_SIZE_BYTES = "output_statsd_chunk_size_bytes";
     const int OUTPUT_STATSD_CHUNK_SIZE_BYTES_DEFAULT = 512;
+
+    // NOTE: We intentionally do not have a setting for 'output_statsd_chunk_timeout_seconds' here.
+    // Statsd data is fairly time-sensitive, so we always sit on statsd data for *at most* 1s before sending it.
 
     /**
      * Container cache settings

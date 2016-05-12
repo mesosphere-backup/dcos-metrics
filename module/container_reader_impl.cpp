@@ -155,8 +155,7 @@ void metrics::ContainerReaderImpl::recv_cb(
     // Single entry. Pass buffer directly.
     write_message(socket_buffer.data(), bytes_transferred);
   } else {
-    // Multiple newline-separated entries.
-    // Copy each entry into the scratch buffer, tagging and passing each line separately.
+    // Multiple newline-separated entries. Pass each from buffer as separate messages.
     size_t start_index = 0;
     for (;;) {
       size_t newline_offset = (next_newline != NULL)
@@ -171,7 +170,7 @@ void metrics::ContainerReaderImpl::recv_cb(
       }
       start_index = start_index + entry_size + 1; // pass over newline itself
       if (start_index >= bytes_transferred) {
-        break;
+        break; // seeked to end of received data
       }
       next_newline =
         (char*) memchr(socket_buffer.data() + start_index, '\n', bytes_transferred - start_index);

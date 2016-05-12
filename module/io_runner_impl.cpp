@@ -7,7 +7,7 @@
 
 #include <glog/logging.h>
 
-//#include "collector_output_writer.hpp"
+#include "collector_output_writer.hpp"
 #include "container_reader_impl.hpp"
 #include "statsd_output_writer.hpp"
 
@@ -39,13 +39,11 @@ void metrics::IORunnerImpl::init(const mesos::Parameters& parameters) {
     output_writer_ptr_t writer = StatsdOutputWriter::create(io_service, parameters);
     writers.push_back(writer);
   }
-  /* TODO
   if (params::get_bool(
           parameters, params::OUTPUT_COLLECTOR_ENABLED, params::OUTPUT_COLLECTOR_ENABLED_DEFAULT)) {
     output_writer_ptr_t writer = CollectorOutputWriter::create(io_service, parameters);
     writers.push_back(writer);
   }
-  */
   if (writers.empty()) {
     LOG(FATAL) << "At least one writer must be enabled in preferences: "
                << params::OUTPUT_STATSD_ENABLED << " or " << params::OUTPUT_COLLECTOR_ENABLED

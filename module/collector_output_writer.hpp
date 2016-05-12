@@ -2,30 +2,23 @@
 
 #include <boost/asio.hpp>
 
+#include "mesos_hash.hpp"
+#include "metrics_schema_struct.hpp"
 #include "output_writer.hpp"
 #include "params.hpp"
-#include "udp_sender.hpp"
+#include "tcp_sender.hpp"
 
 namespace metrics {
-
-  class StatsdTagger;
-
   /**
-   * A StatsdOutputWriter accepts data from one or more ContainerReaders, then tags and forwards it
+   * A CollectorOutputWriter accepts data from one or more ContainerReaders, then tags and forwards it
    * to an external statsd endpoint. The data may be buffered into chunks before being sent out --
    * statsd supports separating multiple metrics by newlines.
-   * In practice, there is one singleton StatsdOutputWriter instance per mesos-slave.
+   * In practice, there is one singleton CollectorOutputWriter instance per mesos-slave.
    */
-  class StatsdOutputWriter : public OutputWriter {
+  class CollectorOutputWriter : public OutputWriter {
    public:
     /**
-     * Default maximum time to wait before sending a pending chunk.
-     * Statsd messages are time-sensitive so don't sit on them too long, at most a second or so.
-     */
-    const static size_t DEFAULT_CHUNK_TIMEOUT_MS = 1000;
-
-    /**
-     * Creates a StatsdOutputWriter which shares the provided io_service for async operations.
+     * Creates a CollectorOutputWriter which shares the provided io_service for async operations.
      * Additional arguments are exposed here to allow customization in unit tests.
      *
      * start() must be called before write()ing data, or else that data will be lost.
@@ -37,13 +30,13 @@ namespace metrics {
     /**
      * Use create(). This is meant for access by tests.
      */
-    StatsdOutputWriter(
+    CollectorOutputWriter(
         std::shared_ptr<boost::asio::io_service> io_service,
         const mesos::Parameters& parameters,
-        std::shared_ptr<UDPSender> sender,
-        size_t chunk_timeout_ms_for_tests = DEFAULT_CHUNK_TIMEOUT_MS);
+        std::shared_ptr<TCPSender> sender,
+        size_t chunk_timeout_ms_for_tests = 0 /* default = use params setting (secs) */);
 
-    virtual ~StatsdOutputWriter();
+    virtual ~CollectorOutputWriter();
 
     /**
      * Starts internal timers for flushing data and refreshing the host.
@@ -63,21 +56,24 @@ namespace metrics {
 
    private:
     void start_chunk_flush_timer();
+    void flush();
     void chunk_flush_cb(boost::system::error_code ec);
 
     void shutdown_cb();
 
     const bool chunking;
-    const size_t chunk_capacity;
     const size_t chunk_timeout_ms;
+    const size_t datapoint_capacity;
+    size_t datapoint_count;
+
+    container_id_map<metrics_schema::MetricList> container_map; // unused when chunking
+    metrics_schema::MetricList metric_list; // chunking: container resources, non-chunking: all
 
     std::shared_ptr<boost::asio::io_service> io_service;
     boost::asio::deadline_timer flush_timer;
-    char* output_buffer;
-    size_t chunk_used;
+    std::string output_buffer;
 
-    std::shared_ptr<UDPSender> sender;
-    std::shared_ptr<StatsdTagger> tagger;
+    std::shared_ptr<TCPSender> sender;
   };
 
 }

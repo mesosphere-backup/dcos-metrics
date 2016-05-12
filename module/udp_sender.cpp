@@ -1,11 +1,10 @@
-#include "socket_sender.hpp"
+#include "udp_sender.hpp"
 
 #include <glog/logging.h>
 
 #include "sync_util.hpp"
 
-template <typename AsioProtocol>
-metrics::SocketSender<AsioProtocol>::SocketSender(
+metrics::UDPSender::UDPSender(
     std::shared_ptr<boost::asio::io_service> io_service,
     const std::string& host,
     size_t port,
@@ -17,48 +16,23 @@ metrics::SocketSender<AsioProtocol>::SocketSender(
     resolve_timer(*io_service),
     socket(*io_service),
     dropped_bytes(0) {
-  LOG(INFO) << "SocketSender constructed for " << send_host << ":" << send_port;
+  LOG(INFO) << "UDPSender constructed for " << send_host << ":" << send_port;
   if (resolve_period_ms == 0) {
     LOG(FATAL) << "Invalid " << params::OUTPUT_STATSD_HOST_REFRESH_SECONDS << " value: must be non-zero";
   }
 }
 
-template <typename AsioProtocol>
-metrics::SocketSender<AsioProtocol>::~SocketSender() {
+metrics::UDPSender::~UDPSender() {
   shutdown();
 }
 
-template <typename AsioProtocol>
-void metrics::SocketSender<AsioProtocol>::start() {
+void metrics::UDPSender::start() {
   // Only run the timer callbacks within the io_service thread:
-  LOG(INFO) << "SocketSender starting work";
-  io_service->dispatch(std::bind(&SocketSender<AsioProtocol>::dest_resolve_cb, this, boost::system::error_code()));
+  LOG(INFO) << "UDPSender starting work";
+  io_service->dispatch(std::bind(&UDPSender::dest_resolve_cb, this, boost::system::error_code()));
 }
 
-template <typename AsioProtocol>
-void metrics::SocketSender<AsioProtocol>::send(const char* /*bytes*/, size_t /*size*/) {
-  DLOG(FATAL) << "send() function not implemented";
-}
-
-template <>
-void metrics::SocketSender<boost::asio::ip::tcp>::send(const char* /*bytes*/, size_t size) {
-  if (size == 0) {
-    //DLOG(INFO) << "Skipping scheduled send of zero bytes";
-    return;
-  }
-
-  if (!socket.is_open()) {
-    // Log dropped data for periodic cumulative reporting in the resolve callback
-    dropped_bytes += size;
-    return;
-  }
-
-  DLOG(INFO) << "Send " << size << " bytes to " << send_host << ":" << send_port;
-  //TODO tcp version of send
-}
-
-template <>
-void metrics::SocketSender<boost::asio::ip::udp>::send(const char* bytes, size_t size) {
+void metrics::UDPSender::send(const char* bytes, size_t size) {
   if (size == 0) {
     //DLOG(INFO) << "Skipping scheduled send of zero bytes";
     return;
@@ -75,59 +49,57 @@ void metrics::SocketSender<boost::asio::ip::udp>::send(const char* bytes, size_t
   size_t sent = socket.send_to(boost::asio::buffer(bytes, size), current_endpoint, 0 /* flags */, ec);
   if (ec) {
     LOG(ERROR) << "Failed to send " << size << " bytes of data to ["
-               << send_host << ":" << send_port << "] err=" << ec;
+               << send_host << ":" << send_port << "] "
+               << "err='" << ec.message() << "'(" << ec << ")";
   }
   if (sent != size) {
     LOG(WARNING) << "Sent size=" << sent << " doesn't match requested size=" << size;
   }
 }
 
-template <typename AsioProtocol>
-typename AsioProtocol::resolver::iterator metrics::SocketSender<AsioProtocol>::resolve(
+boost::asio::ip::udp::resolver::iterator metrics::UDPSender::resolve(
     boost::system::error_code& ec) {
-  typename AsioProtocol::resolver resolver(*io_service);
-  return resolver.resolve(typename AsioProtocol::resolver::query(send_host, ""), ec);
+  boost::asio::ip::udp::resolver resolver(*io_service);
+  return resolver.resolve(boost::asio::ip::udp::resolver::query(send_host, ""), ec);
 }
 
-template <typename AsioProtocol>
-void metrics::SocketSender<AsioProtocol>::shutdown() {
-  LOG(INFO) << "Asynchronously triggering SocketSender shutdown for "
+void metrics::UDPSender::shutdown() {
+  LOG(INFO) << "Asynchronously triggering UDPSender shutdown for "
             << send_host << ":" << send_port;
   // Run the shutdown work itself from within the scheduler:
   if (sync_util::dispatch_run(
-          "~SocketSender", *io_service, std::bind(&SocketSender<AsioProtocol>::shutdown_cb, this))) {
-    LOG(INFO) << "SocketSender shutdown succeeded";
+          "~UDPSender", *io_service, std::bind(&UDPSender::shutdown_cb, this))) {
+    LOG(INFO) << "UDPSender shutdown succeeded";
   } else {
-    LOG(ERROR) << "Failed to complete SocketSender shutdown for " << send_host << ":" << send_port;
+    LOG(ERROR) << "Failed to complete UDPSender shutdown for " << send_host << ":" << send_port;
   }
 }
 
-template <typename AsioProtocol>
-void metrics::SocketSender<AsioProtocol>::start_dest_resolve_timer() {
+void metrics::UDPSender::start_dest_resolve_timer() {
   resolve_timer.expires_from_now(boost::posix_time::milliseconds(resolve_period_ms));
-  resolve_timer.async_wait(std::bind(&SocketSender<AsioProtocol>::dest_resolve_cb, this, std::placeholders::_1));
+  resolve_timer.async_wait(std::bind(&UDPSender::dest_resolve_cb, this, std::placeholders::_1));
 }
 
-template <typename AsioProtocol>
-void metrics::SocketSender<AsioProtocol>::dest_resolve_cb(boost::system::error_code ec) {
+void metrics::UDPSender::dest_resolve_cb(boost::system::error_code ec) {
   if (ec) {
     if (boost::asio::error::operation_aborted) {
       // We're being destroyed. Don't look at local state, it may be destroyed already.
       LOG(WARNING) << "Resolve timer aborted: Exiting loop immediately";
       return;
     } else {
-      LOG(ERROR) << "Resolve timer returned error. err=" << ec;
+      LOG(ERROR) << "Resolve timer returned error. "
+                 << "err='" << ec.message() << "'(" << ec << ")";
     }
   }
 
   // Warn periodically when data is being dropped due to lack of outgoing connection
   if (dropped_bytes > 0) {
     LOG(WARNING) << "Recently dropped " << dropped_bytes
-                 << " bytes due to lack of open writer socket to host[" << send_host << "]";
+                 << " bytes due to lack of open statsd socket to host[" << send_host << "]";
     dropped_bytes = 0;
   }
 
-  typename udp_resolver_t::iterator iter = resolve(ec);
+  udp_resolver_t::iterator iter = resolve(ec);
   boost::asio::ip::address selected_address;
   if (ec) {
     // dns lookup failed, fall back to parsing the host string as a literal ip
@@ -140,20 +112,22 @@ void metrics::SocketSender<AsioProtocol>::dest_resolve_cb(boost::system::error_c
         LOG(ERROR) << "Error when resolving host[" << send_host << "]. "
                    << "Sending data to old endpoint[" << current_endpoint << "] "
                    << "and trying again in " << resolve_period_ms / 1000. << " seconds. "
-                   << "err=" << ec << ", err2=" << ec2;
+                   << "err='" << ec.message() << "'(" << ec << "),"
+                   << "err2='" << ec2.message() << "'(" << ec2 << ")";
       } else {
         // Log as warning: User may not have brought up their metrics service yet.
         LOG(WARNING) << "Error when resolving host[" << send_host << "]. "
                      << "Dropping data and trying again in "
                      << resolve_period_ms / 1000. << " seconds. "
-                     << "err=" << ec << ", err2=" << ec2;
+                     << "err='" << ec.message() << "'(" << ec << "),"
+                     << "err2='" << ec2.message() << "'(" << ec2 << ")";
       }
       start_dest_resolve_timer();
       return;
     }
     // parsing the host as a literal ip succeeded. skip random address selection below since we only
     // have a single entry anyway.
-  } else if (iter == typename udp_resolver_t::iterator()) {
+  } else if (iter == udp_resolver_t::iterator()) {
     // dns lookup had no results, fall back to parsing the host string as a literal ip
     selected_address = boost::asio::ip::address::from_string(send_host, ec);
     if (ec) {
@@ -163,13 +137,13 @@ void metrics::SocketSender<AsioProtocol>::dest_resolve_cb(boost::system::error_c
         LOG(ERROR) << "No results when resolving host[" << send_host << "]. "
                    << "Sending data to old endpoint[" << current_endpoint << "] "
                    << "and trying again in " << resolve_period_ms / 1000. << " seconds. "
-                   << "err=" << ec;
+                   << "err='" << ec.message() << "'(" << ec << ")";
       } else {
         // Log as warning: User may not have brought up their metrics service yet.
         LOG(WARNING) << "No results when resolving host[" << send_host << "]. "
                      << "Dropping data and trying again in "
                      << resolve_period_ms / 1000. << " seconds. "
-                     << "err=" << ec;
+                     << "err='" << ec.message() << "'(" << ec << ")";
       }
       start_dest_resolve_timer();
       return;
@@ -182,7 +156,7 @@ void metrics::SocketSender<AsioProtocol>::dest_resolve_cb(boost::system::error_c
     // any randomized ordering produced by the dns server, only changing our destination endpoint
     // if the list changes beyond superficial reordering.
     std::multiset<boost::asio::ip::address> sorted_resolved_addresses;
-    for (; iter != typename udp_resolver_t::iterator(); ++iter) {
+    for (; iter != udp_resolver_t::iterator(); ++iter) {
       sorted_resolved_addresses.insert(iter->endpoint().address());
     }
     if (sorted_resolved_addresses == last_resolved_addresses) {
@@ -229,35 +203,36 @@ void metrics::SocketSender<AsioProtocol>::dest_resolve_cb(boost::system::error_c
     if (ec) {
       LOG(ERROR) << "Failed to close writer socket for move from "
                  << "old_endpoint[" << current_endpoint << "] to "
-                 << "new_endpoint[" << new_endpoint << "] err=" << ec;
+                 << "new_endpoint[" << new_endpoint << "] "
+                 << "err='" << ec.message() << "'(" << ec << ")";
     }
   }
   socket.open(new_endpoint.protocol(), ec);
   if (ec) {
-    LOG(ERROR) << "Failed to open writer socket to endpoint[" << new_endpoint << "] err=" << ec;
+    LOG(ERROR) << "Failed to open writer socket to endpoint[" << new_endpoint << "] "
+               << "err='" << ec.message() << "'(" << ec << ")";
   } else {
     LOG(INFO) << "Updated dest endpoint[" << current_endpoint << "] to endpoint[" << new_endpoint << "]";
     current_endpoint = new_endpoint;
+    //TODO hook for session init?
   }
   start_dest_resolve_timer();
 }
 
-template <typename AsioProtocol>
-void metrics::SocketSender<AsioProtocol>::shutdown_cb() {
+void metrics::UDPSender::shutdown_cb() {
   boost::system::error_code ec;
 
   resolve_timer.cancel(ec);
   if (ec) {
-    LOG(ERROR) << "Resolve timer cancellation returned error. err=" << ec;
+    LOG(ERROR) << "Resolve timer cancellation returned error. "
+               << "err='" << ec.message() << "'(" << ec << ")";
   }
 
   if (socket.is_open()) {
     socket.close(ec);
     if (ec) {
-      LOG(ERROR) << "Error on writer socket close. err=" << ec;
+      LOG(ERROR) << "Error on writer socket close. "
+                 << "err='" << ec.message() << "'(" << ec << ")";
     }
   }
 }
-
-template class metrics::SocketSender<boost::asio::ip::tcp>;
-template class metrics::SocketSender<boost::asio::ip::udp>;

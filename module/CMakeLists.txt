@@ -156,20 +156,23 @@ if(protobuf_LIBRARY)
 endif()
 
 set(SRCS
-  #collector_output_writer.cpp
+  avro_encoder.cpp
+  collector_output_writer.cpp
   container_assigner.cpp
   container_assigner_strategy.cpp
   container_reader_impl.cpp
   container_state_cache_impl.cpp
   io_runner_impl.cpp
   isolator_module.cpp
+  memnmem.cpp
   module_access_factory.cpp
   params.cpp
   resource_estimator_module.cpp
   sync_util.cpp
-  socket_sender.cpp
   statsd_output_writer.cpp
-  statsd_tagger.cpp)
+  statsd_tagger.cpp
+  tcp_sender.cpp
+  udp_sender.cpp)
 configure_file(
   "${PROJECT_SOURCE_DIR}/modules.json.in"
   "${PROJECT_BINARY_DIR}/modules.json")

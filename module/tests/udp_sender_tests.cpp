@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 
-#include "stub_socket_sender.hpp"
+#include "stub_udp_sender.hpp"
 #include "test_socket.hpp"
 #include "sync_util.hpp"
 
@@ -68,15 +68,14 @@ namespace {
   };
 }
 
-TEST(SocketSenderTests, udp_resolve_fails_data_dropped) {
+TEST(UDPSenderTests, udp_resolve_fails_data_dropped) {
   TestReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
   {
-    StubSocketSender<boost::asio::ip::udp>::ptr_t sender =
-      StubSocketSender<boost::asio::ip::udp>::error(
-          thread.svc(), listen_port, boost::asio::error::netdb_errors::host_not_found);
+    StubUDPSender::ptr_t sender = StubUDPSender::error(
+        thread.svc(), listen_port, boost::asio::error::netdb_errors::host_not_found);
     sender->start();
 
     metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
@@ -98,15 +97,14 @@ TEST(SocketSenderTests, udp_resolve_fails_data_dropped) {
   EXPECT_FALSE(test_reader.available());
 }
 
-TEST(SocketSenderTests, udp_resolve_empty_data_dropped) {
+TEST(UDPSenderTests, udp_resolve_empty_data_dropped) {
   TestReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
   {
-    StubSocketSender<boost::asio::ip::udp>::ptr_t sender =
-      StubSocketSender<boost::asio::ip::udp>::custom_success(
-          thread.svc(), listen_port, std::vector<boost::asio::ip::udp::endpoint>());
+    StubUDPSender::ptr_t sender = StubUDPSender::custom_success(
+        thread.svc(), listen_port, std::vector<boost::asio::ip::udp::endpoint>());
     sender->start();
 
     metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
@@ -128,7 +126,7 @@ TEST(SocketSenderTests, udp_resolve_empty_data_dropped) {
   EXPECT_FALSE(test_reader.available());
 }
 
-TEST(SocketSenderTests, udp_resolve_reshuffle_data_sent_single_destination) {
+TEST(UDPSenderTests, udp_resolve_reshuffle_data_sent_single_destination) {
   TestReadSocket test_reader4, test_reader6;
   size_t listen_port = test_reader4.listen(DEST_LOCAL_ENDPOINT.address(), 0);
   size_t listen_port6 = test_reader6.listen(DEST_LOCAL_ENDPOINT6.address(), listen_port);
@@ -143,9 +141,8 @@ TEST(SocketSenderTests, udp_resolve_reshuffle_data_sent_single_destination) {
     endpoints.push_back(DEST_LOCAL_ENDPOINT6);
     endpoints.push_back(DEST_LOCAL_ENDPOINT);
     endpoints.push_back(DEST_LOCAL_ENDPOINT6);
-    StubSocketSender<boost::asio::ip::udp>::ptr_t sender =
-      StubSocketSender<boost::asio::ip::udp>::custom_success(
-          thread.svc(), listen_port, endpoints);
+    StubUDPSender::ptr_t sender = StubUDPSender::custom_success(
+        thread.svc(), listen_port, endpoints);
     sender->start();
 
     // flush a bunch to ensure resolve code is exercised between writes:

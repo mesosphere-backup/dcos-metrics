@@ -1,7 +1,7 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
-#include "statsd_tagger.cpp" // allow testing of replace_all() and memnmem()
+#include "statsd_tagger.cpp" // allow testing of replace_all()
 
 namespace {
   const char FIND = '.', REPLACE = '_';
@@ -548,39 +548,6 @@ TEST(TaggerTests, datadog_corner_cases_with_container) {
 }
 
 //---
-
-TEST(TaggerTests, memnmem) {
-  EXPECT_EQ(NULL, memnmem_imp((char*) empty.data(), empty.size(), empty.data(), empty.size()));
-  EXPECT_EQ(NULL, memnmem_imp((char*) hi.data(), hi.size(), empty.data(), empty.size()));
-  EXPECT_EQ(NULL, memnmem_imp((char*) empty.data(), empty.size(), hi.data(), hi.size()));
-  EXPECT_EQ(NULL, memnmem_imp((char*) hey.data(), hey.size(), hi.data(), hi.size()));
-  EXPECT_EQ(NULL, memnmem_imp((char*) hello.data(), hello.size(), hey.data(), hey.size()));
-  EXPECT_EQ(NULL, memnmem_imp((char*) hey.data(), hey.size(), hi.data(), hi.size()));
-  EXPECT_EQ(NULL, memnmem_imp((char*) hey.data(), hey.size(), hello.data(), hello.size()));
-  EXPECT_EQ(NULL, memnmem_imp((char*) hi.data(), hi.size(), hey.data(), hey.size()));
-  EXPECT_EQ(hi.data(), memnmem_imp((char*) hi.data(), hi.size(), hi.data(), hi.size()));
-  EXPECT_EQ(hey.data(), memnmem_imp((char*) hey.data(), hey.size(), hey.data(), hey.size()));
-  EXPECT_EQ(hello.data(),
-      memnmem_imp((char*) hello.data(), hello.size(), hello.data(), hello.size()));
-  std::string hihey("hihey"), heyhello("heyhello");
-  EXPECT_EQ(hihey.data(), memnmem_imp((char*) hihey.data(), hihey.size(), hi.data(), hi.size()));
-  EXPECT_STREQ(hey.data(), memnmem_imp((char*) hihey.data(), hihey.size(), hey.data(), hey.size()));
-  EXPECT_EQ(heyhello.data(),
-      memnmem_imp((char*) heyhello.data(), heyhello.size(), hey.data(), hey.size()));
-  EXPECT_STREQ(hello.data(),
-      memnmem_imp((char*) heyhello.data(), heyhello.size(), hello.data(), hello.size()));
-  std::string h("h"), hhiheyhello("hhiheyhello"), hiheyhello("hiheyhello");
-  EXPECT_EQ(hhiheyhello.data(),
-      memnmem_imp((char*) hhiheyhello.data(), hhiheyhello.size(), h.data(), h.size()));
-  EXPECT_STREQ(hiheyhello.data(),
-      memnmem_imp((char*) hhiheyhello.data(), hhiheyhello.size(), hi.data(), hi.size()));
-  EXPECT_STREQ(heyhello.data(),
-      memnmem_imp((char*) hhiheyhello.data(), hhiheyhello.size(), hey.data(), hey.size()));
-  EXPECT_STREQ(hello.data(),
-      memnmem_imp((char*) hhiheyhello.data(), hhiheyhello.size(), hello.data(), hello.size()));
-  EXPECT_STREQ(heyhello.data(),
-      memnmem_imp((char*) hhiheyhello.data(), hhiheyhello.size(), heyhello.data(), heyhello.size()));
-}
 
 TEST(TaggerTests, replace_all) {
   test_replace_all("", "");

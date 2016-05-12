@@ -5,7 +5,7 @@
 #include <gtest/gtest.h>
 
 #include "statsd_output_writer.hpp"
-#include "stub_socket_sender.hpp"
+#include "stub_udp_sender.hpp"
 #include "sync_util.hpp"
 #include "test_socket.hpp"
 
@@ -117,7 +117,7 @@ TEST(StatsdOutputWriterTests, chunking_off) {
     metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
             thread.svc(),
             build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX),
-            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port)));
+            StubUDPSender::success(thread.svc(), listen_port)));
     writer->start();
 
     // value is dropped because we didn't give writer a chance to resolve the host:
@@ -146,7 +146,7 @@ TEST(StatsdOutputWriterTests, chunking_on_flush_when_full) {
     metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
             thread.svc(),
             build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_TAG_DATADOG, 150 /* chunk_size */),
-            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port),
+            StubUDPSender::success(thread.svc(), listen_port),
             9999999 /* chunk_timeout_ms */));
     writer->start();
 
@@ -176,7 +176,7 @@ TEST(StatsdOutputWriterTests, chunking_on_flush_timer) {
     metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
             thread.svc(),
             build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX, 100 /* chunk_size */),
-            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port),
+            StubUDPSender::success(thread.svc(), listen_port),
             1 /* chunk_timeout_ms */));
     writer->start();
 
@@ -205,7 +205,7 @@ TEST(StatsdOutputWriterTests, chunked_annotations_off) {
     metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
             thread.svc(),
             build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_NONE, 100 /* chunk_size */),
-            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port),
+            StubUDPSender::success(thread.svc(), listen_port),
             1 /* chunk_timeout_ms */));
     writer->start();
     // let resolve finish before sending data:
@@ -229,7 +229,7 @@ TEST(StatsdOutputWriterTests, chunked_datadog_annotations_no_containerinfo) {
     metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
             thread.svc(),
             build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_TAG_DATADOG, 100 /* chunk_size */),
-            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port),
+            StubUDPSender::success(thread.svc(), listen_port),
             1 /* chunk_timeout_ms */));
     writer->start();
     // let resolve finish before sending data:
@@ -252,7 +252,7 @@ TEST(StatsdOutputWriterTests, chunked_datadog_annotations) {
     metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
             thread.svc(),
             build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_TAG_DATADOG, 150 /* chunk_size */),
-            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port),
+            StubUDPSender::success(thread.svc(), listen_port),
             1 /* chunk_timeout_ms */));
     writer->start();
     // let resolve finish before sending data:
@@ -279,7 +279,7 @@ TEST(StatsdOutputWriterTests, datadog_annotations_tagged_input) {
     metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
             thread.svc(),
             build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_TAG_DATADOG),
-            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port)));
+            StubUDPSender::success(thread.svc(), listen_port)));
     writer->start();
     // let resolve finish before sending data:
     metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
@@ -309,7 +309,7 @@ TEST(StatsdOutputWriterTests, chunked_datadog_annotations_tagged_input) {
     metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
             thread.svc(),
             build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_TAG_DATADOG, 150 /* chunk_size */),
-            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port),
+            StubUDPSender::success(thread.svc(), listen_port),
             1 /* chunk_timeout_ms */));
     writer->start();
     // let resolve finish before sending data:
@@ -338,7 +338,7 @@ TEST(StatsdOutputWriterTests, prefix_annotations_no_containerinfo) {
     metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
             thread.svc(),
             build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX),
-            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port)));
+            StubUDPSender::success(thread.svc(), listen_port)));
     writer->start();
     // let resolve finish before sending data:
     metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
@@ -362,7 +362,7 @@ TEST(StatsdOutputWriterTests, prefix_annotations) {
     metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
             thread.svc(),
             build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX),
-            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port)));
+            StubUDPSender::success(thread.svc(), listen_port)));
     writer->start();
     // let resolve finish before sending data:
     metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
@@ -388,7 +388,7 @@ TEST(StatsdOutputWriterTests, chunked_prefix_annotations_tagged_input) {
     metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
             thread.svc(),
             build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX, 150 /* chunk_size */),
-            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port),
+            StubUDPSender::success(thread.svc(), listen_port),
             1 /* chunk_timeout_ms */));
     writer->start();
     // let resolve finish before sending data:
@@ -417,7 +417,7 @@ TEST(StatsdOutputWriterTests, prefix_annotations_tagged_input) {
     metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
             thread.svc(),
             build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX),
-            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port)));
+            StubUDPSender::success(thread.svc(), listen_port)));
     writer->start();
     // let resolve finish before sending data:
     metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);

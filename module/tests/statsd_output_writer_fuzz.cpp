@@ -7,7 +7,7 @@
 #include "sync_util.hpp"
 #include "test_socket.hpp"
 #include "statsd_output_writer.hpp"
-#include "stub_socket_sender.hpp"
+#include "stub_udp_sender.hpp"
 
 namespace {
 
@@ -88,7 +88,7 @@ namespace {
     metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
             thread.svc(),
             build_params(annotation_mode, chunking ? 10 : 0),
-            StubSocketSender<boost::asio::ip::udp>::success(thread.svc(), listen_port),
+            StubUDPSender::success(thread.svc(), listen_port),
             100 /* chunk timeout */));
     writer->start();
 

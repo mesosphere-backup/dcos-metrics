@@ -28,8 +28,7 @@ namespace {
 metrics::output_writer_ptr_t metrics::StatsdOutputWriter::create(
     std::shared_ptr<boost::asio::io_service> io_service,
     const mesos::Parameters& parameters) {
-  std::shared_ptr<SocketSender<boost::asio::ip::udp>> sender(
-      new SocketSender<boost::asio::ip::udp>(
+  std::shared_ptr<UDPSender> sender(new UDPSender(
           io_service,
           params::get_str(parameters, params::OUTPUT_STATSD_HOST, params::OUTPUT_STATSD_HOST_DEFAULT),
           params::get_uint(parameters, params::OUTPUT_STATSD_PORT, params::OUTPUT_STATSD_PORT_DEFAULT),
@@ -41,7 +40,7 @@ metrics::output_writer_ptr_t metrics::StatsdOutputWriter::create(
 metrics::StatsdOutputWriter::StatsdOutputWriter(
     std::shared_ptr<boost::asio::io_service> io_service,
     const mesos::Parameters& parameters,
-    std::shared_ptr<SocketSender<boost::asio::ip::udp>> sender,
+    std::shared_ptr<UDPSender> sender,
     size_t chunk_timeout_ms_for_tests/*=1000*/)
   : chunking(params::get_bool(parameters, params::OUTPUT_STATSD_CHUNKING, params::OUTPUT_STATSD_CHUNKING_DEFAULT)),
     chunk_capacity(get_chunk_size(parameters)),
@@ -169,7 +168,8 @@ void metrics::StatsdOutputWriter::chunk_flush_cb(boost::system::error_code ec) {
       LOG(WARNING) << "Flush timer aborted: Exiting loop immediately";
       return;
     } else {
-      LOG(ERROR) << "Flush timer returned error. err=" << ec;
+      LOG(ERROR) << "Flush timer returned error. "
+                 << "err='" << ec.message() << "'(" << ec << ")";
     }
   }
 
@@ -188,7 +188,8 @@ void metrics::StatsdOutputWriter::shutdown_cb() {
 
   flush_timer.cancel(ec);
   if (ec) {
-    LOG(ERROR) << "Flush timer cancellation returned error. err=" << ec;
+    LOG(ERROR) << "Flush timer cancellation returned error. "
+               << "err='" << ec.message() << "'(" << ec << ")";
   }
 
   free(output_buffer);
