@@ -4,6 +4,8 @@
 
 #include "sync_util.hpp"
 
+namespace sp = std::placeholders;
+
 metrics::TCPSender::TCPSender(
     std::shared_ptr<boost::asio::io_service> io_service,
     const std::string& session_header,
@@ -37,36 +39,40 @@ metrics::TCPSender::~TCPSender() {
 void metrics::TCPSender::start() {
   // Only run the timer callbacks within the io_service thread:
   LOG(INFO) << "TCPSender starting work";
-  io_service->dispatch(std::bind(&TCPSender::report_dropped_cb, this));
-  io_service->dispatch(std::bind(&TCPSender::connect, this));
+  // configure deadline timer, but don't set deadline yet
   connect_deadline_timer.async_wait(std::bind(&TCPSender::connect_deadline_cb, this));
+
+  io_service->dispatch(std::bind(&TCPSender::start_report_dropped_timer, this));
+  io_service->dispatch(std::bind(&TCPSender::start_connect, this));
 }
 
-void metrics::TCPSender::send(const char* bytes, size_t size) {
-  if (size == 0) {
+void metrics::TCPSender::send(std::shared_ptr<boost::asio::streambuf> buf) {
+  if (shutdown || !buf || buf->size() == 0) {
     //DLOG(INFO) << "Skipping scheduled send of zero bytes";
     return;
   }
 
   if (!socket.is_open()) {
     // Log dropped data for periodic cumulative reporting in the resolve callback
-    dropped_bytes += size;
+    dropped_bytes += buf->size();
     return;
   }
 
-  DLOG(INFO) << "Send " << size << " bytes to " << send_ip << ":" << send_port;
+  DLOG(INFO) << "Send " << buf->size() << " bytes to " << send_ip << ":" << send_port;
   boost::asio::async_write(
-      socket,
-      boost::asio::buffer(bytes, size),//TODO add the data to a buffer which is then written
-      std::bind(&TCPSender::send_cb, this, std::placeholders::_1));
+      socket, *buf,
+      std::bind(&TCPSender::send_cb, this, sp::_1, sp::_2, buf));
 }
 
-void metrics::TCPSender::connect() {
+void metrics::TCPSender::start_connect() {
+  if (shutdown) {
+    return;
+  }
   connect_deadline_timer.expires_from_now(boost::posix_time::seconds(60));
-  boost::asio::socket_base::keep_alive keepalive(true);
-  socket.set_option(keepalive);
+  //boost::asio::socket_base::keep_alive keepalive(true);
+  //socket.set_option(keepalive);
   socket.async_connect(endpoint_t(send_ip, send_port),
-      std::bind(&TCPSender::connect_outcome_cb, this, std::placeholders::_1));
+      std::bind(&TCPSender::connect_outcome_cb, this, sp::_1));
 }
 
 void metrics::TCPSender::connect_deadline_cb() {
@@ -87,37 +93,42 @@ void metrics::TCPSender::connect_outcome_cb(boost::system::error_code ec) {
   if (!socket.is_open()) {
     LOG(WARNING) << "Socket not open after connecting to " << send_ip << ":" << send_port << ", "
                  << "retrying...";
-    connect();
+    start_connect();
     return;
   } else if (ec) {
     LOG(WARNING) << "Got error '" << ec.message() << "'(" << ec << ")"
                  << " when connecting to " << send_ip << ":" << send_port << ", retrying...";
     socket.close();
-    connect();
+    start_connect();//TODO delayed trigger?
     return;
   }
-  boost::asio::async_write(
-      socket,
-      boost::asio::buffer(session_header.data(), session_header.size()),
-      std::bind(&TCPSender::send_cb, this, std::placeholders::_1));
+  buf_ptr_t buf(new boost::asio::streambuf);
+  {
+    std::ostream ostream(buf.get());
+    ostream << session_header;
+  }
+  DLOG(INFO) << "Sending session header";
+  send(buf);
 }
 
-void metrics::TCPSender::send_cb(boost::system::error_code ec) {
+void metrics::TCPSender::send_cb(
+    boost::system::error_code ec, size_t bytes_transferred, buf_ptr_t keepalive) {
   if (shutdown) {
     return;
   }
+  keepalive.reset();
   if (!socket.is_open()) {
     LOG(WARNING) << "Socket not open after sending data to " << send_ip << ":" << send_port << ", "
                  << "reconnecting...";
-    connect();
+    start_connect();
   } else if (ec) {
     LOG(WARNING) << "Got error '" << ec.message() << "'(" << ec << ")"
                  << " when sending data to " << send_ip << ":" << send_port << ", reconnecting...";
     socket.close();
-    connect();
+    start_connect();
+  } else {
+    DLOG(INFO) << "Sent " << bytes_transferred << " bytes.";
   }
-
-  //TODO send data, swap buffers, something something
 }
 
 void metrics::TCPSender::shutdown_cb() {
@@ -145,6 +156,9 @@ void metrics::TCPSender::shutdown_cb() {
 }
 
 void metrics::TCPSender::start_report_dropped_timer() {
+  if (shutdown) {
+    return;
+  }
   report_dropped_timer.expires_from_now(boost::posix_time::seconds(60));
   report_dropped_timer.async_wait(std::bind(&TCPSender::report_dropped_cb, this));
 }

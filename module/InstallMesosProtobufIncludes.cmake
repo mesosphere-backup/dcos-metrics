@@ -17,7 +17,7 @@ else()
   message(STATUS "Found Mesos protobuf: ${PROTOBUF_TGZ}")
 endif()
 
-# Download/build protobuf (TODO reuse mesos' build if present)
+# Download/build protobuf (FIXME reuse mesos' build if present?)
 ExternalProject_Add(
   ext_protobuf
   URL ${PROTOBUF_TGZ}

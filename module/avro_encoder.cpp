@@ -45,29 +45,6 @@ namespace {
     map[key] = value_conv;
   }
 
-  void encode_header(avro::Encoder& encoder, avro::OutputStream& out) {
-    MetadataMap metadata_map;
-    set_metadata(metadata_map, AVRO_CODEC_KEY, AVRO_NULL_CODEC);
-
-    LOG(INFO) << "SCHEMA BEGIN\n\n" << metrics_schema::SCHEMA_JSON << "\n\nSCHEMA END";//TODO TEMP
-    avro::ValidSchema schema = avro::compileJsonSchemaFromString(metrics_schema::SCHEMA_JSON);
-    std::ostringstream oss;
-    schema.toJson(oss);
-    LOG(INFO) << "PARSED SCHEMA BEGIN\n\n" << oss.str() << "\n\nPARSED SCHEMA END";//TODO TEMP
-    set_metadata(metadata_map, AVRO_SCHEMA_KEY, oss.str());
-
-    DataFileSync sync;
-    for (size_t i = 0; i < sync.size(); ++i) {
-      sync[i] = random();
-    }
-
-    encoder.init(out);
-    avro::encode(encoder, magic);
-    avro::encode(encoder, metadata_map);
-    avro::encode(encoder, sync);
-    encoder.flush();
-  }
-
   void init_list(
       metrics_schema::MetricList& list,
       const mesos::ContainerID* container_id, const mesos::ExecutorInfo* executor_info) {
@@ -139,60 +116,51 @@ namespace {
 }
 
 std::string metrics::AvroEncoder::header() {
-  std::shared_ptr<avro::OutputStream> outstream(avro::memoryOutputStream());
-  avro::EncoderPtr encoder = avro::binaryEncoder();
-  encode_header(*encoder, *outstream);
-  std::shared_ptr<avro::InputStream> in(avro::memoryInputStream(*outstream));
+  std::ostringstream oss;
 
-  std::string header;
-  const uint8_t* in_data;
-  size_t in_len;
-  while (in->next(&in_data, &in_len)) {
-    header.append((char*)in_data, in_len);
+  {
+    std::shared_ptr<avro::OutputStream> avro_outstream(avro::ostreamOutputStream(oss));
+    avro::EncoderPtr encoder = avro::binaryEncoder();
+    encoder->init(*avro_outstream);
+
+    MetadataMap metadata_map;
+    set_metadata(metadata_map, AVRO_CODEC_KEY, AVRO_NULL_CODEC);
+
+    LOG(INFO) << "SCHEMA BEGIN\n\n" << metrics_schema::SCHEMA_JSON << "\n\nSCHEMA END";//TODO TEMP
+    avro::ValidSchema schema = avro::compileJsonSchemaFromString(metrics_schema::SCHEMA_JSON);
+    std::ostringstream oss;
+    schema.toJson(oss);
+    LOG(INFO) << "PARSED SCHEMA BEGIN\n\n" << oss.str() << "\n\nPARSED SCHEMA END";//TODO TEMP
+    set_metadata(metadata_map, AVRO_SCHEMA_KEY, oss.str());
+
+    DataFileSync sync;
+    for (size_t i = 0; i < sync.size(); ++i) {
+      sync[i] = random();
+    }
+
+    avro::encode(*encoder, magic);
+    avro::encode(*encoder, metadata_map);
+    avro::encode(*encoder, sync);
+    encoder->flush();
   }
-  return header;
+
+  return oss.str();
 }
 
-size_t metrics::AvroEncoder::encode_metrics(
+void metrics::AvroEncoder::encode_metrics(
     const container_id_map<metrics_schema::MetricList>& metric_map,
     const metrics_schema::MetricList& metric_list,
-    char** out) {
-  std::shared_ptr<avro::OutputStream> outstream(avro::memoryOutputStream());
+    std::ostream& ostream) {
+  std::shared_ptr<avro::OutputStream> avro_ostream(avro::ostreamOutputStream(ostream));
   avro::EncoderPtr encoder = avro::binaryEncoder();
-  encode_header(*encoder, *outstream);
+  encoder->init(*avro_ostream);
   for (auto entry : metric_map) {
     avro::encode(*encoder, entry.second);
   }
   if (!metric_list.datapoints.empty()) {
     avro::encode(*encoder, metric_list);
   }
-  //NOTE: instream implementation doesn't copy the stream, however this means that outstream
-  //      MUST STAY IN SCOPE while instream is used
-  std::shared_ptr<avro::InputStream> in(avro::memoryInputStream(*outstream));
-
-  //TODO can we instead stream directly into the socket or something?
-  size_t out_capacity = MALLOC_BLOCK_SIZE;
-  size_t out_used = 0;
-  *out = (char*)malloc(out_capacity);
-
-  const uint8_t* in_data;
-  size_t in_len;
-  while (in->next(&in_data, &in_len)) {
-    while (out_used + in_len > out_capacity) {
-      // increase buffer size to fit input data
-      out_capacity += MALLOC_BLOCK_SIZE;
-      char* check = (char*)realloc(*out, out_capacity);
-      if (check == NULL) {
-        // out of memory, give up
-        free(*out);
-        return 0;
-      }
-      *out = check;
-    }
-    memcpy(*out + out_used, in_data, in_len);
-    out_used += in_len;
-  }
-  return out_used;
+  encoder->flush();
 }
 
 size_t metrics::AvroEncoder::statsd_to_struct(
@@ -220,11 +188,13 @@ size_t metrics::AvroEncoder::statsd_to_struct(
     }
   }
 
+  // Spawn/update a Datapoint directly within the list
   size_t old_size = list_out->datapoints.size();
   list_out->datapoints.resize(old_size + 1);
   metrics_schema::Datapoint& point = list_out->datapoints[old_size];
   point.time = now_in_ms();
   parse_statsd_name_val_tags(data, size, point);
+
   return 1;
 }
 
@@ -233,20 +203,20 @@ size_t metrics::AvroEncoder::statsd_to_struct(
     const char* data, size_t size,
     metrics_schema::MetricList& metric_list) {
   init_list(metric_list, container_id, executor_info);
+
+  // Spawn/update a Datapoint directly within the list
   size_t old_size = metric_list.datapoints.size();
   metric_list.datapoints.resize(old_size + 1);
   metrics_schema::Datapoint& point = metric_list.datapoints[old_size];
   point.time = now_in_ms();
   parse_statsd_name_val_tags(data, size, point);
+
   return 1;
 }
 
 size_t metrics::AvroEncoder::resources_to_struct(
     const mesos::ResourceUsage& usage, metrics_schema::MetricList& metric_list) {
   LOG(INFO) << "Resources:\n" << usage.DebugString();
-  if (metric_list.topic.empty()) {
-    //TODO init topic + tags
-  }
-  //TODO populate metric_list
-  return 0; // TODO return num datapoints added
+  //TODO implement ResourceUsage -> avro
+  return 0;
 }

@@ -214,7 +214,6 @@ void metrics::UDPSender::dest_resolve_cb(boost::system::error_code ec) {
   } else {
     LOG(INFO) << "Updated dest endpoint[" << current_endpoint << "] to endpoint[" << new_endpoint << "]";
     current_endpoint = new_endpoint;
-    //TODO hook for session init?
   }
   start_dest_resolve_timer();
 }

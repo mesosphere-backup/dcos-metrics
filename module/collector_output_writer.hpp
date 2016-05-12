@@ -6,9 +6,10 @@
 #include "metrics_schema_struct.hpp"
 #include "output_writer.hpp"
 #include "params.hpp"
-#include "tcp_sender.hpp"
 
 namespace metrics {
+  class TCPSender;
+
   /**
    * A CollectorOutputWriter accepts data from one or more ContainerReaders, then tags and forwards it
    * to an external statsd endpoint. The data may be buffered into chunks before being sent out --

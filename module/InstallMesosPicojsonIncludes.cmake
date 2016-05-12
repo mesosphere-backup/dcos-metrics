@@ -17,7 +17,7 @@ else()
   message(STATUS "Found Mesos picojson: ${PICOJSON_TGZ}")
 endif()
 
-# Download/build picojson (TODO reuse mesos' build if present)
+# Download/build picojson (FIXME reuse mesos' build if present?)
 ExternalProject_Add(
   ext_picojson
   URL ${PICOJSON_TGZ}

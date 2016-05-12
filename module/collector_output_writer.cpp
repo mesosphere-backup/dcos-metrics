@@ -4,6 +4,7 @@
 
 #include "avro_encoder.hpp"
 #include "sync_util.hpp"
+#include "tcp_sender.hpp"
 
 namespace {
   void clear(metrics_schema::MetricList& metric_list) {
@@ -115,13 +116,15 @@ void metrics::CollectorOutputWriter::flush() {
   if (container_map.empty() && metric_list.datapoints.empty()) {
     return; // nothing to flush
   }
-  char* buf = NULL;
-  size_t buf_len = AvroEncoder::encode_metrics(container_map, metric_list, &buf);
+
+  std::shared_ptr<boost::asio::streambuf> buf(new boost::asio::streambuf);
+  {
+    std::ostream ostream(buf.get());
+    AvroEncoder::encode_metrics(container_map, metric_list, ostream);
+  }
   container_map.clear();
   clear(metric_list);
-
-  sender->send(buf, buf_len);
-  free(buf);
+  sender->send(buf);
 }
 
 void metrics::CollectorOutputWriter::chunk_flush_cb(boost::system::error_code ec) {
