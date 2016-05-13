@@ -66,6 +66,10 @@ add_executable(statsd_output_writer_tests statsd_output_writer_tests.cpp)
 target_link_libraries(statsd_output_writer_tests gtest metrics-module)
 add_test(statsd_output_writer_tests statsd_output_writer_tests)
 
+add_executable(tcp_sender_tests tcp_sender_tests.cpp)
+target_link_libraries(tcp_sender_tests gtest metrics-module)
+add_test(tcp_sender_tests tcp_sender_tests)
+
 add_executable(udp_sender_tests udp_sender_tests.cpp)
 target_link_libraries(udp_sender_tests gtest metrics-module)
 add_test(udp_sender_tests udp_sender_tests)

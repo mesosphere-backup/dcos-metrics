@@ -3,14 +3,12 @@
 #include <boost/asio.hpp>
 #include <glog/logging.h>
 
-#include "udp_endpoint.hpp"
-
-class AbstractTestSocket {
+class AbstractTestUDPSocket {
  public:
-  AbstractTestSocket()
+  AbstractTestUDPSocket()
     : svc(), socket(svc), listener_endpoint() { }
 
-  virtual ~AbstractTestSocket() {
+  virtual ~AbstractTestUDPSocket() {
     socket.close();
   }
 
@@ -24,7 +22,7 @@ class AbstractTestSocket {
 };
 
 
-class TestWriteSocket : public AbstractTestSocket {
+class TestUDPWriteSocket : public AbstractTestUDPSocket {
  public:
   void connect(size_t port) {
     listener_endpoint = boost::asio::ip::udp::endpoint(LOCALHOST, port);
@@ -42,16 +40,16 @@ class TestWriteSocket : public AbstractTestSocket {
 };
 
 
-class TestReadSocket : public AbstractTestSocket {
+class TestUDPReadSocket : public AbstractTestUDPSocket {
  public:
-  TestReadSocket()
-    : AbstractTestSocket(),
+  TestUDPReadSocket()
+    : AbstractTestUDPSocket(),
       timeout_deadline(svc),
       buffer_size(65536) {
     buffer = (char*) malloc(buffer_size);
     check_deadline(); // start timer
   }
-  virtual ~TestReadSocket() {
+  virtual ~TestUDPReadSocket() {
     free(buffer);
   }
 
@@ -64,11 +62,9 @@ class TestReadSocket : public AbstractTestSocket {
       return listener_endpoint.port();
     }
 
-    // Open on random OS-selected port:
     boost::asio::ip::udp::endpoint requested_endpoint(host, port);
     socket.open(requested_endpoint.protocol());
     socket.bind(requested_endpoint);
-    // Get resulting port selected by OS:
     listener_endpoint = socket.local_endpoint();
     LOG(INFO) << "(TEST) Listening on endpoint[" << listener_endpoint << "]";
     return listener_endpoint.port();
@@ -87,7 +83,7 @@ class TestReadSocket : public AbstractTestSocket {
     boost::asio::ip::udp::endpoint sender_endpoint;
     socket.async_receive_from(boost::asio::buffer(buffer, buffer_size),
         sender_endpoint,
-        std::bind(&TestReadSocket::recv_cb, std::placeholders::_1, std::placeholders::_2, &ec, &len));
+        std::bind(&TestUDPReadSocket::recv_cb, std::placeholders::_1, std::placeholders::_2, &ec, &len));
 
     while (ec == boost::asio::error::would_block) {
       svc.poll();
@@ -114,7 +110,7 @@ class TestReadSocket : public AbstractTestSocket {
       socket.cancel();
       timeout_deadline.expires_at(boost::posix_time::pos_infin);
     }
-    timeout_deadline.async_wait(std::bind(&TestReadSocket::check_deadline, this));
+    timeout_deadline.async_wait(std::bind(&TestUDPReadSocket::check_deadline, this));
   }
 
   static void recv_cb(

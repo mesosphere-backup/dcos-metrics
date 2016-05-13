@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 
 #include "io_runner_impl.hpp"
-#include "test_socket.hpp"
+#include "test_udp_socket.hpp"
 
 #define EXPECT_DETH(a, b) { std::cerr << "Disregard the following warning:"; EXPECT_DEATH(a, b); }
 
@@ -63,11 +63,11 @@ namespace {
 
 /**
  * Tests for data going through a full pipeline over localhost:
- * TestWriteSocket(s) -> IORunner[ContainerReader(s) -> PortWriter] -> TestReadSocket
+ * TestUDPWriteSocket(s) -> IORunner[ContainerReader(s) -> PortWriter] -> TestUDPReadSocket
  */
 
 TEST(IORunnerImplTests, write_then_immediate_shutdown) {
-  TestReadSocket reader;
+  TestUDPReadSocket reader;
   size_t output_port = reader.listen();
 
   mesos::Parameters params = get_params(output_port);
@@ -80,7 +80,7 @@ TEST(IORunnerImplTests, write_then_immediate_shutdown) {
   mesos::ContainerID container1 = container_id("cid1");
   mesos::ExecutorInfo executor1 = exec_info("fid1", "eid1");
   reader1->register_container(container1, executor1);
-  TestWriteSocket writer1;
+  TestUDPWriteSocket writer1;
   writer1.connect(input_port1);
 
   writer1.write("writer1:1");
@@ -88,7 +88,7 @@ TEST(IORunnerImplTests, write_then_immediate_shutdown) {
   std::shared_ptr<metrics::ContainerReader> reader2 = runner.create_container_reader(0);
   size_t input_port2 = reader2->open().get().port;
   // no container registered
-  TestWriteSocket writer2;
+  TestUDPWriteSocket writer2;
   writer2.connect(input_port2);
 
   writer2.write("writer2:1");
@@ -98,7 +98,7 @@ TEST(IORunnerImplTests, write_then_immediate_shutdown) {
   mesos::ContainerID container3 = container_id("cid3");
   mesos::ExecutorInfo executor3 = exec_info("fid3", "eid3");
   reader3->register_container(container3, executor3);
-  TestWriteSocket writer3;
+  TestUDPWriteSocket writer3;
   writer3.connect(input_port3);
 
   writer2.write("writer2:2|#tag2|@0.5");
@@ -114,7 +114,7 @@ TEST(IORunnerImplTests, write_then_immediate_shutdown) {
 }
 
 TEST(IORunnerImplTests, data_flow_multi_stream) {
-  TestReadSocket reader;
+  TestUDPReadSocket reader;
   size_t output_port = reader.listen();
 
   mesos::Parameters params = get_params(output_port);
@@ -127,7 +127,7 @@ TEST(IORunnerImplTests, data_flow_multi_stream) {
   mesos::ContainerID container1 = container_id("cid1");
   mesos::ExecutorInfo executor1 = exec_info("fid1", "eid1");
   reader1->register_container(container1, executor1);
-  TestWriteSocket writer1;
+  TestUDPWriteSocket writer1;
   writer1.connect(input_port1);
 
   writer1.write("writer1:1");
@@ -135,7 +135,7 @@ TEST(IORunnerImplTests, data_flow_multi_stream) {
   std::shared_ptr<metrics::ContainerReader> reader2 = runner.create_container_reader(0);
   size_t input_port2 = reader2->open().get().port;
   // no container registered
-  TestWriteSocket writer2;
+  TestUDPWriteSocket writer2;
   writer2.connect(input_port2);
 
   writer2.write("writer2:1");
@@ -145,7 +145,7 @@ TEST(IORunnerImplTests, data_flow_multi_stream) {
   mesos::ContainerID container3 = container_id("cid3");
   mesos::ExecutorInfo executor3 = exec_info("fid3", "eid3");
   reader3->register_container(container3, executor3);
-  TestWriteSocket writer3;
+  TestUDPWriteSocket writer3;
   writer3.connect(input_port3);
 
   writer2.write("writer2:2|#tag2|@0.5");
@@ -179,7 +179,7 @@ TEST(IORunnerImplTests, data_flow_multi_stream) {
 }
 
 TEST(IORunnerImplTests, data_flow_multi_stream_unchunked) {
-  TestReadSocket reader;
+  TestUDPReadSocket reader;
   size_t output_port = reader.listen();
 
   mesos::Parameters params = get_params(output_port);
@@ -196,7 +196,7 @@ TEST(IORunnerImplTests, data_flow_multi_stream_unchunked) {
   mesos::ContainerID container1 = container_id("cid1");
   mesos::ExecutorInfo executor1 = exec_info("fid1", "eid1");
   reader1->register_container(container1, executor1);
-  TestWriteSocket writer1;
+  TestUDPWriteSocket writer1;
   writer1.connect(input_port1);
 
   writer1.write("writer1:1");
@@ -204,7 +204,7 @@ TEST(IORunnerImplTests, data_flow_multi_stream_unchunked) {
   std::shared_ptr<metrics::ContainerReader> reader2 = runner.create_container_reader(0);
   size_t input_port2 = reader2->open().get().port;
   // no container registered
-  TestWriteSocket writer2;
+  TestUDPWriteSocket writer2;
   writer2.connect(input_port2);
 
   writer2.write("writer2:1");
@@ -214,7 +214,7 @@ TEST(IORunnerImplTests, data_flow_multi_stream_unchunked) {
   mesos::ContainerID container3 = container_id("cid3");
   mesos::ExecutorInfo executor3 = exec_info("fid3", "eid3");
   reader3->register_container(container3, executor3);
-  TestWriteSocket writer3;
+  TestUDPWriteSocket writer3;
   writer3.connect(input_port3);
 
   writer2.write("writer2:2|#tag2|@0.5");
@@ -248,7 +248,7 @@ TEST(IORunnerImplTests, data_flow_multi_stream_unchunked) {
 }
 
 TEST(IORunnerImplTests, data_flow_multi_stream_unannotated) {
-  TestReadSocket reader;
+  TestUDPReadSocket reader;
   size_t output_port = reader.listen();
 
   mesos::Parameters params = get_params(output_port, metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_NONE);
@@ -261,7 +261,7 @@ TEST(IORunnerImplTests, data_flow_multi_stream_unannotated) {
   mesos::ContainerID container1 = container_id("cid1");
   mesos::ExecutorInfo executor1 = exec_info("fid1", "eid1");
   reader1->register_container(container1, executor1);
-  TestWriteSocket writer1;
+  TestUDPWriteSocket writer1;
   writer1.connect(input_port1);
 
   writer1.write("writer1:1");
@@ -269,7 +269,7 @@ TEST(IORunnerImplTests, data_flow_multi_stream_unannotated) {
   std::shared_ptr<metrics::ContainerReader> reader2 = runner.create_container_reader(0);
   size_t input_port2 = reader2->open().get().port;
   // no container registered
-  TestWriteSocket writer2;
+  TestUDPWriteSocket writer2;
   writer2.connect(input_port2);
 
   writer2.write("writer2:1");
@@ -279,7 +279,7 @@ TEST(IORunnerImplTests, data_flow_multi_stream_unannotated) {
   mesos::ContainerID container3 = container_id("cid3");
   mesos::ExecutorInfo executor3 = exec_info("fid3", "eid3");
   reader3->register_container(container3, executor3);
-  TestWriteSocket writer3;
+  TestUDPWriteSocket writer3;
   writer3.connect(input_port3);
 
   writer2.write("writer2:2|#tag2|@0.5");
@@ -329,7 +329,7 @@ TEST(IORunnerImplTests, init_fails) {
 
   param->set_value(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_NONE);
 
-  TestReadSocket reader;
+  TestUDPReadSocket reader;
   size_t output_port = reader.listen();
 
   param = params.add_parameter();

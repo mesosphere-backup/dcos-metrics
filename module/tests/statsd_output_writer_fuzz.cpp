@@ -4,10 +4,10 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
-#include "sync_util.hpp"
-#include "test_socket.hpp"
 #include "statsd_output_writer.hpp"
 #include "stub_udp_sender.hpp"
+#include "sync_util.hpp"
+#include "test_udp_socket.hpp"
 
 namespace {
 
@@ -79,7 +79,7 @@ namespace {
     std::uniform_int_distribution<int> len_dist(1, 1024);
     std::uniform_int_distribution<int> char_dist(0, 255);
 
-    TestReadSocket test_reader;
+    TestUDPReadSocket test_reader;
     size_t listen_port = test_reader.listen();
 
     size_t pkt_count = 100;

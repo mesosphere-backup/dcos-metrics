@@ -7,7 +7,7 @@
 #include "statsd_output_writer.hpp"
 #include "stub_udp_sender.hpp"
 #include "sync_util.hpp"
-#include "test_socket.hpp"
+#include "test_udp_socket.hpp"
 
 namespace {
   const std::string HELLO("hello"), HEY("hey"), HI("hi");
@@ -109,7 +109,7 @@ namespace {
 }
 
 TEST(StatsdOutputWriterTests, chunking_off) {
-  TestReadSocket test_reader;
+  TestUDPReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
@@ -138,7 +138,7 @@ TEST(StatsdOutputWriterTests, chunking_off) {
 }
 
 TEST(StatsdOutputWriterTests, chunking_on_flush_when_full) {
-  TestReadSocket test_reader;
+  TestUDPReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
@@ -168,7 +168,7 @@ TEST(StatsdOutputWriterTests, chunking_on_flush_when_full) {
 }
 
 TEST(StatsdOutputWriterTests, chunking_on_flush_timer) {
-  TestReadSocket test_reader;
+  TestUDPReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
@@ -197,7 +197,7 @@ TEST(StatsdOutputWriterTests, chunking_on_flush_timer) {
 }
 
 TEST(StatsdOutputWriterTests, chunked_annotations_off) {
-  TestReadSocket test_reader;
+  TestUDPReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
@@ -221,7 +221,7 @@ TEST(StatsdOutputWriterTests, chunked_annotations_off) {
 }
 
 TEST(StatsdOutputWriterTests, chunked_datadog_annotations_no_containerinfo) {
-  TestReadSocket test_reader;
+  TestUDPReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
@@ -244,7 +244,7 @@ TEST(StatsdOutputWriterTests, chunked_datadog_annotations_no_containerinfo) {
 }
 
 TEST(StatsdOutputWriterTests, chunked_datadog_annotations) {
-  TestReadSocket test_reader;
+  TestUDPReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
@@ -271,7 +271,7 @@ TEST(StatsdOutputWriterTests, datadog_annotations_tagged_input) {
   std::string hello("hello|#tag1|@0.1"), hey("hey|@0.2|#tag2"), hi("hi|#|@0.3");
   std::string tag("container_id:c,executor_id:e,framework_id:f");
 
-  TestReadSocket test_reader;
+  TestUDPReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
@@ -301,7 +301,7 @@ TEST(StatsdOutputWriterTests, chunked_datadog_annotations_tagged_input) {
   std::string hello("hello|#tag1|@0.1"), hey("hey|@0.2|#tag2"), hi("hi|#|@0.3");
   std::string tag("container_id:c,executor_id:e,framework_id:f");
 
-  TestReadSocket test_reader;
+  TestUDPReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
@@ -330,7 +330,7 @@ TEST(StatsdOutputWriterTests, chunked_datadog_annotations_tagged_input) {
 }
 
 TEST(StatsdOutputWriterTests, prefix_annotations_no_containerinfo) {
-  TestReadSocket test_reader;
+  TestUDPReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
@@ -354,7 +354,7 @@ TEST(StatsdOutputWriterTests, prefix_annotations_no_containerinfo) {
 }
 
 TEST(StatsdOutputWriterTests, prefix_annotations) {
-  TestReadSocket test_reader;
+  TestUDPReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
@@ -380,7 +380,7 @@ TEST(StatsdOutputWriterTests, prefix_annotations) {
 TEST(StatsdOutputWriterTests, chunked_prefix_annotations_tagged_input) {
   std::string hello("hello|#tag1|@0.1"), hey("hey|@0.2|#tag2"), hi("hi|#|@0.3");
 
-  TestReadSocket test_reader;
+  TestUDPReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
@@ -409,7 +409,7 @@ TEST(StatsdOutputWriterTests, chunked_prefix_annotations_tagged_input) {
 TEST(StatsdOutputWriterTests, prefix_annotations_tagged_input) {
   std::string hello("hello|#tag1|@0.1"), hey("hey|@0.2|#tag2"), hi("hi|#|@0.3");
 
-  TestReadSocket test_reader;
+  TestUDPReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;

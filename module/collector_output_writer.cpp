@@ -117,7 +117,7 @@ void metrics::CollectorOutputWriter::flush() {
     return; // nothing to flush
   }
 
-  std::shared_ptr<boost::asio::streambuf> buf(new boost::asio::streambuf);
+  TCPSender::buf_ptr_t buf(new boost::asio::streambuf);
   {
     std::ostream ostream(buf.get());
     AvroEncoder::encode_metrics(container_map, metric_list, ostream);

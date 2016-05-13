@@ -22,7 +22,7 @@ namespace metrics {
     static std::shared_ptr<Result> dispatch_get(
         const std::string& desc, Dispatcher& dispatcher, std::function<Result()> func,
         size_t timeout_secs = 5) {
-      DLOG(INFO) << "dispatch_get(): " << desc;
+      //DLOG(INFO) << "dispatch_get(): " << desc;
 
       // These go out of scope when we exit, hence the reason for tracking status via 'tickets':
       std::shared_ptr<Result> out;
@@ -44,16 +44,16 @@ namespace metrics {
         std::unique_lock<std::mutex> lock(tickets->mutex);
         if (out) {
           // Dispatch already completed, clear ticket and skip wait
-          DLOG(INFO) << "Skipping wait for ticket " << ticket << ": " << desc;
+          //DLOG(INFO) << "Skipping wait for ticket " << ticket << ": " << desc;
         } else if (timeout_secs == 0) {
           // wait indefinitely
           for (;;) {
             cv.wait(lock);
             if (out) {
-              DLOG(INFO) << "Result acquired for ticket " << ticket << ": " << desc;
+              //DLOG(INFO) << "Result acquired for ticket " << ticket << ": " << desc;
               break;
             } else {
-              DLOG(INFO) << "Flaked for ticket " << ticket << ", resuming indefinite wait: " << desc;
+              //DLOG(INFO) << "Flaked for ticket " << ticket << ", resuming indefinite wait: " << desc;
             }
           }
         } else {
@@ -61,16 +61,16 @@ namespace metrics {
             std::cv_status status = cv.wait_for(lock, std::chrono::milliseconds(timeout_secs * 1000));
             if (out) {
               // 'out' has been populated by _exec_and_pass_result_cb, we're done here.
-              DLOG(INFO) << "Result acquired for ticket " << ticket << ": " << desc;
+              //DLOG(INFO) << "Result acquired for ticket " << ticket << ": " << desc;
               break;
             } else if (status == std::cv_status::timeout) {
               // timeout has passed or 'out' has arrived. we're done here. clear the ticket in either case.
-              DLOG(INFO) << "Timed out after " << timeout_secs << "s for ticket " << ticket << ": " << desc;
+              //DLOG(INFO) << "Timed out after " << timeout_secs << "s for ticket " << ticket << ": " << desc;
               break;
             } else {
               // not a timeout and 'out' isnt set yet: just a flake. retry wait.
-              DLOG(INFO) << "Flaked for ticket " << ticket << ","
-                         << " resetting wait for " << timeout_secs << "s: " << desc;
+              //DLOG(INFO) << "Flaked for ticket " << ticket << ","
+              //           << " resetting wait for " << timeout_secs << "s: " << desc;
             }
           }
         }

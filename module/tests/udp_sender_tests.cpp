@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 
 #include "stub_udp_sender.hpp"
-#include "test_socket.hpp"
+#include "test_udp_socket.hpp"
 #include "sync_util.hpp"
 
 namespace {
@@ -23,7 +23,8 @@ namespace {
    public:
     ServiceThread()
       : svc_(new boost::asio::io_service),
-        check_timer(*svc_) {
+        check_timer(*svc_),
+        shutdown(false) {
       LOG(INFO) << "start thread";
       check_timer.expires_from_now(boost::posix_time::milliseconds(100));
       check_timer.async_wait(std::bind(&ServiceThread::check_exit_cb, this));
@@ -55,8 +56,7 @@ namespace {
         LOG(INFO) << "exit";
         svc_->stop();
       } else {
-        LOG(INFO) << "recheck";
-        check_timer.expires_from_now(boost::posix_time::milliseconds(1));
+        check_timer.expires_from_now(boost::posix_time::milliseconds(100));
         check_timer.async_wait(std::bind(&ServiceThread::check_exit_cb, this));
       }
     }
@@ -69,7 +69,7 @@ namespace {
 }
 
 TEST(UDPSenderTests, udp_resolve_fails_data_dropped) {
-  TestReadSocket test_reader;
+  TestUDPReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
@@ -98,7 +98,7 @@ TEST(UDPSenderTests, udp_resolve_fails_data_dropped) {
 }
 
 TEST(UDPSenderTests, udp_resolve_empty_data_dropped) {
-  TestReadSocket test_reader;
+  TestUDPReadSocket test_reader;
   size_t listen_port = test_reader.listen();
 
   ServiceThread thread;
@@ -127,7 +127,7 @@ TEST(UDPSenderTests, udp_resolve_empty_data_dropped) {
 }
 
 TEST(UDPSenderTests, udp_resolve_reshuffle_data_sent_single_destination) {
-  TestReadSocket test_reader4, test_reader6;
+  TestUDPReadSocket test_reader4, test_reader6;
   size_t listen_port = test_reader4.listen(DEST_LOCAL_ENDPOINT.address(), 0);
   size_t listen_port6 = test_reader6.listen(DEST_LOCAL_ENDPOINT6.address(), listen_port);
   EXPECT_EQ(listen_port, listen_port6);
@@ -180,7 +180,7 @@ TEST(UDPSenderTests, udp_resolve_reshuffle_data_sent_single_destination) {
 int main(int argc, char **argv) {
   ::google::InitGoogleLogging(argv[0]);
   // avoid non-threadsafe logging code for these tests
-  //FLAGS_logtostderr = 1;
+  FLAGS_logtostderr = 1;
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

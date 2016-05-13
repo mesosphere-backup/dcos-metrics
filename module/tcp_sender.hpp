@@ -40,8 +40,7 @@ namespace metrics {
     void send(buf_ptr_t buf);
 
    private:
-    typedef boost::asio::ip::tcp::endpoint endpoint_t;
-
+    void schedule_connect();
     void start_connect();
     void connect_deadline_cb();
     void connect_outcome_cb(boost::system::error_code ec);
@@ -56,10 +55,13 @@ namespace metrics {
 
     std::shared_ptr<boost::asio::io_service> io_service;
     boost::asio::deadline_timer connect_deadline_timer;
+    boost::asio::deadline_timer connect_retry_timer;
     boost::asio::deadline_timer report_dropped_timer;
     boost::asio::ip::tcp::socket socket;
+    bool is_reconnect_scheduled;
+    size_t reconnect_delay;
     // TODO double buffering (with limits on amount buffered):
-    //std::shared_ptr<boost::asio::streambuf> accum_buf, send_buf;
+    //std::shared_ptr<boost::asio::streambuf> accum_buf, send_buf;//construct with size limit arg
     //bool sending;
     size_t dropped_bytes;
     bool shutdown;

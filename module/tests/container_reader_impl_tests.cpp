@@ -4,10 +4,10 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
-#include "mock_output_writer.hpp"
 #include "container_reader_impl.hpp"
+#include "mock_output_writer.hpp"
 #include "sync_util.hpp"
-#include "test_socket.hpp"
+#include "test_udp_socket.hpp"
 
 using ::testing::_;
 using ::testing::Invoke;
@@ -156,7 +156,7 @@ TEST(ContainerReaderImplTests, one_line) {
     EXPECT_FALSE(result.isError()) << result.error();
     size_t reader_port = result.get().port;
 
-    TestWriteSocket test_writer;
+    TestUDPWriteSocket test_writer;
     test_writer.connect(reader_port);
 
     test_writer.write(hello.str);
@@ -183,7 +183,7 @@ TEST(ContainerReaderImplTests, multiline) {
     EXPECT_FALSE(result.isError()) << result.error();
     size_t reader_port = result.get().port;
 
-    TestWriteSocket test_writer;
+    TestUDPWriteSocket test_writer;
     test_writer.connect(reader_port);
 
     test_writer.write(multi);
@@ -208,7 +208,7 @@ TEST(ContainerReaderImplTests, multiline_leading_ending_newlines) {
     EXPECT_FALSE(result.isError()) << result.error();
     size_t reader_port = result.get().port;
 
-    TestWriteSocket test_writer;
+    TestUDPWriteSocket test_writer;
     test_writer.connect(reader_port);
 
     test_writer.write(multi);
@@ -232,7 +232,7 @@ TEST(ContainerReaderImplTests, zero_registered_containers) {
     EXPECT_FALSE(result.isError()) << result.error();
     size_t reader_port = result.get().port;
 
-    TestWriteSocket test_writer;
+    TestUDPWriteSocket test_writer;
     test_writer.connect(reader_port);
 
     test_writer.write(hello.str);
@@ -265,7 +265,7 @@ TEST(ContainerReaderImplTests, one_registered_container) {
     EXPECT_FALSE(result.isError()) << result.error();
     size_t reader_port = result.get().port;
 
-    TestWriteSocket test_writer;
+    TestUDPWriteSocket test_writer;
     test_writer.connect(reader_port);
 
     test_writer.write(hello.str);
@@ -299,7 +299,7 @@ TEST(ContainerReaderImplTests, one_registered_container_multiline_leading_ending
     EXPECT_FALSE(result.isError()) << result.error();
     size_t reader_port = result.get().port;
 
-    TestWriteSocket test_writer;
+    TestUDPWriteSocket test_writer;
     test_writer.connect(reader_port);
 
     test_writer.write(multi);
@@ -329,7 +329,7 @@ TEST(ContainerReaderImplTests, multi_registered_containers) {
     EXPECT_FALSE(result.isError()) << result.error();
     size_t reader_port = result.get().port;
 
-    TestWriteSocket test_writer;
+    TestUDPWriteSocket test_writer;
     test_writer.connect(reader_port);
 
     test_writer.write(hello.str);
