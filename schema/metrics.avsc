@@ -40,7 +40,7 @@
                     "doc": "User-visible label associated with these datapoints, which is unique per topic",
                     "type": "string"
                 }, {
-                    "name": "time",
+                    "name": "time_ms",
                     "doc": "Time that the event occurred, in milliseconds from the epoch (see logicalType)",
                     "logicalType": "timestamp-millis",
                     "type": "long"

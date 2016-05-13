@@ -7,10 +7,10 @@
     { "key": "container_id", "value": "cid_1" }
   ],
   "datapoints": [
-    { "name": "cpu.usage", "value": 0.3, "time": 1000 },
-    { "name": "ram.usage", "value": 37.0, "time": 1001 },
-    { "name": "cpu.usage", "value": 0.4, "time": 1002 },
-    { "name": "ram.usage", "value": 35.0, "time": 1002 }
+    { "name": "cpu.usage", "value": 0.3, "time_ms": 1000 },
+    { "name": "ram.usage", "value": 37.0, "time_ms": 1001 },
+    { "name": "cpu.usage", "value": 0.4, "time_ms": 1002 },
+    { "name": "ram.usage", "value": 35.0, "time_ms": 1002 }
   ]
 }
 {
@@ -22,10 +22,10 @@
     { "key": "container_id", "value": "cid_2" }
   ],
   "datapoints": [
-    { "name": "cpu.usage", "value": 0.9, "time": 1000 },
-    { "name": "ram.usage", "value": 71.0, "time": 1000 },
-    { "name": "cpu.usage", "value": 0.7, "time": 1003 },
-    { "name": "ram.usage", "value": 71.0, "time": 1005 }
+    { "name": "cpu.usage", "value": 0.9, "time_ms": 1000 },
+    { "name": "ram.usage", "value": 71.0, "time_ms": 1000 },
+    { "name": "cpu.usage", "value": 0.7, "time_ms": 1003 },
+    { "name": "ram.usage", "value": 71.0, "time_ms": 1005 }
   ]
 }
 {
@@ -37,7 +37,7 @@
     { "key": "container_id", "value": "cid_1" }
   ],
   "datapoints": [
-    { "name": "cpu.usage", "value": 0.3, "time": 1007 },
-    { "name": "ram.usage", "value": 38.0, "time": 1008 }
+    { "name": "cpu.usage", "value": 0.3, "time_ms": 1007 },
+    { "name": "ram.usage", "value": 38.0, "time_ms": 1008 }
   ]
 }
