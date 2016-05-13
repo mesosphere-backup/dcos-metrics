@@ -233,7 +233,7 @@ add_dependencies(metrics-module generate-avro-structs)
 set(AVRO_SCHEMA_JSON_OUTPUT ${CMAKE_BINARY_DIR}/metrics_schema_json.hpp)
 add_custom_command(
   OUTPUT ${AVRO_SCHEMA_JSON_OUTPUT}
-  COMMAND sh ${CMAKE_SOURCE_DIR}/generate_metrics_schema_json.sh ${AVRO_SCHEMA_INPUT} ${AVRO_SCHEMA_JSON_OUTPUT}
+  COMMAND python ${CMAKE_SOURCE_DIR}/generate_metrics_schema_json.py ${AVRO_SCHEMA_INPUT} ${AVRO_SCHEMA_JSON_OUTPUT}
   DEPENDS ext_avro
   COMMENT "Generating metrics schema JSON header")
 add_custom_target(generate-avro-json

@@ -68,10 +68,10 @@ void metrics::TCPSender::send(buf_ptr_t buf) {
 
 void metrics::TCPSender::schedule_connect() {
   if (is_reconnect_scheduled) {
-    LOG(INFO) << "Already waiting to reconnect";
+    LOG(INFO) << "Reconnect already scheduled.";
     return;
   }
-  LOG(INFO) << "Attempting reconnect to " << send_ip << ":" << send_port << " in "
+  LOG(INFO) << "Scheduling reconnect to " << send_ip << ":" << send_port << " in "
             << reconnect_delay << "s...";
 
   is_reconnect_scheduled = true;
@@ -87,7 +87,7 @@ void metrics::TCPSender::start_connect() {
     return;
   }
   is_reconnect_scheduled = false;
-  LOG(INFO) << "Attempting to connect to " << send_ip << ":" << send_port;
+  LOG(INFO) << "Attempting to open connection to " << send_ip << ":" << send_port;
   connect_deadline_timer.expires_from_now(boost::posix_time::seconds(60));
   connect_deadline_timer.async_wait(std::bind(&TCPSender::connect_deadline_cb, this));
   socket.async_connect(boost::asio::ip::tcp::endpoint(send_ip, send_port),
@@ -99,7 +99,7 @@ void metrics::TCPSender::connect_deadline_cb() {
     return;
   }
   if (connect_deadline_timer.expires_at() <= boost::asio::deadline_timer::traits_type::now()) {
-    LOG(WARNING) << "Timed out when opening connection to " << send_ip << ":" << send_port << ".";
+    LOG(WARNING) << "Timed out when opening connection to " << send_ip << ":" << send_port;
     socket.close();
   }
 }
@@ -110,10 +110,10 @@ void metrics::TCPSender::connect_outcome_cb(boost::system::error_code ec) {
   }
   if (!socket.is_open() || ec) {
     if (!socket.is_open()) {
-      LOG(WARNING) << "Socket not open after connecting to " << send_ip << ":" << send_port << ".";
+      LOG(WARNING) << "Socket not open after connecting to " << send_ip << ":" << send_port;
     } else if (ec) {
       LOG(WARNING) << "Got error '" << ec.message() << "'(" << ec << ")"
-                   << " when connecting to " << send_ip << ":" << send_port << ".";
+                   << " when connecting to " << send_ip << ":" << send_port;
     }
     schedule_connect();
     return;
@@ -140,11 +140,11 @@ void metrics::TCPSender::send_cb(
   }
   keepalive.reset();
   if (!socket.is_open()) {
-    LOG(WARNING) << "Socket not open after sending data to " << send_ip << ":" << send_port << ".";
+    LOG(WARNING) << "Socket not open after sending data to " << send_ip << ":" << send_port;
     schedule_connect();
   } else if (ec) {
     LOG(WARNING) << "Got error '" << ec.message() << "'(" << ec << ")"
-                 << " when sending data to " << send_ip << ":" << send_port << ".";
+                 << " when sending data to " << send_ip << ":" << send_port;
     socket.close();
     schedule_connect();
   } else {
