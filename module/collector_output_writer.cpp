@@ -116,7 +116,7 @@ void metrics::CollectorOutputWriter::start_chunk_flush_timer() {
 }
 
 void metrics::CollectorOutputWriter::flush() {
-  if (container_map.empty() && metric_list.datapoints.empty()) {
+  if (container_map.empty() && AvroEncoder::empty(metric_list)) {
     return; // nothing to flush
   }
 

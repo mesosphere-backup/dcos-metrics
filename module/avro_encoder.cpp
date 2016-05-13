@@ -14,7 +14,6 @@ namespace {
   /**
    * Tags to use when there's a data issue.
    */
-  const std::string UNKNOWN_METRIC_TAG("unknown_metric");
   const std::string UNKNOWN_CONTAINER_TAG("unknown_container");
 
   /**
@@ -44,25 +43,43 @@ namespace {
     map[key] = value_conv;
   }
 
+  void add_tag(std::vector<metrics_schema::Tag>& tags,
+      const std::string& key, const std::string& value) {
+    tags.resize(tags.size() + 1);
+    metrics_schema::Tag& tag = tags[tags.size() - 1];
+    tag.key = key;
+    tag.value = value;
+  }
+
   void init_list(
       metrics_schema::MetricList& list,
       const mesos::ContainerID* container_id, const mesos::ExecutorInfo* executor_info) {
     if (container_id != NULL && executor_info != NULL) {
-      list.tags.resize(3);
+      if (list.topic.empty()) {
+        list.topic = executor_info->framework_id().value();
+      }
 
-      metrics_schema::Tag& tag = list.tags[0];
-      tag.key = CONTAINER_ID_AVRO_KEY;
-      tag.value = container_id->value();
-
-      tag = list.tags[1];
-      tag.key = EXECUTOR_ID_AVRO_KEY;
-      tag.value = executor_info->executor_id().value();
-
-      tag = list.tags[2];
-      tag.key = FRAMEWORK_ID_AVRO_KEY;
-      tag.value = executor_info->framework_id().value();
-
-      list.topic = tag.value; // use framework_id as topic
+      bool found_framework_id = false,
+        found_executor_id = false,
+        found_container_id = false;
+      for (const metrics_schema::Tag& tag : list.tags) {
+        if (tag.key == FRAMEWORK_ID_AVRO_KEY) {
+          found_framework_id = true;
+        } else if (tag.key == EXECUTOR_ID_AVRO_KEY) {
+          found_executor_id = true;
+        } else if (tag.key == CONTAINER_ID_AVRO_KEY) {
+          found_container_id = true;
+        }
+      }
+      if (!found_framework_id) {
+        add_tag(list.tags, FRAMEWORK_ID_AVRO_KEY, executor_info->framework_id().value());
+      }
+      if (!found_executor_id) {
+        add_tag(list.tags, EXECUTOR_ID_AVRO_KEY, executor_info->executor_id().value());
+      }
+      if (!found_container_id) {
+        add_tag(list.tags, CONTAINER_ID_AVRO_KEY, container_id->value());
+      }
     } else {
       list.topic = UNKNOWN_CONTAINER_TAG;
     }
@@ -77,38 +94,90 @@ namespace {
     return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
   }
 
-  void parse_statsd_name_val_tags(const char* data, size_t size, metrics_schema::Datapoint& point) {
+  void parse_datadog_tags(const char* data, size_t size, std::vector<metrics_schema::Tag>& tags) {
+    // Expected format: |#tag:val,tag2:val2,(...)
+    //TODO parse, while avoiding conflicting tags across datapoints...
+  }
+
+  void parse_statsd_name_val_tags(const char* data, size_t size,
+      metrics_schema::Datapoint& point, std::vector<metrics_schema::Tag>& tags) {
     // Expected format:
-    // name:val|type[|@0.3][|#tag1:val1,tag2:val2]
-    char* name_end = (char*)memchr(data, ':', size);
+    // name[:val][|section][|@0.3][|#tag1:val1,tag2:val2][|...]
+    // first, find the start of any extra sections: we want to avoid going too far when searching for ':'s.
+    char* section_start = (char*)memchr(data, '|', size);
+    size_t nameval_size = size;
+    if (section_start != NULL) {
+      nameval_size = section_start - data;
+    }
+
+    char* name_end = (char*)memchr(data, ':', nameval_size);
     if (name_end == NULL) {
-      // name ending delim not found. corrupt data? treat as 'name = 0'
-      point.name.insert(0, data, size);
+      // value delim not found in nameval region. missing value? treat as 'name = 0'
+      point.name.insert(0, data, nameval_size);
       point.value = 0;
-      return;
-    }
-    size_t name_len = name_end - data;
-    point.name.insert(0, data, name_len);
-    if (name_len == size) {
-      // no space for value after name, exit early
-      point.value = 0;
-      return;
-    }
-
-    char* val_end = (char*)memchr(name_end, '|', size - name_len);
-    // note: we use std::stod(std::str) instead of strtod(char*) here, to avoid passing the buffer
-    //       (why doesn't strntod(char*, size) exist...)
-    // in both cases, go forward a character to skip the ':' following the name:
-    if (val_end == NULL) {
-      // val ending delim not found: just parse everything after name as the value
-      std::string val_str(name_end + 1, size - name_len - 1);
-      point.value = std::stod(val_str);
     } else {
-      std::string val_str(name_end + 1, val_end - name_end - 1);
-      point.value = std::stod(val_str);
+      size_t name_len = name_end - data;
+      point.name.insert(0, data, name_len);
+
+      size_t value_len;
+      if (section_start == NULL) {
+        // section delim not found: parse until end of buffer
+        value_len = size - name_len;
+      } else {
+        // parse until section delim
+        value_len = section_start - name_end;
+      }
+
+      // note: we use std::stod(std::str) instead of strtod(char*) here, to avoid escaping buffer
+      //       (wish strntod(char*, size) was available...)
+      std::string val_str(name_end + 1, value_len - 1); // exclude ':' delim
+      try {
+        point.value = std::stod(val_str);
+      } catch (...) {
+        LOG(WARNING) << "Corrupt statsd value: '" << val_str << "' "
+                     << "(from data '" << std::string(data, size) << "')";
+        point.value = 0;
+      }
     }
 
-    //TODO parse_datadog_tags(metric_list.tags, in_data, in_size);
+    while (section_start != NULL) {
+      // parse any following sections (eg |@0.1 sampling or |#tag1:val1,tag2:val2)
+      size_t sections_size = (data + size) - section_start;
+      if (sections_size <= 2) {
+        break;
+      }
+      // find start of next section, if any
+      char* next_section_start = (char*)memchr(section_start + 1, '|', sections_size - 1);
+      char* section_end =
+        (next_section_start == NULL) ? (char*)(data + size) : next_section_start;
+      switch (section_start[1]) {
+        case '@': {
+          // sampling: multiply value to correct it
+          std::string factor_str(section_start + 2, section_end - section_start - 2);
+          try {
+            double sample_factor = std::stod(factor_str);
+            if (sample_factor != 0) {
+              point.value /= sample_factor;
+            } else {
+              throw std::invalid_argument("Zero sampling is invalid");
+            }
+          } catch (...) {
+            LOG(WARNING) << "Corrupt sampling value: '" << factor_str << "' "
+                         << "(from data '" << std::string(data, size) << "')";
+          }
+          break;
+        }
+        case '#':
+          // datadog tags: include in our tags
+          parse_datadog_tags(section_start, section_end - section_start, tags);
+          break;
+      }
+      // seek to next section, if any
+      if (next_section_start == NULL) {
+        break;
+      }
+      section_start = next_section_start;
+    }
   }
 
   typedef boost::array<uint8_t, 16> DataFileSync;
@@ -153,7 +222,6 @@ const std::string& metrics::AvroEncoder::header() {
       avro::encode(*encoder, *get_sync_bytes());
       encoder->flush(); // required
     }
-    LOG(INFO) << "INIT HEADER (" << oss.str().size() << "): " << oss.str();
     header_data = oss.str();
   }
 
@@ -161,7 +229,7 @@ const std::string& metrics::AvroEncoder::header() {
 }
 
 void metrics::AvroEncoder::encode_metrics_block(
-    const container_id_map<metrics_schema::MetricList>& metric_map,
+    const container_id_ord_map<metrics_schema::MetricList>& metric_map,
     const metrics_schema::MetricList& metric_list,
     std::ostream& ostream) {
   // in the first pass, encode the data so that we can get the byte count
@@ -173,10 +241,12 @@ void metrics::AvroEncoder::encode_metrics_block(
     encoder->init(*avro_ostream);
 
     for (auto entry : metric_map) {
-      ++obj_count;
-      avro::encode(*encoder, entry.second);
+      if (!empty(entry.second)) {
+        ++obj_count;
+        avro::encode(*encoder, entry.second);
+      }
     }
-    if (!metric_list.datapoints.empty()) {
+    if (!empty(metric_list)) {
       ++obj_count;
       avro::encode(*encoder, metric_list);
     }
@@ -208,7 +278,7 @@ void metrics::AvroEncoder::encode_metrics_block(
 size_t metrics::AvroEncoder::statsd_to_struct(
     const mesos::ContainerID* container_id, const mesos::ExecutorInfo* executor_info,
     const char* data, size_t size,
-    container_id_map<metrics_schema::MetricList>& metric_map) {
+    container_id_ord_map<metrics_schema::MetricList>& metric_map) {
   metrics_schema::MetricList* list_out;
   if (container_id == NULL) {
     mesos::ContainerID missing_id;
@@ -234,8 +304,8 @@ size_t metrics::AvroEncoder::statsd_to_struct(
   size_t old_size = list_out->datapoints.size();
   list_out->datapoints.resize(old_size + 1);
   metrics_schema::Datapoint& point = list_out->datapoints[old_size];
-  point.time = now_in_ms();
-  parse_statsd_name_val_tags(data, size, point);
+  point.time_ms = now_in_ms();
+  parse_statsd_name_val_tags(data, size, point, list_out->tags);
 
   return 1;
 }
@@ -250,8 +320,8 @@ size_t metrics::AvroEncoder::statsd_to_struct(
   size_t old_size = metric_list.datapoints.size();
   metric_list.datapoints.resize(old_size + 1);
   metrics_schema::Datapoint& point = metric_list.datapoints[old_size];
-  point.time = now_in_ms();
-  parse_statsd_name_val_tags(data, size, point);
+  point.time_ms = now_in_ms();
+  parse_statsd_name_val_tags(data, size, point, metric_list.tags);
 
   return 1;
 }
@@ -261,4 +331,8 @@ size_t metrics::AvroEncoder::resources_to_struct(
   LOG(INFO) << "Resources:\n" << usage.DebugString();
   //TODO implement ResourceUsage -> avro
   return 0;
+}
+
+bool metrics::AvroEncoder::empty(const metrics_schema::MetricList& metric_list) {
+  return metric_list.datapoints.empty() && metric_list.tags.empty() && metric_list.topic.empty();
 }

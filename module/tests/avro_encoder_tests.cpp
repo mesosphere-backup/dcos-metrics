@@ -8,6 +8,8 @@
 #include "metrics_schema_json.hpp"
 
 namespace {
+  const std::string UNKNOWN("unknown_container");
+
   inline mesos::ContainerID container_id(const std::string& id) {
     mesos::ContainerID cid;
     cid.set_value(id);
@@ -27,7 +29,7 @@ namespace {
   inline metrics_schema::Datapoint datapoint(const std::string& name, int64_t time_ms, double val) {
     metrics_schema::Datapoint ret;
     ret.name = name;
-    ret.time = time_ms;
+    ret.time_ms = time_ms;
     ret.value = val;
     return ret;
   }
@@ -37,6 +39,64 @@ namespace {
     ret.value = val;
     return ret;
   }
+  inline metrics::container_id_ord_map<metrics_schema::MetricList> to_map(
+      const metrics_schema::MetricList& list) {
+    metrics::container_id_ord_map<metrics_schema::MetricList> map;
+    map[container_id(list.topic)] = list;
+    return map;
+  }
+
+  void check_no_tags(const std::string& data, double val, const std::string& name = "hello") {
+    LOG(INFO) << data;
+    metrics_schema::MetricList list;
+    metrics::AvroEncoder::statsd_to_struct(NULL, NULL, data.data(), data.size(), list);
+    EXPECT_EQ(UNKNOWN, list.topic);
+    EXPECT_EQ(1, list.datapoints.size());
+    EXPECT_EQ(name, list.datapoints[0].name);
+    EXPECT_NE(0, list.datapoints[0].time_ms);
+    EXPECT_EQ(val, list.datapoints[0].value);
+    EXPECT_TRUE(list.tags.empty());
+  }
+
+  bool eq(const metrics_schema::MetricList& a, const metrics_schema::MetricList& b) {
+    if (a.topic != b.topic) {
+      LOG(INFO) << "topic " << a.topic << " != " << b.topic;
+      return false;
+    }
+    if (a.tags.size() != b.tags.size()) {
+      LOG(INFO) << "tags " << a.tags.size() << " != " << b.tags.size();
+      return false;
+    }
+    for (size_t i = 0; i < a.tags.size(); ++i) {
+      if (a.tags[i].key != b.tags[i].key) {
+        LOG(INFO) << "tag key " << a.tags[i].key << " != " << b.tags[i].key;
+        return false;
+      }
+      if (a.tags[i].value != b.tags[i].value) {
+        LOG(INFO) << "tag val " << a.tags[i].value << " != " << b.tags[i].value;
+        return false;
+      }
+    }
+    if (a.datapoints.size() != b.datapoints.size()) {
+      LOG(INFO) << "datapoints " << a.datapoints.size() << " != " << b.datapoints.size();
+      return false;
+    }
+    for (size_t i = 0; i < a.datapoints.size(); ++i) {
+      if (a.datapoints[i].name != b.datapoints[i].name) {
+        LOG(INFO) << "datapoints " << a.datapoints[i].name << " != " << b.datapoints[i].name;
+        return false;
+      }
+      if (a.datapoints[i].time_ms != b.datapoints[i].time_ms) {
+        LOG(INFO) << "datapoints " << a.datapoints[i].time_ms << " != " << b.datapoints[i].time_ms;
+        return false;
+      }
+      if (a.datapoints[i].value != b.datapoints[i].value) {
+        LOG(INFO) << "datapoints " << a.datapoints[i].value << " != " << b.datapoints[i].value;
+        return false;
+      }
+    }
+    return true;
+  }
 }
 
 class AvroEncoderTests : public ::testing::Test {
@@ -44,7 +104,7 @@ class AvroEncoderTests : public ::testing::Test {
   virtual void TearDown() {
     for (const std::string& tmpfile : tmpfiles) {
       LOG(INFO) << "Deleting tmp file: " << tmpfile;
-      //unlink(tmpfile.data());
+      unlink(tmpfile.data());
     }
   }
 
@@ -77,7 +137,7 @@ class AvroEncoderTests : public ::testing::Test {
 TEST_F(AvroEncoderTests, header) {
   const std::string header = metrics::AvroEncoder::header();
   const avro::ValidSchema schema = avro::compileJsonSchemaFromString(metrics_schema::SCHEMA_JSON);
-  ASSERT_EQ(598, header.size());// just a check for consistency
+  ASSERT_EQ(601, header.size());// just a check for consistency
   EXPECT_EQ('O', header[0]);
   EXPECT_EQ('b', header[1]);
   EXPECT_EQ('j', header[2]);
@@ -85,7 +145,7 @@ TEST_F(AvroEncoderTests, header) {
 }
 
 TEST_F(AvroEncoderTests, encode_empty_metrics) {
-  metrics::container_id_map<metrics_schema::MetricList> map;
+  metrics::container_id_ord_map<metrics_schema::MetricList> map;
   metrics_schema::MetricList list;
   std::ostringstream oss;
   metrics::AvroEncoder::encode_metrics_block(map, list, oss);
@@ -139,8 +199,8 @@ TEST_F(AvroEncoderTests, encode_one_metric_list) {
   {
     std::ostringstream oss;
     metrics::AvroEncoder::encode_metrics_block(
-        metrics::container_id_map<metrics_schema::MetricList>(), list, oss);
-    EXPECT_EQ(76, oss.str().size()); // just check for consistency
+        metrics::container_id_ord_map<metrics_schema::MetricList>(), list, oss);
+    EXPECT_EQ(95, oss.str().size()); // just check for consistency
   }
 
   std::string tmppath = write_tmp();
@@ -148,7 +208,7 @@ TEST_F(AvroEncoderTests, encode_one_metric_list) {
     std::ofstream ofs(tmppath, std::ios::binary);
     ofs << metrics::AvroEncoder::header(); // actual file must start with header
     metrics::AvroEncoder::encode_metrics_block(
-        metrics::container_id_map<metrics_schema::MetricList>(), list, ofs);
+        metrics::container_id_ord_map<metrics_schema::MetricList>(), list, ofs);
   }
   {
     const avro::ValidSchema schema = avro::compileJsonSchemaFromString(metrics_schema::SCHEMA_JSON);
@@ -156,40 +216,15 @@ TEST_F(AvroEncoderTests, encode_one_metric_list) {
     writer.write(list);
   }
 
-  std::ostringstream no_schema_reader_strm, no_schema_data_strm;
-  {
-    avro::DataFileReader<metrics_schema::MetricList> avro_reader_no_schema(tmppath.data());
-    EXPECT_FALSE(avro_reader_no_schema.read(list));
-    EXPECT_TRUE(list.topic.empty());
-    EXPECT_TRUE(list.tags.empty());
-    EXPECT_TRUE(list.datapoints.empty());
-
-    avro_reader_no_schema.readerSchema().toJson(no_schema_reader_strm);
-    avro_reader_no_schema.dataSchema().toJson(no_schema_data_strm);
-  }
-
-  std::ostringstream with_schema_reader_strm, with_schema_data_strm;
-  {
-    const avro::ValidSchema schema = avro::compileJsonSchemaFromString(metrics_schema::SCHEMA_JSON);
-    avro::DataFileReader<metrics_schema::MetricList> avro_reader_with_schema(
-        tmppath.data(), schema);
-    EXPECT_FALSE(avro_reader_with_schema.read(list));
-    EXPECT_TRUE(list.topic.empty());
-    EXPECT_TRUE(list.tags.empty());
-    EXPECT_TRUE(list.datapoints.empty());
-
-    avro_reader_with_schema.readerSchema().toJson(with_schema_reader_strm);
-    avro_reader_with_schema.dataSchema().toJson(with_schema_data_strm);
-  }
-
-  EXPECT_EQ(no_schema_reader_strm.str(), no_schema_data_strm.str());
-  EXPECT_EQ(with_schema_reader_strm.str(), with_schema_data_strm.str());
-  EXPECT_EQ(no_schema_reader_strm.str(), with_schema_reader_strm.str());
-  EXPECT_EQ(no_schema_data_strm.str(), with_schema_data_strm.str());
+  avro::DataFileReader<metrics_schema::MetricList> avro_reader(tmppath.data());
+  metrics_schema::MetricList flist;
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(eq(list, flist));
+  EXPECT_FALSE(avro_reader.read(flist));
 }
 
 TEST_F(AvroEncoderTests, encode_many_metrics) {
-  metrics::container_id_map<metrics_schema::MetricList> map;
+  metrics::container_id_ord_map<metrics_schema::MetricList> map;
   map[container_id("empty")] = metric_list("empty_topic");
 
   metrics_schema::MetricList list = metric_list("one_metric");
@@ -208,7 +243,7 @@ TEST_F(AvroEncoderTests, encode_many_metrics) {
   list.datapoints.push_back(datapoint("pt3", 5, 3.8));
   map[container_id("many")] = list;
 
-  list = metric_list("tagged_metrics");
+  list = metric_list("zzztagged_metrics");
   list.datapoints.push_back(datapoint("pt1", 5, 3.8));
   list.datapoints.push_back(datapoint("pt2", 5, 3.8));
   list.datapoints.push_back(datapoint("pt3", 5, 3.8));
@@ -228,7 +263,7 @@ TEST_F(AvroEncoderTests, encode_many_metrics) {
   {
     std::ostringstream oss;
     metrics::AvroEncoder::encode_metrics_block(map, list, oss);
-    EXPECT_EQ(293, oss.str().size()); // just check for consistency
+    EXPECT_EQ(315, oss.str().size()); // just check for consistency
   }
 
   std::string tmppath = write_tmp();
@@ -237,76 +272,347 @@ TEST_F(AvroEncoderTests, encode_many_metrics) {
     ofs << metrics::AvroEncoder::header(); // actual file must start with header
     metrics::AvroEncoder::encode_metrics_block(map, list, ofs);
   }
-  LOG(INFO) << "A";
 
-  //TODO 02 98 01 between header and start of data (1c 74 61 67...)
+  avro::DataFileReader<metrics_schema::MetricList> avro_reader(tmppath.data());
+  metrics_schema::MetricList flist;
+  // ordering: map entries ordered by map key, followed by the standalone list
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(eq(map[container_id("empty")], flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(eq(map[container_id("many")], flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(eq(map[container_id("many_tagged")], flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(eq(map[container_id("one")], flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(eq(map[container_id("tags")], flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(eq(list, flist));
+  EXPECT_FALSE(avro_reader.read(flist));
+}
 
-  std::ostringstream no_schema_reader_strm, no_schema_data_strm;
+TEST_F(AvroEncoderTests, encode_many_blocks) {
+  metrics_schema::MetricList empty;
+  metrics_schema::MetricList topic = metric_list("topic");
+
+  metrics_schema::MetricList one = metric_list("one_metric");
+  one.datapoints.push_back(datapoint("pt1", 5, 3.8));
+
+  metrics_schema::MetricList tags = metric_list("tags_only");
+  tags.tags.push_back(tag("k1", "v1"));
+  tags.tags.push_back(tag("k2", "v2"));
+  tags.tags.push_back(tag("k3", "v3"));
+
+  metrics_schema::MetricList untagged = metric_list("many_metrics");
+  untagged.datapoints.push_back(datapoint("pt1", 5, 3.8));
+  untagged.datapoints.push_back(datapoint("pt2", 5, 3.8));
+  untagged.datapoints.push_back(datapoint("pt3", 5, 3.8));
+
+  metrics_schema::MetricList taggeda = metric_list("tagged_metrics");
+  taggeda.datapoints.push_back(datapoint("pt1", 5, 3.8));
+  taggeda.datapoints.push_back(datapoint("pt2", 5, 3.8));
+  taggeda.datapoints.push_back(datapoint("pt3", 5, 3.8));
+  taggeda.tags.push_back(tag("k1", "v1"));
+  taggeda.tags.push_back(tag("k2", "v2"));
+  taggeda.tags.push_back(tag("k3", "v3"));
+
+  metrics_schema::MetricList taggedb = metric_list("tagged_container_statsb");
+  taggedb.datapoints.push_back(datapoint("bpt1", 5, 3.8));
+  taggedb.datapoints.push_back(datapoint("bpt2", 5, 3.8));
+  taggedb.datapoints.push_back(datapoint("bpt3", 5, 3.8));
+  taggedb.tags.push_back(tag("bk1", "v1"));
+  taggedb.tags.push_back(tag("bk2", "v2"));
+  taggedb.tags.push_back(tag("bk3", "v3"));
+
+  metrics_schema::MetricList taggedc = metric_list("tagged_container_statsc");
+  taggedc.datapoints.push_back(datapoint("cpt1", 5, 3.8));
+  taggedc.datapoints.push_back(datapoint("cpt2", 5, 3.8));
+  taggedc.datapoints.push_back(datapoint("cpt3", 5, 3.8));
+  taggedc.tags.push_back(tag("ck1", "v1"));
+  taggedc.tags.push_back(tag("ck2", "v2"));
+  taggedc.tags.push_back(tag("ck3", "v3"));
+
+  std::string tmppath = write_tmp();
   {
-    avro::DataFileReader<metrics_schema::MetricList> avro_reader_no_schema(tmppath.data());
-    LOG(INFO) << "C";
-    EXPECT_FALSE(avro_reader_no_schema.read(list));
-    EXPECT_TRUE(list.topic.empty());
-    EXPECT_TRUE(list.tags.empty());
-    EXPECT_TRUE(list.datapoints.empty());
-      LOG(INFO) << "B";
-
-    avro_reader_no_schema.readerSchema().toJson(no_schema_reader_strm);
-    avro_reader_no_schema.dataSchema().toJson(no_schema_data_strm);
+    std::ofstream ofs(tmppath, std::ios::binary);
+    ofs << metrics::AvroEncoder::header(); // actual file must start with header
+    metrics::AvroEncoder::encode_metrics_block(to_map(empty), empty, ofs);
+    metrics::AvroEncoder::encode_metrics_block(
+        metrics::container_id_ord_map<metrics_schema::MetricList>(), topic, ofs);
+    metrics::AvroEncoder::encode_metrics_block(to_map(one), tags, ofs);
+    metrics::AvroEncoder::encode_metrics_block(
+        metrics::container_id_ord_map<metrics_schema::MetricList>(), untagged, ofs);
+    metrics::AvroEncoder::encode_metrics_block(to_map(taggeda), metrics_schema::MetricList(), ofs);
+    metrics::AvroEncoder::encode_metrics_block(to_map(taggedb), taggedc, ofs);
   }
 
-  std::ostringstream with_schema_reader_strm, with_schema_data_strm;
-  {
-    const avro::ValidSchema schema = avro::compileJsonSchemaFromString(metrics_schema::SCHEMA_JSON);
-    avro::DataFileReader<metrics_schema::MetricList> avro_reader_with_schema(
-        tmppath.data(), schema);
-    EXPECT_FALSE(avro_reader_with_schema.read(list));
-    EXPECT_TRUE(list.topic.empty());
-    EXPECT_TRUE(list.tags.empty());
-    EXPECT_TRUE(list.datapoints.empty());
 
-    avro_reader_with_schema.readerSchema().toJson(with_schema_reader_strm);
-    avro_reader_with_schema.dataSchema().toJson(with_schema_data_strm);
-  }
-
-  EXPECT_EQ(no_schema_reader_strm.str(), no_schema_data_strm.str());
-  EXPECT_EQ(with_schema_reader_strm.str(), with_schema_data_strm.str());
-  EXPECT_EQ(no_schema_reader_strm.str(), with_schema_reader_strm.str());
-  EXPECT_EQ(no_schema_data_strm.str(), with_schema_data_strm.str());
+  avro::DataFileReader<metrics_schema::MetricList> avro_reader(tmppath.data());
+  metrics_schema::MetricList flist;
+  // ordering: map entries ordered by map key, followed by the standalone list
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(eq(topic, flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(eq(one, flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(eq(tags, flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(eq(untagged, flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(eq(taggeda, flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(eq(taggedb, flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(eq(taggedc, flist));
+  EXPECT_FALSE(avro_reader.read(flist));
 }
 
 TEST_F(AvroEncoderTests, map_no_info) {
-  EXPECT_TRUE(false) << "TODO expect UNKNOWN_CONTAINER_TAG";
+  metrics::container_id_ord_map<metrics_schema::MetricList> map;
+  metrics::AvroEncoder::statsd_to_struct(NULL, NULL, "hello", 5, map);
+  EXPECT_EQ(1, map.size());
+  const metrics_schema::MetricList& list = map[container_id(UNKNOWN)];
+  EXPECT_EQ(UNKNOWN, list.topic);
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_EQ("hello", list.datapoints[0].name);
+  EXPECT_NE(0, list.datapoints[0].time_ms);
+  EXPECT_EQ(0, list.datapoints[0].value);
+  EXPECT_TRUE(list.tags.empty());
 }
 
 TEST_F(AvroEncoderTests, map_with_info) {
-  EXPECT_TRUE(false) << "TODO expect correct map key";
+  mesos::ContainerID cid = container_id("cid");
+  mesos::ExecutorInfo einfo = exec_info("fid", "eid");
+  metrics::container_id_ord_map<metrics_schema::MetricList> map;
+  metrics::AvroEncoder::statsd_to_struct(&cid, &einfo, "hello", 5, map);
+  EXPECT_EQ(1, map.size());
+  const metrics_schema::MetricList& list = map[container_id("cid")];
+  EXPECT_EQ("fid", list.topic);
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_EQ("hello", list.datapoints[0].name);
+  EXPECT_NE(0, list.datapoints[0].time_ms);
+  EXPECT_EQ(0, list.datapoints[0].value);
+  EXPECT_EQ(3, list.tags.size());
+  EXPECT_EQ("framework_id", list.tags[0].key);
+  EXPECT_EQ("fid", list.tags[0].value);
+  EXPECT_EQ("executor_id", list.tags[1].key);
+  EXPECT_EQ("eid", list.tags[1].value);
+  EXPECT_EQ("container_id", list.tags[2].key);
+  EXPECT_EQ("cid", list.tags[2].value);
+}
+
+TEST_F(AvroEncoderTests, list_no_info) {
+  metrics_schema::MetricList list;
+  metrics::AvroEncoder::statsd_to_struct(NULL, NULL, "hello", 5, list);
+  EXPECT_EQ(UNKNOWN, list.topic);
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_EQ("hello", list.datapoints[0].name);
+  EXPECT_NE(0, list.datapoints[0].time_ms);
+  EXPECT_EQ(0, list.datapoints[0].value);
+  EXPECT_TRUE(list.tags.empty());
+}
+
+TEST_F(AvroEncoderTests, list_with_info) {
+  mesos::ContainerID cid = container_id("cid");
+  mesos::ExecutorInfo einfo = exec_info("fid", "eid");
+  metrics_schema::MetricList list;
+  metrics::AvroEncoder::statsd_to_struct(&cid, &einfo, "hello", 5, list);
+  EXPECT_EQ("fid", list.topic);
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_EQ("hello", list.datapoints[0].name);
+  EXPECT_NE(0, list.datapoints[0].time_ms);
+  EXPECT_EQ(0, list.datapoints[0].value);
+  EXPECT_EQ(3, list.tags.size());
+  EXPECT_EQ("framework_id", list.tags[0].key);
+  EXPECT_EQ("fid", list.tags[0].value);
+  EXPECT_EQ("executor_id", list.tags[1].key);
+  EXPECT_EQ("eid", list.tags[1].value);
+  EXPECT_EQ("container_id", list.tags[2].key);
+  EXPECT_EQ("cid", list.tags[2].value);
+}
+
+TEST_F(AvroEncoderTests, check_empty) {
+  metrics_schema::MetricList list;
+  EXPECT_TRUE(metrics::AvroEncoder::empty(list));
+
+  list.topic = "hi";
+  EXPECT_FALSE(metrics::AvroEncoder::empty(list));
+  list.topic.clear();
+  EXPECT_TRUE(metrics::AvroEncoder::empty(list));
+
+  list.tags.push_back(metrics_schema::Tag());
+  EXPECT_FALSE(metrics::AvroEncoder::empty(list));
+  list.tags.clear();
+  EXPECT_TRUE(metrics::AvroEncoder::empty(list));
+
+  list.datapoints.push_back(metrics_schema::Datapoint());
+  EXPECT_FALSE(metrics::AvroEncoder::empty(list));
+  list.datapoints.clear();
+  EXPECT_TRUE(metrics::AvroEncoder::empty(list));
+}
+
+TEST_F(AvroEncoderTests, statsd_merge) {
+  metrics_schema::MetricList preinit_list;
+  preinit_list.topic = "testt";
+  metrics_schema::Tag tag;
+  tag.key = "testk";
+  tag.value = "valuek";
+  preinit_list.tags.push_back(tag);
+  tag.key = "container_id";
+  tag.value = "testc";
+  preinit_list.tags.push_back(tag);
+  metrics_schema::Datapoint d;
+  d.name = "testn";
+  d.value = 10.3;
+  d.time_ms = 123;
+  preinit_list.datapoints.push_back(d);
+
+  mesos::ContainerID cid = container_id("cid");
+  mesos::ExecutorInfo einfo = exec_info("fid", "eid");
+  std::string stat("hello:3.8");
+  metrics::AvroEncoder::statsd_to_struct(&cid, &einfo, stat.data(), stat.size(), preinit_list);
+
+  EXPECT_EQ("testt", preinit_list.topic);// original topic left intact
+
+  EXPECT_EQ(4, preinit_list.tags.size());
+  EXPECT_EQ("testk", preinit_list.tags[0].key);
+  EXPECT_EQ("valuek", preinit_list.tags[0].value);
+  EXPECT_EQ("container_id", preinit_list.tags[1].key);
+  EXPECT_EQ("testc", preinit_list.tags[1].value);// original tag left intact
+  EXPECT_EQ("framework_id", preinit_list.tags[2].key);
+  EXPECT_EQ("fid", preinit_list.tags[2].value);
+  EXPECT_EQ("executor_id", preinit_list.tags[3].key);
+  EXPECT_EQ("eid", preinit_list.tags[3].value);
+
+  EXPECT_EQ(2, preinit_list.datapoints.size());
+  EXPECT_EQ("testn", preinit_list.datapoints[0].name);
+  EXPECT_EQ(123, preinit_list.datapoints[0].time_ms);
+  EXPECT_EQ(10.3, preinit_list.datapoints[0].value);
+  EXPECT_EQ("hello", preinit_list.datapoints[1].name);
+  EXPECT_NE(0, preinit_list.datapoints[1].time_ms);
+  EXPECT_EQ(3.8, preinit_list.datapoints[1].value);
 }
 
 TEST_F(AvroEncoderTests, statsd_parse) {
-  EXPECT_TRUE(false) << "TODO port statsd_tagger_tests";
+  //TODO test more of these examples once tag parsing is done
 
-  std::string hello_1tag("hello|#tag");
-
-  std::string hello_2endtag("hello|@0.5|#tag"), hello_2starttag("hello|#ta|@0.5");
+  metrics_schema::MetricList list;
 
   std::string
-    hello_3endtag("hello|&other|@0.5|#tag"),
-    hello_3midtag("hello|&other|#tag|@0.5"),
-    hello_3starttag("hello|#t|&other|@0.5");
+    empty_1tag("|#tag:val"),
+    eempty_1tag(":|#tag:val"),
+    hello_noval("hello"),
+    hello_noeval("hello:"),
+    hello_spaceval("hello: "),
+    hello_wordval("hello:hi"),
+    hello_noval_1tag("hello|#tag:val"),
+    hello_noval_1tag_noval("hello|#tag"),
+    hello_spaceval_1tag("hello: |#tag:val"),
+    hello_wordval_1tag("hello:hi|#tag:val");
+
+  check_no_tags(empty_1tag, 0, "");
+  check_no_tags(eempty_1tag, 0, "");
+  check_no_tags(hello_noval, 0);
+  check_no_tags(hello_noeval, 0);
+  check_no_tags(hello_spaceval, 0);
+  check_no_tags(hello_wordval, 0);
+  check_no_tags(hello_noval_1tag, 0);
+  check_no_tags(hello_noval_1tag_noval, 0);
+  check_no_tags(hello_spaceval_1tag, 0);
+  check_no_tags(hello_wordval_1tag, 0);
+
+  std::string
+    hello_noval_2endtag("hello|@0.5|#tag:val"),
+    hello_noval_2starttag("hello|#tag:val|@0.5");
+
+  check_no_tags(hello_noval_2endtag, 0);
+  check_no_tags(hello_noval_2starttag, 0);
+
+  std::string
+    hello_noval_2endtag_noval("hello|@0.5|#tag"),
+    hello_noval_2starttag_noval("hello|#ta|@0.5");
+
+  check_no_tags(hello_noval_2endtag_noval, 0);
+  check_no_tags(hello_noval_2starttag_noval, 0);
+
+  std::string
+    hello_notag("hello:0.35"),
+    hello_1tag("hello:0.35|#tag");
+
+  check_no_tags(hello_notag, 0.35);
+  check_no_tags(hello_1tag, 0.35);
+
+  std::string
+    hello_2endtag("hello:0.35|@0.5|#tag:val"),
+    hello_2starttag("hello:0.35|#ta:val|@0.5"),
+    hello_2starttag_zerosampling("hello:0.35|#ta:val|@0");
+
+  check_no_tags(hello_2endtag, 0.7);
+  check_no_tags(hello_2starttag, 0.7);
+  check_no_tags(hello_2starttag_zerosampling, 0.35);
+
+  std::string
+    hello_3endtag("hello:0.35|&other|@0.5|#tag:val,t2:v2"),
+    hello_3midtag("hello:0.35|&other|#tag:val,t2:v2|@0.5"),
+    hello_3midtag_zerosampling("hello:0.35|&other|#tag:val,t2:v2|@0.0"),
+    hello_3starttag("hello:0.35|#t:v,t2:v2|&other|@0.5");
+
+  check_no_tags(hello_3endtag, 0.7);
+  check_no_tags(hello_3midtag, 0.7);
+  check_no_tags(hello_3midtag_zerosampling, 0.35);
+  check_no_tags(hello_3starttag, 0.7);
 
   // corrupt/weird data
   std::string
-    hello_1emptytag("hello|#"),
-    hello_1emptytagval("hello|#,"),
-    hello_1emptyend("hello|"),
-    hello_2tag_empty("hello|#tag1|"),
-    hello_2empty_empty("hello||"),
-    hello_2empty_tag("hello||#tag1"),
-    hello_2tag_tag("hello|#tag1|#tag2"),
-    hello_2empty_emptytag("hello||#"),
-    hello_2emptytag_empty("hello|#|"),
-    hello_2emptytagval_empty("hello|#,|");
+    hello_1emptytag("hello:0.35|#"),
+    hello_1emptytagval("hello:0.35|#,"),
+    hello_1emptytageval("hello:0.35|#:,:"),
+    hello_1emptyend("hello:0.35|"),
+
+    hello_2tag_empty("hello:0.35|#tag1|"),
+    hello_2tag_emptyeval("hello:0.35|#tag1:|"),
+    hello_2tag_emptyval("hello:0.35|#tag1:val|"),
+    hello_2empty_empty("hello:0.35||"),
+
+    hello_2empty_tag("hello:0.35||#tag1"),
+    hello_2empty_tageval("hello:0.35||#tag1:"),
+    hello_2empty_tagval("hello:0.35||#tag1:val"),
+    hello_2tag_tag("hello:0.35|#tag1|#tag2"),
+
+    hello_2tag_tageval("hello:0.35|#tag1|#tag2:"),
+    hello_2tag_tagval("hello:0.35|#tag1|#tag2:val"),
+    hello_2empty_emptytag("hello:0.35||#"),
+    hello_2empty_emptytagval("hello:0.35||#,"),
+
+    hello_2empty_emptytageval("hello:0.35||#:,:"),
+    hello_2emptytag_empty("hello:0.35|#|"),
+    hello_2emptytagval_empty("hello:0.35|#,|"),
+    hello_2emptytageval_empty("hello:0.35|#:,:|");
+
+  check_no_tags(hello_1emptytag, 0.35);
+  check_no_tags(hello_1emptytagval, 0.35);
+  check_no_tags(hello_1emptytageval, 0.35);
+  check_no_tags(hello_1emptyend, 0.35);
+
+  check_no_tags(hello_2tag_empty, 0.35);
+  check_no_tags(hello_2tag_emptyeval, 0.35);
+  check_no_tags(hello_2tag_emptyval, 0.35);
+  check_no_tags(hello_2empty_empty, 0.35);
+
+  check_no_tags(hello_2empty_tag, 0.35);
+  check_no_tags(hello_2empty_tageval, 0.35);
+  check_no_tags(hello_2empty_tagval, 0.35);
+  check_no_tags(hello_2tag_tag, 0.35);
+
+  check_no_tags(hello_2tag_tageval, 0.35);
+  check_no_tags(hello_2tag_tagval, 0.35);
+  check_no_tags(hello_2empty_emptytag, 0.35);
+  check_no_tags(hello_2empty_emptytagval, 0.35);
+
+  check_no_tags(hello_2empty_emptytageval, 0.35);
+  check_no_tags(hello_2emptytag_empty, 0.35);
+  check_no_tags(hello_2emptytagval_empty, 0.35);
+  check_no_tags(hello_2emptytageval_empty, 0.35);
 }
 
 int main(int argc, char **argv) {
