@@ -1,7 +1,8 @@
 #include "avro_encoder.hpp"
 
-#include <sys/time.h>
+#include <boost/asio/streambuf.hpp>
 #include <glog/logging.h>
+#include <sys/time.h>
 #include <unordered_map>
 
 #include <avro/Compiler.hh>
@@ -32,12 +33,10 @@ namespace {
   const std::string AVRO_DEFLATE_CODEC("deflate");//FIXME support deflate
 
   typedef std::vector<uint8_t> MetadataVal;
-  typedef std::map<std::string, std::vector<uint8_t>> MetadataMap;
-  typedef boost::array<uint8_t, 16> DataFileSync;
-  typedef boost::array<uint8_t, 4> Magic;
+  typedef std::map<std::string, MetadataVal> MetadataMap;
 
   const size_t MALLOC_BLOCK_SIZE = 64 * 1024;
-  const Magic magic = { { 'O', 'b', 'j', '\x01' } };
+  const boost::array<uint8_t, 4> magic = { { 'O', 'b', 'j', '\x01' } };
 
   void set_metadata(MetadataMap& map, const std::string& key, const std::string& value) {
     MetadataVal value_conv(value.size());
@@ -112,55 +111,98 @@ namespace {
     //TODO parse_datadog_tags(metric_list.tags, in_data, in_size);
   }
 
-  std::string cached_header;
+  typedef boost::array<uint8_t, 16> DataFileSync;
+  const DataFileSync sync_bytes_ = { {//TODO TEMP useful for debugging
+      'F', 'E', 'F', 'E',
+      'F', 'E', 'F', 'E',
+      'F', 'E', 'F', 'E',
+      'F', 'E', 'F', 'E' } };
+  std::shared_ptr<DataFileSync> sync_bytes;
+  std::string header_data, footer_data;
+
+  std::shared_ptr<DataFileSync> get_sync_bytes() {
+    if (!sync_bytes) {
+      /*
+      sync_bytes.reset(new DataFileSync);
+      for (size_t i = 0; i < sync_bytes->size(); ++i) {
+        (*sync_bytes)[i] = random();
+      }
+      */
+      sync_bytes.reset(new DataFileSync(sync_bytes_));
+    }
+    return sync_bytes;
+  }
 }
 
-std::string metrics::AvroEncoder::header() {
-  std::ostringstream oss;
-
-  {
-    std::shared_ptr<avro::OutputStream> avro_outstream(avro::ostreamOutputStream(oss));
-    avro::EncoderPtr encoder = avro::binaryEncoder();
-    encoder->init(*avro_outstream);
-
-    MetadataMap metadata_map;
-    set_metadata(metadata_map, AVRO_CODEC_KEY, AVRO_NULL_CODEC);
-
-    LOG(INFO) << "SCHEMA BEGIN\n\n" << metrics_schema::SCHEMA_JSON << "\n\nSCHEMA END";//TODO TEMP
-    avro::ValidSchema schema = avro::compileJsonSchemaFromString(metrics_schema::SCHEMA_JSON);
+const std::string& metrics::AvroEncoder::header() {
+  if (header_data.empty()) {
     std::ostringstream oss;
-    schema.toJson(oss);
-    LOG(INFO) << "PARSED SCHEMA BEGIN\n\n" << oss.str() << "\n\nPARSED SCHEMA END";//TODO TEMP
-    set_metadata(metadata_map, AVRO_SCHEMA_KEY, oss.str());
+    {
+      std::shared_ptr<avro::OutputStream> avro_outstream(avro::ostreamOutputStream(oss));
+      avro::EncoderPtr encoder = avro::binaryEncoder();
+      encoder->init(*avro_outstream);
 
-    DataFileSync sync;
-    for (size_t i = 0; i < sync.size(); ++i) {
-      sync[i] = random();
+      MetadataMap metadata_map;
+      set_metadata(metadata_map, AVRO_CODEC_KEY, AVRO_NULL_CODEC);
+
+      // Pass minimized schema directly. Avro C++'s compileJsonSchemaFromString just de-minimizes it.
+      set_metadata(metadata_map, AVRO_SCHEMA_KEY, metrics_schema::SCHEMA_JSON);
+
+      avro::encode(*encoder, magic);
+      avro::encode(*encoder, metadata_map);
+      avro::encode(*encoder, *get_sync_bytes());
+      encoder->flush(); // required
     }
-
-    avro::encode(*encoder, magic);
-    avro::encode(*encoder, metadata_map);
-    avro::encode(*encoder, sync);
-    encoder->flush();
+    LOG(INFO) << "INIT HEADER (" << oss.str().size() << "): " << oss.str();
+    header_data = oss.str();
   }
 
-  return oss.str();
+  return header_data;
 }
 
-void metrics::AvroEncoder::encode_metrics(
+void metrics::AvroEncoder::encode_metrics_block(
     const container_id_map<metrics_schema::MetricList>& metric_map,
     const metrics_schema::MetricList& metric_list,
     std::ostream& ostream) {
+  // in the first pass, encode the data so that we can get the byte count
+  int64_t obj_count = 0;
+  std::ostringstream oss;
+  {
+    std::shared_ptr<avro::OutputStream> avro_ostream(avro::ostreamOutputStream(oss));
+    avro::EncoderPtr encoder = avro::binaryEncoder();
+    encoder->init(*avro_ostream);
+
+    for (auto entry : metric_map) {
+      ++obj_count;
+      avro::encode(*encoder, entry.second);
+    }
+    if (!metric_list.datapoints.empty()) {
+      ++obj_count;
+      avro::encode(*encoder, metric_list);
+    }
+    if (obj_count == 0) {
+      // Nothing to encode, produce 0 bytes
+      return;
+    }
+
+    encoder->flush();
+  }
+
+  // in the second pass, write the block:
+  // - block header (obj count + byte count)
+  // - the encoded data (from first pass)
+  // - block footer (sync bytes)
   std::shared_ptr<avro::OutputStream> avro_ostream(avro::ostreamOutputStream(ostream));
   avro::EncoderPtr encoder = avro::binaryEncoder();
   encoder->init(*avro_ostream);
-  for (auto entry : metric_map) {
-    avro::encode(*encoder, entry.second);
-  }
-  if (!metric_list.datapoints.empty()) {
-    avro::encode(*encoder, metric_list);
-  }
-  encoder->flush();
+  avro::encode(*encoder, obj_count);
+  avro::encode(*encoder, (int64_t)oss.str().size());
+
+  encoder->flush(); // ensure header is written before we write data
+  ostream << oss.str();
+
+  avro::encode(*encoder, *get_sync_bytes());
+  encoder->flush(); // required
 }
 
 size_t metrics::AvroEncoder::statsd_to_struct(

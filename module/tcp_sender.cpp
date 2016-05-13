@@ -124,13 +124,13 @@ void metrics::TCPSender::connect_outcome_cb(boost::system::error_code ec) {
   boost::asio::socket_base::keep_alive option(true);
   socket.set_option(option);
 
-  buf_ptr_t buf(new boost::asio::streambuf);
-  {
+  if (!session_header.empty()) {
+    buf_ptr_t buf(new boost::asio::streambuf);
     std::ostream ostream(buf.get());
     ostream << session_header;
+    DLOG(INFO) << "Sending session header";
+    send(buf);
   }
-  DLOG(INFO) << "Sending session header";
-  send(buf);
 }
 
 void metrics::TCPSender::send_cb(

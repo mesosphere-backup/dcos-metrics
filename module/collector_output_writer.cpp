@@ -14,8 +14,8 @@ namespace {
   }
 
   boost::asio::ip::address get_collector_ip(const mesos::Parameters& parameters) {
-    std::string ip_str = metrics::params::get_str(
-        parameters, metrics::params::OUTPUT_COLLECTOR_IP, metrics::params::OUTPUT_COLLECTOR_IP_DEFAULT);
+    std::string ip_str = metrics::params::get_str(parameters,
+        metrics::params::OUTPUT_COLLECTOR_IP, metrics::params::OUTPUT_COLLECTOR_IP_DEFAULT);
     boost::system::error_code ec;
     boost::asio::ip::address ip = boost::asio::ip::address::from_string(ip_str, ec);
     if (ec) {
@@ -33,8 +33,10 @@ metrics::output_writer_ptr_t metrics::CollectorOutputWriter::create(
           io_service,
           AvroEncoder::header(),
           get_collector_ip(parameters),
-          params::get_uint(parameters, params::OUTPUT_COLLECTOR_PORT, params::OUTPUT_COLLECTOR_PORT_DEFAULT)));
-  return metrics::output_writer_ptr_t(new metrics::CollectorOutputWriter(io_service, parameters, sender));
+          params::get_uint(parameters,
+              params::OUTPUT_COLLECTOR_PORT, params::OUTPUT_COLLECTOR_PORT_DEFAULT)));
+  return metrics::output_writer_ptr_t(
+      new metrics::CollectorOutputWriter(io_service, parameters, sender));
 }
 
 metrics::CollectorOutputWriter::CollectorOutputWriter(
@@ -62,8 +64,8 @@ metrics::CollectorOutputWriter::CollectorOutputWriter(
 metrics::CollectorOutputWriter::~CollectorOutputWriter() {
   LOG(INFO) << "Asynchronously triggering CollectorOutputWriter shutdown";
   // Run the shutdown work itself from within the scheduler:
-  if (sync_util::dispatch_run(
-          "~CollectorOutputWriter", *io_service, std::bind(&CollectorOutputWriter::shutdown_cb, this))) {
+  if (sync_util::dispatch_run("~CollectorOutputWriter", *io_service,
+          std::bind(&CollectorOutputWriter::shutdown_cb, this))) {
     LOG(INFO) << "CollectorOutputWriter shutdown succeeded";
   } else {
     LOG(ERROR) << "Failed to complete CollectorOutputWriter shutdown";
@@ -109,7 +111,8 @@ void metrics::CollectorOutputWriter::write_resource_usage(
 
 void metrics::CollectorOutputWriter::start_chunk_flush_timer() {
   flush_timer.expires_from_now(boost::posix_time::milliseconds(chunk_timeout_ms));
-  flush_timer.async_wait(std::bind(&CollectorOutputWriter::chunk_flush_cb, this, std::placeholders::_1));
+  flush_timer.async_wait(
+      std::bind(&CollectorOutputWriter::chunk_flush_cb, this, std::placeholders::_1));
 }
 
 void metrics::CollectorOutputWriter::flush() {
@@ -120,11 +123,13 @@ void metrics::CollectorOutputWriter::flush() {
   TCPSender::buf_ptr_t buf(new boost::asio::streambuf);
   {
     std::ostream ostream(buf.get());
-    AvroEncoder::encode_metrics(container_map, metric_list, ostream);
+    AvroEncoder::encode_metrics_block(container_map, metric_list, ostream);
   }
   container_map.clear();
   clear(metric_list);
-  sender->send(buf);
+  if (buf->size() != 0) {
+    sender->send(buf);
+  }
 }
 
 void metrics::CollectorOutputWriter::chunk_flush_cb(boost::system::error_code ec) {

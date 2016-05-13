@@ -9,6 +9,10 @@ include_directories(${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}) # for metrics schem
 # for library headers, hide any warnings:
 include_directories(SYSTEM ${GMOCK_INCLUDE_DIR} ${GTEST_INCLUDE_DIR})
 
+add_executable(avro_encoder_tests avro_encoder_tests.cpp)
+target_link_libraries(avro_encoder_tests gmock gtest metrics-module)
+add_test(avro_encoder_tests avro_encoder_tests)
+
 add_executable(container_assigner_tests container_assigner_tests.cpp)
 target_link_libraries(container_assigner_tests gmock gtest metrics-module)
 add_test(container_assigner_tests container_assigner_tests)

@@ -11,13 +11,13 @@ namespace metrics {
     /**
      * Returns a statically allocated header buffer.
      */
-    static std::string header();
+    static const std::string& header();
 
     /**
      * malloc()'s 'out', fills it with encoded metrics, and returns the size of the encoded metrics
      * inside of 'out'.
      */
-    static void encode_metrics(
+    static void encode_metrics_block(
         const container_id_map<metrics_schema::MetricList>& metric_map,
         const metrics_schema::MetricList& metric_list,
         std::ostream& ostream);
