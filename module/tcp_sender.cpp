@@ -224,7 +224,7 @@ void metrics::TCPSender::report_dropped_cb() {
   if (dropped_bytes > 0) {
     LOG(WARNING) << "Recently dropped " << dropped_bytes
                  << " bytes due to lack of open collector socket to ip[" << send_ip << "] "
-                 << "(pending: " << pending_bytes << " bytes)";
+                 << "(" << pending_bytes << " bytes pending)";
     dropped_bytes = 0;
   }
   start_report_dropped_timer();
