@@ -306,12 +306,302 @@ size_t metrics::AvroEncoder::statsd_to_struct(
   return 1;
 }
 
+#define ADD_STAT(COUNTER, OBJ, FIELDPREFIX, FIELDNAME)                   \
+  if (OBJ.has_##FIELDNAME()) {                                          \
+    ++COUNTER;                                                          \
+    d.name = FIELDPREFIX ".FIELDNAME";                                  \
+    d.value = OBJ.FIELDNAME();                                          \
+    list.datapoints.push_back(d);                                       \
+  }
+#define ADD_NAMED_STAT(COUNTER, OBJ, FIELDPREFIX, NAMESTR, FIELDNAME)    \
+  if (OBJ.has_##FIELDNAME()) {                                          \
+    ++COUNTER;                                                          \
+    std::ostringstream oss;                                             \
+    oss << FIELDPREFIX "." << NAMESTR << ".FIELDNAME";                  \
+    d.name = oss.str();                                                 \
+    d.value = OBJ.FIELDNAME();                                          \
+    list.datapoints.push_back(d);                                       \
+  }
+
+namespace {
+  size_t add_perf(
+      const mesos::PerfStatistics& perf, metrics_schema::Datapoint& d, metrics_schema::MetricList& list) {
+    size_t vals = 0;
+
+    ADD_STAT(vals, perf, "perf", cycles);
+    ADD_STAT(vals, perf, "perf", stalled_cycles_frontend);
+    ADD_STAT(vals, perf, "perf", stalled_cycles_backend);
+    ADD_STAT(vals, perf, "perf", instructions);
+    ADD_STAT(vals, perf, "perf", cache_references);
+    ADD_STAT(vals, perf, "perf", cache_misses);
+    ADD_STAT(vals, perf, "perf", branches);
+    ADD_STAT(vals, perf, "perf", branch_misses);
+    ADD_STAT(vals, perf, "perf", bus_cycles);
+    ADD_STAT(vals, perf, "perf", ref_cycles);
+
+    ADD_STAT(vals, perf, "perf", cpu_clock);
+    ADD_STAT(vals, perf, "perf", task_clock);
+    ADD_STAT(vals, perf, "perf", page_faults);
+    ADD_STAT(vals, perf, "perf", minor_faults);
+    ADD_STAT(vals, perf, "perf", major_faults);
+    ADD_STAT(vals, perf, "perf", context_switches);
+    ADD_STAT(vals, perf, "perf", cpu_migrations);
+    ADD_STAT(vals, perf, "perf", alignment_faults);
+    ADD_STAT(vals, perf, "perf", emulation_faults);
+
+    ADD_STAT(vals, perf, "perf", l1_dcache_loads);
+    ADD_STAT(vals, perf, "perf", l1_dcache_load_misses);
+    ADD_STAT(vals, perf, "perf", l1_dcache_stores);
+    ADD_STAT(vals, perf, "perf", l1_dcache_store_misses);
+    ADD_STAT(vals, perf, "perf", l1_dcache_prefetches);
+    ADD_STAT(vals, perf, "perf", l1_dcache_prefetch_misses);
+    ADD_STAT(vals, perf, "perf", l1_icache_loads);
+    ADD_STAT(vals, perf, "perf", l1_icache_load_misses);
+    ADD_STAT(vals, perf, "perf", l1_icache_prefetches);
+    ADD_STAT(vals, perf, "perf", l1_icache_prefetch_misses);
+    ADD_STAT(vals, perf, "perf", llc_loads);
+    ADD_STAT(vals, perf, "perf", llc_load_misses);
+    ADD_STAT(vals, perf, "perf", llc_stores);
+    ADD_STAT(vals, perf, "perf", llc_store_misses);
+    ADD_STAT(vals, perf, "perf", llc_prefetches);
+    ADD_STAT(vals, perf, "perf", llc_prefetch_misses);
+    ADD_STAT(vals, perf, "perf", dtlb_loads);
+    ADD_STAT(vals, perf, "perf", dtlb_load_misses);
+    ADD_STAT(vals, perf, "perf", dtlb_stores);
+    ADD_STAT(vals, perf, "perf", dtlb_store_misses);
+    ADD_STAT(vals, perf, "perf", dtlb_prefetches);
+    ADD_STAT(vals, perf, "perf", dtlb_prefetch_misses);
+    ADD_STAT(vals, perf, "perf", itlb_loads);
+    ADD_STAT(vals, perf, "perf", itlb_load_misses);
+    ADD_STAT(vals, perf, "perf", branch_loads);
+    ADD_STAT(vals, perf, "perf", branch_load_misses);
+    ADD_STAT(vals, perf, "perf", node_loads);
+    ADD_STAT(vals, perf, "perf", node_load_misses);
+    ADD_STAT(vals, perf, "perf", node_stores);
+    ADD_STAT(vals, perf, "perf", node_store_misses);
+    ADD_STAT(vals, perf, "perf", node_prefetches);
+    ADD_STAT(vals, perf, "perf", node_prefetch_misses);
+
+    return vals;
+  }
+
+  size_t add_traf(const mesos::TrafficControlStatistics& traf,
+      metrics_schema::Datapoint& d, metrics_schema::MetricList& list) {
+    size_t vals = 0;
+
+    const std::string& id = traf.id();
+    ADD_NAMED_STAT(vals, traf, "traf", id, backlog);
+    ADD_NAMED_STAT(vals, traf, "traf", id, bytes);
+    ADD_NAMED_STAT(vals, traf, "traf", id, drops);
+    ADD_NAMED_STAT(vals, traf, "traf", id, overlimits);
+    ADD_NAMED_STAT(vals, traf, "traf", id, packets);
+    ADD_NAMED_STAT(vals, traf, "traf", id, qlen);
+    ADD_NAMED_STAT(vals, traf, "traf", id, ratebps);
+    ADD_NAMED_STAT(vals, traf, "traf", id, ratepps);
+    ADD_NAMED_STAT(vals, traf, "traf", id, requeues);
+
+    return vals;
+  }
+
+  size_t add_snmp_ip(
+      const mesos::IpStatistics& ip, metrics_schema::Datapoint& d, metrics_schema::MetricList& list) {
+    size_t vals = 0;
+
+    ADD_STAT(vals, ip, "snmp.ip", forwarding);
+    ADD_STAT(vals, ip, "snmp.ip", defaultttl);
+    ADD_STAT(vals, ip, "snmp.ip", inreceives);
+    ADD_STAT(vals, ip, "snmp.ip", inhdrerrors);
+    ADD_STAT(vals, ip, "snmp.ip", inaddrerrors);
+    ADD_STAT(vals, ip, "snmp.ip", forwdatagrams);
+    ADD_STAT(vals, ip, "snmp.ip", inunknownprotos);
+    ADD_STAT(vals, ip, "snmp.ip", indiscards);
+    ADD_STAT(vals, ip, "snmp.ip", indelivers);
+    ADD_STAT(vals, ip, "snmp.ip", outrequests);
+    ADD_STAT(vals, ip, "snmp.ip", outdiscards);
+    ADD_STAT(vals, ip, "snmp.ip", outnoroutes);
+    ADD_STAT(vals, ip, "snmp.ip", reasmtimeout);
+    ADD_STAT(vals, ip, "snmp.ip", reasmreqds);
+    ADD_STAT(vals, ip, "snmp.ip", reasmoks);
+    ADD_STAT(vals, ip, "snmp.ip", reasmfails);
+    ADD_STAT(vals, ip, "snmp.ip", fragoks);
+    ADD_STAT(vals, ip, "snmp.ip", fragfails);
+    ADD_STAT(vals, ip, "snmp.ip", fragcreates);
+
+    return vals;
+  }
+
+  size_t add_snmp_icmp(
+      const mesos::IcmpStatistics& icmp, metrics_schema::Datapoint& d, metrics_schema::MetricList& list) {
+    size_t vals = 0;
+
+    ADD_STAT(vals, icmp, "snmp.icmp", inmsgs);
+    ADD_STAT(vals, icmp, "snmp.icmp", inerrors);
+    ADD_STAT(vals, icmp, "snmp.icmp", incsumerrors);
+    ADD_STAT(vals, icmp, "snmp.icmp", indestunreachs);
+    ADD_STAT(vals, icmp, "snmp.icmp", intimeexcds);
+    ADD_STAT(vals, icmp, "snmp.icmp", inparmprobs);
+    ADD_STAT(vals, icmp, "snmp.icmp", insrcquenchs);
+    ADD_STAT(vals, icmp, "snmp.icmp", inredirects);
+    ADD_STAT(vals, icmp, "snmp.icmp", inechos);
+    ADD_STAT(vals, icmp, "snmp.icmp", inechoreps);
+    ADD_STAT(vals, icmp, "snmp.icmp", intimestamps);
+    ADD_STAT(vals, icmp, "snmp.icmp", intimestampreps);
+    ADD_STAT(vals, icmp, "snmp.icmp", inaddrmasks);
+    ADD_STAT(vals, icmp, "snmp.icmp", inaddrmaskreps);
+    ADD_STAT(vals, icmp, "snmp.icmp", outmsgs);
+    ADD_STAT(vals, icmp, "snmp.icmp", outerrors);
+    ADD_STAT(vals, icmp, "snmp.icmp", outdestunreachs);
+    ADD_STAT(vals, icmp, "snmp.icmp", outtimeexcds);
+    ADD_STAT(vals, icmp, "snmp.icmp", outparmprobs);
+    ADD_STAT(vals, icmp, "snmp.icmp", outsrcquenchs);
+    ADD_STAT(vals, icmp, "snmp.icmp", outredirects);
+    ADD_STAT(vals, icmp, "snmp.icmp", outechos);
+    ADD_STAT(vals, icmp, "snmp.icmp", outechoreps);
+    ADD_STAT(vals, icmp, "snmp.icmp", outtimestamps);
+    ADD_STAT(vals, icmp, "snmp.icmp", outtimestampreps);
+    ADD_STAT(vals, icmp, "snmp.icmp", outaddrmasks);
+    ADD_STAT(vals, icmp, "snmp.icmp", outaddrmaskreps);
+
+    return vals;
+  }
+
+  size_t add_snmp_tcp(
+      const mesos::TcpStatistics& tcp, metrics_schema::Datapoint& d, metrics_schema::MetricList& list) {
+    size_t vals = 0;
+
+    ADD_STAT(vals, tcp, "snmp.tcp", rtoalgorithm);
+    ADD_STAT(vals, tcp, "snmp.tcp", rtomin);
+    ADD_STAT(vals, tcp, "snmp.tcp", rtomax);
+    ADD_STAT(vals, tcp, "snmp.tcp", maxconn);
+    ADD_STAT(vals, tcp, "snmp.tcp", activeopens);
+    ADD_STAT(vals, tcp, "snmp.tcp", passiveopens);
+    ADD_STAT(vals, tcp, "snmp.tcp", attemptfails);
+    ADD_STAT(vals, tcp, "snmp.tcp", estabresets);
+    ADD_STAT(vals, tcp, "snmp.tcp", currestab);
+    ADD_STAT(vals, tcp, "snmp.tcp", insegs);
+    ADD_STAT(vals, tcp, "snmp.tcp", outsegs);
+    ADD_STAT(vals, tcp, "snmp.tcp", retranssegs);
+    ADD_STAT(vals, tcp, "snmp.tcp", inerrs);
+    ADD_STAT(vals, tcp, "snmp.tcp", outrsts);
+    ADD_STAT(vals, tcp, "snmp.tcp", incsumerrors);
+
+    return vals;
+  }
+
+  size_t add_snmp_udp(
+      const mesos::UdpStatistics& udp, metrics_schema::Datapoint& d, metrics_schema::MetricList& list) {
+    size_t vals = 0;
+
+    ADD_STAT(vals, udp, "snmp.udp", indatagrams);
+    ADD_STAT(vals, udp, "snmp.udp", noports);
+    ADD_STAT(vals, udp, "snmp.udp", inerrors);
+    ADD_STAT(vals, udp, "snmp.udp", outdatagrams);
+    ADD_STAT(vals, udp, "snmp.udp", rcvbuferrors);
+    ADD_STAT(vals, udp, "snmp.udp", sndbuferrors);
+    ADD_STAT(vals, udp, "snmp.udp", incsumerrors);
+    ADD_STAT(vals, udp, "snmp.udp", ignoredmulti);
+
+    return vals;
+  }
+}
+
 size_t metrics::AvroEncoder::resources_to_struct(
     const mesos::ResourceUsage& usage,
     container_id_ord_map<metrics_schema::MetricList>& metric_map) {
+  size_t vals = 0;
+  for (int64_t execi = 0; execi < usage.executors_size(); ++execi) {
+    const mesos::ResourceUsage_Executor& executor = usage.executors(execi);
+
+    const mesos::ContainerID& cid = executor.container_id();
+    const mesos::ExecutorInfo& einfo = executor.executor_info();
+    std::ostringstream oss;
+    oss << cid.value() << "-usage";
+
+    mesos::ContainerID custom_id;
+    custom_id.set_value(oss.str());
+    metrics_schema::MetricList& list = metric_map[custom_id];
+    list.topic = oss.str();// set custom topic before init..:
+    init_list(list, &cid, &einfo);
+
+    if (!executor.has_statistics()) {
+      continue;
+    }
+
+    const mesos::ResourceStatistics& stats = executor.statistics();
+    metrics_schema::Datapoint d;
+    d.time_ms = (int64_t)(1000 * stats.timestamp());
+
+    ADD_STAT(vals, stats, "resources", processes);
+    ADD_STAT(vals, stats, "resources", threads);
+
+    ADD_STAT(vals, stats, "resources", cpus_user_time_secs);
+    ADD_STAT(vals, stats, "resources", cpus_system_time_secs);
+    ADD_STAT(vals, stats, "resources", cpus_limit);
+    ADD_STAT(vals, stats, "resources", cpus_nr_periods);
+    ADD_STAT(vals, stats, "resources", cpus_nr_throttled);
+    ADD_STAT(vals, stats, "resources", cpus_throttled_time_secs);
+
+    ADD_STAT(vals, stats, "resources", mem_total_bytes);
+    ADD_STAT(vals, stats, "resources", mem_total_memsw_bytes);
+    ADD_STAT(vals, stats, "resources", mem_limit_bytes);
+    ADD_STAT(vals, stats, "resources", mem_soft_limit_bytes);
+    ADD_STAT(vals, stats, "resources", mem_file_bytes);
+    ADD_STAT(vals, stats, "resources", mem_anon_bytes);
+    ADD_STAT(vals, stats, "resources", mem_cache_bytes);
+    ADD_STAT(vals, stats, "resources", mem_rss_bytes);
+    ADD_STAT(vals, stats, "resources", mem_mapped_file_bytes);
+    ADD_STAT(vals, stats, "resources", mem_swap_bytes);
+    ADD_STAT(vals, stats, "resources", mem_unevictable_bytes);
+    ADD_STAT(vals, stats, "resources", mem_low_pressure_counter);
+    ADD_STAT(vals, stats, "resources", mem_medium_pressure_counter);
+    ADD_STAT(vals, stats, "resources", mem_critical_pressure_counter);
+
+    ADD_STAT(vals, stats, "resources", disk_limit_bytes);
+    ADD_STAT(vals, stats, "resources", disk_used_bytes);
+
+    if (stats.has_perf()) {
+      vals += add_perf(stats.perf(), d, list);
+    }
+
+    ADD_STAT(vals, stats, "resources", net_rx_packets);
+    ADD_STAT(vals, stats, "resources", net_rx_bytes);
+    ADD_STAT(vals, stats, "resources", net_rx_errors);
+    ADD_STAT(vals, stats, "resources", net_rx_dropped);
+    ADD_STAT(vals, stats, "resources", net_tx_packets);
+    ADD_STAT(vals, stats, "resources", net_tx_bytes);
+    ADD_STAT(vals, stats, "resources", net_tx_errors);
+    ADD_STAT(vals, stats, "resources", net_tx_dropped);
+
+    ADD_STAT(vals, stats, "resources", net_tcp_rtt_microsecs_p50);
+    ADD_STAT(vals, stats, "resources", net_tcp_rtt_microsecs_p90);
+    ADD_STAT(vals, stats, "resources", net_tcp_rtt_microsecs_p95);
+    ADD_STAT(vals, stats, "resources", net_tcp_rtt_microsecs_p99);
+
+    ADD_STAT(vals, stats, "resources", net_tcp_active_connections);
+    ADD_STAT(vals, stats, "resources", net_tcp_time_wait_connections);
+
+    for (int64_t trafi = 0; trafi < stats.net_traffic_control_statistics_size(); ++trafi) {
+      vals += add_traf(stats.net_traffic_control_statistics(trafi), d, list);
+    }
+
+    if (stats.has_net_snmp_statistics()) {
+      const mesos::SNMPStatistics& snmp = stats.net_snmp_statistics();
+      if (snmp.has_ip_stats()) {
+        vals += add_snmp_ip(snmp.ip_stats(), d, list);
+      }
+      if (snmp.has_icmp_stats()) {
+        vals += add_snmp_icmp(snmp.icmp_stats(), d, list);
+      }
+      if (snmp.has_tcp_stats()) {
+        vals += add_snmp_tcp(snmp.tcp_stats(), d, list);
+      }
+      if (snmp.has_udp_stats()) {
+        vals += add_snmp_udp(snmp.udp_stats(), d, list);
+      }
+    }
+  }
   LOG(INFO) << "Resources:\n" << usage.DebugString();
-  //TODO implement ResourceUsage -> avro
-  return 0;
+  return vals;
 }
 
 bool metrics::AvroEncoder::empty(const metrics_schema::MetricList& metric_list) {
