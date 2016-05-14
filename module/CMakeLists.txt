@@ -7,13 +7,8 @@ option(USE_LOCAL_PROTOBUF "Whether to use Mesos' or a locally downloaded interna
 option(USE_LOCAL_GLOG "Whether to use Mesos' copy of glog (true) or the system copy of glog (false)" TRUE)
 option(USE_LOCAL_AVRO "Whether to download/build a local copy of avrocpp (true) or to use the system copy of avrocpp (false)" TRUE)
 
-if(TARGET_DCOS EQUAL "1.6")
-  #cmake -DCMAKE_BUILD_TYPE=Release -Dboost_system_LIBRARY=/home/nick/code/dcos-vagrant/metrics-libs-16/opt/mesosphere/lib/libboost_system.so -DTARGET_DCOS=1.6 ..
-  set(CMAKE_CXX_COMPILER "/usr/bin/g++-4.8")
-  set(mesos_VERSION "0.27.1")
-  set(TESTS_ENABLED false)
-elseif(TARGET_DCOS EQUAL "1.7")
-  #cmake -DCMAKE_BUILD_TYPE=Release -Dboost_system_LIBRARY=/home/nick/code/dcos-vagrant/metrics-libs-17ee/opt/mesosphere/lib/libboost_system.so.1.53.0 -DTARGET_DCOS=1.7 ..
+if(TARGET_DCOS EQUAL "1.7")
+  #cmake -DCMAKE_BUILD_TYPE=Release -Dboost_system_LIBRARY=/home/nick/dcos-stats/libboost_system.so.1.53.0 -DTARGET_DCOS=1.7 ..
   set(CMAKE_CXX_COMPILER "/usr/bin/g++-4.8")
   set(mesos_VERSION "0.28.1")
   set(TESTS_ENABLED false)
@@ -122,7 +117,7 @@ if(USE_LOCAL_AVRO)
   include(InstallAvro.cmake)
   set(AVRO_DEPENDS ext_avro)
 else()
-  find_path(avro_INCLUDE_DIR NAMES avro/Compiler.hh)
+  find_path(avro_INCLUDE_DIR NAMES avro/Compiler.hh HINTS ${mesos_INCLUDE_DIR})
   find_library(avro_LIBRARY NAMES avrocpp HINTS ${default_LIB_DIR})
   find_program(avrogencpp_EXECUTABLE avrogencpp)
 endif()

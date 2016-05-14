@@ -306,18 +306,18 @@ size_t metrics::AvroEncoder::statsd_to_struct(
   return 1;
 }
 
-#define ADD_STAT(COUNTER, OBJ, FIELDPREFIX, FIELDNAME)                   \
+#define ADD_STAT(COUNTER, OBJ, FIELDPREFIX, FIELDNAME)                  \
   if (OBJ.has_##FIELDNAME()) {                                          \
     ++COUNTER;                                                          \
-    d.name = FIELDPREFIX ".FIELDNAME";                                  \
+    d.name = FIELDPREFIX "." #FIELDNAME ;                               \
     d.value = OBJ.FIELDNAME();                                          \
     list.datapoints.push_back(d);                                       \
   }
-#define ADD_NAMED_STAT(COUNTER, OBJ, FIELDPREFIX, NAMESTR, FIELDNAME)    \
+#define ADD_NAMED_STAT(COUNTER, OBJ, FIELDPREFIX, NAMESTR, FIELDNAME)   \
   if (OBJ.has_##FIELDNAME()) {                                          \
     ++COUNTER;                                                          \
     std::ostringstream oss;                                             \
-    oss << FIELDPREFIX "." << NAMESTR << ".FIELDNAME";                  \
+    oss << FIELDPREFIX "." << NAMESTR << "." #FIELDNAME ;               \
     d.name = oss.str();                                                 \
     d.value = OBJ.FIELDNAME();                                          \
     list.datapoints.push_back(d);                                       \

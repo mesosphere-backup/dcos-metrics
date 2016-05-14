@@ -411,26 +411,6 @@ TEST_F(AvroEncoderTests, map_with_info) {
   EXPECT_EQ("cid", list.tags[2].value);
 }
 
-TEST_F(AvroEncoderTests, check_empty) {
-  metrics_schema::MetricList list;
-  EXPECT_TRUE(metrics::AvroEncoder::empty(list));
-
-  list.topic = "hi";
-  EXPECT_FALSE(metrics::AvroEncoder::empty(list));
-  list.topic.clear();
-  EXPECT_TRUE(metrics::AvroEncoder::empty(list));
-
-  list.tags.push_back(metrics_schema::Tag());
-  EXPECT_FALSE(metrics::AvroEncoder::empty(list));
-  list.tags.clear();
-  EXPECT_TRUE(metrics::AvroEncoder::empty(list));
-
-  list.datapoints.push_back(metrics_schema::Datapoint());
-  EXPECT_FALSE(metrics::AvroEncoder::empty(list));
-  list.datapoints.clear();
-  EXPECT_TRUE(metrics::AvroEncoder::empty(list));
-}
-
 TEST_F(AvroEncoderTests, statsd_merge) {
   mesos::ContainerID cid = container_id("cid");
 
@@ -596,6 +576,121 @@ TEST_F(AvroEncoderTests, statsd_parse) {
   check_no_tags(hello_2emptytag_empty, 0.35);
   check_no_tags(hello_2emptytagval_empty, 0.35);
   check_no_tags(hello_2emptytageval_empty, 0.35);
+}
+
+TEST_F(AvroEncoderTests, resources) {
+  mesos::ResourceUsage usage;
+
+  mesos::ResourceUsage_Executor* executor1 = usage.add_executors();
+  executor1->mutable_container_id()->set_value("cid1");
+  executor1->mutable_executor_info()->mutable_framework_id()->set_value("fid1");
+  executor1->mutable_executor_info()->mutable_executor_id()->set_value("eid1");
+  mesos::ResourceStatistics* stats1 = executor1->mutable_statistics();
+  stats1->set_timestamp(1234.55);
+  stats1->set_processes(3);
+  stats1->mutable_perf()->set_cpu_clock(0.7);
+  stats1->set_net_rx_bytes(5);
+  mesos::TrafficControlStatistics* traf1a = stats1->add_net_traffic_control_statistics();
+  traf1a->set_id("1a");
+  traf1a->set_bytes(1248);
+  mesos::TrafficControlStatistics* traf1b = stats1->add_net_traffic_control_statistics();
+  traf1b->set_id("1b");
+  traf1b->set_ratepps(14);
+  stats1->mutable_net_snmp_statistics()->mutable_ip_stats()->set_indelivers(123);
+  stats1->mutable_net_snmp_statistics()->mutable_icmp_stats()->set_outsrcquenchs(481);
+  stats1->mutable_net_snmp_statistics()->mutable_tcp_stats()->set_retranssegs(361);
+  stats1->mutable_net_snmp_statistics()->mutable_udp_stats()->set_inerrors(8);
+
+  mesos::ResourceUsage_Executor* executor2 = usage.add_executors();
+  executor2->mutable_container_id()->set_value("cid2");
+  executor2->mutable_executor_info()->mutable_framework_id()->set_value("fid2");
+  executor2->mutable_executor_info()->mutable_executor_id()->set_value("eid2");
+  mesos::ResourceStatistics* stats2 = executor2->mutable_statistics();
+  stats2->set_timestamp(5678.99);
+  stats2->set_mem_total_bytes(8);
+  stats2->set_net_tx_dropped(6);
+  stats2->mutable_net_snmp_statistics()->mutable_ip_stats()->set_outnoroutes(8);
+
+  metrics::container_id_ord_map<metrics_schema::MetricList> metric_map;
+  EXPECT_EQ(12, metrics::AvroEncoder::resources_to_struct(usage, metric_map));
+  EXPECT_EQ(2, metric_map.size());
+  LOG(INFO) << metric_map.begin()->first.value();
+  const metrics_schema::MetricList& m1 = metric_map[container_id("cid1-usage")];
+
+  EXPECT_EQ("cid1-usage", m1.topic);
+
+  EXPECT_EQ(3, m1.tags.size());
+  EXPECT_EQ("framework_id", m1.tags[0].key);
+  EXPECT_EQ("fid1", m1.tags[0].value);
+  EXPECT_EQ("executor_id", m1.tags[1].key);
+  EXPECT_EQ("eid1", m1.tags[1].value);
+  EXPECT_EQ("container_id", m1.tags[2].key);
+  EXPECT_EQ("cid1", m1.tags[2].value);
+
+  EXPECT_EQ(9, m1.datapoints.size());
+  for (const metrics_schema::Datapoint& d : m1.datapoints) {
+    EXPECT_EQ(stats1->timestamp() * 1000, d.time_ms);
+  }
+  EXPECT_EQ("resources.processes", m1.datapoints[0].name);
+  EXPECT_EQ(stats1->processes(), m1.datapoints[0].value);
+  EXPECT_EQ("perf.cpu_clock", m1.datapoints[1].name);
+  EXPECT_EQ(stats1->perf().cpu_clock(), m1.datapoints[1].value);
+  EXPECT_EQ("resources.net_rx_bytes", m1.datapoints[2].name);
+  EXPECT_EQ(stats1->net_rx_bytes(), m1.datapoints[2].value);
+  EXPECT_EQ("traf.1a.bytes", m1.datapoints[3].name);
+  EXPECT_EQ(traf1a->bytes(), m1.datapoints[3].value);
+  EXPECT_EQ("traf.1b.ratepps", m1.datapoints[4].name);
+  EXPECT_EQ(traf1b->ratepps(), m1.datapoints[4].value);
+  EXPECT_EQ("snmp.ip.indelivers", m1.datapoints[5].name);
+  EXPECT_EQ(stats1->net_snmp_statistics().ip_stats().indelivers(), m1.datapoints[5].value);
+  EXPECT_EQ("snmp.icmp.outsrcquenchs", m1.datapoints[6].name);
+  EXPECT_EQ(stats1->net_snmp_statistics().icmp_stats().outsrcquenchs(), m1.datapoints[6].value);
+  EXPECT_EQ("snmp.tcp.retranssegs", m1.datapoints[7].name);
+  EXPECT_EQ(stats1->net_snmp_statistics().tcp_stats().retranssegs(), m1.datapoints[7].value);
+  EXPECT_EQ("snmp.udp.inerrors", m1.datapoints[8].name);
+  EXPECT_EQ(stats1->net_snmp_statistics().udp_stats().inerrors(), m1.datapoints[8].value);
+
+  const metrics_schema::MetricList& m2 = metric_map[container_id("cid2-usage")];
+  EXPECT_EQ("cid2-usage", m2.topic);
+
+  EXPECT_EQ(3, m2.tags.size());
+  EXPECT_EQ("framework_id", m2.tags[0].key);
+  EXPECT_EQ("fid2", m2.tags[0].value);
+  EXPECT_EQ("executor_id", m2.tags[1].key);
+  EXPECT_EQ("eid2", m2.tags[1].value);
+  EXPECT_EQ("container_id", m2.tags[2].key);
+  EXPECT_EQ("cid2", m2.tags[2].value);
+
+  EXPECT_EQ(3, m2.datapoints.size());
+  for (const metrics_schema::Datapoint& d : m2.datapoints) {
+    EXPECT_EQ(stats2->timestamp() * 1000, d.time_ms);
+  }
+  EXPECT_EQ("resources.mem_total_bytes", m2.datapoints[0].name);
+  EXPECT_EQ(stats2->mem_total_bytes(), m2.datapoints[0].value);
+  EXPECT_EQ("resources.net_tx_dropped", m2.datapoints[1].name);
+  EXPECT_EQ(stats2->net_tx_dropped(), m2.datapoints[1].value);
+  EXPECT_EQ("snmp.ip.outnoroutes", m2.datapoints[2].name);
+  EXPECT_EQ(stats2->net_snmp_statistics().ip_stats().outnoroutes(), m2.datapoints[2].value);
+}
+
+TEST_F(AvroEncoderTests, check_empty) {
+  metrics_schema::MetricList list;
+  EXPECT_TRUE(metrics::AvroEncoder::empty(list));
+
+  list.topic = "hi";
+  EXPECT_FALSE(metrics::AvroEncoder::empty(list));
+  list.topic.clear();
+  EXPECT_TRUE(metrics::AvroEncoder::empty(list));
+
+  list.tags.push_back(metrics_schema::Tag());
+  EXPECT_FALSE(metrics::AvroEncoder::empty(list));
+  list.tags.clear();
+  EXPECT_TRUE(metrics::AvroEncoder::empty(list));
+
+  list.datapoints.push_back(metrics_schema::Datapoint());
+  EXPECT_FALSE(metrics::AvroEncoder::empty(list));
+  list.datapoints.clear();
+  EXPECT_TRUE(metrics::AvroEncoder::empty(list));
 }
 
 int main(int argc, char **argv) {
