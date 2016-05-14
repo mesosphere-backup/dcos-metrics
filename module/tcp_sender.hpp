@@ -69,6 +69,7 @@ namespace metrics {
     boost::asio::ip::tcp::socket socket;
     bool is_reconnect_scheduled;
     size_t reconnect_delay;
+    bool sent_session_header;
     size_t pending_bytes;
     size_t dropped_bytes;
     bool shutdown;

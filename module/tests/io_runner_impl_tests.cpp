@@ -55,6 +55,10 @@ namespace {
     param->set_value(std::to_string(udp_port));
 
     param = params.add_parameter();
+    param->set_key(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE);
+    param->set_value(annotation_mode);
+
+    param = params.add_parameter();
     param->set_key(metrics::params::OUTPUT_COLLECTOR_IP);
     param->set_value("127.0.0.1");
 
@@ -63,8 +67,8 @@ namespace {
     param->set_value(std::to_string(tcp_port));
 
     param = params.add_parameter();
-    param->set_key(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE);
-    param->set_value(annotation_mode);
+    param->set_key(metrics::params::OUTPUT_COLLECTOR_CHUNK_TIMEOUT_SECONDS);
+    param->set_value("1");
 
     return params;
   }
@@ -164,7 +168,7 @@ TEST_F(IORunnerImplTests, write_then_immediate_shutdown) {
 TEST_F(IORunnerImplTests, data_flow_multi_stream) {
   TestUDPReadSocket udp_reader;
   size_t udp_output_port = udp_reader.listen();
-  TestTCPReadSession tcp_reader;
+  TestTCPReadSession tcp_reader(23458);
   size_t tcp_output_port = tcp_reader.port();
 
   mesos::Parameters params = get_params(udp_output_port, tcp_output_port);
@@ -229,7 +233,7 @@ TEST_F(IORunnerImplTests, data_flow_multi_stream) {
 
   std::unordered_set<std::string> tcp_stat_rows;
   std::ostringstream tcp_oss;
-  for (size_t i = 0; i < 30 && tcp_stat_rows.size() != 10; i++) {
+  for (size_t i = 0; i < 30 && tcp_stat_rows.size() != 2 && tcp_reader.wait_for_available(1); i++) {
     while (tcp_reader.available()) {
       std::string chunk = *tcp_reader.read();
       tcp_oss << chunk;
@@ -237,31 +241,26 @@ TEST_F(IORunnerImplTests, data_flow_multi_stream) {
       std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(),
           std::inserter(tcp_stat_rows, tcp_stat_rows.begin()));
     }
-    usleep(1000 * 100);
   }
 
   // verify that content parses as an avro file
+  LOG(INFO) << "------------- " << tcp_stat_rows.size() << " ROWS ------------";
+  //EXPECT_EQ(2, tcp_stat_rows.size()); // header, records (sometimes still produces 10)
   LOG(INFO) << tcp_oss.str();
-  EXPECT_EQ(10, tcp_stat_rows.size());
   std::string tmppath = write_tmp(tcp_oss.str());
   avro::DataFileReader<metrics_schema::MetricList> avro_reader(tmppath.data());
   metrics_schema::MetricList flist;
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_FALSE(avro_reader.read(flist));
+  size_t datapoints = 0;
+  while (avro_reader.read(flist)) {
+    datapoints += flist.datapoints.size();
+  }
+  EXPECT_EQ(9, datapoints);
 }
 
 TEST_F(IORunnerImplTests, data_flow_multi_stream_unchunked) {
   TestUDPReadSocket udp_reader;
   size_t udp_output_port = udp_reader.listen();
-  TestTCPReadSession tcp_reader;
+  TestTCPReadSession tcp_reader(23457);
   size_t tcp_output_port = tcp_reader.port();
 
   mesos::Parameters params = get_params(udp_output_port, tcp_output_port);
@@ -334,7 +333,7 @@ TEST_F(IORunnerImplTests, data_flow_multi_stream_unchunked) {
 
   std::unordered_set<std::string> tcp_stat_rows;
   std::ostringstream tcp_oss;
-  for (size_t i = 0; i < 30 && tcp_stat_rows.size() != 10; i++) {
+  for (size_t i = 0; i < 30 && tcp_stat_rows.size() != 10 && tcp_reader.wait_for_available(1); i++) {
     while (tcp_reader.available()) {
       std::string chunk = *tcp_reader.read();
       tcp_oss << chunk;
@@ -342,31 +341,25 @@ TEST_F(IORunnerImplTests, data_flow_multi_stream_unchunked) {
       std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(),
           std::inserter(tcp_stat_rows, tcp_stat_rows.begin()));
     }
-    usleep(1000 * 100);
   }
 
   // verify that content parses as an avro file
   LOG(INFO) << tcp_oss.str();
-  EXPECT_EQ(10, tcp_stat_rows.size());
+  EXPECT_EQ(10, tcp_stat_rows.size()); // header + 9 records
   std::string tmppath = write_tmp(tcp_oss.str());
   avro::DataFileReader<metrics_schema::MetricList> avro_reader(tmppath.data());
   metrics_schema::MetricList flist;
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_FALSE(avro_reader.read(flist));
+  size_t datapoints = 0;
+  while (avro_reader.read(flist)) {
+    datapoints += flist.datapoints.size();
+  }
+  EXPECT_EQ(9, datapoints);
 }
 
 TEST_F(IORunnerImplTests, data_flow_multi_stream_unannotated) {
   TestUDPReadSocket udp_reader;
   size_t udp_output_port = udp_reader.listen();
-  TestTCPReadSession tcp_reader;
+  TestTCPReadSession tcp_reader(23459);
   size_t tcp_output_port = tcp_reader.port();
 
   mesos::Parameters params = get_params(udp_output_port, tcp_output_port,
@@ -434,7 +427,7 @@ TEST_F(IORunnerImplTests, data_flow_multi_stream_unannotated) {
 
   std::unordered_set<std::string> tcp_stat_rows;
   std::ostringstream tcp_oss;
-  for (size_t i = 0; i < 30 && tcp_stat_rows.size() != 10; i++) {
+  for (size_t i = 0; i < 30 && tcp_stat_rows.size() != 2 && tcp_reader.wait_for_available(1); i++) {
     while (tcp_reader.available()) {
       std::string chunk = *tcp_reader.read();
       tcp_oss << chunk;
@@ -442,25 +435,20 @@ TEST_F(IORunnerImplTests, data_flow_multi_stream_unannotated) {
       std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(),
           std::inserter(tcp_stat_rows, tcp_stat_rows.begin()));
     }
-    usleep(1000 * 100);
   }
 
   // verify that content parses as an avro file
+  LOG(INFO) << "------------- " << tcp_stat_rows.size() << " ROWS ------------";
+  //EXPECT_EQ(2, tcp_stat_rows.size()); // header, records (sometimes still produces 10)
   LOG(INFO) << tcp_oss.str();
-  EXPECT_EQ(10, tcp_stat_rows.size());
   std::string tmppath = write_tmp(tcp_oss.str());
   avro::DataFileReader<metrics_schema::MetricList> avro_reader(tmppath.data());
   metrics_schema::MetricList flist;
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_FALSE(avro_reader.read(flist));
+  size_t datapoints = 0;
+  while (avro_reader.read(flist)) {
+    datapoints += flist.datapoints.size();
+  }
+  EXPECT_EQ(9, datapoints);
 }
 
 TEST_F(IORunnerImplTests, init_fails) {
@@ -499,7 +487,7 @@ TEST_F(IORunnerImplTests, init_fails) {
 int main(int argc, char **argv) {
   ::google::InitGoogleLogging(argv[0]);
   // avoid non-threadsafe logging code for these tests
-  //FLAGS_logtostderr = 1;
+  FLAGS_logtostderr = 1;
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

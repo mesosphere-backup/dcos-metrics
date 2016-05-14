@@ -19,7 +19,6 @@ namespace metrics {
      */
     static void encode_metrics_block(
         const container_id_ord_map<metrics_schema::MetricList>& metric_map,
-        const metrics_schema::MetricList& metric_list,
         std::ostream& ostream);
 
     /**
@@ -31,18 +30,10 @@ namespace metrics {
         container_id_ord_map<metrics_schema::MetricList>& metric_map);
 
     /**
-     * Returns the number of Datapoints added to the provided MetricList
-     */
-    static size_t statsd_to_struct(
-        const mesos::ContainerID* container_id, const mesos::ExecutorInfo* executor_info,
-        const char* data, size_t size,
-        metrics_schema::MetricList& metric_list);
-
-    /**
-     * Returns the number of Datapoints added to the provided MetricList
+     * Returns the number of Datapoints added to the provided MetricLists
      */
     static size_t resources_to_struct(const mesos::ResourceUsage& usage,
-        metrics_schema::MetricList& metric_list);
+        container_id_ord_map<metrics_schema::MetricList>& metric_map);
 
     /**
      * Returns whether the provided MetricList has nothing in it.

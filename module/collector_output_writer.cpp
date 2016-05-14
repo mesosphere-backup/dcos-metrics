@@ -7,12 +7,6 @@
 #include "tcp_sender.hpp"
 
 namespace {
-  void clear(metrics_schema::MetricList& metric_list) {
-    metric_list.topic.clear();
-    metric_list.tags.clear();
-    metric_list.datapoints.clear();
-  }
-
   boost::asio::ip::address get_collector_ip(const mesos::Parameters& parameters) {
     std::string ip_str = metrics::params::get_str(parameters,
         metrics::params::OUTPUT_COLLECTOR_IP, metrics::params::OUTPUT_COLLECTOR_IP_DEFAULT);
@@ -84,27 +78,17 @@ void metrics::CollectorOutputWriter::start() {
 void metrics::CollectorOutputWriter::write_container_statsd(
     const mesos::ContainerID* container_id, const mesos::ExecutorInfo* executor_info,
     const char* in_data, size_t in_size) {
-  if (chunking) {
-    datapoint_count += AvroEncoder::statsd_to_struct(
-        container_id, executor_info, in_data, in_size, container_map);
-    if (datapoint_count >= datapoint_capacity) {
-      flush();
-    }
-  } else {
-    AvroEncoder::statsd_to_struct(container_id, executor_info, in_data, in_size, metric_list);
+  datapoint_count += AvroEncoder::statsd_to_struct(
+      container_id, executor_info, in_data, in_size, container_map);
+  if (!chunking || datapoint_count >= datapoint_capacity) {
     flush();
   }
 }
 
 void metrics::CollectorOutputWriter::write_resource_usage(
     const process::Future<mesos::ResourceUsage>& usage) {
-  if (chunking) {
-    datapoint_count += AvroEncoder::resources_to_struct(usage.get(), metric_list);
-    if (datapoint_count >= datapoint_capacity) {
-      flush();
-    }
-  } else {
-    AvroEncoder::resources_to_struct(usage.get(), metric_list);
+  datapoint_count += AvroEncoder::resources_to_struct(usage.get(), container_map);
+  if (!chunking || datapoint_count >= datapoint_capacity) {
     flush();
   }
 }
@@ -116,17 +100,16 @@ void metrics::CollectorOutputWriter::start_chunk_flush_timer() {
 }
 
 void metrics::CollectorOutputWriter::flush() {
-  if (container_map.empty() && AvroEncoder::empty(metric_list)) {
+  if (container_map.empty()) {
     return; // nothing to flush
   }
 
   TCPSender::buf_ptr_t buf(new boost::asio::streambuf);
   {
     std::ostream ostream(buf.get());
-    AvroEncoder::encode_metrics_block(container_map, metric_list, ostream);
+    AvroEncoder::encode_metrics_block(container_map, ostream);
   }
   container_map.clear();
-  clear(metric_list);
   if (buf->size() != 0) {
     sender->send(buf);
   }

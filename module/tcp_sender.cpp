@@ -23,6 +23,7 @@ metrics::TCPSender::TCPSender(
     socket(*io_service),
     is_reconnect_scheduled(false),
     reconnect_delay(1),
+    sent_session_header(false),
     pending_bytes(0),
     dropped_bytes(0),
     shutdown(false) {
@@ -55,13 +56,28 @@ void metrics::TCPSender::send(buf_ptr_t buf) {
     return;
   }
 
-  LOG(INFO) << pending_limit << " limit vs " << pending_bytes + buf->size();
   if (!socket.is_open() || pending_bytes + buf->size() > pending_limit) {
     // Log dropped data for periodic cumulative reporting
     DLOG(INFO) << "Drop " << buf->size() << " bytes to " << send_ip << ":" << send_port
                << " (pending " << pending_bytes << ")";
     dropped_bytes += buf->size();
     return;
+  }
+
+  if (!sent_session_header) {
+    // Enforce header in the send() call itself. If we did this in connect_outcome_cb, there'd be a
+    // race window where data could be send()ed before connect_outcome_cb is called (with
+    // socket.is_open somehow?)
+    DLOG(INFO) << "Inserting header before first packet";
+    buf_ptr_t hdr_buf(new boost::asio::streambuf);
+    std::ostream ostream(hdr_buf.get());
+    ostream << session_header;
+    // Intentionally omit the header message from enforcement of pending_bytes
+    // (Just to keep things a bit simpler)
+    boost::asio::async_write(
+        socket, *hdr_buf,
+        std::bind(&TCPSender::send_cb, this, sp::_1, sp::_2, hdr_buf));
+    sent_session_header = true;
   }
 
   pending_bytes += buf->size();
@@ -130,14 +146,6 @@ void metrics::TCPSender::connect_outcome_cb(boost::system::error_code ec) {
 
   boost::asio::socket_base::keep_alive option(true);
   socket.set_option(option);
-
-  if (!session_header.empty()) {
-    buf_ptr_t buf(new boost::asio::streambuf);
-    std::ostream ostream(buf.get());
-    ostream << session_header;
-    DLOG(INFO) << "Sending session header";
-    send(buf);
-  }
 }
 
 void metrics::TCPSender::send_cb(
@@ -149,11 +157,13 @@ void metrics::TCPSender::send_cb(
   keepalive.reset();
   if (!socket.is_open()) {
     LOG(WARNING) << "Socket not open after sending data to " << send_ip << ":" << send_port;
+    sent_session_header = false;
     pending_bytes = 0;
     schedule_connect();
   } else if (ec) {
     LOG(WARNING) << "Got error '" << ec.message() << "'(" << ec << ")"
                  << " when sending data to " << send_ip << ":" << send_port;
+    sent_session_header = false;
     pending_bytes = 0;
     socket.close();
     schedule_connect();
@@ -163,7 +173,7 @@ void metrics::TCPSender::send_cb(
     } else {
       pending_bytes -= bytes_transferred;
     }
-    DLOG(INFO) << "Sent " << bytes_transferred << " bytes.";
+    DLOG(INFO) << "Sent " << bytes_transferred << " bytes (now pending " << pending_bytes << ")";
   }
 }
 

@@ -230,7 +230,6 @@ const std::string& metrics::AvroEncoder::header() {
 
 void metrics::AvroEncoder::encode_metrics_block(
     const container_id_ord_map<metrics_schema::MetricList>& metric_map,
-    const metrics_schema::MetricList& metric_list,
     std::ostream& ostream) {
   // in the first pass, encode the data so that we can get the byte count
   int64_t obj_count = 0;
@@ -245,10 +244,6 @@ void metrics::AvroEncoder::encode_metrics_block(
         ++obj_count;
         avro::encode(*encoder, entry.second);
       }
-    }
-    if (!empty(metric_list)) {
-      ++obj_count;
-      avro::encode(*encoder, metric_list);
     }
     if (obj_count == 0) {
       // Nothing to encode, produce 0 bytes
@@ -286,18 +281,18 @@ size_t metrics::AvroEncoder::statsd_to_struct(
     auto iter = metric_map.find(missing_id);
     if (iter == metric_map.end()) {
       list_out = &metric_map[missing_id];
-      init_list(*list_out, NULL, NULL);
     } else {
       list_out = &iter->second;
     }
+    init_list(*list_out, NULL, NULL);
   } else {
     auto iter = metric_map.find(*container_id);
     if (iter == metric_map.end()) {
       list_out = &metric_map[*container_id];
-      init_list(*list_out, container_id, executor_info);
     } else {
       list_out = &iter->second;
     }
+    init_list(*list_out, container_id, executor_info);
   }
 
   // Spawn/update a Datapoint directly within the list
@@ -310,24 +305,9 @@ size_t metrics::AvroEncoder::statsd_to_struct(
   return 1;
 }
 
-size_t metrics::AvroEncoder::statsd_to_struct(
-    const mesos::ContainerID* container_id, const mesos::ExecutorInfo* executor_info,
-    const char* data, size_t size,
-    metrics_schema::MetricList& metric_list) {
-  init_list(metric_list, container_id, executor_info);
-
-  // Spawn/update a Datapoint directly within the list
-  size_t old_size = metric_list.datapoints.size();
-  metric_list.datapoints.resize(old_size + 1);
-  metrics_schema::Datapoint& point = metric_list.datapoints[old_size];
-  point.time_ms = now_in_ms();
-  parse_statsd_name_val_tags(data, size, point, metric_list.tags);
-
-  return 1;
-}
-
 size_t metrics::AvroEncoder::resources_to_struct(
-    const mesos::ResourceUsage& usage, metrics_schema::MetricList& metric_list) {
+    const mesos::ResourceUsage& usage,
+    container_id_ord_map<metrics_schema::MetricList>& metric_map) {
   LOG(INFO) << "Resources:\n" << usage.DebugString();
   //TODO implement ResourceUsage -> avro
   return 0;

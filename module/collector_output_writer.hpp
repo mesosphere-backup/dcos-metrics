@@ -67,8 +67,7 @@ namespace metrics {
     const size_t datapoint_capacity;
     size_t datapoint_count;
 
-    container_id_ord_map<metrics_schema::MetricList> container_map; // unused when chunking
-    metrics_schema::MetricList metric_list; // chunking: container resources, non-chunking: all
+    container_id_ord_map<metrics_schema::MetricList> container_map;
 
     std::shared_ptr<boost::asio::io_service> io_service;
     boost::asio::deadline_timer flush_timer;

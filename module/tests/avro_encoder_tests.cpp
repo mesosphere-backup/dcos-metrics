@@ -45,11 +45,21 @@ namespace {
     map[container_id(list.topic)] = list;
     return map;
   }
+  inline metrics::container_id_ord_map<metrics_schema::MetricList> merge(
+      const metrics::container_id_ord_map<metrics_schema::MetricList>& a,
+      const metrics::container_id_ord_map<metrics_schema::MetricList>& b) {
+    metrics::container_id_ord_map<metrics_schema::MetricList> ret;
+    ret.insert(a.begin(), a.end());
+    ret.insert(b.begin(), b.end());
+    return ret;
+  }
 
   void check_no_tags(const std::string& data, double val, const std::string& name = "hello") {
     LOG(INFO) << data;
-    metrics_schema::MetricList list;
-    metrics::AvroEncoder::statsd_to_struct(NULL, NULL, data.data(), data.size(), list);
+    metrics::container_id_ord_map<metrics_schema::MetricList> map;
+    metrics::AvroEncoder::statsd_to_struct(NULL, NULL, data.data(), data.size(), map);
+    EXPECT_EQ(1, map.size());
+    const metrics_schema::MetricList& list = map[container_id(UNKNOWN)];
     EXPECT_EQ(UNKNOWN, list.topic);
     EXPECT_EQ(1, list.datapoints.size());
     EXPECT_EQ(name, list.datapoints[0].name);
@@ -146,15 +156,16 @@ TEST_F(AvroEncoderTests, header) {
 
 TEST_F(AvroEncoderTests, encode_empty_metrics) {
   metrics::container_id_ord_map<metrics_schema::MetricList> map;
-  metrics_schema::MetricList list;
+  map[container_id("hello")] = metrics_schema::MetricList();
   std::ostringstream oss;
-  metrics::AvroEncoder::encode_metrics_block(map, list, oss);
+  metrics::AvroEncoder::encode_metrics_block(map, oss);
   EXPECT_EQ(0, oss.str().size());
 
   const std::string header = metrics::AvroEncoder::header();
   const avro::ValidSchema schema = avro::compileJsonSchemaFromString(metrics_schema::SCHEMA_JSON);
 
   std::string tmppath = write_tmp(header);
+  metrics_schema::MetricList list;
 
   std::ostringstream no_schema_reader_strm, no_schema_data_strm;
   {
@@ -198,8 +209,7 @@ TEST_F(AvroEncoderTests, encode_one_metric_list) {
 
   {
     std::ostringstream oss;
-    metrics::AvroEncoder::encode_metrics_block(
-        metrics::container_id_ord_map<metrics_schema::MetricList>(), list, oss);
+    metrics::AvroEncoder::encode_metrics_block(to_map(list), oss);
     EXPECT_EQ(95, oss.str().size()); // just check for consistency
   }
 
@@ -207,8 +217,7 @@ TEST_F(AvroEncoderTests, encode_one_metric_list) {
   {
     std::ofstream ofs(tmppath, std::ios::binary);
     ofs << metrics::AvroEncoder::header(); // actual file must start with header
-    metrics::AvroEncoder::encode_metrics_block(
-        metrics::container_id_ord_map<metrics_schema::MetricList>(), list, ofs);
+    metrics::AvroEncoder::encode_metrics_block(to_map(list), ofs);
   }
   {
     const avro::ValidSchema schema = avro::compileJsonSchemaFromString(metrics_schema::SCHEMA_JSON);
@@ -259,10 +268,11 @@ TEST_F(AvroEncoderTests, encode_many_metrics) {
   list.tags.push_back(tag("ck1", "v1"));
   list.tags.push_back(tag("ck2", "v2"));
   list.tags.push_back(tag("ck3", "v3"));
+  map[container_id("more_tagged")] = list;
 
   {
     std::ostringstream oss;
-    metrics::AvroEncoder::encode_metrics_block(map, list, oss);
+    metrics::AvroEncoder::encode_metrics_block(map, oss);
     EXPECT_EQ(315, oss.str().size()); // just check for consistency
   }
 
@@ -270,7 +280,7 @@ TEST_F(AvroEncoderTests, encode_many_metrics) {
   {
     std::ofstream ofs(tmppath, std::ios::binary);
     ofs << metrics::AvroEncoder::header(); // actual file must start with header
-    metrics::AvroEncoder::encode_metrics_block(map, list, ofs);
+    metrics::AvroEncoder::encode_metrics_block(map, ofs);
   }
 
   avro::DataFileReader<metrics_schema::MetricList> avro_reader(tmppath.data());
@@ -283,11 +293,11 @@ TEST_F(AvroEncoderTests, encode_many_metrics) {
   EXPECT_TRUE(avro_reader.read(flist));
   EXPECT_TRUE(eq(map[container_id("many_tagged")], flist));
   EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(eq(map[container_id("more_tagged")], flist));
+  EXPECT_TRUE(avro_reader.read(flist));
   EXPECT_TRUE(eq(map[container_id("one")], flist));
   EXPECT_TRUE(avro_reader.read(flist));
   EXPECT_TRUE(eq(map[container_id("tags")], flist));
-  EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(eq(list, flist));
   EXPECT_FALSE(avro_reader.read(flist));
 }
 
@@ -336,16 +346,16 @@ TEST_F(AvroEncoderTests, encode_many_blocks) {
   {
     std::ofstream ofs(tmppath, std::ios::binary);
     ofs << metrics::AvroEncoder::header(); // actual file must start with header
-    metrics::AvroEncoder::encode_metrics_block(to_map(empty), empty, ofs);
+    metrics::AvroEncoder::encode_metrics_block(merge(to_map(empty),to_map(topic)), ofs);
+    metrics::AvroEncoder::encode_metrics_block(to_map(one), ofs);
     metrics::AvroEncoder::encode_metrics_block(
-        metrics::container_id_ord_map<metrics_schema::MetricList>(), topic, ofs);
-    metrics::AvroEncoder::encode_metrics_block(to_map(one), tags, ofs);
-    metrics::AvroEncoder::encode_metrics_block(
-        metrics::container_id_ord_map<metrics_schema::MetricList>(), untagged, ofs);
-    metrics::AvroEncoder::encode_metrics_block(to_map(taggeda), metrics_schema::MetricList(), ofs);
-    metrics::AvroEncoder::encode_metrics_block(to_map(taggedb), taggedc, ofs);
+        metrics::container_id_ord_map<metrics_schema::MetricList>(), ofs);
+    metrics::AvroEncoder::encode_metrics_block(to_map(tags), ofs);
+    metrics::AvroEncoder::encode_metrics_block(to_map(empty), ofs);
+    metrics::AvroEncoder::encode_metrics_block(to_map(untagged), ofs);
+    metrics::AvroEncoder::encode_metrics_block(merge(to_map(taggeda),to_map(taggedb)), ofs);
+    metrics::AvroEncoder::encode_metrics_block(to_map(taggedc), ofs);
   }
-
 
   avro::DataFileReader<metrics_schema::MetricList> avro_reader(tmppath.data());
   metrics_schema::MetricList flist;
@@ -359,9 +369,9 @@ TEST_F(AvroEncoderTests, encode_many_blocks) {
   EXPECT_TRUE(avro_reader.read(flist));
   EXPECT_TRUE(eq(untagged, flist));
   EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(eq(taggeda, flist));
+  EXPECT_TRUE(eq(taggedb, flist)); // in merged map with taggeda, this comes first
   EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(eq(taggedb, flist));
+  EXPECT_TRUE(eq(taggeda, flist));
   EXPECT_TRUE(avro_reader.read(flist));
   EXPECT_TRUE(eq(taggedc, flist));
   EXPECT_FALSE(avro_reader.read(flist));
@@ -401,36 +411,6 @@ TEST_F(AvroEncoderTests, map_with_info) {
   EXPECT_EQ("cid", list.tags[2].value);
 }
 
-TEST_F(AvroEncoderTests, list_no_info) {
-  metrics_schema::MetricList list;
-  metrics::AvroEncoder::statsd_to_struct(NULL, NULL, "hello", 5, list);
-  EXPECT_EQ(UNKNOWN, list.topic);
-  EXPECT_EQ(1, list.datapoints.size());
-  EXPECT_EQ("hello", list.datapoints[0].name);
-  EXPECT_NE(0, list.datapoints[0].time_ms);
-  EXPECT_EQ(0, list.datapoints[0].value);
-  EXPECT_TRUE(list.tags.empty());
-}
-
-TEST_F(AvroEncoderTests, list_with_info) {
-  mesos::ContainerID cid = container_id("cid");
-  mesos::ExecutorInfo einfo = exec_info("fid", "eid");
-  metrics_schema::MetricList list;
-  metrics::AvroEncoder::statsd_to_struct(&cid, &einfo, "hello", 5, list);
-  EXPECT_EQ("fid", list.topic);
-  EXPECT_EQ(1, list.datapoints.size());
-  EXPECT_EQ("hello", list.datapoints[0].name);
-  EXPECT_NE(0, list.datapoints[0].time_ms);
-  EXPECT_EQ(0, list.datapoints[0].value);
-  EXPECT_EQ(3, list.tags.size());
-  EXPECT_EQ("framework_id", list.tags[0].key);
-  EXPECT_EQ("fid", list.tags[0].value);
-  EXPECT_EQ("executor_id", list.tags[1].key);
-  EXPECT_EQ("eid", list.tags[1].value);
-  EXPECT_EQ("container_id", list.tags[2].key);
-  EXPECT_EQ("cid", list.tags[2].value);
-}
-
 TEST_F(AvroEncoderTests, check_empty) {
   metrics_schema::MetricList list;
   EXPECT_TRUE(metrics::AvroEncoder::empty(list));
@@ -452,7 +432,10 @@ TEST_F(AvroEncoderTests, check_empty) {
 }
 
 TEST_F(AvroEncoderTests, statsd_merge) {
-  metrics_schema::MetricList preinit_list;
+  mesos::ContainerID cid = container_id("cid");
+
+  metrics::container_id_ord_map<metrics_schema::MetricList> map;
+  metrics_schema::MetricList& preinit_list = map[cid];
   preinit_list.topic = "testt";
   metrics_schema::Tag tag;
   tag.key = "testk";
@@ -467,10 +450,10 @@ TEST_F(AvroEncoderTests, statsd_merge) {
   d.time_ms = 123;
   preinit_list.datapoints.push_back(d);
 
-  mesos::ContainerID cid = container_id("cid");
   mesos::ExecutorInfo einfo = exec_info("fid", "eid");
   std::string stat("hello:3.8");
-  metrics::AvroEncoder::statsd_to_struct(&cid, &einfo, stat.data(), stat.size(), preinit_list);
+  metrics::AvroEncoder::statsd_to_struct(&cid, &einfo, stat.data(), stat.size(), map);
+  EXPECT_EQ(1, map.size());
 
   EXPECT_EQ("testt", preinit_list.topic);// original topic left intact
 

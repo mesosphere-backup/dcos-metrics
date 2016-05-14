@@ -55,9 +55,11 @@ class TestTCPReadSession {
   str_ptr_t read() {
     std::unique_lock<std::mutex> lock(pkts_mutex);
     if (pkts.empty()) {
+      LOG(INFO) << "no pkts available";
       return str_ptr_t(new std::string(""));
     }
     str_ptr_t oldest_pkt = pkts.front();
+    LOG(INFO) << "getting " << oldest_pkt->size() << " bytes";
     pkts.pop();
     return oldest_pkt;
   }

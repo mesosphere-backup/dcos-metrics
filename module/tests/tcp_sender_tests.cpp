@@ -16,7 +16,7 @@ namespace {
     return buf;
   }
 
-  const std::string SESSION_HEADER("HDR"),
+  const std::string SESSION_HEADER("BIG_OL_HDR"),
     HELLO("hello"),
     HEY("hey"),
     HI("hi");
@@ -114,16 +114,17 @@ TEST(TCPSenderTests, small_limit_data_dropped) {
     sender.start();
 
     thread.flush();
-    EXPECT_TRUE(test_reader.wait_for_available());
-    EXPECT_EQ(SESSION_HEADER, *test_reader.read()); // "HDR" passes
+    EXPECT_FALSE(test_reader.wait_for_available(1));
 
     sender.send(build_buf(HELLO));
     thread.flush();
-    EXPECT_FALSE(test_reader.wait_for_available(1)); // "hello" blocked
+    EXPECT_FALSE(test_reader.wait_for_available(1)); // "hello" blocked, header not sent either
 
     sender.send(build_buf(HEY));
     thread.flush();
     EXPECT_TRUE(test_reader.wait_for_available()); // "hey" passes
+    // "BIG_OL_HDR" sent before sending "hey" (and bypasses limit):
+    EXPECT_EQ(SESSION_HEADER, *test_reader.read());
     EXPECT_EQ(HEY, *test_reader.read());
 
     sender.send(build_buf(HI));
@@ -141,12 +142,15 @@ TEST(TCPSenderTests, small_limit_data_dropped) {
       if (!test_reader.wait_for_available(1)) {
         break;
       }
-      EXPECT_EQ(HEY, *test_reader.read());
-      ++hey_count;
+      // sometimes the heys get clumped together
+      std::string got = *test_reader.read();
+      EXPECT_TRUE(got.size() % 3 == 0);
+      hey_count += (got.size() / 3);
+      LOG(INFO) << hey_count << " heys: " << got.size();
     }
     LOG(INFO) << "got " << hey_count << "/" << hey_max << " heys";
-    // expect some to be dropped, but at least 50% to get through
-    EXPECT_LT(hey_max / 2, hey_count);
+    // expect some to be dropped, but at least 25% (conservatively) to get through
+    EXPECT_LT(hey_max / 4, hey_count);
     EXPECT_GT(hey_max, hey_count);
   }
   thread.join();
@@ -164,12 +168,12 @@ TEST(TCPSenderTests, connect_succeeds_data_sent) {
     sender.start();
 
     thread.flush();
-    EXPECT_TRUE(test_reader.wait_for_available());
-    EXPECT_EQ(SESSION_HEADER, *test_reader.read());
+    EXPECT_FALSE(test_reader.wait_for_available(1)); // no data yet
 
     sender.send(build_buf(HELLO));
     thread.flush();
     EXPECT_TRUE(test_reader.wait_for_available());
+    EXPECT_EQ(SESSION_HEADER, *test_reader.read()); // header sent just preceding first data
     EXPECT_EQ(HELLO, *test_reader.read());
 
     sender.send(build_buf(HEY));
@@ -235,12 +239,12 @@ TEST(TCPSenderTests, connect_succeeds_then_fails) {
     sender.start();
 
     thread.flush();
-    EXPECT_TRUE(test_reader->wait_for_available());
-    EXPECT_EQ(SESSION_HEADER, *test_reader->read());
+    EXPECT_FALSE(test_reader->wait_for_available(1)); // no data yet
 
     sender.send(build_buf(HELLO));
     thread.flush();
     EXPECT_TRUE(test_reader->wait_for_available());
+    EXPECT_EQ(SESSION_HEADER, *test_reader->read()); // header sent just preceding first data
     EXPECT_EQ(HELLO, *test_reader->read());
 
     // close reader socket
@@ -265,12 +269,12 @@ TEST(TCPSenderTests, connect_succeeds_then_fails_then_succeeds) {
     sender.start();
 
     thread.flush();
-    EXPECT_TRUE(test_reader->wait_for_available());
-    EXPECT_EQ(SESSION_HEADER, *test_reader->read());
+    EXPECT_FALSE(test_reader->wait_for_available(1)); // no data yet
 
     sender.send(build_buf(HELLO));
     thread.flush();
     EXPECT_TRUE(test_reader->wait_for_available());
+    EXPECT_EQ(SESSION_HEADER, *test_reader->read()); // header sent just preceding first data
     EXPECT_EQ(HELLO, *test_reader->read());
 
     sender.send(build_buf(HI));
