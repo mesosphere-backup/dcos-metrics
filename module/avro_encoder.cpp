@@ -215,6 +215,7 @@ const std::string& metrics::AvroEncoder::header() {
       set_metadata(metadata_map, AVRO_CODEC_KEY, AVRO_NULL_CODEC);
 
       // Pass minimized schema directly. Avro C++'s compileJsonSchemaFromString just de-minimizes it.
+      LOG(INFO) << "Using schema: " << metrics_schema::SCHEMA_JSON;
       set_metadata(metadata_map, AVRO_SCHEMA_KEY, metrics_schema::SCHEMA_JSON);
 
       avro::encode(*encoder, magic);
