@@ -17,6 +17,7 @@ metrics::ContainerReaderImpl::ContainerReaderImpl(
   : writers(writers),
     requested_endpoint(requested_endpoint),
     io_service(io_service),
+    shutdown(false),
     socket(*io_service),
     socket_buffer(UDP_MAX_PACKET_BYTES, '\0') {
   LOG(INFO) << "Reader constructed for " << requested_endpoint.string();
@@ -24,6 +25,7 @@ metrics::ContainerReaderImpl::ContainerReaderImpl(
 
 metrics::ContainerReaderImpl::~ContainerReaderImpl() {
   LOG(INFO) << "Triggering ContainerReader shutdown";
+  shutdown = true; // avoid race resulting in segfault against entries in writers
   if (sync_util::dispatch_run("~ContainerReaderImpl:shutdown",
           *io_service, std::bind(&ContainerReaderImpl::shutdown_cb, this))) {
     LOG(INFO) << "ContainerReader shutdown succeeded";
@@ -177,7 +179,9 @@ void metrics::ContainerReaderImpl::recv_cb(
     }
   }
 
-  start_recv();
+  if (!shutdown) {
+    start_recv();
+  }
 }
 
 void metrics::ContainerReaderImpl::write_message(const char* data, size_t size) {
@@ -204,8 +208,8 @@ void metrics::ContainerReaderImpl::write_message(const char* data, size_t size) 
     default:
       // Multiple containers assigned to this port. Unable to determine which container this
       // data came from.
-      // FIXME: This is where ip-per-container support would be added, using the ip provided
-      // in the 'endpoint' param.
+      // FIXME: This is where ip-per-container support would be added, using an ip provided
+      // by the caller.
       for (output_writer_ptr_t writer : writers) {
         writer->write_container_statsd(NULL, NULL, data, size);
       }

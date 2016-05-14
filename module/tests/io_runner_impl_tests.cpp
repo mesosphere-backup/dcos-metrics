@@ -2,8 +2,11 @@
 
 #include <glog/logging.h>
 #include <gtest/gtest.h>
+#include <avro/DataFile.hh>
 
+#include "avro_encoder.hpp"
 #include "io_runner_impl.hpp"
+#include "test_tcp_socket.hpp"
 #include "test_udp_socket.hpp"
 
 #define EXPECT_DETH(a, b) { std::cerr << "Disregard the following warning:"; EXPECT_DEATH(a, b); }
@@ -39,7 +42,7 @@ namespace {
     return oss.str();
   }
 
-  mesos::Parameters get_params(size_t port,
+  mesos::Parameters get_params(size_t udp_port, size_t tcp_port,
       const std::string& annotation_mode = metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_TAG_DATADOG) {
     mesos::Parameters params;
 
@@ -49,7 +52,15 @@ namespace {
 
     param = params.add_parameter();
     param->set_key(metrics::params::OUTPUT_STATSD_PORT);
-    param->set_value(std::to_string(port));
+    param->set_value(std::to_string(udp_port));
+
+    param = params.add_parameter();
+    param->set_key(metrics::params::OUTPUT_COLLECTOR_IP);
+    param->set_value("127.0.0.1");
+
+    param = params.add_parameter();
+    param->set_key(metrics::params::OUTPUT_COLLECTOR_PORT);
+    param->set_value(std::to_string(tcp_port));
 
     param = params.add_parameter();
     param->set_key(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE);
@@ -63,14 +74,51 @@ namespace {
 
 /**
  * Tests for data going through a full pipeline over localhost:
- * TestUDPWriteSocket(s) -> IORunner[ContainerReader(s) -> PortWriter] -> TestUDPReadSocket
+ * TestUDPWriteSocket(s) -> IORunner[ContainerReader(s) -> PortWriter] -> TestUDPReadSocket & TestTCPReadSocket
  */
 
-TEST(IORunnerImplTests, write_then_immediate_shutdown) {
-  TestUDPReadSocket reader;
-  size_t output_port = reader.listen();
+class IORunnerImplTests : public ::testing::Test {
+ protected:
+  virtual void TearDown() {
+    for (const std::string& tmpfile : tmpfiles) {
+      LOG(INFO) << "Deleting tmp file: " << tmpfile;
+      unlink(tmpfile.data());
+    }
+  }
 
-  mesos::Parameters params = get_params(output_port);
+  std::string write_tmp(const std::string& data = std::string()) {
+    std::string tmpname("io_runner_impl_tests-XXXXXX");
+    int tmpfd = mkstemp((char*)tmpname.data());
+
+    // get path to tmpfile
+    std::ostringstream readpath;
+    readpath << "/proc/self/fd/" << tmpfd;
+    std::string buf(1024, '\0');
+    int wrote = readlink(readpath.str().data(), (char*)buf.data(), buf.size());
+    std::string tmppath = std::string(buf.data(), wrote);
+
+    if (!data.empty()) {
+      FILE* tmpfp = fdopen(tmpfd, "w");
+      fwrite(data.data(), data.size(), 1, tmpfp);
+      fclose(tmpfp);
+    }
+
+    LOG(INFO) << "Created tmp file (with " << data.size() << "b): " << tmppath;
+    tmpfiles.push_back(tmppath);
+    return tmppath;
+  }
+
+ private:
+  std::vector<std::string> tmpfiles;
+};
+
+TEST_F(IORunnerImplTests, write_then_immediate_shutdown) {
+  TestUDPReadSocket udp_reader;
+  size_t udp_output_port = udp_reader.listen();
+  TestTCPReadSession tcp_reader;
+  size_t tcp_output_port = tcp_reader.port();
+
+  mesos::Parameters params = get_params(udp_output_port, tcp_output_port);
 
   metrics::IORunnerImpl runner;
   runner.init(params);
@@ -113,11 +161,13 @@ TEST(IORunnerImplTests, write_then_immediate_shutdown) {
   reader3.reset();
 }
 
-TEST(IORunnerImplTests, data_flow_multi_stream) {
-  TestUDPReadSocket reader;
-  size_t output_port = reader.listen();
+TEST_F(IORunnerImplTests, data_flow_multi_stream) {
+  TestUDPReadSocket udp_reader;
+  size_t udp_output_port = udp_reader.listen();
+  TestTCPReadSession tcp_reader;
+  size_t tcp_output_port = tcp_reader.port();
 
-  mesos::Parameters params = get_params(output_port);
+  mesos::Parameters params = get_params(udp_output_port, tcp_output_port);
 
   metrics::IORunnerImpl runner;
   runner.init(params);
@@ -155,37 +205,73 @@ TEST(IORunnerImplTests, data_flow_multi_stream) {
   writer1.write("writer1:3");
 
   // Wait up to (30 * 100ms) = 3s for the above 9 rows to show up in the output:
-  std::unordered_set<std::string> stat_rows;
-  for (size_t i = 0; i < 30 && stat_rows.size() != 9; i++) {
-    std::string chunk = reader.read(100 /*ms*/);
+  std::unordered_set<std::string> udp_stat_rows;
+  for (size_t i = 0; i < 30 && udp_stat_rows.size() != 9; i++) {
+    std::string chunk = udp_reader.read(100 /*ms*/);
     if (chunk.empty()) {
       continue;
     }
     std::istringstream iss(chunk);
     std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(),
-        std::inserter(stat_rows, stat_rows.begin()));
+        std::inserter(udp_stat_rows, udp_stat_rows.begin()));
   }
 
-  EXPECT_EQ(9, stat_rows.size());
-  EXPECT_TRUE(stat_rows.count(annotated_row("writer1:1", container1, executor1)));
-  EXPECT_TRUE(stat_rows.count(annotated_row("writer1:2|@0.2", container1, executor1)));
-  EXPECT_TRUE(stat_rows.count(annotated_row("writer1:3", container1, executor1)));
-  EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:1")));
-  EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:2", "|#tag2,", "|@0.5")));
-  EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:3", "|#tag3,")));
-  EXPECT_TRUE(stat_rows.count(annotated_row("writer3:1", container3, executor3)));
-  EXPECT_TRUE(stat_rows.count(annotated_row("writer3:2", container3, executor3, "|@0.3|#tag2,")));
-  EXPECT_TRUE(stat_rows.count(annotated_row("writer3:3", container3, executor3)));
+  EXPECT_EQ(9, udp_stat_rows.size());
+  EXPECT_TRUE(udp_stat_rows.count(annotated_row("writer1:1", container1, executor1)));
+  EXPECT_TRUE(udp_stat_rows.count(annotated_row("writer1:2|@0.2", container1, executor1)));
+  EXPECT_TRUE(udp_stat_rows.count(annotated_row("writer1:3", container1, executor1)));
+  EXPECT_TRUE(udp_stat_rows.count(annotated_row_unregistered("writer2:1")));
+  EXPECT_TRUE(udp_stat_rows.count(annotated_row_unregistered("writer2:2", "|#tag2,", "|@0.5")));
+  EXPECT_TRUE(udp_stat_rows.count(annotated_row_unregistered("writer2:3", "|#tag3,")));
+  EXPECT_TRUE(udp_stat_rows.count(annotated_row("writer3:1", container3, executor3)));
+  EXPECT_TRUE(udp_stat_rows.count(annotated_row("writer3:2", container3, executor3, "|@0.3|#tag2,")));
+  EXPECT_TRUE(udp_stat_rows.count(annotated_row("writer3:3", container3, executor3)));
+
+  std::unordered_set<std::string> tcp_stat_rows;
+  std::ostringstream tcp_oss;
+  for (size_t i = 0; i < 30 && tcp_stat_rows.size() != 10; i++) {
+    while (tcp_reader.available()) {
+      std::string chunk = *tcp_reader.read();
+      tcp_oss << chunk;
+      std::istringstream iss(chunk);
+      std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(),
+          std::inserter(tcp_stat_rows, tcp_stat_rows.begin()));
+    }
+    usleep(1000 * 100);
+  }
+
+  // verify that content parses as an avro file
+  LOG(INFO) << tcp_oss.str();
+  EXPECT_EQ(10, tcp_stat_rows.size());
+  std::string tmppath = write_tmp(tcp_oss.str());
+  avro::DataFileReader<metrics_schema::MetricList> avro_reader(tmppath.data());
+  metrics_schema::MetricList flist;
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_FALSE(avro_reader.read(flist));
 }
 
-TEST(IORunnerImplTests, data_flow_multi_stream_unchunked) {
-  TestUDPReadSocket reader;
-  size_t output_port = reader.listen();
+TEST_F(IORunnerImplTests, data_flow_multi_stream_unchunked) {
+  TestUDPReadSocket udp_reader;
+  size_t udp_output_port = udp_reader.listen();
+  TestTCPReadSession tcp_reader;
+  size_t tcp_output_port = tcp_reader.port();
 
-  mesos::Parameters params = get_params(output_port);
+  mesos::Parameters params = get_params(udp_output_port, tcp_output_port);
 
   mesos::Parameter* param = params.add_parameter();
   param->set_key(metrics::params::OUTPUT_STATSD_CHUNKING);
+  param->set_value("false");
+
+  param = params.add_parameter();
+  param->set_key(metrics::params::OUTPUT_COLLECTOR_CHUNKING);
   param->set_value("false");
 
   metrics::IORunnerImpl runner;
@@ -224,34 +310,67 @@ TEST(IORunnerImplTests, data_flow_multi_stream_unchunked) {
   writer1.write("writer1:3");
 
   // Wait up to (30 * 100ms) = 3s for the above 9 rows to show up in the output:
-  std::unordered_set<std::string> stat_rows;
-  for (size_t i = 0; i < 30 && stat_rows.size() != 9; i++) {
-    std::string chunk = reader.read(100 /*ms*/);
+  std::unordered_set<std::string> udp_stat_rows;
+  for (size_t i = 0; i < 30 && udp_stat_rows.size() != 9; i++) {
+    std::string chunk = udp_reader.read(100 /*ms*/);
     if (chunk.empty()) {
       continue;
     }
     std::istringstream iss(chunk);
     std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(),
-        std::inserter(stat_rows, stat_rows.begin()));
+        std::inserter(udp_stat_rows, udp_stat_rows.begin()));
   }
 
-  EXPECT_EQ(9, stat_rows.size());
-  EXPECT_TRUE(stat_rows.count(annotated_row("writer1:1", container1, executor1)));
-  EXPECT_TRUE(stat_rows.count(annotated_row("writer1:2|@0.2", container1, executor1)));
-  EXPECT_TRUE(stat_rows.count(annotated_row("writer1:3", container1, executor1)));
-  EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:1")));
-  EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:2", "|#tag2,", "|@0.5")));
-  EXPECT_TRUE(stat_rows.count(annotated_row_unregistered("writer2:3", "|#tag3,")));
-  EXPECT_TRUE(stat_rows.count(annotated_row("writer3:1", container3, executor3)));
-  EXPECT_TRUE(stat_rows.count(annotated_row("writer3:2", container3, executor3, "|@0.3|#tag2,")));
-  EXPECT_TRUE(stat_rows.count(annotated_row("writer3:3", container3, executor3)));
+  EXPECT_EQ(9, udp_stat_rows.size());
+  EXPECT_TRUE(udp_stat_rows.count(annotated_row("writer1:1", container1, executor1)));
+  EXPECT_TRUE(udp_stat_rows.count(annotated_row("writer1:2|@0.2", container1, executor1)));
+  EXPECT_TRUE(udp_stat_rows.count(annotated_row("writer1:3", container1, executor1)));
+  EXPECT_TRUE(udp_stat_rows.count(annotated_row_unregistered("writer2:1")));
+  EXPECT_TRUE(udp_stat_rows.count(annotated_row_unregistered("writer2:2", "|#tag2,", "|@0.5")));
+  EXPECT_TRUE(udp_stat_rows.count(annotated_row_unregistered("writer2:3", "|#tag3,")));
+  EXPECT_TRUE(udp_stat_rows.count(annotated_row("writer3:1", container3, executor3)));
+  EXPECT_TRUE(udp_stat_rows.count(annotated_row("writer3:2", container3, executor3, "|@0.3|#tag2,")));
+  EXPECT_TRUE(udp_stat_rows.count(annotated_row("writer3:3", container3, executor3)));
+
+  std::unordered_set<std::string> tcp_stat_rows;
+  std::ostringstream tcp_oss;
+  for (size_t i = 0; i < 30 && tcp_stat_rows.size() != 10; i++) {
+    while (tcp_reader.available()) {
+      std::string chunk = *tcp_reader.read();
+      tcp_oss << chunk;
+      std::istringstream iss(chunk);
+      std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(),
+          std::inserter(tcp_stat_rows, tcp_stat_rows.begin()));
+    }
+    usleep(1000 * 100);
+  }
+
+  // verify that content parses as an avro file
+  LOG(INFO) << tcp_oss.str();
+  EXPECT_EQ(10, tcp_stat_rows.size());
+  std::string tmppath = write_tmp(tcp_oss.str());
+  avro::DataFileReader<metrics_schema::MetricList> avro_reader(tmppath.data());
+  metrics_schema::MetricList flist;
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_FALSE(avro_reader.read(flist));
 }
 
-TEST(IORunnerImplTests, data_flow_multi_stream_unannotated) {
-  TestUDPReadSocket reader;
-  size_t output_port = reader.listen();
+TEST_F(IORunnerImplTests, data_flow_multi_stream_unannotated) {
+  TestUDPReadSocket udp_reader;
+  size_t udp_output_port = udp_reader.listen();
+  TestTCPReadSession tcp_reader;
+  size_t tcp_output_port = tcp_reader.port();
 
-  mesos::Parameters params = get_params(output_port, metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_NONE);
+  mesos::Parameters params = get_params(udp_output_port, tcp_output_port,
+      metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_NONE);
 
   metrics::IORunnerImpl runner;
   runner.init(params);
@@ -289,30 +408,62 @@ TEST(IORunnerImplTests, data_flow_multi_stream_unannotated) {
   writer1.write("writer1:3");
 
   // Wait up to (30 * 100ms) = 3s for the above 9 rows to show up in the output:
-  std::unordered_set<std::string> stat_rows;
-  for (size_t i = 0; i < 30 && stat_rows.size() != 9; i++) {
-    std::string chunk = reader.read(100 /*ms*/);
-    if (chunk.empty()) {
-      continue;
+  std::unordered_set<std::string> udp_stat_rows;
+  for (size_t i = 0; i < 30 && udp_stat_rows.size() != 9; i++) {
+    for (;;) {
+      std::string chunk = udp_reader.read(100 /*ms*/);
+      if (chunk.empty()) {
+        break;
+      }
+      std::istringstream iss(chunk);
+      std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(),
+          std::inserter(udp_stat_rows, udp_stat_rows.begin()));
     }
-    std::istringstream iss(chunk);
-    std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(),
-        std::inserter(stat_rows, stat_rows.begin()));
   }
 
-  EXPECT_EQ(9, stat_rows.size());
-  EXPECT_TRUE(stat_rows.count("writer1:1"));
-  EXPECT_TRUE(stat_rows.count("writer1:2|@0.2"));
-  EXPECT_TRUE(stat_rows.count("writer1:3"));
-  EXPECT_TRUE(stat_rows.count("writer2:1"));
-  EXPECT_TRUE(stat_rows.count("writer2:2|#tag2|@0.5"));
-  EXPECT_TRUE(stat_rows.count("writer2:3|#tag3"));
-  EXPECT_TRUE(stat_rows.count("writer3:1"));
-  EXPECT_TRUE(stat_rows.count("writer3:2|@0.3|#tag2"));
-  EXPECT_TRUE(stat_rows.count("writer3:3"));
+  EXPECT_EQ(9, udp_stat_rows.size());
+  EXPECT_TRUE(udp_stat_rows.count("writer1:1"));
+  EXPECT_TRUE(udp_stat_rows.count("writer1:2|@0.2"));
+  EXPECT_TRUE(udp_stat_rows.count("writer1:3"));
+  EXPECT_TRUE(udp_stat_rows.count("writer2:1"));
+  EXPECT_TRUE(udp_stat_rows.count("writer2:2|#tag2|@0.5"));
+  EXPECT_TRUE(udp_stat_rows.count("writer2:3|#tag3"));
+  EXPECT_TRUE(udp_stat_rows.count("writer3:1"));
+  EXPECT_TRUE(udp_stat_rows.count("writer3:2|@0.3|#tag2"));
+  EXPECT_TRUE(udp_stat_rows.count("writer3:3"));
+
+  std::unordered_set<std::string> tcp_stat_rows;
+  std::ostringstream tcp_oss;
+  for (size_t i = 0; i < 30 && tcp_stat_rows.size() != 10; i++) {
+    while (tcp_reader.available()) {
+      std::string chunk = *tcp_reader.read();
+      tcp_oss << chunk;
+      std::istringstream iss(chunk);
+      std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(),
+          std::inserter(tcp_stat_rows, tcp_stat_rows.begin()));
+    }
+    usleep(1000 * 100);
+  }
+
+  // verify that content parses as an avro file
+  LOG(INFO) << tcp_oss.str();
+  EXPECT_EQ(10, tcp_stat_rows.size());
+  std::string tmppath = write_tmp(tcp_oss.str());
+  avro::DataFileReader<metrics_schema::MetricList> avro_reader(tmppath.data());
+  metrics_schema::MetricList flist;
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_TRUE(avro_reader.read(flist));
+  EXPECT_FALSE(avro_reader.read(flist));
 }
 
-TEST(IORunnerImplTests, init_fails) {
+TEST_F(IORunnerImplTests, init_fails) {
   metrics::IORunnerImpl runner;
   EXPECT_DETH(runner.dispatch(std::bind(noop)), ".*init\\(\\) wasn't called before dispatch\\(\\).*");
   EXPECT_DETH(runner.create_container_reader(0),
@@ -329,8 +480,8 @@ TEST(IORunnerImplTests, init_fails) {
 
   param->set_value(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_NONE);
 
-  TestUDPReadSocket reader;
-  size_t output_port = reader.listen();
+  TestUDPReadSocket udp_reader;
+  size_t udp_output_port = udp_reader.listen();
 
   param = params.add_parameter();
   param->set_key(metrics::params::OUTPUT_STATSD_HOST);
@@ -338,7 +489,7 @@ TEST(IORunnerImplTests, init_fails) {
 
   param = params.add_parameter();
   param->set_key(metrics::params::OUTPUT_STATSD_PORT);
-  param->set_value(std::to_string(output_port));
+  param->set_value(std::to_string(udp_output_port));
 
   runner.init(params);
 

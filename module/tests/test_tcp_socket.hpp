@@ -23,7 +23,6 @@ class TestTCPReadSession {
   }
 
   virtual ~TestTCPReadSession() {
-    LOG(INFO) << "SHUTDOWN";
     shutdown = true;
     if (thread) {
       svc.stop();
@@ -58,9 +57,9 @@ class TestTCPReadSession {
     if (pkts.empty()) {
       return str_ptr_t(new std::string(""));
     }
-    str_ptr_t oldest_session = pkts.front();
+    str_ptr_t oldest_pkt = pkts.front();
     pkts.pop();
-    return oldest_session;
+    return oldest_pkt;
   }
 
 private:
@@ -132,105 +131,3 @@ private:
   std::queue<str_ptr_t> pkts;
   std::mutex pkts_mutex;
 };
-
-#if 0
-class TestTCPReadSocket {
- public:
-  typedef std::shared_ptr<std::string> str_ptr_t;
-
-  TestTCPReadSocket()
-    : svc(),
-      listener_endpoint(),
-      shutdown(false) { }
-  virtual ~TestTCPReadSocket() {
-    shutdown = true;
-    if (thread) {
-      svc.stop();
-      thread->join();
-      thread.reset();
-      svc.reset();
-    }
-  }
-
-  size_t listen(size_t port = 23467) {
-    return listen(LOCALHOST, port);
-  }
-
-  size_t listen(boost::asio::ip::address host, size_t port) {
-    if (thread) {
-      return listener_endpoint.port();
-    }
-    listener_endpoint = boost::asio::ip::tcp::endpoint(host, port);
-
-    thread.reset(new std::thread(std::bind(&TestTCPReadSocket::run_reader, this)));
-    LOG(INFO) << "(TEST) Listening on endpoint[" << listener_endpoint << "]";
-    return listener_endpoint.port();
-  }
-
-  str_ptr_t read() {
-    std::unique_lock<std::mutex> lock(mutex);
-    if (sessions.empty()) {
-      return str_ptr_t(new std::string(""));
-    }
-    str_ptr_t oldest_session = sessions.front();
-    sessions.pop();
-    return oldest_session;
-  }
-
-  bool available() {
-    std::unique_lock<std::mutex> lock(mutex);
-    return !sessions.empty();
-  }
-
- private:
-  void start_accept() {
-
-  void run_reader() {
-    for (;;) {
-      if (shutdown) {
-        return;
-      }
-      boost::system::error_code ec;
-      boost::asio::ip::tcp::acceptor a(svc, listener_endpoint);
-      boost::asio::streambuf buf;
-      for (;;) {
-        boost::asio::ip::tcp::socket socket(svc);
-        a.accept(socket, ec);
-        if (shutdown) {
-          return;
-        }
-        if (ec) {
-          LOG(FATAL) << "error when accepting: " << ec.message();
-        }
-        boost::asio::read(socket, buf, ec);
-        if (shutdown) {
-          return;
-        }
-        if (buf.size() != 0) {
-          boost::asio::streambuf::const_buffers_type bufs = buf.data();
-          str_ptr_t str(new std::string(
-                  boost::asio::buffers_begin(bufs), boost::asio::buffers_begin(bufs) + buf.size()));
-          buf.consume(SIZE_MAX);
-
-          std::unique_lock<std::mutex> lock(mutex);
-          sessions.push(str);
-        }
-        if (ec) {
-          LOG(INFO) << "error when reading: " << ec.message();
-          break;
-        }
-      }
-    }
-  }
-
-  const boost::asio::ip::address LOCALHOST =
-    boost::asio::ip::address::from_string("127.0.0.1");
-
-  boost::asio::io_service svc;
-  boost::asio::ip::tcp::endpoint listener_endpoint;
-  std::unique_ptr<std::thread> thread;
-  bool shutdown;
-  std::queue<str_ptr_t> sessions;
-  std::mutex mutex;
-};
-#endif

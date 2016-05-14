@@ -41,6 +41,7 @@ namespace metrics {
     const UDPEndpoint requested_endpoint;
 
     std::shared_ptr<boost::asio::io_service> io_service;
+    bool shutdown;
     boost::asio::ip::udp::socket socket;
     std::vector<char> socket_buffer;
     udp_endpoint_t sender_endpoint;
