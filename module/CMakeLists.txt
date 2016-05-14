@@ -5,6 +5,7 @@ option(TESTS_ENABLED "Whether to build unit tests." TRUE)
 option(USE_LOCAL_PICOJSON "Whether to use Mesos' or a locally downloaded internal build of picojson (true) or system picojson (false)" TRUE)
 option(USE_LOCAL_PROTOBUF "Whether to use Mesos' or a locally downloaded internal build of protobuf (true) or system protobuf (false)" TRUE)
 option(USE_LOCAL_GLOG "Whether to use Mesos' copy of glog (true) or the system copy of glog (false)" TRUE)
+option(USE_LOCAL_AVRO "Whether to download/build a local copy of avrocpp (true) or to use the system copy of avrocpp (false)" TRUE)
 
 if(TARGET_DCOS EQUAL "1.6")
   #cmake -DCMAKE_BUILD_TYPE=Release -Dboost_system_LIBRARY=/home/nick/code/dcos-vagrant/metrics-libs-16/opt/mesosphere/lib/libboost_system.so -DTARGET_DCOS=1.6 ..
@@ -99,6 +100,7 @@ find_path(stout_INCLUDE_DIR NAMES stout/stringify.hpp HINTS ${process_INCLUDE_DI
 if(USE_LOCAL_PICOJSON AND NOT picojson_INCLUDE_DIR)
   include(InstallMesosPicojsonIncludes.cmake)
   message(STATUS "Using Mesos or locally-downloaded picojson: incl:${picojson_INCLUDE_DIR}")
+  set(PICOJSON_DEPENDS ext_picojson)
 else()
   find_path(picojson_INCLUDE_DIR NAMES picojson.h HINTS ${mesos_INCLUDE_DIR})
   message(STATUS "Using system picojson: incl:${picojson_INCLUDE_DIR}")
@@ -109,13 +111,21 @@ endif()
 if(USE_LOCAL_PROTOBUF AND NOT protobuf_INCLUDE_DIR)
   include(InstallMesosProtobufIncludes.cmake)
   message(STATUS "Using Mesos or locally-downloaded protobuf: incl:${protobuf_INCLUDE_DIR} lib:<static within libmesos>")
+  set(PROTOBUF_DEPENDS ext_protobuf)
 else()
   find_path(protobuf_INCLUDE_DIR NAMES google/protobuf/message.h HINTS ${mesos_INCLUDE_DIR})
   find_library(protobuf_LIBRARY NAMES protobuf HINTS ${default_LIB_DIR})
   message(STATUS "Using system protobuf: incl:${protobuf_INCLUDE_DIR} lib:${protobuf_LIBRARY}")
 endif()
 
-include(InstallAvro.cmake)
+if(USE_LOCAL_AVRO)
+  include(InstallAvro.cmake)
+  set(AVRO_DEPENDS ext_avro)
+else()
+  find_path(avro_INCLUDE_DIR NAMES avro/Compiler.hh)
+  find_library(avro_LIBRARY NAMES avrocpp HINTS ${default_LIB_DIR})
+  find_program(avrogencpp_EXECUTABLE avrogencpp)
+endif()
 
 find_library(boost_system_LIBRARY NAMES boost_system HINTS ${default_LIB_DIR})
 if(NOT boost_system_LIBRARY)
@@ -201,14 +211,8 @@ include_directories(SYSTEM ${EXTERN_INCLUDES})
 
 add_library(metrics-module SHARED ${SRCS})
 target_link_libraries(metrics-module ${LIBS})
-# ensure header dependencies are unpacked before we start building
-add_dependencies(metrics-module ext_avro)
-if(USE_LOCAL_PROTOBUF)
-  add_dependencies(metrics-module ext_protobuf)
-endif()
-if(USE_LOCAL_PICOJSON)
-  add_dependencies(metrics-module ext_picojson)
-endif()
+# ensure any header dependencies are unpacked before we start building
+add_dependencies(metrics-module ${AVRO_DEPENDS} ${PROTOBUF_DEPENDS} ${PICOJSON_DEPENDS})
 
 if(TESTS_ENABLED)
   message(STATUS "Unit tests enabled.")
@@ -224,7 +228,7 @@ set(AVRO_SCHEMA_STRUCT_OUTPUT ${CMAKE_BINARY_DIR}/metrics_schema_struct.hpp)
 add_custom_command(
   OUTPUT ${AVRO_SCHEMA_STRUCT_OUTPUT}
   COMMAND ${avrogencpp_EXECUTABLE} -i ${AVRO_SCHEMA_INPUT} -n metrics_schema -o ${AVRO_SCHEMA_STRUCT_OUTPUT}
-  DEPENDS ext_avro
+  DEPENDS ${AVRO_DEPENDS}
   COMMENT "Generating metrics schema Struct header")
 add_custom_target(generate-avro-structs
   DEPENDS ${AVRO_SCHEMA_STRUCT_OUTPUT} ${AVRO_SCHEMA_INPUT})
@@ -234,7 +238,7 @@ set(AVRO_SCHEMA_JSON_OUTPUT ${CMAKE_BINARY_DIR}/metrics_schema_json.hpp)
 add_custom_command(
   OUTPUT ${AVRO_SCHEMA_JSON_OUTPUT}
   COMMAND python ${CMAKE_SOURCE_DIR}/generate_metrics_schema_json.py ${AVRO_SCHEMA_INPUT} ${AVRO_SCHEMA_JSON_OUTPUT}
-  DEPENDS ext_avro
+  DEPENDS ${AVRO_DEPENDS}
   COMMENT "Generating metrics schema JSON header")
 add_custom_target(generate-avro-json
   DEPENDS ${AVRO_SCHEMA_JSON_OUTPUT} ${AVRO_SCHEMA_INPUT})
