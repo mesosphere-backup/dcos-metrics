@@ -8,7 +8,7 @@ option(USE_LOCAL_GLOG "Whether to use Mesos' copy of glog (true) or the system c
 option(USE_LOCAL_AVRO "Whether to download/build a local copy of avrocpp (true) or to use the system copy of avrocpp (false)" TRUE)
 
 if(TARGET_DCOS EQUAL "1.7")
-  #cmake -DCMAKE_BUILD_TYPE=Release -Dboost_system_LIBRARY=/home/nick/dcos-stats/libboost_system.so.1.53.0 -DTARGET_DCOS=1.7 ..
+  #cmake -DCMAKE_BUILD_TYPE=Release -Dboost_system_LIBRARY=/home/nick/code/boost_1_53_0/stage/lib/libboost_system.so.1.53.0 -DUSE_LOCAL_AVRO=False -Davro_LIBRARY=/home/nick/code/dcos-stats/libavrocpp.so.1.8.0.0 -DTARGET_DCOS=1.7 ..
   set(CMAKE_CXX_COMPILER "/usr/bin/g++-4.8")
   set(mesos_VERSION "0.28.1")
   set(TESTS_ENABLED false)
@@ -119,7 +119,7 @@ if(USE_LOCAL_AVRO)
 else()
   find_path(avro_INCLUDE_DIR NAMES avro/Compiler.hh HINTS ${mesos_INCLUDE_DIR})
   find_library(avro_LIBRARY NAMES avrocpp HINTS ${default_LIB_DIR})
-  find_program(avrogencpp_EXECUTABLE avrogencpp)
+  find_program(avrogencpp_EXECUTABLE avrogencpp HINTS ${default_BIN_DIR})
 endif()
 
 find_library(boost_system_LIBRARY NAMES boost_system HINTS ${default_LIB_DIR})
