@@ -16,6 +16,13 @@ namespace metrics {
     typedef std::shared_ptr<boost::asio::streambuf> buf_ptr_t;
 
     /**
+     * Sets a limit on how many bytes may be pending on the outgoing socket at a time.
+     * If this limit is exceeded, sent data will be dropped until the pending data
+     * has come back under the limit.
+     */
+    static const size_t PENDING_LIMIT = 256 * 1024;
+
+    /**
      * Creates a TCPSender which shares the provided io_service for async operations.
      * Additional arguments are exposed here to allow customization in unit tests.
      *
@@ -24,7 +31,8 @@ namespace metrics {
     TCPSender(std::shared_ptr<boost::asio::io_service> io_service,
         const std::string& session_header,
         const boost::asio::ip::address& ip,
-        size_t port);
+        size_t port,
+        size_t pending_limit_for_tests = PENDING_LIMIT);
 
     virtual ~TCPSender();
 
@@ -52,6 +60,7 @@ namespace metrics {
     const std::string session_header;
     const boost::asio::ip::address send_ip;
     const size_t send_port;
+    const size_t pending_limit;
 
     std::shared_ptr<boost::asio::io_service> io_service;
     boost::asio::deadline_timer connect_deadline_timer;
@@ -60,9 +69,7 @@ namespace metrics {
     boost::asio::ip::tcp::socket socket;
     bool is_reconnect_scheduled;
     size_t reconnect_delay;
-    // TODO double buffering (with limits on amount buffered):
-    //std::shared_ptr<boost::asio::streambuf> accum_buf, send_buf;//construct with size limit arg
-    //bool sending;
+    size_t pending_bytes;
     size_t dropped_bytes;
     bool shutdown;
   };

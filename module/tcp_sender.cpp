@@ -10,10 +10,12 @@ metrics::TCPSender::TCPSender(
     std::shared_ptr<boost::asio::io_service> io_service,
     const std::string& session_header,
     const boost::asio::ip::address& ip,
-    size_t port)
+    size_t port,
+    size_t pending_limit)
   : session_header(session_header),
     send_ip(ip),
     send_port(port),
+    pending_limit(pending_limit),
     io_service(io_service),
     connect_deadline_timer(*io_service),
     connect_retry_timer(*io_service),
@@ -21,6 +23,7 @@ metrics::TCPSender::TCPSender(
     socket(*io_service),
     is_reconnect_scheduled(false),
     reconnect_delay(1),
+    pending_bytes(0),
     dropped_bytes(0),
     shutdown(false) {
   LOG(INFO) << "TCPSender constructed for " << send_ip << ":" << send_port;
@@ -52,15 +55,19 @@ void metrics::TCPSender::send(buf_ptr_t buf) {
     return;
   }
 
-  if (!socket.is_open()) {
-    // Log dropped data for periodic cumulative reporting in the resolve callback
+  LOG(INFO) << pending_limit << " limit vs " << pending_bytes + buf->size();
+  if (!socket.is_open() || pending_bytes + buf->size() > pending_limit) {
+    // Log dropped data for periodic cumulative reporting
+    DLOG(INFO) << "Drop " << buf->size() << " bytes to " << send_ip << ":" << send_port
+               << " (pending " << pending_bytes << ")";
     dropped_bytes += buf->size();
     return;
   }
 
-  DLOG(INFO) << "Send " << buf->size() << " bytes to " << send_ip << ":" << send_port;
+  pending_bytes += buf->size();
+  DLOG(INFO) << "Send " << buf->size() << " bytes to " << send_ip << ":" << send_port
+             << " (now pending " << pending_bytes << ")";
   // Pass buf into send_cb to ensure that it stays in scope until the send has completed:
-  //TODO write to accum_buf, then if(!sending){ swap; async_write() }
   boost::asio::async_write(
       socket, *buf,
       std::bind(&TCPSender::send_cb, this, sp::_1, sp::_2, buf));
@@ -138,18 +145,25 @@ void metrics::TCPSender::send_cb(
   if (shutdown) {
     return;
   }
+
   keepalive.reset();
   if (!socket.is_open()) {
     LOG(WARNING) << "Socket not open after sending data to " << send_ip << ":" << send_port;
+    pending_bytes = 0;
     schedule_connect();
   } else if (ec) {
     LOG(WARNING) << "Got error '" << ec.message() << "'(" << ec << ")"
                  << " when sending data to " << send_ip << ":" << send_port;
+    pending_bytes = 0;
     socket.close();
     schedule_connect();
   } else {
+    if (bytes_transferred > pending_bytes) {
+      pending_bytes = 0; //just in case
+    } else {
+      pending_bytes -= bytes_transferred;
+    }
     DLOG(INFO) << "Sent " << bytes_transferred << " bytes.";
-    //TODO if (!accum_buf->empty()) { swap; async_write(); } else { sending = false; }
   }
 }
 
@@ -198,7 +212,8 @@ void metrics::TCPSender::report_dropped_cb() {
   // Warn periodically when data is being dropped due to lack of outgoing connection
   if (dropped_bytes > 0) {
     LOG(WARNING) << "Recently dropped " << dropped_bytes
-                 << " bytes due to lack of open collector socket to ip[" << send_ip << "]";
+                 << " bytes due to lack of open collector socket to ip[" << send_ip << "] "
+                 << "(pending: " << pending_bytes << " bytes)";
     dropped_bytes = 0;
   }
   start_report_dropped_timer();

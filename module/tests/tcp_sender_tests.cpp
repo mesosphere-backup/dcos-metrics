@@ -16,7 +16,7 @@ namespace {
     return buf;
   }
 
-  const std::string SESSION_HEADER("THIS_is_a_session_HEADER"),
+  const std::string SESSION_HEADER("HDR"),
     HELLO("hello"),
     HEY("hey"),
     HI("hi");
@@ -102,6 +102,56 @@ TEST(TCPSenderTests, connect_fails_data_dropped) {
     //sleep(10);
   }
   thread.join();
+}
+
+TEST(TCPSenderTests, small_limit_data_dropped) {
+  TestTCPReadSession test_reader;
+  size_t listen_port = test_reader.port();
+
+  ServiceThread thread;
+  {
+    metrics::TCPSender sender(thread.svc(), SESSION_HEADER, DEST_LOCAL_IP, listen_port, 4);
+    sender.start();
+
+    thread.flush();
+    EXPECT_TRUE(test_reader.wait_for_available());
+    EXPECT_EQ(SESSION_HEADER, *test_reader.read()); // "HDR" passes
+
+    sender.send(build_buf(HELLO));
+    thread.flush();
+    EXPECT_FALSE(test_reader.wait_for_available(1)); // "hello" blocked
+
+    sender.send(build_buf(HEY));
+    thread.flush();
+    EXPECT_TRUE(test_reader.wait_for_available()); // "hey" passes
+    EXPECT_EQ(HEY, *test_reader.read());
+
+    sender.send(build_buf(HI));
+    thread.flush();
+    EXPECT_TRUE(test_reader.wait_for_available());
+    EXPECT_EQ(HI, *test_reader.read()); // "hi" passes (after "hey" was flushed)
+
+    size_t hey_max = 25;
+    for (size_t i = 0; i < hey_max; ++i) {
+      sender.send(build_buf(HEY));
+    }
+    thread.flush();
+    size_t hey_count = 0;
+    for (;;) {
+      if (!test_reader.wait_for_available(1)) {
+        break;
+      }
+      EXPECT_EQ(HEY, *test_reader.read());
+      ++hey_count;
+    }
+    LOG(INFO) << "got " << hey_count << "/" << hey_max << " heys";
+    // expect some to be dropped, but at least 50% to get through
+    EXPECT_LT(hey_max / 2, hey_count);
+    EXPECT_GT(hey_max, hey_count);
+  }
+  thread.join();
+
+  EXPECT_FALSE(test_reader.available());
 }
 
 TEST(TCPSenderTests, connect_succeeds_data_sent) {
