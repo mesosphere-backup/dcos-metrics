@@ -222,7 +222,7 @@ set(AVRO_SCHEMA_INPUT ${CMAKE_SOURCE_DIR}/../schema/metrics.avsc)
 set(AVRO_SCHEMA_STRUCT_OUTPUT ${CMAKE_BINARY_DIR}/metrics_schema_struct.hpp)
 add_custom_command(
   OUTPUT ${AVRO_SCHEMA_STRUCT_OUTPUT}
-  COMMAND ${avrogencpp_EXECUTABLE} -i ${AVRO_SCHEMA_INPUT} -n metrics_schema -o ${AVRO_SCHEMA_STRUCT_OUTPUT}
+  COMMAND LD_LIBRARY_PATH=${default_LIB_DIR} ${avrogencpp_EXECUTABLE} -i ${AVRO_SCHEMA_INPUT} -n metrics_schema -o ${AVRO_SCHEMA_STRUCT_OUTPUT}
   DEPENDS ${AVRO_DEPENDS}
   COMMENT "Generating metrics schema Struct header")
 add_custom_target(generate-avro-structs
