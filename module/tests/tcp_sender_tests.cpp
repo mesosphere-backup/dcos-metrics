@@ -149,8 +149,8 @@ TEST(TCPSenderTests, small_limit_data_dropped) {
       LOG(INFO) << hey_count << " heys: " << got.size();
     }
     LOG(INFO) << "got " << hey_count << "/" << hey_max << " heys";
-    // expect some to be dropped, but at least 25% (conservatively) to get through
-    EXPECT_LT(hey_max / 4, hey_count);
+    // expect at least one, but not all, to get through
+    EXPECT_LT(0, hey_count);
     EXPECT_GT(hey_max, hey_count);
   }
   thread.join();
