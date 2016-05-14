@@ -4,10 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
-	"net/http"
 )
 
 func connectionEndpoint(framework string) (endpoint string, err error) {
@@ -23,18 +21,6 @@ func connectionEndpoint(framework string) (endpoint string, err error) {
 	url := fmt.Sprintf("http://%s.mesos:%d/v1/connection", framework, addrs[0].Port)
 	log.Printf("Fetching broker list from %s\n", url)
 	return url, nil
-}
-
-func httpGet(endpoint string) (body []byte, err error) {
-	response, err := http.Get(endpoint)
-	if err != nil {
-		return nil, err
-	}
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nil, errors.New(fmt.Sprintf(
-			"Got response code when querying %s: %d", endpoint, response.StatusCode))
-	}
-	return ioutil.ReadAll(response.Body)
 }
 
 func extractBrokers(body []byte) (brokers []string, err error) {
