@@ -631,11 +631,11 @@ TEST_F(AvroEncoderTests, resources) {
   for (const metrics_schema::Datapoint& d : m1.datapoints) {
     EXPECT_EQ(stats1->timestamp() * 1000, d.time_ms);
   }
-  EXPECT_EQ("resources.processes", m1.datapoints[0].name);
+  EXPECT_EQ("usage.processes", m1.datapoints[0].name);
   EXPECT_EQ(stats1->processes(), m1.datapoints[0].value);
   EXPECT_EQ("perf.cpu_clock", m1.datapoints[1].name);
   EXPECT_EQ(stats1->perf().cpu_clock(), m1.datapoints[1].value);
-  EXPECT_EQ("resources.net_rx_bytes", m1.datapoints[2].name);
+  EXPECT_EQ("usage.net_rx_bytes", m1.datapoints[2].name);
   EXPECT_EQ(stats1->net_rx_bytes(), m1.datapoints[2].value);
   EXPECT_EQ("traf.1a.bytes", m1.datapoints[3].name);
   EXPECT_EQ(traf1a->bytes(), m1.datapoints[3].value);
@@ -665,9 +665,9 @@ TEST_F(AvroEncoderTests, resources) {
   for (const metrics_schema::Datapoint& d : m2.datapoints) {
     EXPECT_EQ(stats2->timestamp() * 1000, d.time_ms);
   }
-  EXPECT_EQ("resources.mem_total_bytes", m2.datapoints[0].name);
+  EXPECT_EQ("usage.mem_total_bytes", m2.datapoints[0].name);
   EXPECT_EQ(stats2->mem_total_bytes(), m2.datapoints[0].value);
-  EXPECT_EQ("resources.net_tx_dropped", m2.datapoints[1].name);
+  EXPECT_EQ("usage.net_tx_dropped", m2.datapoints[1].name);
   EXPECT_EQ(stats2->net_tx_dropped(), m2.datapoints[1].value);
   EXPECT_EQ("snmp.ip.outnoroutes", m2.datapoints[2].name);
   EXPECT_EQ(stats2->net_snmp_statistics().ip_stats().outnoroutes(), m2.datapoints[2].value);

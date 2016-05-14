@@ -152,7 +152,7 @@ void metrics::StatsdOutputWriter::write_container_statsd(
 void metrics::StatsdOutputWriter::write_resource_usage(
     const process::Future<mesos::ResourceUsage>& usage) {
   //TODO implement ResourceUsage -> statsd
-  LOG(INFO) << "USAGE DUMP:\n" << usage.get().DebugString();
+  //LOG(INFO) << "USAGE DUMP:\n" << usage.get().DebugString();
 }
 
 void metrics::StatsdOutputWriter::start_chunk_flush_timer() {

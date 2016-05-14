@@ -505,6 +505,205 @@ namespace {
   }
 }
 
+/** Sample:
+I0514 17:24:36.037711  1948 avro_encoder.cpp:603] Resources:
+executors {
+  executor_info {
+    executor_id {
+      value: "metrics-avro.487687aa-19f8-11e6-9695-d6e905db151a"
+    }
+    resources {
+      name: "cpus"
+      type: SCALAR
+      scalar {
+        value: 0.1
+      }
+      role: "*"
+    }
+    resources {
+      name: "mem"
+      type: SCALAR
+      scalar {
+        value: 32
+      }
+      role: "*"
+    }
+    command {
+      uris {
+        value: "https://s3-us-west-2.amazonaws.com/nick-dev/metrics-msft/test-receiver.tgz"
+        executable: false
+        extract: true
+        cache: false
+      }
+      environment {
+        variables {
+          name: "MARATHON_APP_VERSION"
+          value: "2016-05-14T17:20:13.013Z"
+        }
+        variables {
+          name: "HOST"
+          value: "10.0.0.31"
+        }
+        variables {
+          name: "MARATHON_APP_RESOURCE_CPUS"
+          value: "1.0"
+        }
+        variables {
+          name: "PORT_10000"
+          value: "27562"
+        }
+        variables {
+          name: "MESOS_TASK_ID"
+          value: "metrics-avro.487687aa-19f8-11e6-9695-d6e905db151a"
+        }
+        variables {
+          name: "PORT"
+          value: "27562"
+        }
+        variables {
+          name: "MARATHON_APP_RESOURCE_MEM"
+          value: "128.0"
+        }
+        variables {
+          name: "PORTS"
+          value: "27562"
+        }
+        variables {
+          name: "MARATHON_APP_RESOURCE_DISK"
+          value: "0.0"
+        }
+        variables {
+          name: "MARATHON_APP_LABELS"
+          value: ""
+        }
+        variables {
+          name: "MARATHON_APP_ID"
+          value: "/metrics-avro"
+        }
+        variables {
+          name: "PORT0"
+          value: "27562"
+        }
+      }
+      value: "/opt/mesosphere/packages/mesos--347b03376cc23e6e376cc38887bd6b644cc8a4b6/libexec/mesos/mesos-executor"
+      shell: true
+    }
+    framework_id {
+      value: "f4f6878c-783c-463f-85b9-3407e68cc69b-0000"
+    }
+    name: "Command Executor (Task: metrics-avro.487687aa-19f8-11e6-9695-d6e905db151a) (Command: sh -c \'LD_LIBRARY_P...\')"
+    source: "metrics-avro.487687aa-19f8-11e6-9695-d6e905db151a"
+  }
+  allocated {
+    name: "cpus"
+    type: SCALAR
+    scalar {
+      value: 1.1
+    }
+    role: "*"
+  }
+  allocated {
+    name: "mem"
+    type: SCALAR
+    scalar {
+      value: 160
+    }
+    role: "*"
+  }
+  allocated {
+    name: "ports"
+    type: RANGES
+    ranges {
+      range {
+        begin: 27562
+        end: 27562
+      }
+    }
+    role: "*"
+  }
+  statistics {
+    timestamp: 1463246676.03686
+    cpus_user_time_secs: 0.03
+    cpus_system_time_secs: 0.01
+    cpus_limit: 1.1
+    mem_rss_bytes: 2584576
+    mem_limit_bytes: 167772160
+    cpus_nr_periods: 916
+    cpus_nr_throttled: 0
+    cpus_throttled_time_secs: 0.009895515
+    mem_file_bytes: 0
+    mem_anon_bytes: 2584576
+    mem_mapped_file_bytes: 0
+    mem_low_pressure_counter: 0
+    mem_medium_pressure_counter: 0
+    mem_critical_pressure_counter: 0
+    mem_total_bytes: 2584576
+    mem_cache_bytes: 0
+    mem_swap_bytes: 0
+    mem_unevictable_bytes: 0
+  }
+  container_id {
+    value: "2a6199f4-f0e6-4749-be24-f731d1ae1d61"
+  }
+}
+total {
+  name: "ports"
+  type: RANGES
+  ranges {
+    range {
+      begin: 1025
+      end: 2180
+    }
+    range {
+      begin: 2182
+      end: 3887
+    }
+    range {
+      begin: 3889
+      end: 5049
+    }
+    range {
+      begin: 5052
+      end: 8079
+    }
+    range {
+      begin: 8082
+      end: 8180
+    }
+    range {
+      begin: 8182
+      end: 32000
+    }
+  }
+  role: "*"
+}
+total {
+  name: "disk"
+  type: SCALAR
+  scalar {
+    value: 35572
+  }
+  role: "*"
+}
+total {
+  name: "cpus"
+  type: SCALAR
+  scalar {
+    value: 4
+  }
+  role: "*"
+}
+total {
+  name: "mem"
+  type: SCALAR
+  scalar {
+    value: 14019
+  }
+  role: "*"
+}
+
+*/
+
 size_t metrics::AvroEncoder::resources_to_struct(
     const mesos::ResourceUsage& usage,
     container_id_ord_map<metrics_schema::MetricList>& metric_map) {
@@ -518,7 +717,7 @@ size_t metrics::AvroEncoder::resources_to_struct(
     oss << cid.value() << "-usage";
 
     mesos::ContainerID custom_id;
-    custom_id.set_value(oss.str());
+    custom_id.set_value(oss.str());//FIXME key against agent rather than against frameworkid?
     metrics_schema::MetricList& list = metric_map[custom_id];
     list.topic = oss.str();// set custom topic before init..:
     init_list(list, &cid, &einfo);
@@ -531,54 +730,54 @@ size_t metrics::AvroEncoder::resources_to_struct(
     metrics_schema::Datapoint d;
     d.time_ms = (int64_t)(1000 * stats.timestamp());
 
-    ADD_STAT(vals, stats, "resources", processes);
-    ADD_STAT(vals, stats, "resources", threads);
+    ADD_STAT(vals, stats, "usage", processes);
+    ADD_STAT(vals, stats, "usage", threads);
 
-    ADD_STAT(vals, stats, "resources", cpus_user_time_secs);
-    ADD_STAT(vals, stats, "resources", cpus_system_time_secs);
-    ADD_STAT(vals, stats, "resources", cpus_limit);
-    ADD_STAT(vals, stats, "resources", cpus_nr_periods);
-    ADD_STAT(vals, stats, "resources", cpus_nr_throttled);
-    ADD_STAT(vals, stats, "resources", cpus_throttled_time_secs);
+    ADD_STAT(vals, stats, "usage", cpus_user_time_secs);
+    ADD_STAT(vals, stats, "usage", cpus_system_time_secs);
+    ADD_STAT(vals, stats, "usage", cpus_limit);
+    ADD_STAT(vals, stats, "usage", cpus_nr_periods);
+    ADD_STAT(vals, stats, "usage", cpus_nr_throttled);
+    ADD_STAT(vals, stats, "usage", cpus_throttled_time_secs);
 
-    ADD_STAT(vals, stats, "resources", mem_total_bytes);
-    ADD_STAT(vals, stats, "resources", mem_total_memsw_bytes);
-    ADD_STAT(vals, stats, "resources", mem_limit_bytes);
-    ADD_STAT(vals, stats, "resources", mem_soft_limit_bytes);
-    ADD_STAT(vals, stats, "resources", mem_file_bytes);
-    ADD_STAT(vals, stats, "resources", mem_anon_bytes);
-    ADD_STAT(vals, stats, "resources", mem_cache_bytes);
-    ADD_STAT(vals, stats, "resources", mem_rss_bytes);
-    ADD_STAT(vals, stats, "resources", mem_mapped_file_bytes);
-    ADD_STAT(vals, stats, "resources", mem_swap_bytes);
-    ADD_STAT(vals, stats, "resources", mem_unevictable_bytes);
-    ADD_STAT(vals, stats, "resources", mem_low_pressure_counter);
-    ADD_STAT(vals, stats, "resources", mem_medium_pressure_counter);
-    ADD_STAT(vals, stats, "resources", mem_critical_pressure_counter);
+    ADD_STAT(vals, stats, "usage", mem_total_bytes);
+    ADD_STAT(vals, stats, "usage", mem_total_memsw_bytes);
+    ADD_STAT(vals, stats, "usage", mem_limit_bytes);
+    ADD_STAT(vals, stats, "usage", mem_soft_limit_bytes);
+    ADD_STAT(vals, stats, "usage", mem_file_bytes);
+    ADD_STAT(vals, stats, "usage", mem_anon_bytes);
+    ADD_STAT(vals, stats, "usage", mem_cache_bytes);
+    ADD_STAT(vals, stats, "usage", mem_rss_bytes);
+    ADD_STAT(vals, stats, "usage", mem_mapped_file_bytes);
+    ADD_STAT(vals, stats, "usage", mem_swap_bytes);
+    ADD_STAT(vals, stats, "usage", mem_unevictable_bytes);
+    ADD_STAT(vals, stats, "usage", mem_low_pressure_counter);
+    ADD_STAT(vals, stats, "usage", mem_medium_pressure_counter);
+    ADD_STAT(vals, stats, "usage", mem_critical_pressure_counter);
 
-    ADD_STAT(vals, stats, "resources", disk_limit_bytes);
-    ADD_STAT(vals, stats, "resources", disk_used_bytes);
+    ADD_STAT(vals, stats, "usage", disk_limit_bytes);
+    ADD_STAT(vals, stats, "usage", disk_used_bytes);
 
     if (stats.has_perf()) {
       vals += add_perf(stats.perf(), d, list);
     }
 
-    ADD_STAT(vals, stats, "resources", net_rx_packets);
-    ADD_STAT(vals, stats, "resources", net_rx_bytes);
-    ADD_STAT(vals, stats, "resources", net_rx_errors);
-    ADD_STAT(vals, stats, "resources", net_rx_dropped);
-    ADD_STAT(vals, stats, "resources", net_tx_packets);
-    ADD_STAT(vals, stats, "resources", net_tx_bytes);
-    ADD_STAT(vals, stats, "resources", net_tx_errors);
-    ADD_STAT(vals, stats, "resources", net_tx_dropped);
+    ADD_STAT(vals, stats, "usage", net_rx_packets);
+    ADD_STAT(vals, stats, "usage", net_rx_bytes);
+    ADD_STAT(vals, stats, "usage", net_rx_errors);
+    ADD_STAT(vals, stats, "usage", net_rx_dropped);
+    ADD_STAT(vals, stats, "usage", net_tx_packets);
+    ADD_STAT(vals, stats, "usage", net_tx_bytes);
+    ADD_STAT(vals, stats, "usage", net_tx_errors);
+    ADD_STAT(vals, stats, "usage", net_tx_dropped);
 
-    ADD_STAT(vals, stats, "resources", net_tcp_rtt_microsecs_p50);
-    ADD_STAT(vals, stats, "resources", net_tcp_rtt_microsecs_p90);
-    ADD_STAT(vals, stats, "resources", net_tcp_rtt_microsecs_p95);
-    ADD_STAT(vals, stats, "resources", net_tcp_rtt_microsecs_p99);
+    ADD_STAT(vals, stats, "usage", net_tcp_rtt_microsecs_p50);
+    ADD_STAT(vals, stats, "usage", net_tcp_rtt_microsecs_p90);
+    ADD_STAT(vals, stats, "usage", net_tcp_rtt_microsecs_p95);
+    ADD_STAT(vals, stats, "usage", net_tcp_rtt_microsecs_p99);
 
-    ADD_STAT(vals, stats, "resources", net_tcp_active_connections);
-    ADD_STAT(vals, stats, "resources", net_tcp_time_wait_connections);
+    ADD_STAT(vals, stats, "usage", net_tcp_active_connections);
+    ADD_STAT(vals, stats, "usage", net_tcp_time_wait_connections);
 
     for (int64_t trafi = 0; trafi < stats.net_traffic_control_statistics_size(); ++trafi) {
       vals += add_traf(stats.net_traffic_control_statistics(trafi), d, list);
@@ -600,7 +799,7 @@ size_t metrics::AvroEncoder::resources_to_struct(
       }
     }
   }
-  LOG(INFO) << "Resources:\n" << usage.DebugString();
+  //DLOG(INFO) << "Resources:\n" << usage.ShortDebugString();
   return vals;
 }
 

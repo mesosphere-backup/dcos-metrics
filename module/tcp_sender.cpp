@@ -124,6 +124,7 @@ void metrics::TCPSender::connect_deadline_cb() {
   if (connect_deadline_timer.expires_at() <= boost::asio::deadline_timer::traits_type::now()) {
     LOG(WARNING) << "Timed out when opening connection to " << send_ip << ":" << send_port;
     socket.close();
+    schedule_connect();
   }
 }
 
