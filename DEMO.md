@@ -75,7 +75,7 @@ In Marathon, create the following job in JSON Mode:
 ```json
 {
   "id": "metrics",
-  "cmd": "./test-receiver",
+  "cmd": "LD_LIBRARY_PATH=. ./nc -ul 8125",
   "cpus": 1,
   "mem": 128,
   "disk": 0,
