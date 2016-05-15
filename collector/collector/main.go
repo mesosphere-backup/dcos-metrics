@@ -16,7 +16,7 @@ var (
 		"Enable sending data to Kafka.")
 	fileOutputFlag = collector.BoolEnvFlag("file-enabled", false,
 		"Write chunk-<N>.avro files containing the collected data.")
-	topicFlag = collector.StringEnvFlag("topic", "sample_topic", //TODO TEMP
+	topicFlag = collector.StringEnvFlag("topic", "sample_metrics", //TODO TEMP
 		"Kafka topic to send to")
 )
 
