@@ -181,11 +181,11 @@ namespace {
   }
 
   typedef boost::array<uint8_t, 16> DataFileSync;
-  const DataFileSync sync_bytes_ = { {//TODO TEMP useful for debugging
+  const DataFileSync sync_bytes_ = { {//TODO TEMP useful for debugging/logging
+      '\n', 'E', 'F', 'E',
       'F', 'E', 'F', 'E',
       'F', 'E', 'F', 'E',
-      'F', 'E', 'F', 'E',
-      'F', 'E', 'F', 'E' } };
+      'F', 'E', 'F', '\n' } };
   std::shared_ptr<DataFileSync> sync_bytes;
   std::string header_data, footer_data;
 
