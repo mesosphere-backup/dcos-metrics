@@ -1,21 +1,19 @@
-package collector
+package main
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"github.com/antonholmquist/jason"
 	"github.com/linkedin/goavro"
+	"github.com/mesosphere/dcos-stats/collector"
 	"github.com/mesosphere/dcos-stats/collector/metrics-schema"
 	"log"
-	"os"
 	"os/exec"
 	"strings"
 )
 
 var (
-	ipCommandFlag = flag.String("ipcmd",
-		collector.EnvString("IP_CMD", "/opt/mesosphere/bin/detect_ip"),
+	ipCommandFlag = collector.StringEnvFlag("detect-ip", "/opt/mesosphere/bin/detect_ip",
 		"A command to execute which writes the agent IP to stdout")
 
 	datapointNamespace = goavro.RecordEnclosingNamespace(metrics_schema.DatapointNamespace)
@@ -61,13 +59,13 @@ func convertJsonStatistics(rawJson []byte, recordTopic string) (recs []*goavro.R
 			// try as object
 			objval, err := entryval.Object()
 			if err != nil {
-				fmt.Fprint(os.Stderr, "JSON Value %s isn't a string nor an object\n", entrykey)
+				log.Printf("JSON Value %s isn't a string nor an object", entrykey)
 				continue
 			}
 			// it's an object, treat it as a list of floating-point metrics (with a timestamp val)
 			timestampFloat, err := objval.GetFloat64("timestamp")
 			if err != nil {
-				fmt.Fprint(os.Stderr, "Expected 'timestamp' int value in JSON Value %s\n", entrykey)
+				log.Printf("Expected 'timestamp' int value in JSON Value %s", entrykey)
 				continue // skip bad value
 			}
 			timestampMillis := int64(timestampFloat * 1000)
@@ -84,7 +82,7 @@ func convertJsonStatistics(rawJson []byte, recordTopic string) (recs []*goavro.R
 				datapoint.Set("time", timestampMillis)
 				floatVal, err := val.Float64()
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to convert value %s to float64: %+v\n", key, val)
+					log.Printf("Failed to convert value %s to float64: %+v", key, val)
 					continue
 				}
 				datapoint.Set("value", floatVal)
@@ -109,19 +107,19 @@ func AgentGetIp() (ip string, err error) {
 	ipBytes, err := exec.Command(cmdWithArgs[0], cmdWithArgs[1:]...).Output()
 	if err != nil {
 		return "", errors.New(fmt.Sprintf(
-			"Fetching Agent IP with -ipcmd='%s' failed: %s", *ipCommandFlag, err))
+			"Fetching Agent IP with -ip-command='%s' failed: %s", *ipCommandFlag, err))
 	}
 	ip = strings.TrimSpace(string(ipBytes))
 	if len(ip) == 0 {
 		return "", errors.New(fmt.Sprintf(
-			"Agent IP fetched with -ipcmd='%s' is empty", *ipCommandFlag))
+			"Agent IP fetched with -ip-command='%s' is empty", *ipCommandFlag))
 	}
 	return ip, nil
 }
 
 func AgentStatisticsAvro(agentIp string, recordTopic string) (recs []*goavro.Record, err error) {
 	// Get/parse stats from agent
-	rawJson, err := httpGet(fmt.Sprintf("http://%s:5051/monitor/statistics.json", agentIp))
+	rawJson, err := collector.HttpGet(fmt.Sprintf("http://%s:5051/monitor/statistics.json", agentIp))
 	if err != nil {
 		return nil, err
 	}

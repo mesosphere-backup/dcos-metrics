@@ -15,6 +15,7 @@ metrics::UDPSender::UDPSender(
     io_service(io_service),
     resolve_timer(*io_service),
     socket(*io_service),
+    sent_bytes(0),
     dropped_bytes(0) {
   LOG(INFO) << "UDPSender constructed for " << send_host << ":" << send_port;
   if (resolve_period_ms == 0) {
@@ -92,12 +93,10 @@ void metrics::UDPSender::dest_resolve_cb(boost::system::error_code ec) {
     }
   }
 
-  // Warn periodically when data is being dropped due to lack of outgoing connection
-  if (dropped_bytes > 0) {
-    LOG(WARNING) << "Recently dropped " << dropped_bytes
-                 << " bytes due to lack of open statsd socket to host[" << send_host << "]";
-    dropped_bytes = 0;
-  }
+  // Also produce throughput stats while we're here.
+  LOG(INFO) << "UDP Throughput (bytes): sent=" << sent_bytes << ", " << "dropped=" << dropped_bytes;
+  sent_bytes = 0;
+  dropped_bytes = 0;
 
   udp_resolver_t::iterator iter = resolve(ec);
   boost::asio::ip::address selected_address;

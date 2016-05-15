@@ -69,6 +69,6 @@ namespace metrics {
     endpoint_t current_endpoint;
     std::multiset<boost::asio::ip::address> last_resolved_addresses;
     boost::asio::ip::udp::socket socket;
-    size_t dropped_bytes;
+    size_t sent_bytes, dropped_bytes;
   };
 }

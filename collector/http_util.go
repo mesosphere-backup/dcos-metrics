@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-func httpGet(endpoint string) (body []byte, err error) {
+func HttpGet(endpoint string) (body []byte, err error) {
 	response, err := http.Get(endpoint)
 	if err != nil {
 		return nil, err

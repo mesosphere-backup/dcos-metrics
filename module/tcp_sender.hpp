@@ -54,8 +54,8 @@ namespace metrics {
     void connect_outcome_cb(boost::system::error_code ec);
     void send_cb(boost::system::error_code ec, size_t bytes_transferred, buf_ptr_t keepalive);
     void shutdown_cb();
-    void start_report_dropped_timer();
-    void report_dropped_cb();
+    void start_report_bytes_timer();
+    void report_bytes_cb();
 
     const std::string session_header;
     const boost::asio::ip::address send_ip;
@@ -65,13 +65,13 @@ namespace metrics {
     std::shared_ptr<boost::asio::io_service> io_service;
     boost::asio::deadline_timer connect_deadline_timer;
     boost::asio::deadline_timer connect_retry_timer;
-    boost::asio::deadline_timer report_dropped_timer;
+    boost::asio::deadline_timer report_bytes_timer;
     boost::asio::ip::tcp::socket socket;
     bool is_reconnect_scheduled;
     size_t reconnect_delay;
     bool sent_session_header;
     size_t pending_bytes;
-    size_t dropped_bytes;
+    size_t sent_bytes, dropped_bytes, failed_bytes;
     bool shutdown;
   };
 }

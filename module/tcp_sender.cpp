@@ -19,13 +19,15 @@ metrics::TCPSender::TCPSender(
     io_service(io_service),
     connect_deadline_timer(*io_service),
     connect_retry_timer(*io_service),
-    report_dropped_timer(*io_service),
+    report_bytes_timer(*io_service),
     socket(*io_service),
     is_reconnect_scheduled(false),
     reconnect_delay(1),
     sent_session_header(false),
     pending_bytes(0),
+    sent_bytes(0),
     dropped_bytes(0),
+    failed_bytes(0),
     shutdown(false) {
   LOG(INFO) << "TCPSender constructed for " << send_ip << ":" << send_port;
 }
@@ -46,7 +48,7 @@ metrics::TCPSender::~TCPSender() {
 void metrics::TCPSender::start() {
   // Only run the timer callbacks within the io_service thread:
   LOG(INFO) << "TCPSender starting work";
-  io_service->dispatch(std::bind(&TCPSender::start_report_dropped_timer, this));
+  io_service->dispatch(std::bind(&TCPSender::start_report_bytes_timer, this));
   io_service->dispatch(std::bind(&TCPSender::start_connect, this));
 }
 
@@ -91,7 +93,7 @@ void metrics::TCPSender::send(buf_ptr_t buf) {
 
 void metrics::TCPSender::schedule_connect() {
   if (is_reconnect_scheduled) {
-    LOG(INFO) << "Reconnect already scheduled.";
+    DLOG(INFO) << "Reconnect already scheduled.";
     return;
   }
   LOG(INFO) << "Scheduling reconnect to " << send_ip << ":" << send_port << " in "
@@ -100,8 +102,9 @@ void metrics::TCPSender::schedule_connect() {
   is_reconnect_scheduled = true;
   connect_retry_timer.expires_from_now(boost::posix_time::seconds(reconnect_delay));
   connect_retry_timer.async_wait(std::bind(&TCPSender::start_connect, this));
-  if (reconnect_delay < 60) {
-    reconnect_delay *= 2; // exponential backoff
+  reconnect_delay *= 2; // exponential backoff ..
+  if (reconnect_delay > 60) {
+    reconnect_delay = 60; // .. max 60s
   }
 }
 
@@ -160,12 +163,14 @@ void metrics::TCPSender::send_cb(
     LOG(WARNING) << "Socket not open after sending data to " << send_ip << ":" << send_port;
     sent_session_header = false;
     pending_bytes = 0;
+    failed_bytes += bytes_transferred;
     schedule_connect();
   } else if (ec) {
     LOG(WARNING) << "Got error '" << ec.message() << "'(" << ec << ")"
                  << " when sending data to " << send_ip << ":" << send_port;
     sent_session_header = false;
     pending_bytes = 0;
+    failed_bytes += bytes_transferred;
     socket.close();
     schedule_connect();
   } else {
@@ -174,6 +179,7 @@ void metrics::TCPSender::send_cb(
     } else {
       pending_bytes -= bytes_transferred;
     }
+    sent_bytes += bytes_transferred;
     DLOG(INFO) << "Sent " << bytes_transferred << " bytes (now pending " << pending_bytes << ")";
   }
 }
@@ -193,9 +199,9 @@ void metrics::TCPSender::shutdown_cb() {
                << "err='" << ec.message() << "'(" << ec << ")";
   }
 
-  report_dropped_timer.cancel(ec);
+  report_bytes_timer.cancel(ec);
   if (ec) {
-    LOG(ERROR) << "Connect deadline timer cancellation returned error. "
+    LOG(ERROR) << "Report bytes timer cancellation returned error. "
                << "err='" << ec.message() << "'(" << ec << ")";
   }
 
@@ -208,24 +214,25 @@ void metrics::TCPSender::shutdown_cb() {
   }
 }
 
-void metrics::TCPSender::start_report_dropped_timer() {
+void metrics::TCPSender::start_report_bytes_timer() {
   if (shutdown) {
     return;
   }
-  report_dropped_timer.expires_from_now(boost::posix_time::seconds(60));
-  report_dropped_timer.async_wait(std::bind(&TCPSender::report_dropped_cb, this));
+  report_bytes_timer.expires_from_now(boost::posix_time::seconds(60));
+  report_bytes_timer.async_wait(std::bind(&TCPSender::report_bytes_cb, this));
 }
 
-void metrics::TCPSender::report_dropped_cb() {
+void metrics::TCPSender::report_bytes_cb() {
   if (shutdown) {
     return;
   }
-  // Warn periodically when data is being dropped due to lack of outgoing connection
-  if (dropped_bytes > 0) {
-    LOG(WARNING) << "Recently dropped " << dropped_bytes
-                 << " bytes due to lack of open collector socket to ip[" << send_ip << "] "
-                 << "(" << pending_bytes << " bytes pending)";
-    dropped_bytes = 0;
-  }
-  start_report_dropped_timer();
+  LOG(INFO) << "TCP Throughput (bytes): "
+            << "sent=" << sent_bytes << ", "
+            << "dropped=" << dropped_bytes << ", "
+            << "failed=" << failed_bytes << ", "
+            << "pending=" << pending_bytes;
+  sent_bytes = 0;
+  dropped_bytes = 0;
+  failed_bytes = 0;
+  start_report_bytes_timer();
 }
