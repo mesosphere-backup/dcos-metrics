@@ -58,6 +58,7 @@ func handleConnection(conn *net.TCPConn, recordsChan chan<- interface{},
 	if err != nil {
 		stats <- collector.StatsEvent{collector.AvroReaderOpenFailed, ""}
 		log.Println("Failed to create avro reader: ", err)
+		return
 	}
 	defer func() {
 		if err := avroReader.Close(); err != nil {

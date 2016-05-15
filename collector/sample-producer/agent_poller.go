@@ -79,7 +79,7 @@ func convertJsonStatistics(rawJson []byte, recordTopic string) (recs []*goavro.R
 				if err != nil {
 					log.Fatalf("Failed to create Datapoint record for value %s: %s", key, err)
 				}
-				datapoint.Set("time", timestampMillis)
+				datapoint.Set("time_ms", timestampMillis)
 				floatVal, err := val.Float64()
 				if err != nil {
 					log.Printf("Failed to convert value %s to float64: %+v", key, val)
@@ -114,6 +114,7 @@ func AgentGetIp() (ip string, err error) {
 		return "", errors.New(fmt.Sprintf(
 			"Agent IP fetched with -ip-command='%s' is empty", *ipCommandFlag))
 	}
+	log.Println("Agent IP obtained with -ip-command='%s': %s\n", *ipCommandFlag, ip)
 	return ip, nil
 }
 
