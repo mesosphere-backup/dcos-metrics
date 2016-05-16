@@ -44,13 +44,13 @@ func RunKafkaProducer(messages <-chan KafkaMessage, stats chan<- StatsEvent) {
 	for {
 		producer, err := kafkaProducer(stats)
 		if err != nil {
-			stats <- StatsEvent{KafkaConnectionFailed, ""}
+			stats <- MakeEvent(KafkaConnectionFailed)
 			log.Println("Failed to open Kafka producer:", err)
 			continue
 		}
-		stats <- StatsEvent{KafkaSessionOpened, ""}
+		stats <- MakeEvent(KafkaSessionOpened)
 		defer func() {
-			stats <- StatsEvent{KafkaSessionClosed, ""}
+			stats <- MakeEvent(KafkaSessionClosed)
 			if err := producer.Close(); err != nil {
 				log.Println("Failed to shut down producer cleanly:", err)
 			}
@@ -61,7 +61,7 @@ func RunKafkaProducer(messages <-chan KafkaMessage, stats chan<- StatsEvent) {
 				Topic: message.Topic,
 				Value: sarama.ByteEncoder(message.Data),
 			}
-			stats <- StatsEvent{KafkaMessageSent, message.Topic}
+			stats <- MakeEventSuff(KafkaMessageSent, message.Topic)
 		}
 	}
 }
@@ -73,7 +73,7 @@ func kafkaProducer(stats chan<- StatsEvent) (kafkaProducer sarama.AsyncProducer,
 	if *frameworkFlag != "" {
 		foundBrokers, err := lookupBrokers(*frameworkFlag)
 		if err != nil {
-			stats <- StatsEvent{KafkaLookupFailed, *frameworkFlag}
+			stats <- MakeEventSuff(KafkaLookupFailed, *frameworkFlag)
 			return nil, errors.New(fmt.Sprintf(
 				"Broker lookup against framework %s failed: %s", *frameworkFlag, err))
 		}

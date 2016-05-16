@@ -53,7 +53,7 @@ func main() {
 
 	agentIp, err := AgentGetIp()
 	if err != nil {
-		stats <- collector.StatsEvent{collector.AgentIPFailed, ""}
+		stats <- collector.MakeEvent(collector.AgentIPFailed)
 		log.Fatal("Failed to get agent IP: ", err)
 	}
 
@@ -63,36 +63,36 @@ func main() {
 		// Get stats from agent
 		recs, err := AgentStatisticsAvro(agentIp, *topicFlag)
 		if err != nil {
-			stats <- collector.StatsEvent{collector.AgentQueryFailed, ""}
+			stats <- collector.MakeEvent(collector.AgentQueryFailed)
 			fmt.Fprintf(os.Stderr,
 				"Failed to fetch/parse stats from agent at %s: %s\n", agentIp, err)
 			// sleep and retry
 			sleep()
 			continue
 		} else if len(recs) == 0 {
-			stats <- collector.StatsEvent{collector.AgentQueryEmpty, ""}
+			stats <- collector.MakeEvent(collector.AgentQueryEmpty)
 			log.Printf("No containers returned in stats, trying again in %ds\n", *pollPeriodFlag)
 			// sleep and retry
 			sleep()
 			continue
 		}
-		stats <- collector.StatsEvent{collector.AgentQueried, ""}
+		stats <- collector.MakeEvent(collector.AgentQueried)
 
 		// Recreate OCF writer for each chunk, so that it writes a header at the top each time:
 		avroWriter, err := goavro.NewWriter(
 			goavro.BlockSize(int64(len(recs))), goavro.ToWriter(buf), goavro.UseCodec(codec))
 		if err != nil {
-			stats <- collector.StatsEvent{collector.AvroWriterOpenFailed, ""}
+			stats <- collector.MakeEvent(collector.AvroWriterFailed)
 			log.Fatal("Failed to create avro writer: ", err)
 		}
 		for _, rec := range recs {
-			stats <- collector.StatsEvent{collector.AvroRecordOut, *topicFlag}
+			stats <- collector.MakeEventSuff(collector.AvroRecordOut, *topicFlag)
 			avroWriter.Write(rec)
 		}
 
 		err = avroWriter.Close() // ensure flush to buf occurs before buf is used
 		if err != nil {
-			stats <- collector.StatsEvent{collector.AvroWriterCloseFailed, ""}
+			stats <- collector.MakeEvent(collector.AvroWriterFailed)
 			log.Fatal("Couldn't flush output: ", err)
 		}
 		if *kafkaOutputFlag {
@@ -110,14 +110,14 @@ func main() {
 				len(recs), filename)
 			outfile, err := os.Create(filename)
 			if err != nil {
-				stats <- collector.StatsEvent{collector.FileOutputFailed, ""}
+				stats <- collector.MakeEvent(collector.FileOutputFailed)
 				log.Fatalf("Couldn't create output %s: %s", filename, err)
 			}
 			if _, err = outfile.Write(buf.Bytes()); err != nil {
-				stats <- collector.StatsEvent{collector.FileOutputFailed, ""}
+				stats <- collector.MakeEvent(collector.FileOutputFailed)
 				log.Fatalf("Couldn't write to %s: %s", filename, err)
 			}
-			stats <- collector.StatsEvent{collector.FileOutputWritten, ""}
+			stats <- collector.MakeEvent(collector.FileOutputWritten)
 		}
 
 		buf.Reset()

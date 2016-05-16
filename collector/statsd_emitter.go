@@ -36,15 +36,14 @@ const (
 	KafkaSessionOpened
 	KafkaSessionClosed
 	KafkaMessageSent
+	KafkaBytesSent
 
-	FileOutputFailed
-	FileOutputWritten
-
-	AvroWriterOpenFailed
+	AvroWriterFailed
 	AvroRecordOut
-	AvroWriterCloseFailed
 
 	// sample-producer only:
+	FileOutputFailed
+	FileOutputWritten
 	AgentIPFailed
 	AgentQueryFailed
 	AgentQueryEmpty
@@ -52,8 +51,22 @@ const (
 )
 
 type StatsEvent struct {
-	Type   StatsEventType
-	Suffix string
+	evttype StatsEventType
+	suffix  string
+	count   int
+}
+
+func MakeEventSuffCount(evttype StatsEventType, suffix string, count int) StatsEvent {
+	return StatsEvent{evttype, suffix, count}
+}
+func MakeEventCount(evttype StatsEventType, count int) StatsEvent {
+	return StatsEvent{evttype, "", count}
+}
+func MakeEventSuff(evttype StatsEventType, suffix string) StatsEvent {
+	return StatsEvent{evttype, suffix, 1}
+}
+func MakeEvent(evttype StatsEventType) StatsEvent {
+	return StatsEvent{evttype, "", 1}
 }
 
 // Creates and runs a Stats Emitter which sends counts to a UDP endpoint,
@@ -62,14 +75,14 @@ type StatsEvent struct {
 func RunStatsEmitter(events <-chan StatsEvent) {
 	gauges := make(map[string]int64)
 	statsdConn := getStatsdConn()
-	ticker := time.NewTicker(time.Second * 15)
+	ticker := time.NewTicker(time.Second * time.Duration(*statsdPeriodFlag))
 	for {
 		select {
 		case event := <-events:
 			gauges[toStatsdLabel(event)]++
-			if len(event.Suffix) != 0 {
+			if len(event.suffix) != 0 {
 				// also count against non-suffix bucket:
-				gauges[toStatsdLabel(StatsEvent{event.Type, ""})]++
+				gauges[toStatsdLabel(StatsEvent{event.evttype, "", event.count})]++
 			}
 		case _ = <-ticker.C:
 			flushGauges(statsdConn, &gauges)
@@ -82,7 +95,7 @@ func RunStatsEmitter(events <-chan StatsEvent) {
 
 func toStatsdLabel(event StatsEvent) string {
 	typelabel := "UNKNOWN"
-	switch event.Type {
+	switch event.evttype {
 	case TCPResolveFailed:
 		typelabel = "tcp_input.tcp_resolve_failures"
 	case TCPListenFailed:
@@ -105,24 +118,23 @@ func toStatsdLabel(event StatsEvent) string {
 	case KafkaConnectionFailed:
 		typelabel = "kafka_output.connection_failures"
 	case KafkaSessionOpened:
-		typelabel = "kafka_output.avro_record"
+		typelabel = "kafka_output.sessions_opened"
 	case KafkaSessionClosed:
-		typelabel = "kafka_output.avro_record"
+		typelabel = "kafka_output.sessions_closed"
 	case KafkaMessageSent:
-		typelabel = "kafka_output.avro_record"
+		typelabel = "kafka_output.avro_records_sent"
+	case KafkaBytesSent:
+		typelabel = "kafka_output.bytes_sent"
 
-	case FileOutputFailed:
-		typelabel = "file_output.avro_record"
-	case FileOutputWritten:
-		typelabel = "file_output.avro_record"
-
-	case AvroWriterOpenFailed:
+	case AvroWriterFailed:
 		typelabel = "avro_output.writer_open_failures"
 	case AvroRecordOut:
 		typelabel = "avro_output.avro_record"
-	case AvroWriterCloseFailed:
-		typelabel = "avro_output.writer_close_failures"
 
+	case FileOutputFailed:
+		typelabel = "file_output.records_failed"
+	case FileOutputWritten:
+		typelabel = "file_output.records_written"
 	case AgentIPFailed:
 		typelabel = "producer.agent_ip_failures"
 	case AgentQueryFailed:
@@ -132,10 +144,10 @@ func toStatsdLabel(event StatsEvent) string {
 	case AgentQueried:
 		typelabel = "producer.agent_queries"
 	}
-	if len(event.Suffix) == 0 {
+	if len(event.suffix) == 0 {
 		return fmt.Sprintf("collector.%s", typelabel)
 	} else {
-		return fmt.Sprintf("collector.%s.%s", typelabel, event.Suffix)
+		return fmt.Sprintf("collector.%s.%s", typelabel, event.suffix)
 	}
 }
 
@@ -162,7 +174,7 @@ func getStatsdConn() *net.UDPConn {
 
 func flushGauges(conn *net.UDPConn, gauges *map[string]int64) {
 	// insert a meta-value into the stats before sending them
-	(*gauges)["collector.metrics_entries"] = int64(len(*gauges))
+	(*gauges)["collector.metrics_entries"] = int64(len(*gauges)) + 1 // don't forget self!
 
 	// accumulate statsd data into a newline-separated block, staying within UDP packet limits
 	msgBlock := ""
