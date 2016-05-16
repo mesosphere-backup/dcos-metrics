@@ -78,6 +78,7 @@ The Collector runs on each Mesos agent, listening on TCP port 8124 for data from
   "instances": 100,
   "env": {
     "KAFKA_FRAMEWORK": "kafka",
+    "KAFKA_SINGLE_TOPIC": "sample_metrics",
     "LOG_RECORD_INPUT": "true",
     "LOG_RECORD_OUTPUT": "true"
   },

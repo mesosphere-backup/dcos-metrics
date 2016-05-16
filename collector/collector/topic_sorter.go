@@ -15,7 +15,9 @@ var (
 	kafkaProducePeriodFlag = collector.IntEnvFlag("kafka-produce-period-ms", 15000,
 		"Interval period between calls to the Kafka Producer.")
 	kafkaTopicPrefixFlag = collector.StringEnvFlag("kafka-topic-prefix", "metrics-",
-		"Prefix string to include on Kafka topic labels")
+		"Prefix string to include on Kafka topic labels (ignored if -kafka-single-topic is used)")
+	kafkaSingleTopicFlag = collector.StringEnvFlag("kafka-single-topic", "",
+		"If non-empty, writes all metric data to a single Kafka topic, ignoring record.topic values")
 	logRecordOutputFlag = collector.BoolEnvFlag("log-record-output", false,
 		"Whether to log the parsed content of outgoing records")
 )
@@ -40,7 +42,7 @@ func RunTopicSorter(
 			topicRecs := append(topics[topic], record)
 			if len(topicRecs) >= int(*kafkaProduceCountFlag) {
 				// topic has hit size limit, flush (and wipe) preemptively
-				log.Printf("Sending %d Avro-formatted records to topic '%s'\n", len(topicRecs), topic)
+				log.Printf("Producing full topic (%d records) to Kafka: '%s'\n", len(topicRecs), topic)
 				stats <- collector.MakeEventSuffCount(collector.AvroRecordOut, topic, len(topicRecs))
 
 				err = serializeRecs(buf, topicRecs, codec)
@@ -77,6 +79,10 @@ func RunTopicSorter(
 // ---
 
 func getTopic(obj interface{}) string {
+	if len(*kafkaSingleTopicFlag) != 0 {
+		return *kafkaSingleTopicFlag
+	}
+
 	record, ok := obj.(*goavro.Record)
 	if !ok {
 		return *kafkaTopicPrefixFlag + "UNKNOWN_TYPE"
