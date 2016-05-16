@@ -15,19 +15,21 @@ const (
 	envvarHost = "STATSD_UDP_HOST"
 	envvarPort = "STATSD_UDP_PORT"
 )
+
 var debug_enabled bool
 
 type ByteCount struct {
 	success int64
-	failed int64
+	failed  int64
 }
+
 func (b *ByteCount) add(b2 ByteCount) {
 	b.success += b2.success
 	b.failed += b2.failed
 }
 
 func debugf(format string, v ...interface{}) {
-	if (!debug_enabled) {
+	if !debug_enabled {
 		return
 	}
 	log.Printf(format, v...)
@@ -79,10 +81,10 @@ func formatTimerMsi(key string, val int64) string {
 	return formati(key, val, "ms")
 }
 func formati(key string, val int64, tipe string) string {
-	return fmt.Sprintf("test_sender.%s:%s|%s", key, strconv.FormatInt(val, 10), tipe)
+	return fmt.Sprintf("statsd_emitter.%s:%s|%s", key, strconv.FormatInt(val, 10), tipe)
 }
 func formatf(key string, val float64, tipe string) string {
-	return fmt.Sprintf("test_sender.%s:%s|%s", key, strconv.FormatFloat(val, 'f', -1, 64), tipe)
+	return fmt.Sprintf("statsd_emitter.%s:%s|%s", key, strconv.FormatFloat(val, 'f', -1, 64), tipe)
 }
 
 func sendCounteri(conn *net.UDPConn, key string, val int64) ByteCount {
@@ -113,7 +115,7 @@ func main() {
 	flag.BoolVar(&debug_enabled, "debug", false, "Enables debug log messages")
 	flag.Parse()
 
-	log.SetPrefix("test-sender ")
+	log.SetPrefix("statsd-emitter ")
 
 	addr := getEnvAddress()
 	log.Printf("Sending to: %s", addr)
@@ -131,7 +133,7 @@ func main() {
 		now := time.Now()
 		bytes.add(sendGaugei(conn, "time.unix", int64(now.Unix())))
 		bytes.add(sendGaugei(conn, "time.unix_nano", int64(now.UnixNano())))
-		bytes.add(sendGaugef(conn, "time.unix_float", float64(now.UnixNano()) / 1000000000))
+		bytes.add(sendGaugef(conn, "time.unix_float", float64(now.UnixNano())/1000000000))
 		uptime_ms := int64((now.UnixNano() - start.UnixNano()) / 1000000 /* nano -> milli */)
 		bytes.add(sendGaugei(conn, "time.uptime_gauge_ms", uptime_ms))
 		bytes.add(sendTimerMsi(conn, "time.uptime_timer_ms", uptime_ms))
@@ -157,7 +159,7 @@ func main() {
 		success := bytes.success - bytes_start.success
 		failed := bytes.failed - bytes_start.failed
 		log.Printf("Bytes sent: %d success, %d failed, %d total",
-			success, failed, success + failed)
+			success, failed, success+failed)
 		time.Sleep(time.Second * 1)
 	}
 }

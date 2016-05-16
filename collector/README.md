@@ -41,9 +41,9 @@ Then preprocess the Avro schema and build the code:
 cd $GOPATH/src/github.com/mesosphere/dcos-stats/collector
 go generate # creates 'metrics-schema' package
 
-cd cmd/sample-producer/
+cd collector/
 go build
-./sample-producer -h
+./collector -h
 ```
 
 If you see errors about `cannot find package "github.com/.../metrics-schema"`, you forgot to perform `go generate` in the `dcos-stats/collector/` directory.
@@ -75,6 +75,7 @@ The Collector runs on each Mesos agent, listening on TCP port 8124 for data from
 
 ```json
 {
+  "id": "metrics-collector",
   "instances": 100,
   "env": {
     "KAFKA_FRAMEWORK": "kafka",
@@ -82,7 +83,6 @@ The Collector runs on each Mesos agent, listening on TCP port 8124 for data from
     "LOG_RECORD_INPUT": "true",
     "LOG_RECORD_OUTPUT": "true"
   },
-  "id": "metrics-collector",
 
   "cmd": "env && chmod +x ./collector && ./collector",
   "cpus": 1,
@@ -109,11 +109,11 @@ If the Kafka framework isn't reachable (not deployed yet? wrong name passed to `
 
 ### Consuming collected data
 
-Once `collector` is up and running, the raw data it's producing may be viewed by running this task (see `stdout` once it's launched):
+Once `collector` is up and running, the raw binary data it's passing to Kafka may be viewed by running this task (see `stdout` once it's launched). This assumes that the collector was started with `KAFKA_SINGLE_TOPIC=sample_metrics` to force all Kafka data into a single topic named `sample_metrics`. By default without this parameter, the collector will send data to multiple source-specific topics.
 
 ```json
 {
-  "id": "sample-consumer",
+  "id": "console-consumer",
   "cmd": "JAVA_HOME=./jre* ./kafka_2.10-0.9.0.1/bin/kafka-console-consumer.sh --topic sample_metrics --zookeeper master.mesos:2181/kafka",
   "cpus": 1,
   "mem": 512,
@@ -126,37 +126,11 @@ Once `collector` is up and running, the raw data it's producing may be viewed by
 }
 ```
 
-### Sample Collector
-
-Runs `nc -l 8124` to exercise the Mesos module's Avro export logic.
-
-```json
-{
-  "instances": 100,
-  "id": "sample-collector",
-  "cmd": "LD_LIBRARY_PATH=. ./nc -l 8124",
-  "cpus": 1,
-  "mem": 128,
-  "disk": 0,
-  "uris": [
-    "https://s3-us-west-2.amazonaws.com/nick-dev/metrics-msft/test-receiver.tgz"
-  ],
-  "portDefinitions": [
-    {
-      "port": 8124,
-      "protocol": "tcp",
-      "name": null,
-      "labels": null
-    }
-  ],
-  "requirePorts" : true
-}
-```
-
 ## Sample Producer
 
 The sample producer is an alternate Collector implementation which just grabs some data from the mesos agent and forwards it to a Kafka cluster.
-It's meant to allow Kafka Consumers to be implemented/tested without requiring that the latest Mesos Metrics module be installed on the cluster.
+
+It's meant to allow testing of metrics Kafka Consumers without requiring that the DC/OS cluster have the latest Metrics Agent Module.
 
 ### Deploy
 
@@ -169,11 +143,11 @@ It's meant to allow Kafka Consumers to be implemented/tested without requiring t
 
 ```json
 {
+  "id": "sample-producer",
   "instances": 100,
   "env": {
     "KAFKA_FRAMEWORK": "kafka"
   },
-  "id": "sample-producer",
 
   "cmd": "env && chmod +x ./sample-producer && ./sample-producer",
   "cpus": 1,
@@ -198,21 +172,4 @@ As `sample-producer` is deployed on every node, each instance should automatical
 
 If the Kafka framework isn't reachable (not deployed yet? wrong name passed to `KAFKA_FRAMEWORK` envvar?), then `sample-producer` will loop until it comes up (complaining to `stderr` every few seconds).
 
-### Consuming collected data
-
-Once `sample-producer` is up and running, the data it's producing may be viewed by running this task (see `stdout` once it's launched):
-
-```json
-{
-  "id": "sample-consumer",
-  "cmd": "JAVA_HOME=./jre* ./kafka_2.10-0.9.0.1/bin/kafka-console-consumer.sh --topic sample_metrics --zookeeper master.mesos:2181/kafka",
-  "cpus": 1,
-  "mem": 512,
-  "disk": 0,
-  "instances": 1,
-  "uris": [
-    "https://s3.amazonaws.com/downloads.mesosphere.io/kafka/assets/kafka_2.10-0.9.0.1.tgz",
-    "https://s3.amazonaws.com/downloads.mesosphere.io/kafka/assets/jre-8u72-linux-x64.tar.gz"
-  ]
-}
-```
+Data sent by `sample-producer` is running, its data can be accessed by running a `sample-consumer` task as described above.
