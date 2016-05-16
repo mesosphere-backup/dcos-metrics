@@ -176,6 +176,15 @@ func flushGauges(conn *net.UDPConn, gauges *map[string]int64) {
 	// insert a meta-value into the stats before sending them
 	(*gauges)["collector.metrics_entries"] = int64(len(*gauges)) + 1 // don't forget self!
 
+	if conn == nil {
+		// Statsd export isn't available. Just print stats to stdout.
+		log.Printf("Flushing %d internal gauges (StatsD export disabled):\n", len(*gauges))
+		for k, v := range *gauges {
+			log.Printf("- %s = %s\n", k, strconv.FormatInt(v, 10))
+		}
+		return
+	}
+
 	// accumulate statsd data into a newline-separated block, staying within UDP packet limits
 	msgBlock := ""
 	log.Printf("Sending %d internal gauges to StatsD endpoint %s:\n", len(*gauges), conn.RemoteAddr())

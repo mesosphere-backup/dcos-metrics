@@ -4,7 +4,13 @@ import (
 	"flag"
 	"fmt"
 	"github.com/mesosphere/dcos-stats/collector"
+	"log"
 	"os"
+)
+
+var (
+	kafkaEnabledFlag = collector.BoolEnvFlag("kafka-enabled", true,
+		"Whether received data should be written to Kafka")
 )
 
 func main() {
@@ -20,11 +26,22 @@ func main() {
 	go collector.RunStatsEmitter(stats)
 
 	kafkaOutputChan := make(chan collector.KafkaMessage)
-	go collector.RunKafkaProducer(kafkaOutputChan, stats)
+	if *kafkaEnabledFlag {
+		go collector.RunKafkaProducer(kafkaOutputChan, stats)
+	} else {
+		go printReceivedMessages(kafkaOutputChan)
+	}
 
 	recordInputChan := make(chan interface{})
 	go RunAvroTCPReader(recordInputChan, stats)
 
 	// Run the sorter on the main thread (exit process if Kafka stops accepting data)
 	RunTopicSorter(recordInputChan, kafkaOutputChan, stats)
+}
+
+func printReceivedMessages(msgChan <-chan collector.KafkaMessage) {
+	for {
+		msg := <-msgChan
+		log.Printf("Topic %s: %d bytes would've been written (-kafka-enabled=false)\n", msg.Topic, len(msg.Data))
+	}
 }
