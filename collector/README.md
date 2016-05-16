@@ -62,6 +62,8 @@ govendor list
 
 ## Collector
 
+The Collector runs on each Mesos agent, listening on TCP port 8124 for data from the mesos module (and any other processes on the system). The Collector then sends any avro-formatted data it receives into a Kafka cluster.
+
 ### Deploy
 
 1. Configure and deploy a Kafka instance on your DC/OS cluster. By default it will be named `kafka`.

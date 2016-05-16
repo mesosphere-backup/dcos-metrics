@@ -30,7 +30,7 @@ func main() {
 	flag.Parse()
 
 	stats := make(chan collector.StatsEvent)
-	go collector.StartStatsLoop(stats)
+	go collector.RunStatsEmitter(stats)
 
 	kafkaOutputChan := make(chan collector.KafkaMessage)
 	if *kafkaOutputFlag {
