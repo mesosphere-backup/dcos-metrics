@@ -24,7 +24,7 @@ var (
 )
 
 func sleep() {
-	log.Printf("Wait for %ds...\n", *pollPeriodFlag)
+	log.Printf("Waiting for %ds\n", *pollPeriodFlag)
 	time.Sleep(time.Duration(*pollPeriodFlag) * time.Second)
 }
 

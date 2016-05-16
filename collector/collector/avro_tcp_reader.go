@@ -9,7 +9,7 @@ import (
 
 var (
 	listenEndpointFlag = collector.StringEnvFlag("listen-endpont", "127.0.0.1:8124",
-		"Incoming TCP endpoint for MetricsList avro data")
+		"TCP endpoint for incoming MetricsList avro data")
 	logRecordInputFlag = collector.BoolEnvFlag("log-record-input", false,
 		"Whether to log the parsed content of incoming records")
 )
@@ -21,12 +21,12 @@ func RunAvroTCPReader(recordsChan chan<- interface{}, stats chan<- collector.Sta
 	addr, err := net.ResolveTCPAddr("tcp", *listenEndpointFlag)
 	if err != nil {
 		stats <- collector.MakeEvent(collector.TCPResolveFailed)
-		log.Fatal("Failed to parse TCP endpoint '%s': %s", *listenEndpointFlag, err)
+		log.Fatalf("Failed to parse TCP endpoint '%s': %s", *listenEndpointFlag, err)
 	}
 	sock, err := net.ListenTCP("tcp", addr)
 	if err != nil {
 		stats <- collector.MakeEvent(collector.TCPListenFailed)
-		log.Fatal("Failed to listen on TCP endpoint '%s': %s", *listenEndpointFlag, err)
+		log.Fatalf("Failed to listen on TCP endpoint '%s': %s", *listenEndpointFlag, err)
 	}
 
 	for {

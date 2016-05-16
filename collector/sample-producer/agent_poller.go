@@ -75,10 +75,10 @@ func convertJsonStatistics(rawJson []byte, recordTopic string) (recs []*goavro.R
 					continue // avoid being too redundant
 				}
 				datapoint, err := goavro.NewRecord(datapointNamespace, datapointSchema)
-				datapoint.Set("name", key)
 				if err != nil {
 					log.Fatalf("Failed to create Datapoint record for value %s: %s", key, err)
 				}
+				datapoint.Set("name", key)
 				datapoint.Set("time_ms", timestampMillis)
 				floatVal, err := val.Float64()
 				if err != nil {
@@ -91,7 +91,7 @@ func convertJsonStatistics(rawJson []byte, recordTopic string) (recs []*goavro.R
 		}
 		metricListRec, err := goavro.NewRecord(metricListNamespace, metricListSchema)
 		if err != nil {
-			log.Fatal("Failed to create MetricList record: %s", err)
+			log.Fatalf("Failed to create MetricList record for topic %s: %s", recordTopic, err)
 		}
 		metricListRec.Set("topic", recordTopic)
 		metricListRec.Set("tags", tags)

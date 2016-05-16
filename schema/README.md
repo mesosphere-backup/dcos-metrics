@@ -34,7 +34,7 @@ Whenever the schema is changed, the preprocessed code in `java/` and `go/` MUST 
 
 ### Java
 
-Java code is generated using [avro-tools-1.8.0.jar](http://www.apache.org/dyn/closer.cgi/avro/avro-1.8.0/java/avro-tools-1.8.0.jar).:
+Java code is generated using [avro-tools.jar](http://www.apache.org/dyn/closer.cgi/avro/avro-1.8.0/java/avro-tools-1.8.0.jar).
 
 ```
 java -jar avro-tools-1.8.0.jar compile schema metrics.avsc java/
@@ -43,7 +43,7 @@ find java/
 
 ### C++
 
-C++ code is generated using `avrogencpp`, which may be built from [avro-cpp-1.8.0.tar.gz](http://www.apache.org/dyn/closer.cgi/avro/avro-1.8.0/cpp/avro-cpp-1.8.0.tar.gz).
+C++ code is generated using `avrogencpp`, which may be built from [avro-cpp.tar.gz](http://www.apache.org/dyn/closer.cgi/avro/avro-1.8.0/cpp/avro-cpp-1.8.0.tar.gz).
 
 ```
 avrogencpp -i metrics.avsc -n avro -o metrics.hpp

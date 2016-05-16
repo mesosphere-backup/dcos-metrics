@@ -13,8 +13,8 @@ Routing of metrics from DC/OS.
 - **[collector](collector/)**: A Marathon process which runs on every agent node. Listens on TCP port `8124` for Avro-formatted metrics from the mesos-agent module as well as other processes on the system. Data is collated and forwarded to a Kafka instance, and/or exposed to local partner agents (TBD).
 - **examples**: Reference implementations which integrate with the metrics stack:
   - **[metrics-consumer](examples/kafka-consumer/)**: A Kafka Consumer which retrieves Avro-formatted metrics and prints information about them to `stdout`.
-  - **[connector-client](examples/connector-client/)**: A local system process which sends arbitrary Avro metrics data to the Collector.
-  - **[statsd-emitter](examples/statsd-emitter/)**: A containerized process which emits arbitrary StatsD metrics to the `STATSD_UDP_HOST`/`STATSD_UDP_PORT` endpoint advertised by the mesos-agent module. This is a reference for service development on DC/OS.
+  - **[collector-emitter](examples/collector-emitter/)**: A system process which sends arbitrary Avro metrics data to the Collector. This is a reference for system processes which emit metrics.
+  - **[statsd-emitter](examples/statsd-emitter/)**: A process which emits arbitrary StatsD metrics to the `STATSD_UDP_HOST`/`STATSD_UDP_PORT` endpoint advertised by the mesos-agent module. This is a reference for mesos tasks which emit metrics.
 - **[schema](schema/)**: Avro schemas shared by most everybody that processes metrics (agent module, collector, collector clients, kafka consumers). The exception is containerized processes which only need know how to emit StatsD data.
 
 ## Docs
