@@ -7,12 +7,8 @@ Inputs metrics [sent over TCP](../schema/) from local sources:
 - Other DCOS processes on the system
 
 Outputs metrics to the following destinations:
-- Kafka metrics service
+- Kafka cluster
 - Local partner processes, if any
-
-A basic HTTP server provides:
-- Returning input/output TCP endpoints for local processes to use
-- On-the-fly configuration changes
 
 ## Build
 
