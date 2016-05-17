@@ -135,8 +135,7 @@ void metrics::ContainerAssigner::recover_containers_imp(
   for (auto state_container : disk_containers) {
     auto recovered_container = recovered_containers.find(state_container.first);
     if (recovered_container != recovered_containers.end()) { // #1
-      containers_to_insert.push_back(
-          ContainerEndpoint(recovered_container->second, state_container.second));
+      containers_to_insert.emplace_back(recovered_container->second, state_container.second);
     } else { // #2
       containers_to_remove.push_back(state_container.first);
     }

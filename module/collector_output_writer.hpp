@@ -9,6 +9,7 @@
 
 namespace metrics {
   class TCPSender;
+  class ContainerMetrics;
 
   /**
    * A CollectorOutputWriter accepts data from one or more ContainerReaders, then tags and forwards it
@@ -67,7 +68,7 @@ namespace metrics {
     const size_t datapoint_capacity;
     size_t datapoint_count;
 
-    container_id_ord_map<metrics_schema::MetricList> container_map;
+    container_id_ord_map<ContainerMetrics> container_map;
 
     std::shared_ptr<boost::asio::io_service> io_service;
     boost::asio::deadline_timer flush_timer;

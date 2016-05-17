@@ -43,12 +43,28 @@ namespace {
     map[key] = value_conv;
   }
 
-  void add_tag(std::vector<metrics_schema::Tag>& tags,
-      const std::string& key, const std::string& value) {
-    tags.resize(tags.size() + 1);
-    metrics_schema::Tag& tag = tags[tags.size() - 1];
-    tag.key = key;
-    tag.value = value;
+  void add_tag(const std::string& key, const std::string& value,
+    std::vector<metrics_schema::Tag>& tags) {
+    if (key.empty() && value.empty()) {
+      return;
+    }
+    tags.emplace_back();
+    metrics_schema::Tag& tag = tags.back();
+    tag.key.insert(0, key);
+    tag.value.insert(0, value);
+  }
+
+  void add_tag(const char* key, size_t key_len, const char* value, size_t value_len,
+    std::vector<metrics_schema::Tag>& tags) {
+    if (key_len == 0 && value_len == 0) {
+      return;
+    }
+    tags.emplace_back();
+    metrics_schema::Tag& tag = tags.back();
+    tag.key.insert(0, key, key_len);
+    if (value != NULL) {
+      tag.value.insert(0, value, value_len);
+    }
   }
 
   void init_list(
@@ -72,13 +88,13 @@ namespace {
         }
       }
       if (!found_framework_id) {
-        add_tag(list.tags, FRAMEWORK_ID_AVRO_KEY, executor_info->framework_id().value());
+        add_tag(FRAMEWORK_ID_AVRO_KEY, executor_info->framework_id().value(), list.tags);
       }
       if (!found_executor_id) {
-        add_tag(list.tags, EXECUTOR_ID_AVRO_KEY, executor_info->executor_id().value());
+        add_tag(EXECUTOR_ID_AVRO_KEY, executor_info->executor_id().value(), list.tags);
       }
       if (!found_container_id) {
-        add_tag(list.tags, CONTAINER_ID_AVRO_KEY, container_id->value());
+        add_tag(CONTAINER_ID_AVRO_KEY, container_id->value(), list.tags);
       }
     } else {
       list.topic = UNKNOWN_CONTAINER_TAG;
@@ -95,14 +111,51 @@ namespace {
   }
 
   void parse_datadog_tags(const char* data, size_t size, std::vector<metrics_schema::Tag>& tags) {
-    // Expected format: |#tag:val,tag2:val2,(...)
-    //TODO parse, while avoiding conflicting tags across datapoints...
+    // Expected input format: |#key:val,key2:val2,(...)
+    if (size <= 2) {
+      return;
+    }
+    // start by seeking past the "|#" parsed by the caller:
+    const char* tag_start = data + 2;
+    size -= 2;
+    for (;;) {
+      const char* tag_end = (const char*)memchr(tag_start, ',', size);
+      if (tag_end == NULL) {
+        // tag ends at tag_start + size (end of buffer)
+        const char* tag_delim = (const char*)memchr(tag_start, ':', size);
+        if (tag_delim == NULL) {
+          // no tag delim. treat as empty value.
+          add_tag(tag_start, size, NULL, 0, tags);
+        } else {
+          // tag delim found. key:value
+          size_t key_len = tag_delim - tag_start;
+          add_tag(tag_start, key_len, tag_delim + 1, size - key_len - 1, tags);
+        }
+        // parsed to end of buffer, exit:
+        return;
+      } else {
+        // tag ends at tag_end with a comma delim
+        size_t tag_size = tag_end - tag_start;
+        const char* tag_delim = (const char*)memchr(tag_start, ':', tag_size);
+        if (tag_delim == NULL) {
+          // no tag delim. treat as empty value
+          add_tag(tag_start, tag_size, NULL, 0, tags);
+        } else {
+          // tag delim found. key:value
+          size_t key_len = tag_delim - tag_start;
+          add_tag(tag_start, key_len, tag_delim + 1, tag_size - key_len - 1, tags);
+        }
+        // parsed to end of this tag, continue to start of next tag:
+        tag_start = tag_end + 1;
+        size -= tag_size + 1;
+      }
+    }
   }
 
   void parse_statsd_name_val_tags(const char* data, size_t size,
       metrics_schema::Datapoint& point, std::vector<metrics_schema::Tag>& tags) {
-    // Expected format:
-    // name[:val][|section][|@0.3][|#tag1:val1,tag2:val2][|...]
+    // Expected input format:
+    // name[:val][|section...][|@0.3][|#tag1:val1,tag2:val2][|section...]
     // first, find the start of any extra sections: we want to avoid going too far when searching for ':'s.
     char* section_start = (char*)memchr(data, '|', size);
     size_t nameval_size = size;
@@ -182,10 +235,10 @@ namespace {
 
   typedef boost::array<uint8_t, 16> DataFileSync;
   const DataFileSync sync_bytes_ = { {//TODO TEMP useful for debugging/logging
-      '\n', 'E', 'F', 'E',
       'F', 'E', 'F', 'E',
       'F', 'E', 'F', 'E',
-      'F', 'E', 'F', '\n' } };
+      'F', 'E', 'F', 'E',
+      'F', 'E', 'F', 'E' } };
   std::shared_ptr<DataFileSync> sync_bytes;
   std::string header_data, footer_data;
 
@@ -230,7 +283,7 @@ const std::string& metrics::AvroEncoder::header() {
 }
 
 void metrics::AvroEncoder::encode_metrics_block(
-    const container_id_ord_map<metrics_schema::MetricList>& metric_map,
+    const container_id_ord_map<ContainerMetrics>& metric_map,
     std::ostream& ostream) {
   // in the first pass, encode the data so that we can get the byte count
   int64_t obj_count = 0;
@@ -240,10 +293,16 @@ void metrics::AvroEncoder::encode_metrics_block(
     avro::EncoderPtr encoder = avro::binaryEncoder();
     encoder->init(*avro_ostream);
 
-    for (auto entry : metric_map) {
-      if (!empty(entry.second)) {
+    for (auto container_metrics_entry : metric_map) {
+      if (!empty(container_metrics_entry.second.without_custom_tags)) {
         ++obj_count;
-        avro::encode(*encoder, entry.second);
+        avro::encode(*encoder, container_metrics_entry.second.without_custom_tags);
+      }
+      for (auto tagged_metrics_list : container_metrics_entry.second.with_custom_tags) {
+        if (!empty(tagged_metrics_list)) {
+          ++obj_count;
+          avro::encode(*encoder, tagged_metrics_list);
+        }
       }
     }
     if (obj_count == 0) {
@@ -274,34 +333,57 @@ void metrics::AvroEncoder::encode_metrics_block(
 size_t metrics::AvroEncoder::statsd_to_struct(
     const mesos::ContainerID* container_id, const mesos::ExecutorInfo* executor_info,
     const char* data, size_t size,
-    container_id_ord_map<metrics_schema::MetricList>& metric_map) {
-  metrics_schema::MetricList* list_out;
+    container_id_ord_map<ContainerMetrics>& metric_map) {
+  ContainerMetrics* cm_out;
   if (container_id == NULL) {
     mesos::ContainerID missing_id;
     missing_id.set_value(UNKNOWN_CONTAINER_TAG);
     auto iter = metric_map.find(missing_id);
     if (iter == metric_map.end()) {
-      list_out = &metric_map[missing_id];
+      cm_out = &metric_map[missing_id];
     } else {
-      list_out = &iter->second;
+      cm_out = &iter->second;
     }
-    init_list(*list_out, NULL, NULL);
   } else {
     auto iter = metric_map.find(*container_id);
     if (iter == metric_map.end()) {
-      list_out = &metric_map[*container_id];
+      cm_out = &metric_map[*container_id];
     } else {
-      list_out = &iter->second;
+      cm_out = &iter->second;
     }
-    init_list(*list_out, container_id, executor_info);
   }
 
-  // Spawn/update a Datapoint directly within the list
-  size_t old_size = list_out->datapoints.size();
-  list_out->datapoints.resize(old_size + 1);
-  metrics_schema::Datapoint& point = list_out->datapoints[old_size];
+  metrics_schema::MetricList& without_custom_tags = cm_out->without_custom_tags;
+
+  without_custom_tags.datapoints.emplace_back();
+  metrics_schema::Datapoint& point = without_custom_tags.datapoints.back();
   point.time_ms = now_in_ms();
-  parse_statsd_name_val_tags(data, size, point, list_out->tags);
+  // optimizing for the case where the sender didn't include datadog tags:
+  // only do additional work if parsing the statsd data resulted in new tags added.
+  size_t old_tag_count = without_custom_tags.tags.size();
+  parse_statsd_name_val_tags(data, size, point, without_custom_tags.tags);
+  size_t new_tag_count = without_custom_tags.tags.size();
+  if (new_tag_count - old_tag_count != 0) {
+    // has custom tags. create/init a new dedicated MetricList and move the datapoint+tags there.
+    cm_out->with_custom_tags.emplace_back();
+    metrics_schema::MetricList& new_custom_tag_list = cm_out->with_custom_tags.back();
+    init_list(new_custom_tag_list, container_id, executor_info);
+
+    // move datapoint at back
+    new_custom_tag_list.datapoints.push_back(
+        std::move(without_custom_tags.datapoints.back()));
+    without_custom_tags.datapoints.pop_back();
+
+    // move custom tags in idx=[old_tag_count, new_tag_count)
+    auto tagiter = without_custom_tags.tags.begin();
+    std::advance(tagiter, old_tag_count);
+    std::move(tagiter, without_custom_tags.tags.end(),
+        std::back_inserter(new_custom_tag_list.tags));
+    without_custom_tags.tags.resize(old_tag_count);
+  } else {
+    // no custom tags, data should stay in without_custom_tags.
+    init_list(without_custom_tags, container_id, executor_info);
+  }
 
   return 1;
 }
@@ -309,23 +391,23 @@ size_t metrics::AvroEncoder::statsd_to_struct(
 #define ADD_STAT(COUNTER, OBJ, FIELDPREFIX, FIELDNAME)                  \
   if (OBJ.has_##FIELDNAME()) {                                          \
     ++COUNTER;                                                          \
-    d.name = FIELDPREFIX "." #FIELDNAME ;                               \
-    d.value = OBJ.FIELDNAME();                                          \
     list.datapoints.push_back(d);                                       \
+    list.datapoints.back().name = FIELDPREFIX "." #FIELDNAME;           \
+    list.datapoints.back().value = OBJ.FIELDNAME();                     \
   }
 #define ADD_NAMED_STAT(COUNTER, OBJ, FIELDPREFIX, NAMESTR, FIELDNAME)   \
   if (OBJ.has_##FIELDNAME()) {                                          \
     ++COUNTER;                                                          \
     std::ostringstream oss;                                             \
     oss << FIELDPREFIX "." << NAMESTR << "." #FIELDNAME ;               \
-    d.name = oss.str();                                                 \
-    d.value = OBJ.FIELDNAME();                                          \
     list.datapoints.push_back(d);                                       \
+    list.datapoints.back().name = oss.str();                            \
+    list.datapoints.back().value = OBJ.FIELDNAME();                     \
   }
 
 namespace {
-  size_t add_perf(
-      const mesos::PerfStatistics& perf, metrics_schema::Datapoint& d, metrics_schema::MetricList& list) {
+  size_t add_perf(const mesos::PerfStatistics& perf,
+      metrics_schema::Datapoint& d, metrics_schema::MetricList& list) {
     size_t vals = 0;
 
     ADD_STAT(vals, perf, "perf", cycles);
@@ -403,8 +485,8 @@ namespace {
     return vals;
   }
 
-  size_t add_snmp_ip(
-      const mesos::IpStatistics& ip, metrics_schema::Datapoint& d, metrics_schema::MetricList& list) {
+  size_t add_snmp_ip(const mesos::IpStatistics& ip,
+      metrics_schema::Datapoint& d, metrics_schema::MetricList& list) {
     size_t vals = 0;
 
     ADD_STAT(vals, ip, "snmp.ip", forwarding);
@@ -430,8 +512,8 @@ namespace {
     return vals;
   }
 
-  size_t add_snmp_icmp(
-      const mesos::IcmpStatistics& icmp, metrics_schema::Datapoint& d, metrics_schema::MetricList& list) {
+  size_t add_snmp_icmp(const mesos::IcmpStatistics& icmp,
+      metrics_schema::Datapoint& d, metrics_schema::MetricList& list) {
     size_t vals = 0;
 
     ADD_STAT(vals, icmp, "snmp.icmp", inmsgs);
@@ -465,8 +547,8 @@ namespace {
     return vals;
   }
 
-  size_t add_snmp_tcp(
-      const mesos::TcpStatistics& tcp, metrics_schema::Datapoint& d, metrics_schema::MetricList& list) {
+  size_t add_snmp_tcp(const mesos::TcpStatistics& tcp,
+      metrics_schema::Datapoint& d, metrics_schema::MetricList& list) {
     size_t vals = 0;
 
     ADD_STAT(vals, tcp, "snmp.tcp", rtoalgorithm);
@@ -488,8 +570,8 @@ namespace {
     return vals;
   }
 
-  size_t add_snmp_udp(
-      const mesos::UdpStatistics& udp, metrics_schema::Datapoint& d, metrics_schema::MetricList& list) {
+  size_t add_snmp_udp(const mesos::UdpStatistics& udp,
+      metrics_schema::Datapoint& d, metrics_schema::MetricList& list) {
     size_t vals = 0;
 
     ADD_STAT(vals, udp, "snmp.udp", indatagrams);
@@ -706,21 +788,21 @@ total {
 
 size_t metrics::AvroEncoder::resources_to_struct(
     const mesos::ResourceUsage& usage,
-    container_id_ord_map<metrics_schema::MetricList>& metric_map) {
+    avro_metrics_map_t& metric_map) {
   size_t vals = 0;
   for (int64_t execi = 0; execi < usage.executors_size(); ++execi) {
     const mesos::ResourceUsage_Executor& executor = usage.executors(execi);
 
     const mesos::ContainerID& cid = executor.container_id();
     const mesos::ExecutorInfo& einfo = executor.executor_info();
-    std::ostringstream oss;
-    oss << cid.value() << "-usage";
 
-    mesos::ContainerID custom_id;
-    custom_id.set_value(oss.str());//FIXME key against agent rather than against frameworkid?
-    metrics_schema::MetricList& list = metric_map[custom_id];
-    list.topic = oss.str();// set custom topic before init..:
+    // Store our data against the same MetricList that statsd data is added to.
+    // Downstream can check for Datapoint names which are prefixed by "usage."
+    metrics_schema::MetricList& list = metric_map[cid].without_custom_tags;
     init_list(list, &cid, &einfo);
+
+    // NOTE: We currently skip executor.allocated() since the same values (cpu/mem/disk) appear to
+    // be available in statistics anyway (with different values, oddly)
 
     if (!executor.has_statistics()) {
       continue;

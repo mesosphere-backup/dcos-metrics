@@ -39,35 +39,161 @@ namespace {
     ret.value = val;
     return ret;
   }
-  inline metrics::container_id_ord_map<metrics_schema::MetricList> to_map(
+
+  inline metrics::avro_metrics_map_t to_map(
       const metrics_schema::MetricList& list) {
-    metrics::container_id_ord_map<metrics_schema::MetricList> map;
-    map[container_id(list.topic)] = list;
+    metrics::avro_metrics_map_t map;
+    map[container_id(list.topic)].without_custom_tags = list;
     return map;
   }
-  inline metrics::container_id_ord_map<metrics_schema::MetricList> merge(
-      const metrics::container_id_ord_map<metrics_schema::MetricList>& a,
-      const metrics::container_id_ord_map<metrics_schema::MetricList>& b) {
-    metrics::container_id_ord_map<metrics_schema::MetricList> ret;
+  inline metrics::avro_metrics_map_t merge(
+      const metrics::avro_metrics_map_t& a,
+      const metrics::avro_metrics_map_t& b) {
+    metrics::avro_metrics_map_t ret;
     ret.insert(a.begin(), a.end());
     ret.insert(b.begin(), b.end());
     return ret;
   }
 
-  void check_no_tags(const std::string& data, double val, const std::string& name = "hello") {
-    LOG(INFO) << data;
-    metrics::container_id_ord_map<metrics_schema::MetricList> map;
-    metrics::AvroEncoder::statsd_to_struct(NULL, NULL, data.data(), data.size(), map);
-    EXPECT_EQ(1, map.size());
-    const metrics_schema::MetricList& list = map[container_id(UNKNOWN)];
-    EXPECT_EQ(UNKNOWN, list.topic);
-    EXPECT_EQ(1, list.datapoints.size());
-    EXPECT_EQ(name, list.datapoints[0].name);
-    EXPECT_NE(0, list.datapoints[0].time_ms);
-    EXPECT_EQ(val, list.datapoints[0].value);
-    EXPECT_TRUE(list.tags.empty());
+  bool check_datapoint(const metrics_schema::MetricList& list,
+      double val, const std::string& name) {
+    if (list.topic != UNKNOWN) {
+      LOG(INFO) << "expected topic " << UNKNOWN << ", got " << list.topic;
+      return false;
+    }
+    if (list.datapoints.size() != 1) {
+      LOG(INFO) << "expected datapoint size 1, got " << list.datapoints.size();
+      return false;
+    }
+    if (list.datapoints[0].name != name) {
+      LOG(INFO) << "expected name " << name << ", got " << list.datapoints[0].name;
+      return false;
+    }
+    if (list.datapoints[0].time_ms == 0) {
+      LOG(INFO) << "expected time_ms NOT zero, got " << list.datapoints[0].time_ms;
+      return false;
+    }
+    if (list.datapoints[0].value != val) {
+      LOG(INFO) << "expected value " << val << ", got " << list.datapoints[0].value;
+      return false;
+    }
+    return true;
   }
 
+  typedef std::pair<std::string, std::string> tag_t;
+  typedef std::vector<tag_t> tags_t;
+  tags_t make_tags(const std::string& key, const std::string& val) {
+    tags_t ret;
+    ret.push_back(tag_t(key, val));
+    return ret;
+  }
+  tags_t make_tags(const std::string& key1, const std::string& val1,
+      const std::string& key2, const std::string& val2) {
+    tags_t ret;
+    ret.push_back(tag_t(key1, val1));
+    ret.push_back(tag_t(key2, val2));
+    return ret;
+  }
+  tags_t make_tags(const std::string& key1, const std::string& val1,
+      const std::string& key2, const std::string& val2,
+      const std::string& key3, const std::string& val3) {
+    tags_t ret;
+    ret.push_back(tag_t(key1, val1));
+    ret.push_back(tag_t(key2, val2));
+    ret.push_back(tag_t(key3, val3));
+    return ret;
+  }
+  tags_t make_tags(const std::string& key1, const std::string& val1,
+      const std::string& key2, const std::string& val2,
+      const std::string& key3, const std::string& val3,
+      const std::string& key4, const std::string& val4) {
+    tags_t ret;
+    ret.push_back(tag_t(key1, val1));
+    ret.push_back(tag_t(key2, val2));
+    ret.push_back(tag_t(key3, val3));
+    ret.push_back(tag_t(key4, val4));
+    return ret;
+  }
+
+  bool check_with_tags(const std::string& data, double val, const tags_t& tags,
+      const std::string& name = "hello") {
+    LOG(INFO) << data;
+    metrics::avro_metrics_map_t map;
+    metrics::AvroEncoder::statsd_to_struct(NULL, NULL, data.data(), data.size(), map);
+    if (map.size() != 1) {
+      LOG(INFO) << "expected map size 1, got " << map.size();
+      return false;
+    }
+    const metrics::ContainerMetrics& cm = map[container_id(UNKNOWN)];
+    if (!metrics::AvroEncoder::empty(cm.without_custom_tags)) {
+      LOG(INFO) << "expected empty without_custom_tags section";
+      return false;
+    }
+
+    const metrics_schema::MetricList& list = cm.with_custom_tags.back();
+    if (!check_datapoint(list, val, name)) {
+      return false;
+    }
+
+    if (tags.size() != list.tags.size()) {
+      LOG(INFO) << "expected " << tags.size() << " tags, got " << list.tags.size();
+      return false;
+    }
+    for (size_t i = 0; i < tags.size(); ++i) {
+      const tag_t& expect_tag = tags[i];
+      const metrics_schema::Tag& got_tag = list.tags[i];
+      if (expect_tag.first != got_tag.key) {
+        LOG(INFO) << "for tag " << i << ", "
+                  << "expected key " << expect_tag.first << " (size " << expect_tag.first.size()
+                  << "), got " << got_tag.key << "size (" << got_tag.key.size() << ")";
+        return false;
+      }
+      if (expect_tag.second != got_tag.value) {
+        LOG(INFO) << "for tag " << i << ", "
+                  << "expected value " << expect_tag.second << " (size " << expect_tag.second.size()
+                  << "), got " << got_tag.value << " (size " << got_tag.value.size() << ")";
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool check_no_tags(const std::string& data, double val, const std::string& name = "hello") {
+    LOG(INFO) << data;
+    metrics::avro_metrics_map_t map;
+    metrics::AvroEncoder::statsd_to_struct(NULL, NULL, data.data(), data.size(), map);
+    if (map.size() != 1) {
+      LOG(INFO) << "expected map size 1, got " << map.size();
+      return false;
+    }
+    const metrics::ContainerMetrics& cm = map[container_id(UNKNOWN)];
+    if (!cm.with_custom_tags.empty()) {
+      LOG(INFO) << "expected empty with_custom_tags section, got " << map.size();
+      return false;
+    }
+
+    const metrics_schema::MetricList& list = cm.without_custom_tags;
+    if (!check_datapoint(list, val, name)) {
+      return false;
+    }
+
+    if (!list.tags.empty()) {
+      LOG(INFO) << "expected empty tags, got " << list.tags.size();
+      return false;
+    }
+    return true;
+  }
+
+
+  bool eq(const std::string& key, const std::string& val, const metrics_schema::Tag& tag) {
+    return key == tag.key && val == tag.value;
+  }
+  bool eq(const std::string& name, double val, const metrics_schema::Datapoint& d) {
+    return name == d.name && val == d.value;
+  }
+  bool eq(const std::string& name, double val, int64_t time_ms, const metrics_schema::Datapoint& d) {
+    return eq(name, val, d) && time_ms == d.time_ms;
+  }
   bool eq(const metrics_schema::MetricList& a, const metrics_schema::MetricList& b) {
     if (a.topic != b.topic) {
       LOG(INFO) << "topic " << a.topic << " != " << b.topic;
@@ -106,6 +232,18 @@ namespace {
       }
     }
     return true;
+  }
+
+  void print_schema(const metrics_schema::MetricList& m) {
+    LOG(INFO) << "topic " << m.topic;
+    LOG(INFO) << "tags: ";
+    for (const metrics_schema::Tag& t : m.tags) {
+      LOG(INFO) << "  " << t.key << "=" << t.value;
+    }
+    LOG(INFO) << "points: ";
+    for (const metrics_schema::Datapoint& d : m.datapoints) {
+      LOG(INFO) << "  " << d.name << "=" << d.value << " @ " << d.time_ms;
+    }
   }
 }
 
@@ -155,8 +293,8 @@ TEST_F(AvroEncoderTests, header) {
 }
 
 TEST_F(AvroEncoderTests, encode_empty_metrics) {
-  metrics::container_id_ord_map<metrics_schema::MetricList> map;
-  map[container_id("hello")] = metrics_schema::MetricList();
+  metrics::avro_metrics_map_t map;
+  map[container_id("hello")].without_custom_tags = metrics_schema::MetricList();
   std::ostringstream oss;
   metrics::AvroEncoder::encode_metrics_block(map, oss);
   EXPECT_EQ(0, oss.str().size());
@@ -233,24 +371,24 @@ TEST_F(AvroEncoderTests, encode_one_metric_list) {
 }
 
 TEST_F(AvroEncoderTests, encode_many_metrics) {
-  metrics::container_id_ord_map<metrics_schema::MetricList> map;
-  map[container_id("empty")] = metric_list("empty_topic");
+  metrics::avro_metrics_map_t map;
+  map[container_id("empty")].without_custom_tags = metric_list("empty_topic");
 
   metrics_schema::MetricList list = metric_list("one_metric");
   list.datapoints.push_back(datapoint("pt1", 5, 3.8));
-  map[container_id("one")] = list;
+  map[container_id("one")].without_custom_tags = list;
 
   list = metric_list("tags_only");
   list.tags.push_back(tag("k1", "v1"));
   list.tags.push_back(tag("k2", "v2"));
   list.tags.push_back(tag("k3", "v3"));
-  map[container_id("tags")] = list;
+  map[container_id("tags")].without_custom_tags = list;
 
   list = metric_list("many_metrics");
   list.datapoints.push_back(datapoint("pt1", 5, 3.8));
   list.datapoints.push_back(datapoint("pt2", 5, 3.8));
   list.datapoints.push_back(datapoint("pt3", 5, 3.8));
-  map[container_id("many")] = list;
+  map[container_id("many")].without_custom_tags = list;
 
   list = metric_list("zzztagged_metrics");
   list.datapoints.push_back(datapoint("pt1", 5, 3.8));
@@ -259,7 +397,7 @@ TEST_F(AvroEncoderTests, encode_many_metrics) {
   list.tags.push_back(tag("k1", "v1"));
   list.tags.push_back(tag("k2", "v2"));
   list.tags.push_back(tag("k3", "v3"));
-  map[container_id("many_tagged")] = list;
+  map[container_id("many_tagged")].without_custom_tags = list;
 
   list = metric_list("tagged_container_stats");
   list.datapoints.push_back(datapoint("cpt1", 5, 3.8));
@@ -268,7 +406,7 @@ TEST_F(AvroEncoderTests, encode_many_metrics) {
   list.tags.push_back(tag("ck1", "v1"));
   list.tags.push_back(tag("ck2", "v2"));
   list.tags.push_back(tag("ck3", "v3"));
-  map[container_id("more_tagged")] = list;
+  map[container_id("more_tagged")].without_custom_tags = list;
 
   {
     std::ostringstream oss;
@@ -287,17 +425,17 @@ TEST_F(AvroEncoderTests, encode_many_metrics) {
   metrics_schema::MetricList flist;
   // ordering: map entries ordered by map key, followed by the standalone list
   EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(eq(map[container_id("empty")], flist));
+  EXPECT_TRUE(eq(map[container_id("empty")].without_custom_tags, flist));
   EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(eq(map[container_id("many")], flist));
+  EXPECT_TRUE(eq(map[container_id("many")].without_custom_tags, flist));
   EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(eq(map[container_id("many_tagged")], flist));
+  EXPECT_TRUE(eq(map[container_id("many_tagged")].without_custom_tags, flist));
   EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(eq(map[container_id("more_tagged")], flist));
+  EXPECT_TRUE(eq(map[container_id("more_tagged")].without_custom_tags, flist));
   EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(eq(map[container_id("one")], flist));
+  EXPECT_TRUE(eq(map[container_id("one")].without_custom_tags, flist));
   EXPECT_TRUE(avro_reader.read(flist));
-  EXPECT_TRUE(eq(map[container_id("tags")], flist));
+  EXPECT_TRUE(eq(map[container_id("tags")].without_custom_tags, flist));
   EXPECT_FALSE(avro_reader.read(flist));
 }
 
@@ -348,8 +486,7 @@ TEST_F(AvroEncoderTests, encode_many_blocks) {
     ofs << metrics::AvroEncoder::header(); // actual file must start with header
     metrics::AvroEncoder::encode_metrics_block(merge(to_map(empty),to_map(topic)), ofs);
     metrics::AvroEncoder::encode_metrics_block(to_map(one), ofs);
-    metrics::AvroEncoder::encode_metrics_block(
-        metrics::container_id_ord_map<metrics_schema::MetricList>(), ofs);
+    metrics::AvroEncoder::encode_metrics_block(metrics::avro_metrics_map_t(), ofs);
     metrics::AvroEncoder::encode_metrics_block(to_map(tags), ofs);
     metrics::AvroEncoder::encode_metrics_block(to_map(empty), ofs);
     metrics::AvroEncoder::encode_metrics_block(to_map(untagged), ofs);
@@ -378,10 +515,10 @@ TEST_F(AvroEncoderTests, encode_many_blocks) {
 }
 
 TEST_F(AvroEncoderTests, map_no_info) {
-  metrics::container_id_ord_map<metrics_schema::MetricList> map;
+  metrics::avro_metrics_map_t map;
   metrics::AvroEncoder::statsd_to_struct(NULL, NULL, "hello", 5, map);
   EXPECT_EQ(1, map.size());
-  const metrics_schema::MetricList& list = map[container_id(UNKNOWN)];
+  const metrics_schema::MetricList& list = map[container_id(UNKNOWN)].without_custom_tags;
   EXPECT_EQ(UNKNOWN, list.topic);
   EXPECT_EQ(1, list.datapoints.size());
   EXPECT_EQ("hello", list.datapoints[0].name);
@@ -393,29 +530,26 @@ TEST_F(AvroEncoderTests, map_no_info) {
 TEST_F(AvroEncoderTests, map_with_info) {
   mesos::ContainerID cid = container_id("cid");
   mesos::ExecutorInfo einfo = exec_info("fid", "eid");
-  metrics::container_id_ord_map<metrics_schema::MetricList> map;
+  metrics::avro_metrics_map_t map;
   metrics::AvroEncoder::statsd_to_struct(&cid, &einfo, "hello", 5, map);
   EXPECT_EQ(1, map.size());
-  const metrics_schema::MetricList& list = map[container_id("cid")];
+  const metrics_schema::MetricList& list = map[container_id("cid")].without_custom_tags;
   EXPECT_EQ("fid", list.topic);
   EXPECT_EQ(1, list.datapoints.size());
   EXPECT_EQ("hello", list.datapoints[0].name);
   EXPECT_NE(0, list.datapoints[0].time_ms);
   EXPECT_EQ(0, list.datapoints[0].value);
   EXPECT_EQ(3, list.tags.size());
-  EXPECT_EQ("framework_id", list.tags[0].key);
-  EXPECT_EQ("fid", list.tags[0].value);
-  EXPECT_EQ("executor_id", list.tags[1].key);
-  EXPECT_EQ("eid", list.tags[1].value);
-  EXPECT_EQ("container_id", list.tags[2].key);
-  EXPECT_EQ("cid", list.tags[2].value);
+  EXPECT_TRUE(eq("framework_id", "fid", list.tags[0]));
+  EXPECT_TRUE(eq("executor_id", "eid", list.tags[1]));
+  EXPECT_TRUE(eq("container_id", "cid", list.tags[2]));
 }
 
 TEST_F(AvroEncoderTests, statsd_merge) {
   mesos::ContainerID cid = container_id("cid");
 
-  metrics::container_id_ord_map<metrics_schema::MetricList> map;
-  metrics_schema::MetricList& preinit_list = map[cid];
+  metrics::avro_metrics_map_t map;
+  metrics_schema::MetricList& preinit_list = map[cid].without_custom_tags;
   preinit_list.topic = "testt";
   metrics_schema::Tag tag;
   tag.key = "testk";
@@ -438,29 +572,305 @@ TEST_F(AvroEncoderTests, statsd_merge) {
   EXPECT_EQ("testt", preinit_list.topic);// original topic left intact
 
   EXPECT_EQ(4, preinit_list.tags.size());
-  EXPECT_EQ("testk", preinit_list.tags[0].key);
-  EXPECT_EQ("valuek", preinit_list.tags[0].value);
-  EXPECT_EQ("container_id", preinit_list.tags[1].key);
-  EXPECT_EQ("testc", preinit_list.tags[1].value);// original tag left intact
-  EXPECT_EQ("framework_id", preinit_list.tags[2].key);
-  EXPECT_EQ("fid", preinit_list.tags[2].value);
-  EXPECT_EQ("executor_id", preinit_list.tags[3].key);
-  EXPECT_EQ("eid", preinit_list.tags[3].value);
+  EXPECT_TRUE(eq("testk", "valuek", preinit_list.tags[0]));
+  EXPECT_TRUE(eq("container_id", "testc", preinit_list.tags[1]));// original tag left intact
+  EXPECT_TRUE(eq("framework_id", "fid", preinit_list.tags[2]));
+  EXPECT_TRUE(eq("executor_id", "eid", preinit_list.tags[3]));
 
   EXPECT_EQ(2, preinit_list.datapoints.size());
-  EXPECT_EQ("testn", preinit_list.datapoints[0].name);
-  EXPECT_EQ(123, preinit_list.datapoints[0].time_ms);
-  EXPECT_EQ(10.3, preinit_list.datapoints[0].value);
-  EXPECT_EQ("hello", preinit_list.datapoints[1].name);
-  EXPECT_NE(0, preinit_list.datapoints[1].time_ms);
-  EXPECT_EQ(3.8, preinit_list.datapoints[1].value);
+  EXPECT_TRUE(eq("testn", 10.3, 123, preinit_list.datapoints[0]));
+  EXPECT_TRUE(eq("hello", 3.8, preinit_list.datapoints[1]));
 }
 
-TEST_F(AvroEncoderTests, statsd_parse) {
-  //TODO test more of these examples once tag parsing is done
+TEST_F(AvroEncoderTests, statsd_parse_mixed_vals) {
+  std::string
+    untagged_1("v1:1"),
+    untagged_2("v2:2"),
+    untagged_3("v3:3"),
+    tagged_a1("v10:10|#ta:va"),
+    tagged_a2("v11:11|#ta:va"),
+    tagged_b1("v12:12|#tb:vb"),
+    tagged_b2("v13:13|#tb:vb,tx:vx");
 
-  metrics_schema::MetricList list;
+  metrics::avro_metrics_map_t map;
 
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          NULL, NULL, untagged_1.data(), untagged_1.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          NULL, NULL, untagged_2.data(), untagged_2.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          NULL, NULL, untagged_3.data(), untagged_3.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          NULL, NULL, tagged_a1.data(), tagged_a1.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          NULL, NULL, tagged_a2.data(), tagged_a2.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          NULL, NULL, tagged_b1.data(), tagged_b1.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          NULL, NULL, tagged_b2.data(), tagged_b2.size(), map));
+
+  mesos::ContainerID cid1 = container_id("cid1");
+  mesos::ExecutorInfo einfo1 = exec_info("fid1", "eid1");
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid1, &einfo1, tagged_a1.data(), tagged_a1.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid1, &einfo1, untagged_1.data(), untagged_1.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid1, &einfo1, tagged_a2.data(), tagged_a2.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid1, &einfo1, untagged_2.data(), untagged_2.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid1, &einfo1, tagged_b1.data(), tagged_b1.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid1, &einfo1, untagged_3.data(), untagged_3.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid1, &einfo1, tagged_b2.data(), tagged_b2.size(), map));
+
+  mesos::ContainerID cid2 = container_id("cid2");
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid2, &einfo1, tagged_a1.data(), tagged_a1.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid2, &einfo1, tagged_a2.data(), tagged_a2.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid2, &einfo1, tagged_b1.data(), tagged_b1.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid2, &einfo1, tagged_b2.data(), tagged_b2.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid2, &einfo1, untagged_1.data(), untagged_1.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid2, &einfo1, untagged_2.data(), untagged_2.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid2, &einfo1, untagged_3.data(), untagged_3.size(), map));
+
+  mesos::ContainerID cid3 = container_id("cid3");
+  mesos::ExecutorInfo einfo2 = exec_info("fid2", "eid2");
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid3, &einfo2, untagged_1.data(), untagged_1.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid3, &einfo2, tagged_a1.data(), tagged_a1.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid3, &einfo2, untagged_2.data(), untagged_2.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid3, &einfo2, tagged_a2.data(), tagged_a2.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid3, &einfo2, untagged_3.data(), untagged_3.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid3, &einfo2, tagged_b1.data(), tagged_b1.size(), map));
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+          &cid3, &einfo2, tagged_b2.data(), tagged_b2.size(), map));
+
+  EXPECT_EQ(4, map.size()); // unknown + cid[1-3]
+
+  // UNKNOWN
+
+  metrics::ContainerMetrics& cm = map[container_id(UNKNOWN)];
+  metrics_schema::MetricList& list = cm.without_custom_tags;
+  EXPECT_EQ(UNKNOWN, list.topic);
+  EXPECT_EQ(0, list.tags.size());
+  EXPECT_EQ(3, list.datapoints.size());
+  EXPECT_TRUE(eq("v1", 1, list.datapoints[0]));
+  EXPECT_TRUE(eq("v2", 2, list.datapoints[1]));
+  EXPECT_TRUE(eq("v3", 3, list.datapoints[2]));
+
+  EXPECT_EQ(4, cm.with_custom_tags.size());
+  list = cm.with_custom_tags[0];
+  EXPECT_EQ(UNKNOWN, list.topic);
+  EXPECT_EQ(1, list.tags.size());
+  EXPECT_TRUE(eq("ta", "va", list.tags[0]));
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_TRUE(eq("v10", 10, list.datapoints[0]));
+  list = cm.with_custom_tags[1];
+  EXPECT_EQ(UNKNOWN, list.topic);
+  EXPECT_EQ(1, list.tags.size());
+  EXPECT_TRUE(eq("ta", "va", list.tags[0]));
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_TRUE(eq("v11", 11, list.datapoints[0]));
+  list = cm.with_custom_tags[2];
+  EXPECT_EQ(UNKNOWN, list.topic);
+  EXPECT_EQ(1, list.tags.size());
+  EXPECT_TRUE(eq("tb", "vb", list.tags[0]));
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_TRUE(eq("v12", 12, list.datapoints[0]));
+  list = cm.with_custom_tags[3];
+  EXPECT_EQ(UNKNOWN, list.topic);
+  EXPECT_EQ(2, list.tags.size());
+  EXPECT_TRUE(eq("tb", "vb", list.tags[0]));
+  EXPECT_TRUE(eq("tx", "vx", list.tags[1]));
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_TRUE(eq("v13", 13, list.datapoints[0]));
+
+  // cid1
+
+  cm = map[container_id("cid1")];
+  list = cm.without_custom_tags;
+  EXPECT_EQ("fid1", list.topic);
+  EXPECT_EQ(3, list.tags.size());
+  EXPECT_TRUE(eq("framework_id", "fid1", list.tags[0]));
+  EXPECT_TRUE(eq("executor_id", "eid1", list.tags[1]));
+  EXPECT_TRUE(eq("container_id", "cid1", list.tags[2]));
+  EXPECT_EQ(3, list.datapoints.size());
+  EXPECT_TRUE(eq("v1", 1, list.datapoints[0]));
+  EXPECT_TRUE(eq("v2", 2, list.datapoints[1]));
+  EXPECT_TRUE(eq("v3", 3, list.datapoints[2]));
+
+  EXPECT_EQ(4, cm.with_custom_tags.size());
+  list = cm.with_custom_tags[0];
+  EXPECT_EQ("fid1", list.topic);
+  EXPECT_EQ(4, list.tags.size());
+  EXPECT_TRUE(eq("framework_id", "fid1", list.tags[0]));
+  EXPECT_TRUE(eq("executor_id", "eid1", list.tags[1]));
+  EXPECT_TRUE(eq("container_id", "cid1", list.tags[2]));
+  EXPECT_TRUE(eq("ta", "va", list.tags[3]));
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_TRUE(eq("v10", 10, list.datapoints[0]));
+  list = cm.with_custom_tags[1];
+  EXPECT_EQ("fid1", list.topic);
+  EXPECT_EQ(4, list.tags.size());
+  EXPECT_TRUE(eq("framework_id", "fid1", list.tags[0]));
+  EXPECT_TRUE(eq("executor_id", "eid1", list.tags[1]));
+  EXPECT_TRUE(eq("container_id", "cid1", list.tags[2]));
+  EXPECT_TRUE(eq("ta", "va", list.tags[3]));
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_TRUE(eq("v11", 11, list.datapoints[0]));
+  list = cm.with_custom_tags[2];
+  EXPECT_EQ("fid1", list.topic);
+  EXPECT_EQ(4, list.tags.size());
+  EXPECT_TRUE(eq("framework_id", "fid1", list.tags[0]));
+  EXPECT_TRUE(eq("executor_id", "eid1", list.tags[1]));
+  EXPECT_TRUE(eq("container_id", "cid1", list.tags[2]));
+  EXPECT_TRUE(eq("tb", "vb", list.tags[3]));
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_TRUE(eq("v12", 12, list.datapoints[0]));
+  list = cm.with_custom_tags[3];
+  EXPECT_EQ("fid1", list.topic);
+  EXPECT_EQ(5, list.tags.size());
+  EXPECT_TRUE(eq("framework_id", "fid1", list.tags[0]));
+  EXPECT_TRUE(eq("executor_id", "eid1", list.tags[1]));
+  EXPECT_TRUE(eq("container_id", "cid1", list.tags[2]));
+  EXPECT_TRUE(eq("tb", "vb", list.tags[3]));
+  EXPECT_TRUE(eq("tx", "vx", list.tags[4]));
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_TRUE(eq("v13", 13, list.datapoints[0]));
+
+  // cid2
+
+  cm = map[container_id("cid2")];
+  list = cm.without_custom_tags;
+  EXPECT_EQ("fid1", list.topic);
+  EXPECT_EQ(3, list.tags.size());
+  EXPECT_TRUE(eq("framework_id", "fid1", list.tags[0]));
+  EXPECT_TRUE(eq("executor_id", "eid1", list.tags[1]));
+  EXPECT_TRUE(eq("container_id", "cid2", list.tags[2]));
+  EXPECT_EQ(3, list.datapoints.size());
+  EXPECT_TRUE(eq("v1", 1, list.datapoints[0]));
+  EXPECT_TRUE(eq("v2", 2, list.datapoints[1]));
+  EXPECT_TRUE(eq("v3", 3, list.datapoints[2]));
+
+  EXPECT_EQ(4, cm.with_custom_tags.size());
+  list = cm.with_custom_tags[0];
+  EXPECT_EQ("fid1", list.topic);
+  EXPECT_EQ(4, list.tags.size());
+  EXPECT_TRUE(eq("framework_id", "fid1", list.tags[0]));
+  EXPECT_TRUE(eq("executor_id", "eid1", list.tags[1]));
+  EXPECT_TRUE(eq("container_id", "cid2", list.tags[2]));
+  EXPECT_TRUE(eq("ta", "va", list.tags[3]));
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_TRUE(eq("v10", 10, list.datapoints[0]));
+  list = cm.with_custom_tags[1];
+  EXPECT_EQ("fid1", list.topic);
+  EXPECT_EQ(4, list.tags.size());
+  EXPECT_TRUE(eq("framework_id", "fid1", list.tags[0]));
+  EXPECT_TRUE(eq("executor_id", "eid1", list.tags[1]));
+  EXPECT_TRUE(eq("container_id", "cid2", list.tags[2]));
+  EXPECT_TRUE(eq("ta", "va", list.tags[3]));
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_TRUE(eq("v11", 11, list.datapoints[0]));
+  list = cm.with_custom_tags[2];
+  EXPECT_EQ("fid1", list.topic);
+  EXPECT_EQ(4, list.tags.size());
+  EXPECT_TRUE(eq("framework_id", "fid1", list.tags[0]));
+  EXPECT_TRUE(eq("executor_id", "eid1", list.tags[1]));
+  EXPECT_TRUE(eq("container_id", "cid2", list.tags[2]));
+  EXPECT_TRUE(eq("tb", "vb", list.tags[3]));
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_TRUE(eq("v12", 12, list.datapoints[0]));
+  list = cm.with_custom_tags[3];
+  EXPECT_EQ("fid1", list.topic);
+  EXPECT_EQ(5, list.tags.size());
+  EXPECT_TRUE(eq("framework_id", "fid1", list.tags[0]));
+  EXPECT_TRUE(eq("executor_id", "eid1", list.tags[1]));
+  EXPECT_TRUE(eq("container_id", "cid2", list.tags[2]));
+  EXPECT_TRUE(eq("tb", "vb", list.tags[3]));
+  EXPECT_TRUE(eq("tx", "vx", list.tags[4]));
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_TRUE(eq("v13", 13, list.datapoints[0]));
+
+  // cid3
+
+  cm = map[container_id("cid3")];
+  list = cm.without_custom_tags;
+  EXPECT_EQ("fid2", list.topic);
+  EXPECT_EQ(3, list.tags.size());
+  EXPECT_TRUE(eq("framework_id", "fid2", list.tags[0]));
+  EXPECT_TRUE(eq("executor_id", "eid2", list.tags[1]));
+  EXPECT_TRUE(eq("container_id", "cid3", list.tags[2]));
+  EXPECT_EQ(3, list.datapoints.size());
+  EXPECT_TRUE(eq("v1", 1, list.datapoints[0]));
+  EXPECT_TRUE(eq("v2", 2, list.datapoints[1]));
+  EXPECT_TRUE(eq("v3", 3, list.datapoints[2]));
+
+  EXPECT_EQ(4, cm.with_custom_tags.size());
+  list = cm.with_custom_tags[0];
+  EXPECT_EQ("fid2", list.topic);
+  EXPECT_EQ(4, list.tags.size());
+  EXPECT_TRUE(eq("framework_id", "fid2", list.tags[0]));
+  EXPECT_TRUE(eq("executor_id", "eid2", list.tags[1]));
+  EXPECT_TRUE(eq("container_id", "cid3", list.tags[2]));
+  EXPECT_TRUE(eq("ta", "va", list.tags[3]));
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_TRUE(eq("v10", 10, list.datapoints[0]));
+  list = cm.with_custom_tags[1];
+  EXPECT_EQ("fid2", list.topic);
+  EXPECT_EQ(4, list.tags.size());
+  EXPECT_TRUE(eq("framework_id", "fid2", list.tags[0]));
+  EXPECT_TRUE(eq("executor_id", "eid2", list.tags[1]));
+  EXPECT_TRUE(eq("container_id", "cid3", list.tags[2]));
+  EXPECT_TRUE(eq("ta", "va", list.tags[3]));
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_TRUE(eq("v11", 11, list.datapoints[0]));
+  list = cm.with_custom_tags[2];
+  EXPECT_EQ("fid2", list.topic);
+  EXPECT_EQ(4, list.tags.size());
+  EXPECT_TRUE(eq("framework_id", "fid2", list.tags[0]));
+  EXPECT_TRUE(eq("executor_id", "eid2", list.tags[1]));
+  EXPECT_TRUE(eq("container_id", "cid3", list.tags[2]));
+  EXPECT_TRUE(eq("tb", "vb", list.tags[3]));
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_TRUE(eq("v12", 12, list.datapoints[0]));
+  list = cm.with_custom_tags[3];
+  EXPECT_EQ("fid2", list.topic);
+  EXPECT_EQ(5, list.tags.size());
+  EXPECT_TRUE(eq("framework_id", "fid2", list.tags[0]));
+  EXPECT_TRUE(eq("executor_id", "eid2", list.tags[1]));
+  EXPECT_TRUE(eq("container_id", "cid3", list.tags[2]));
+  EXPECT_TRUE(eq("tb", "vb", list.tags[3]));
+  EXPECT_TRUE(eq("tx", "vx", list.tags[4]));
+  EXPECT_EQ(1, list.datapoints.size());
+  EXPECT_TRUE(eq("v13", 13, list.datapoints[0]));
+
+  for (auto iter = map.begin(); iter != map.end(); ++iter) {
+    LOG(INFO) << "----- " << iter->first.DebugString();
+    print_schema(iter->second.without_custom_tags);
+    for (auto iterb = iter->second.with_custom_tags.begin();
+         iterb != iter->second.with_custom_tags.end();
+         ++iterb) {
+      LOG(INFO) << "---";
+      print_schema(*iterb);
+    }
+  }
+}
+
+TEST_F(AvroEncoderTests, statsd_parse_single) {
   std::string
     empty_1tag("|#tag:val"),
     eempty_1tag(":|#tag:val"),
@@ -473,46 +883,46 @@ TEST_F(AvroEncoderTests, statsd_parse) {
     hello_spaceval_1tag("hello: |#tag:val"),
     hello_wordval_1tag("hello:hi|#tag:val");
 
-  check_no_tags(empty_1tag, 0, "");
-  check_no_tags(eempty_1tag, 0, "");
-  check_no_tags(hello_noval, 0);
-  check_no_tags(hello_noeval, 0);
-  check_no_tags(hello_spaceval, 0);
-  check_no_tags(hello_wordval, 0);
-  check_no_tags(hello_noval_1tag, 0);
-  check_no_tags(hello_noval_1tag_noval, 0);
-  check_no_tags(hello_spaceval_1tag, 0);
-  check_no_tags(hello_wordval_1tag, 0);
+  EXPECT_TRUE(check_with_tags(empty_1tag, 0, make_tags("tag", "val"), ""));
+  EXPECT_TRUE(check_with_tags(eempty_1tag, 0, make_tags("tag", "val"), ""));
+  EXPECT_TRUE(check_no_tags(hello_noval, 0));
+  EXPECT_TRUE(check_no_tags(hello_noeval, 0));
+  EXPECT_TRUE(check_no_tags(hello_spaceval, 0));
+  EXPECT_TRUE(check_no_tags(hello_wordval, 0));
+  EXPECT_TRUE(check_with_tags(hello_noval_1tag, 0, make_tags("tag", "val")));
+  EXPECT_TRUE(check_with_tags(hello_noval_1tag_noval, 0, make_tags("tag", "")));
+  EXPECT_TRUE(check_with_tags(hello_spaceval_1tag, 0, make_tags("tag", "val")));
+  EXPECT_TRUE(check_with_tags(hello_wordval_1tag, 0, make_tags("tag", "val")));
 
   std::string
     hello_noval_2endtag("hello|@0.5|#tag:val"),
     hello_noval_2starttag("hello|#tag:val|@0.5");
 
-  check_no_tags(hello_noval_2endtag, 0);
-  check_no_tags(hello_noval_2starttag, 0);
+  EXPECT_TRUE(check_with_tags(hello_noval_2endtag, 0, make_tags("tag", "val")));
+  EXPECT_TRUE(check_with_tags(hello_noval_2starttag, 0, make_tags("tag", "val")));
 
   std::string
     hello_noval_2endtag_noval("hello|@0.5|#tag"),
     hello_noval_2starttag_noval("hello|#ta|@0.5");
 
-  check_no_tags(hello_noval_2endtag_noval, 0);
-  check_no_tags(hello_noval_2starttag_noval, 0);
+  EXPECT_TRUE(check_with_tags(hello_noval_2endtag_noval, 0, make_tags("tag", "")));
+  EXPECT_TRUE(check_with_tags(hello_noval_2starttag_noval, 0, make_tags("ta", "")));
 
   std::string
     hello_notag("hello:0.35"),
     hello_1tag("hello:0.35|#tag");
 
-  check_no_tags(hello_notag, 0.35);
-  check_no_tags(hello_1tag, 0.35);
+  EXPECT_TRUE(check_no_tags(hello_notag, 0.35));
+  EXPECT_TRUE(check_with_tags(hello_1tag, 0.35, make_tags("tag", "")));
 
   std::string
     hello_2endtag("hello:0.35|@0.5|#tag:val"),
     hello_2starttag("hello:0.35|#ta:val|@0.5"),
     hello_2starttag_zerosampling("hello:0.35|#ta:val|@0");
 
-  check_no_tags(hello_2endtag, 0.7);
-  check_no_tags(hello_2starttag, 0.7);
-  check_no_tags(hello_2starttag_zerosampling, 0.35);
+  EXPECT_TRUE(check_with_tags(hello_2endtag, 0.7, make_tags("tag", "val")));
+  EXPECT_TRUE(check_with_tags(hello_2starttag, 0.7, make_tags("ta", "val")));
+  EXPECT_TRUE(check_with_tags(hello_2starttag_zerosampling, 0.35, make_tags("ta", "val")));
 
   std::string
     hello_3endtag("hello:0.35|&other|@0.5|#tag:val,t2:v2"),
@@ -520,10 +930,23 @@ TEST_F(AvroEncoderTests, statsd_parse) {
     hello_3midtag_zerosampling("hello:0.35|&other|#tag:val,t2:v2|@0.0"),
     hello_3starttag("hello:0.35|#t:v,t2:v2|&other|@0.5");
 
-  check_no_tags(hello_3endtag, 0.7);
-  check_no_tags(hello_3midtag, 0.7);
-  check_no_tags(hello_3midtag_zerosampling, 0.35);
-  check_no_tags(hello_3starttag, 0.7);
+  EXPECT_TRUE(check_with_tags(hello_3endtag, 0.7, make_tags("tag", "val", "t2", "v2")));
+  EXPECT_TRUE(check_with_tags(hello_3midtag, 0.7, make_tags("tag", "val", "t2", "v2")));
+  EXPECT_TRUE(check_with_tags(hello_3midtag_zerosampling, 0.35, make_tags("tag", "val", "t2", "v2")));
+  EXPECT_TRUE(check_with_tags(hello_3starttag, 0.7, make_tags("t", "v", "t2", "v2")));
+
+  std::string
+    hello_3endtag_split("hello:0.35|#tag:val|&other|@0.5|#t2:v2"),
+    hello_3midtag_split("hello:0.35|&other|#t2:v2|@0.5|#tag:val"),
+    hello_3midtag_zerosampling_split("hello:0.35|&other|#tag:val,t2:v2|@0.0|#tag:val"),
+    hello_3starttag_split("hello:0.35|#t:v,t2:v2|&other|#tag:val,t2:v2|@0.5");
+
+  EXPECT_TRUE(check_with_tags(hello_3endtag_split, 0.7, make_tags("tag", "val", "t2", "v2")));
+  EXPECT_TRUE(check_with_tags(hello_3midtag_split, 0.7, make_tags("t2", "v2", "tag", "val")));
+  EXPECT_TRUE(check_with_tags(hello_3midtag_zerosampling_split, 0.35,
+          make_tags("tag", "val", "t2", "v2", "tag", "val")));
+  EXPECT_TRUE(check_with_tags(hello_3starttag_split, 0.7,
+          make_tags("t", "v", "t2", "v2", "tag", "val", "t2", "v2")));
 
   // corrupt/weird data
   std::string
@@ -552,30 +975,30 @@ TEST_F(AvroEncoderTests, statsd_parse) {
     hello_2emptytagval_empty("hello:0.35|#,|"),
     hello_2emptytageval_empty("hello:0.35|#:,:|");
 
-  check_no_tags(hello_1emptytag, 0.35);
-  check_no_tags(hello_1emptytagval, 0.35);
-  check_no_tags(hello_1emptytageval, 0.35);
-  check_no_tags(hello_1emptyend, 0.35);
+  EXPECT_TRUE(check_no_tags(hello_1emptytag, 0.35));
+  EXPECT_TRUE(check_no_tags(hello_1emptytagval, 0.35));
+  EXPECT_TRUE(check_no_tags(hello_1emptytageval, 0.35));
+  EXPECT_TRUE(check_no_tags(hello_1emptyend, 0.35));
 
-  check_no_tags(hello_2tag_empty, 0.35);
-  check_no_tags(hello_2tag_emptyeval, 0.35);
-  check_no_tags(hello_2tag_emptyval, 0.35);
-  check_no_tags(hello_2empty_empty, 0.35);
+  EXPECT_TRUE(check_with_tags(hello_2tag_empty, 0.35, make_tags("tag1", "")));
+  EXPECT_TRUE(check_with_tags(hello_2tag_emptyeval, 0.35, make_tags("tag1", "")));
+  EXPECT_TRUE(check_with_tags(hello_2tag_emptyval, 0.35, make_tags("tag1", "val")));
+  EXPECT_TRUE(check_no_tags(hello_2empty_empty, 0.35));
 
-  check_no_tags(hello_2empty_tag, 0.35);
-  check_no_tags(hello_2empty_tageval, 0.35);
-  check_no_tags(hello_2empty_tagval, 0.35);
-  check_no_tags(hello_2tag_tag, 0.35);
+  EXPECT_TRUE(check_with_tags(hello_2empty_tag, 0.35, make_tags("tag1", "")));
+  EXPECT_TRUE(check_with_tags(hello_2empty_tageval, 0.35, make_tags("tag1", "")));
+  EXPECT_TRUE(check_with_tags(hello_2empty_tagval, 0.35, make_tags("tag1", "val")));
+  EXPECT_TRUE(check_with_tags(hello_2tag_tag, 0.35, make_tags("tag1", "", "tag2", "")));
 
-  check_no_tags(hello_2tag_tageval, 0.35);
-  check_no_tags(hello_2tag_tagval, 0.35);
-  check_no_tags(hello_2empty_emptytag, 0.35);
-  check_no_tags(hello_2empty_emptytagval, 0.35);
+  EXPECT_TRUE(check_with_tags(hello_2tag_tageval, 0.35, make_tags("tag1", "", "tag2", "")));
+  EXPECT_TRUE(check_with_tags(hello_2tag_tagval, 0.35, make_tags("tag1", "", "tag2", "val")));
+  EXPECT_TRUE(check_no_tags(hello_2empty_emptytag, 0.35));
+  EXPECT_TRUE(check_no_tags(hello_2empty_emptytagval, 0.35));
 
-  check_no_tags(hello_2empty_emptytageval, 0.35);
-  check_no_tags(hello_2emptytag_empty, 0.35);
-  check_no_tags(hello_2emptytagval_empty, 0.35);
-  check_no_tags(hello_2emptytageval_empty, 0.35);
+  EXPECT_TRUE(check_no_tags(hello_2empty_emptytageval, 0.35));
+  EXPECT_TRUE(check_no_tags(hello_2emptytag_empty, 0.35));
+  EXPECT_TRUE(check_no_tags(hello_2emptytagval_empty, 0.35));
+  EXPECT_TRUE(check_no_tags(hello_2emptytageval_empty, 0.35));
 }
 
 TEST_F(AvroEncoderTests, resources) {
@@ -611,13 +1034,12 @@ TEST_F(AvroEncoderTests, resources) {
   stats2->set_net_tx_dropped(6);
   stats2->mutable_net_snmp_statistics()->mutable_ip_stats()->set_outnoroutes(8);
 
-  metrics::container_id_ord_map<metrics_schema::MetricList> metric_map;
+  metrics::avro_metrics_map_t metric_map;
   EXPECT_EQ(12, metrics::AvroEncoder::resources_to_struct(usage, metric_map));
   EXPECT_EQ(2, metric_map.size());
-  LOG(INFO) << metric_map.begin()->first.value();
-  const metrics_schema::MetricList& m1 = metric_map[container_id("cid1-usage")];
+  const metrics_schema::MetricList& m1 = metric_map[container_id("cid1")].without_custom_tags;
 
-  EXPECT_EQ("cid1-usage", m1.topic);
+  EXPECT_EQ("fid1", m1.topic);
 
   EXPECT_EQ(3, m1.tags.size());
   EXPECT_EQ("framework_id", m1.tags[0].key);
@@ -650,8 +1072,8 @@ TEST_F(AvroEncoderTests, resources) {
   EXPECT_EQ("snmp.udp.inerrors", m1.datapoints[8].name);
   EXPECT_EQ(stats1->net_snmp_statistics().udp_stats().inerrors(), m1.datapoints[8].value);
 
-  const metrics_schema::MetricList& m2 = metric_map[container_id("cid2-usage")];
-  EXPECT_EQ("cid2-usage", m2.topic);
+  const metrics_schema::MetricList& m2 = metric_map[container_id("cid2")].without_custom_tags;
+  EXPECT_EQ("fid2", m2.topic);
 
   EXPECT_EQ(3, m2.tags.size());
   EXPECT_EQ("framework_id", m2.tags[0].key);
