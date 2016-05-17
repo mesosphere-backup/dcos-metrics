@@ -1,4 +1,4 @@
-# collector-emitter
+# Collector Client
 
 A reference implementation of a system process which emits Avro Metrics data to a Collector.
 
