@@ -117,22 +117,7 @@ If the Kafka framework isn't reachable (not deployed yet? wrong name passed to `
 
 ### Consuming collected data
 
-Once `collector` is up and running, the raw binary data it's passing to Kafka may be viewed by running this task (see `stdout` once it's launched). This assumes that the collector was started with `KAFKA_SINGLE_TOPIC=sample_metrics` to force all Kafka data into a single topic named `sample_metrics`. By default without this parameter, the collector will send data to multiple source-specific topics.
-
-```json
-{
-  "id": "console-consumer",
-  "cmd": "JAVA_HOME=./jre* ./kafka_2.10-0.9.0.1/bin/kafka-console-consumer.sh --topic sample_metrics --zookeeper master.mesos:2181/kafka",
-  "cpus": 1,
-  "mem": 512,
-  "disk": 0,
-  "instances": 1,
-  "uris": [
-    "https://s3.amazonaws.com/downloads.mesosphere.io/kafka/assets/kafka_2.10-0.9.0.1.tgz",
-    "https://s3.amazonaws.com/downloads.mesosphere.io/kafka/assets/jre-8u72-linux-x64.tar.gz"
-  ]
-}
-```
+Once `collector` is up and running, the raw binary data it's passing to Kafka may be viewed by running one or more [example metrics consumers](../examples/metrics-consumer/).
 
 ## Sample Producer
 
@@ -180,4 +165,4 @@ As `sample-producer` is deployed on every node, each instance should automatical
 
 If the Kafka framework isn't reachable (not deployed yet? wrong name passed to `KAFKA_FRAMEWORK` envvar?), then `sample-producer` will loop until it comes up (complaining to `stderr` every few seconds).
 
-Data sent by `sample-producer` is running, its data can be accessed by running a `sample-consumer` task as described above.
+Once `sample-producer` is running, the data it's passing to Kafka may be viewed by running one or more [example metrics consumers](../examples/metrics-consumer/).

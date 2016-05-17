@@ -1,7 +1,6 @@
 metrics-schema/
 *.crc
 *.avro
-*.jar
 
 mesos-*/
 mesos-*.tar.gz
