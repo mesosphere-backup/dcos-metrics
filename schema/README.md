@@ -18,13 +18,13 @@ The schema defines a `MetricsList` type, which is used for the following dataflo
 
 ### Over TCP
 
-This is effectively just streaming an [OCF file](http://avro.apache.org/docs/current/spec.html#Object+Container+Files) over TCP. The sender starts by sending the Schema and Codec, followed by zero or more `MetricsList` records for as long as the socket remains open. If the connection is closed, the following connection must repeat the header information as if starting a new file.
+This is effectively just streaming an [OCF file](http://avro.apache.org/docs/current/spec.html#Object+Container+Files) over TCP. The sender starts by sending the Schema and Codec, followed by one or more `MetricsList` records inside OCF blocks for as long as the socket remains open. If the connection is closed, the following connection must repeat the header information as if starting a new file.
 
 The receiver doesn't have any explicit responses for acknowledging or refusing data from the sender, other than standard TCP ACKs. If the receiver encounters corrupt data (including lack of the required header information), it may simply close the connection in response, at which point the sender may reconnect and resume sending.
 
 ### Over Kafka
 
-As with each TCP session, each Kafka message is effectively treated as a self-contained [OCF file](http://avro.apache.org/docs/current/spec.html#Object+Container+Files), where each message starts with a copy of the header/schema, followed by zero or more `MetricsList` entries. This enables Kafka Consumers to quickly start successfully reading data, without needing to cross-reference with a schema retrieved elsewhere (which in turn has its own complexities). Header overhead may be reduced by increasing the number of `MetricsList` records per Kafka message.
+As with each TCP session, each Kafka message is effectively treated as a self-contained [OCF file](http://avro.apache.org/docs/current/spec.html#Object+Container+Files), where each message starts with a copy of the header/schema, followed by zero or more `MetricsList` entries inside OCF blocks. This enables Kafka Consumers to quickly start successfully reading data, without needing to cross-reference with a schema retrieved elsewhere (which in turn has its own complexities). Header overhead may be reduced by increasing the number of `MetricsList` records per Kafka message.
 
 ## Code generation
 
