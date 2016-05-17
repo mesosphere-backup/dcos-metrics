@@ -9,7 +9,7 @@ JSON-formatted [Avro schemas](http://avro.apache.org/docs/current/spec.html#sche
 The schema defines a `MetricsList` type, which is used for the following dataflows:
 
 - Sending metrics to the Collector from on-agent processes, including `mesos-agent` itself, via the [Metrics Module](../module/).
-- Sending metrics to the Kafka Metrics Service from the Collector.
+- Sending metrics to Kafka from the Collector, and consuming those metrics from Kafka for publishing upstream.
 - Sending metrics to on-agent Partner services from the Collector.
 
 ## Transport
