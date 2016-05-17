@@ -14,7 +14,7 @@ The schema defines a `MetricsList` type, which is used for the following dataflo
 
 ## Transport
 
-[Avro's RPC standard](http://avro.apache.org/docs/current/spec.html#Protocol+Wire+Format) appears to suffer a stark lack of adoption across Avro library implementations (even the official Avro C/C++ libraries lack support), so we're foregoing it for now in favor of something much more rudamentary.
+[Avro's RPC standard](http://avro.apache.org/docs/current/spec.html#Protocol+Wire+Format) appears to suffer a stark lack of adoption across Avro library implementations (even the official Avro C/C++ libraries lack support), so we're foregoing it for now in favor of something much more rudimentary.
 
 ### Over TCP
 
