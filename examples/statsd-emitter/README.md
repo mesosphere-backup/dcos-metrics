@@ -1,4 +1,4 @@
-# statsd-emitter
+# Container StatsD Emitter
 
 A reference implementation of a containerized process which emits StatsD data to an advertised StatsD UDP endpoint.
 
