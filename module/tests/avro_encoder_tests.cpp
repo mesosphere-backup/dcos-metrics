@@ -119,7 +119,7 @@ namespace {
       const std::string& name = "hello") {
     LOG(INFO) << data;
     metrics::avro_metrics_map_t map;
-    metrics::AvroEncoder::statsd_to_struct(NULL, NULL, data.data(), data.size(), map);
+    metrics::AvroEncoder::statsd_to_map(NULL, NULL, data.data(), data.size(), map);
     if (map.size() != 1) {
       LOG(INFO) << "expected map size 1, got " << map.size();
       return false;
@@ -161,7 +161,7 @@ namespace {
   bool check_no_tags(const std::string& data, double val, const std::string& name = "hello") {
     LOG(INFO) << data;
     metrics::avro_metrics_map_t map;
-    metrics::AvroEncoder::statsd_to_struct(NULL, NULL, data.data(), data.size(), map);
+    metrics::AvroEncoder::statsd_to_map(NULL, NULL, data.data(), data.size(), map);
     if (map.size() != 1) {
       LOG(INFO) << "expected map size 1, got " << map.size();
       return false;
@@ -516,7 +516,7 @@ TEST_F(AvroEncoderTests, encode_many_blocks) {
 
 TEST_F(AvroEncoderTests, map_no_info) {
   metrics::avro_metrics_map_t map;
-  metrics::AvroEncoder::statsd_to_struct(NULL, NULL, "hello", 5, map);
+  metrics::AvroEncoder::statsd_to_map(NULL, NULL, "hello", 5, map);
   EXPECT_EQ(1, map.size());
   const metrics_schema::MetricList& list = map[container_id(UNKNOWN)].without_custom_tags;
   EXPECT_EQ(UNKNOWN, list.topic);
@@ -531,7 +531,7 @@ TEST_F(AvroEncoderTests, map_with_info) {
   mesos::ContainerID cid = container_id("cid");
   mesos::ExecutorInfo einfo = exec_info("fid", "eid");
   metrics::avro_metrics_map_t map;
-  metrics::AvroEncoder::statsd_to_struct(&cid, &einfo, "hello", 5, map);
+  metrics::AvroEncoder::statsd_to_map(&cid, &einfo, "hello", 5, map);
   EXPECT_EQ(1, map.size());
   const metrics_schema::MetricList& list = map[container_id("cid")].without_custom_tags;
   EXPECT_EQ("fid", list.topic);
@@ -566,7 +566,7 @@ TEST_F(AvroEncoderTests, statsd_merge) {
 
   mesos::ExecutorInfo einfo = exec_info("fid", "eid");
   std::string stat("hello:3.8");
-  metrics::AvroEncoder::statsd_to_struct(&cid, &einfo, stat.data(), stat.size(), map);
+  metrics::AvroEncoder::statsd_to_map(&cid, &einfo, stat.data(), stat.size(), map);
   EXPECT_EQ(1, map.size());
 
   EXPECT_EQ("testt", preinit_list.topic);// original topic left intact
@@ -594,69 +594,69 @@ TEST_F(AvroEncoderTests, statsd_parse_mixed_vals) {
 
   metrics::avro_metrics_map_t map;
 
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           NULL, NULL, untagged_1.data(), untagged_1.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           NULL, NULL, untagged_2.data(), untagged_2.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           NULL, NULL, untagged_3.data(), untagged_3.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           NULL, NULL, tagged_a1.data(), tagged_a1.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           NULL, NULL, tagged_a2.data(), tagged_a2.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           NULL, NULL, tagged_b1.data(), tagged_b1.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           NULL, NULL, tagged_b2.data(), tagged_b2.size(), map));
 
   mesos::ContainerID cid1 = container_id("cid1");
   mesos::ExecutorInfo einfo1 = exec_info("fid1", "eid1");
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid1, &einfo1, tagged_a1.data(), tagged_a1.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid1, &einfo1, untagged_1.data(), untagged_1.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid1, &einfo1, tagged_a2.data(), tagged_a2.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid1, &einfo1, untagged_2.data(), untagged_2.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid1, &einfo1, tagged_b1.data(), tagged_b1.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid1, &einfo1, untagged_3.data(), untagged_3.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid1, &einfo1, tagged_b2.data(), tagged_b2.size(), map));
 
   mesos::ContainerID cid2 = container_id("cid2");
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid2, &einfo1, tagged_a1.data(), tagged_a1.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid2, &einfo1, tagged_a2.data(), tagged_a2.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid2, &einfo1, tagged_b1.data(), tagged_b1.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid2, &einfo1, tagged_b2.data(), tagged_b2.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid2, &einfo1, untagged_1.data(), untagged_1.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid2, &einfo1, untagged_2.data(), untagged_2.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid2, &einfo1, untagged_3.data(), untagged_3.size(), map));
 
   mesos::ContainerID cid3 = container_id("cid3");
   mesos::ExecutorInfo einfo2 = exec_info("fid2", "eid2");
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid3, &einfo2, untagged_1.data(), untagged_1.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid3, &einfo2, tagged_a1.data(), tagged_a1.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid3, &einfo2, untagged_2.data(), untagged_2.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid3, &einfo2, tagged_a2.data(), tagged_a2.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid3, &einfo2, untagged_3.data(), untagged_3.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid3, &einfo2, tagged_b1.data(), tagged_b1.size(), map));
-  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_struct(
+  EXPECT_EQ(1, metrics::AvroEncoder::statsd_to_map(
           &cid3, &einfo2, tagged_b2.data(), tagged_b2.size(), map));
 
   EXPECT_EQ(4, map.size()); // unknown + cid[1-3]
@@ -1035,7 +1035,7 @@ TEST_F(AvroEncoderTests, resources) {
   stats2->mutable_net_snmp_statistics()->mutable_ip_stats()->set_outnoroutes(8);
 
   metrics::avro_metrics_map_t metric_map;
-  EXPECT_EQ(12, metrics::AvroEncoder::resources_to_struct(usage, metric_map));
+  EXPECT_EQ(12, metrics::AvroEncoder::resources_to_map(usage, metric_map));
   EXPECT_EQ(2, metric_map.size());
   const metrics_schema::MetricList& m1 = metric_map[container_id("cid1")].without_custom_tags;
 
@@ -1055,21 +1055,21 @@ TEST_F(AvroEncoderTests, resources) {
   }
   EXPECT_EQ("usage.processes", m1.datapoints[0].name);
   EXPECT_EQ(stats1->processes(), m1.datapoints[0].value);
-  EXPECT_EQ("perf.cpu_clock", m1.datapoints[1].name);
+  EXPECT_EQ("usage.perf.cpu_clock", m1.datapoints[1].name);
   EXPECT_EQ(stats1->perf().cpu_clock(), m1.datapoints[1].value);
   EXPECT_EQ("usage.net_rx_bytes", m1.datapoints[2].name);
   EXPECT_EQ(stats1->net_rx_bytes(), m1.datapoints[2].value);
-  EXPECT_EQ("traf.1a.bytes", m1.datapoints[3].name);
+  EXPECT_EQ("usage.traf.1a.bytes", m1.datapoints[3].name);
   EXPECT_EQ(traf1a->bytes(), m1.datapoints[3].value);
-  EXPECT_EQ("traf.1b.ratepps", m1.datapoints[4].name);
+  EXPECT_EQ("usage.traf.1b.ratepps", m1.datapoints[4].name);
   EXPECT_EQ(traf1b->ratepps(), m1.datapoints[4].value);
-  EXPECT_EQ("snmp.ip.indelivers", m1.datapoints[5].name);
+  EXPECT_EQ("usage.snmp.ip.indelivers", m1.datapoints[5].name);
   EXPECT_EQ(stats1->net_snmp_statistics().ip_stats().indelivers(), m1.datapoints[5].value);
-  EXPECT_EQ("snmp.icmp.outsrcquenchs", m1.datapoints[6].name);
+  EXPECT_EQ("usage.snmp.icmp.outsrcquenchs", m1.datapoints[6].name);
   EXPECT_EQ(stats1->net_snmp_statistics().icmp_stats().outsrcquenchs(), m1.datapoints[6].value);
-  EXPECT_EQ("snmp.tcp.retranssegs", m1.datapoints[7].name);
+  EXPECT_EQ("usage.snmp.tcp.retranssegs", m1.datapoints[7].name);
   EXPECT_EQ(stats1->net_snmp_statistics().tcp_stats().retranssegs(), m1.datapoints[7].value);
-  EXPECT_EQ("snmp.udp.inerrors", m1.datapoints[8].name);
+  EXPECT_EQ("usage.snmp.udp.inerrors", m1.datapoints[8].name);
   EXPECT_EQ(stats1->net_snmp_statistics().udp_stats().inerrors(), m1.datapoints[8].value);
 
   const metrics_schema::MetricList& m2 = metric_map[container_id("cid2")].without_custom_tags;
@@ -1091,7 +1091,7 @@ TEST_F(AvroEncoderTests, resources) {
   EXPECT_EQ(stats2->mem_total_bytes(), m2.datapoints[0].value);
   EXPECT_EQ("usage.net_tx_dropped", m2.datapoints[1].name);
   EXPECT_EQ(stats2->net_tx_dropped(), m2.datapoints[1].value);
-  EXPECT_EQ("snmp.ip.outnoroutes", m2.datapoints[2].name);
+  EXPECT_EQ("usage.snmp.ip.outnoroutes", m2.datapoints[2].name);
   EXPECT_EQ(stats2->net_snmp_statistics().ip_stats().outnoroutes(), m2.datapoints[2].value);
 }
 

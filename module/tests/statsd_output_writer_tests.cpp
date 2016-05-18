@@ -220,6 +220,69 @@ TEST(StatsdOutputWriterTests, chunked_annotations_off) {
   thread.join();
 }
 
+TEST(StatsdOutputWriterTests, resource_usage_annotations_off) {
+  mesos::ResourceUsage usage;
+
+  mesos::ResourceUsage_Executor* executor1 = usage.add_executors();
+  executor1->mutable_container_id()->set_value("c1");
+  executor1->mutable_executor_info()->mutable_framework_id()->set_value("f1");
+  executor1->mutable_executor_info()->mutable_executor_id()->set_value("e1");
+  mesos::ResourceStatistics* stats1 = executor1->mutable_statistics();
+  stats1->set_timestamp(1234.55);
+  stats1->set_processes(3);
+  stats1->mutable_perf()->set_cpu_clock(0.7);
+  stats1->set_net_rx_bytes(5);
+  mesos::TrafficControlStatistics* traf1a = stats1->add_net_traffic_control_statistics();
+  traf1a->set_id("1a");
+  traf1a->set_bytes(1248);
+  mesos::TrafficControlStatistics* traf1b = stats1->add_net_traffic_control_statistics();
+  traf1b->set_id("1b");
+  traf1b->set_ratepps(14);
+  stats1->mutable_net_snmp_statistics()->mutable_ip_stats()->set_indelivers(123);
+  stats1->mutable_net_snmp_statistics()->mutable_icmp_stats()->set_outsrcquenchs(481);
+  stats1->mutable_net_snmp_statistics()->mutable_tcp_stats()->set_retranssegs(361);
+  stats1->mutable_net_snmp_statistics()->mutable_udp_stats()->set_inerrors(8);
+
+  mesos::ResourceUsage_Executor* executor2 = usage.add_executors();
+  executor2->mutable_container_id()->set_value("c2");
+  executor2->mutable_executor_info()->mutable_framework_id()->set_value("f2");
+  executor2->mutable_executor_info()->mutable_executor_id()->set_value("e2");
+  mesos::ResourceStatistics* stats2 = executor2->mutable_statistics();
+  stats2->set_timestamp(5678.99);
+  stats2->set_mem_total_bytes(8);
+  stats2->set_net_tx_dropped(6);
+  stats2->mutable_net_snmp_statistics()->mutable_ip_stats()->set_outnoroutes(8);
+
+  TestUDPReadSocket test_reader;
+  size_t listen_port = test_reader.listen();
+
+  ServiceThread thread;
+  {
+    metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
+            thread.svc(),
+            build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_NONE),
+            StubUDPSender::success(thread.svc(), listen_port)));
+    writer->start();
+    // let resolve finish before sending data:
+    metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+
+    writer->write_resource_usage(process::Future<mesos::ResourceUsage>(usage));
+    EXPECT_EQ("usage.processes:3|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.perf.cpu_clock:0.7|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.net_rx_bytes:5|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.traf.1a.bytes:1248|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.traf.1b.ratepps:14|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.snmp.ip.indelivers:123|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.snmp.icmp.outsrcquenchs:481|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.snmp.tcp.retranssegs:361|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.snmp.udp.inerrors:8|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.mem_total_bytes:8|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.net_tx_dropped:6|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.snmp.ip.outnoroutes:8|g", test_reader.read(100 /* timeout_ms */));
+  }
+  thread.join();
+}
+
 TEST(StatsdOutputWriterTests, chunked_datadog_annotations_no_containerinfo) {
   TestUDPReadSocket test_reader;
   size_t listen_port = test_reader.listen();
@@ -329,6 +392,81 @@ TEST(StatsdOutputWriterTests, chunked_datadog_annotations_tagged_input) {
   thread.join();
 }
 
+TEST(StatsdOutputWriterTests, datadog_annotations_resource_usage) {
+  mesos::ResourceUsage usage;
+
+  mesos::ResourceUsage_Executor* executor1 = usage.add_executors();
+  executor1->mutable_container_id()->set_value("c1");
+  executor1->mutable_executor_info()->mutable_framework_id()->set_value("f1");
+  executor1->mutable_executor_info()->mutable_executor_id()->set_value("e1");
+  mesos::ResourceStatistics* stats1 = executor1->mutable_statistics();
+  stats1->set_timestamp(1234.55);
+  stats1->set_processes(3);
+  stats1->mutable_perf()->set_cpu_clock(0.7);
+  stats1->set_net_rx_bytes(5);
+  mesos::TrafficControlStatistics* traf1a = stats1->add_net_traffic_control_statistics();
+  traf1a->set_id("1a");
+  traf1a->set_bytes(1248);
+  mesos::TrafficControlStatistics* traf1b = stats1->add_net_traffic_control_statistics();
+  traf1b->set_id("1b");
+  traf1b->set_ratepps(14);
+  stats1->mutable_net_snmp_statistics()->mutable_ip_stats()->set_indelivers(123);
+  stats1->mutable_net_snmp_statistics()->mutable_icmp_stats()->set_outsrcquenchs(481);
+  stats1->mutable_net_snmp_statistics()->mutable_tcp_stats()->set_retranssegs(361);
+  stats1->mutable_net_snmp_statistics()->mutable_udp_stats()->set_inerrors(8);
+
+  mesos::ResourceUsage_Executor* executor2 = usage.add_executors();
+  executor2->mutable_container_id()->set_value("c2");
+  executor2->mutable_executor_info()->mutable_framework_id()->set_value("f2");
+  executor2->mutable_executor_info()->mutable_executor_id()->set_value("e2");
+  mesos::ResourceStatistics* stats2 = executor2->mutable_statistics();
+  stats2->set_timestamp(5678.99);
+  stats2->set_mem_total_bytes(8);
+  stats2->set_net_tx_dropped(6);
+  stats2->mutable_net_snmp_statistics()->mutable_ip_stats()->set_outnoroutes(8);
+
+  TestUDPReadSocket test_reader;
+  size_t listen_port = test_reader.listen();
+
+  ServiceThread thread;
+  {
+    metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
+            thread.svc(),
+            build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_TAG_DATADOG),
+            StubUDPSender::success(thread.svc(), listen_port)));
+    writer->start();
+    // let resolve finish before sending data:
+    metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+
+    writer->write_resource_usage(process::Future<mesos::ResourceUsage>(usage));
+    EXPECT_EQ("usage.processes:3|g|#framework_id:f1,executor_id:e1,container_id:c1",
+        test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.perf.cpu_clock:0.7|g|#framework_id:f1,executor_id:e1,container_id:c1",
+        test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.net_rx_bytes:5|g|#framework_id:f1,executor_id:e1,container_id:c1",
+        test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.traf.1a.bytes:1248|g|#framework_id:f1,executor_id:e1,container_id:c1",
+        test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.traf.1b.ratepps:14|g|#framework_id:f1,executor_id:e1,container_id:c1",
+        test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.snmp.ip.indelivers:123|g|#framework_id:f1,executor_id:e1,container_id:c1",
+        test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.snmp.icmp.outsrcquenchs:481|g|#framework_id:f1,executor_id:e1,container_id:c1",
+        test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.snmp.tcp.retranssegs:361|g|#framework_id:f1,executor_id:e1,container_id:c1",
+        test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.snmp.udp.inerrors:8|g|#framework_id:f1,executor_id:e1,container_id:c1",
+        test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.mem_total_bytes:8|g|#framework_id:f2,executor_id:e2,container_id:c2",
+        test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.net_tx_dropped:6|g|#framework_id:f2,executor_id:e2,container_id:c2",
+        test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("usage.snmp.ip.outnoroutes:8|g|#framework_id:f2,executor_id:e2,container_id:c2",
+        test_reader.read(100 /* timeout_ms */));
+  }
+  thread.join();
+}
+
 TEST(StatsdOutputWriterTests, prefix_annotations_no_containerinfo) {
   TestUDPReadSocket test_reader;
   size_t listen_port = test_reader.listen();
@@ -428,6 +566,69 @@ TEST(StatsdOutputWriterTests, prefix_annotations_tagged_input) {
     EXPECT_EQ("f2.e2.c2." + hey, test_reader.read(100 /* timeout_ms */));
     writer->write_container_statsd(&CONTAINER_ID2, &EXECUTOR_INFO2, hi.data(), hi.size());
     EXPECT_EQ("f2.e2.c2." + hi, test_reader.read(100 /* timeout_ms */));
+  }
+  thread.join();
+}
+
+TEST(StatsdOutputWriterTests, prefix_annotations_resource_usage) {
+  mesos::ResourceUsage usage;
+
+  mesos::ResourceUsage_Executor* executor1 = usage.add_executors();
+  executor1->mutable_container_id()->set_value("c1");
+  executor1->mutable_executor_info()->mutable_framework_id()->set_value("f1");
+  executor1->mutable_executor_info()->mutable_executor_id()->set_value("e1");
+  mesos::ResourceStatistics* stats1 = executor1->mutable_statistics();
+  stats1->set_timestamp(1234.55);
+  stats1->set_processes(3);
+  stats1->mutable_perf()->set_cpu_clock(0.7);
+  stats1->set_net_rx_bytes(5);
+  mesos::TrafficControlStatistics* traf1a = stats1->add_net_traffic_control_statistics();
+  traf1a->set_id("1a");
+  traf1a->set_bytes(1248);
+  mesos::TrafficControlStatistics* traf1b = stats1->add_net_traffic_control_statistics();
+  traf1b->set_id("1b");
+  traf1b->set_ratepps(14);
+  stats1->mutable_net_snmp_statistics()->mutable_ip_stats()->set_indelivers(123);
+  stats1->mutable_net_snmp_statistics()->mutable_icmp_stats()->set_outsrcquenchs(481);
+  stats1->mutable_net_snmp_statistics()->mutable_tcp_stats()->set_retranssegs(361);
+  stats1->mutable_net_snmp_statistics()->mutable_udp_stats()->set_inerrors(8);
+
+  mesos::ResourceUsage_Executor* executor2 = usage.add_executors();
+  executor2->mutable_container_id()->set_value("c2");
+  executor2->mutable_executor_info()->mutable_framework_id()->set_value("f2");
+  executor2->mutable_executor_info()->mutable_executor_id()->set_value("e2");
+  mesos::ResourceStatistics* stats2 = executor2->mutable_statistics();
+  stats2->set_timestamp(5678.99);
+  stats2->set_mem_total_bytes(8);
+  stats2->set_net_tx_dropped(6);
+  stats2->mutable_net_snmp_statistics()->mutable_ip_stats()->set_outnoroutes(8);
+
+  TestUDPReadSocket test_reader;
+  size_t listen_port = test_reader.listen();
+
+  ServiceThread thread;
+  {
+    metrics::output_writer_ptr_t writer(new metrics::StatsdOutputWriter(
+            thread.svc(),
+            build_params(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE_KEY_PREFIX),
+            StubUDPSender::success(thread.svc(), listen_port)));
+    writer->start();
+    // let resolve finish before sending data:
+    metrics::sync_util::dispatch_run("flush", *thread.svc(), &flush_service_queue_with_noop);
+
+    writer->write_resource_usage(process::Future<mesos::ResourceUsage>(usage));
+    EXPECT_EQ("f1.e1.c1.usage.processes:3|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("f1.e1.c1.usage.perf.cpu_clock:0.7|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("f1.e1.c1.usage.net_rx_bytes:5|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("f1.e1.c1.usage.traf.1a.bytes:1248|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("f1.e1.c1.usage.traf.1b.ratepps:14|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("f1.e1.c1.usage.snmp.ip.indelivers:123|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("f1.e1.c1.usage.snmp.icmp.outsrcquenchs:481|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("f1.e1.c1.usage.snmp.tcp.retranssegs:361|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("f1.e1.c1.usage.snmp.udp.inerrors:8|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("f2.e2.c2.usage.mem_total_bytes:8|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("f2.e2.c2.usage.net_tx_dropped:6|g", test_reader.read(100 /* timeout_ms */));
+    EXPECT_EQ("f2.e2.c2.usage.snmp.ip.outnoroutes:8|g", test_reader.read(100 /* timeout_ms */));
   }
   thread.join();
 }

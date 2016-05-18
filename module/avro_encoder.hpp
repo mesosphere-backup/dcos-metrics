@@ -33,22 +33,27 @@ namespace metrics {
      * inside of 'out'.
      */
     static void encode_metrics_block(
-        const avro_metrics_map_t& metric_map,
-        std::ostream& ostream);
+        const avro_metrics_map_t& metric_map, std::ostream& ostream);
 
     /**
      * Returns the number of Datapoints added to the provided map of MetricLists
      */
-    static size_t statsd_to_struct(
+    static size_t statsd_to_map(
         const mesos::ContainerID* container_id, const mesos::ExecutorInfo* executor_info,
         const char* data, size_t size,
         avro_metrics_map_t& metric_map);
 
     /**
+     * Returns the number of Datapoints added to the provided MetricList
+     */
+    static void resources_to_datapoints(
+        const mesos::ResourceStatistics& stats, std::vector<metrics_schema::Datapoint>& datapoints);
+
+    /**
      * Returns the number of Datapoints added to the provided MetricLists
      */
-    static size_t resources_to_struct(const mesos::ResourceUsage& usage,
-        avro_metrics_map_t& metric_map);
+    static size_t resources_to_map(
+        const mesos::ResourceUsage& usage, avro_metrics_map_t& metric_map);
 
     /**
      * Returns whether the provided MetricList has nothing in it.

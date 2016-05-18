@@ -78,7 +78,7 @@ void metrics::CollectorOutputWriter::start() {
 void metrics::CollectorOutputWriter::write_container_statsd(
     const mesos::ContainerID* container_id, const mesos::ExecutorInfo* executor_info,
     const char* in_data, size_t in_size) {
-  datapoint_count += AvroEncoder::statsd_to_struct(
+  datapoint_count += AvroEncoder::statsd_to_map(
       container_id, executor_info, in_data, in_size, container_map);
   if (!chunking || datapoint_count >= datapoint_capacity) {
     flush();
@@ -87,7 +87,7 @@ void metrics::CollectorOutputWriter::write_container_statsd(
 
 void metrics::CollectorOutputWriter::write_resource_usage(
     const process::Future<mesos::ResourceUsage>& usage) {
-  datapoint_count += AvroEncoder::resources_to_struct(usage.get(), container_map);
+  datapoint_count += AvroEncoder::resources_to_map(usage.get(), container_map);
   if (!chunking || datapoint_count >= datapoint_capacity) {
     flush();
   }

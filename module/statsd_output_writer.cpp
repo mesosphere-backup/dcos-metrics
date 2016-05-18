@@ -2,6 +2,7 @@
 
 #include <glog/logging.h>
 
+#include "avro_encoder.hpp"
 #include "statsd_tagger.hpp"
 #include "sync_util.hpp"
 
@@ -111,13 +112,12 @@ void metrics::StatsdOutputWriter::write_container_statsd(
 
   // starting a new chunk
   if (chunk_used == 0) {
+    tagger->tag_copy(container_id, executor_info, in_data, in_size, output_buffer);
     if (needed_size < chunk_capacity) {
       // add the tagged data directly to the start of the chunk (no preceding newline)
-      tagger->tag_copy(container_id, executor_info, in_data, in_size, output_buffer);
       chunk_used = needed_size;
     } else {
       // too big for a chunk, tag and send immediately
-      tagger->tag_copy(container_id, executor_info, in_data, in_size, output_buffer);
       sender->send(output_buffer, needed_size);
     }
     return;
@@ -138,21 +138,38 @@ void metrics::StatsdOutputWriter::write_container_statsd(
   sender->send(output_buffer, chunk_used);
   chunk_used = 0;
 
+  tagger->tag_copy(container_id, executor_info, in_data, in_size, output_buffer);
   if (needed_size < chunk_capacity) {
     // add the tagged data directly to the start of the chunk (no preceding newline)
-    tagger->tag_copy(container_id, executor_info, in_data, in_size, output_buffer);
     chunk_used = needed_size;
   } else {
     // still too big for a chunk, tag and send immediately
-    tagger->tag_copy(container_id, executor_info, in_data, in_size, output_buffer);
     sender->send(output_buffer, needed_size);
   }
 }
 
 void metrics::StatsdOutputWriter::write_resource_usage(
     const process::Future<mesos::ResourceUsage>& usage) {
-  //TODO implement ResourceUsage -> statsd
-  //LOG(INFO) << "USAGE DUMP:\n" << usage.get().DebugString();
+  // Reuse logic in AvroEncoder to get Datapoints, then convert those into statsd
+  const mesos::ResourceUsage& usageb = usage.get();
+  for (int64_t execi = 0; execi < usageb.executors_size(); ++execi) {
+    const mesos::ResourceUsage_Executor& executor = usageb.executors(execi);
+    if (!executor.has_statistics()) {
+      continue;
+    }
+
+    std::vector<metrics_schema::Datapoint> datapoints;
+    AvroEncoder::resources_to_datapoints(executor.statistics(), datapoints);
+    for (const metrics_schema::Datapoint& datapoint : datapoints) {
+      // convert to statsd string
+      std::ostringstream oss;
+      oss << datapoint.name << ":" << datapoint.value << "|g";
+      const std::string& datapoint_statsd = oss.str();
+      // pass to standard output call, which will handle tagging/chunking
+      write_container_statsd(&executor.container_id(), &executor.executor_info(),
+          datapoint_statsd.data(), datapoint_statsd.size());
+    }
+  }
 }
 
 void metrics::StatsdOutputWriter::start_chunk_flush_timer() {
