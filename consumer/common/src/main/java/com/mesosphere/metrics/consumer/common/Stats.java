@@ -1,4 +1,4 @@
-package com.mesosphere.metrics.consumer;
+package com.mesosphere.metrics.consumer.common;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

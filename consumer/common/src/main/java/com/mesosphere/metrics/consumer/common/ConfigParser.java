@@ -1,4 +1,4 @@
-package com.mesosphere.metrics.consumer;
+package com.mesosphere.metrics.consumer.common;
 
 import java.io.IOException;
 import java.util.List;

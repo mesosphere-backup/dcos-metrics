@@ -32,7 +32,7 @@ Whenever the schema is changed, clients which use preprocessed code MUST be upda
 
 ### Java
 
-Java code can be generated using [avro-tools.jar](http://www.apache.org/dyn/closer.cgi/avro/avro-1.8.0/java/avro-tools-1.8.0.jar), or via the [gradle avro plugin](https://github.com/commercehub-oss/gradle-avro-plugin). See usage of the latter in the [metrics consumer gradle config](https://github.com/mesosphere/dcos-stats/blob/master/examples/metrics-consumer/build.gradle).
+Java code can be generated using [avro-tools.jar](http://www.apache.org/dyn/closer.cgi/avro/avro-1.8.0/java/avro-tools-1.8.0.jar), or via the [gradle avro plugin](https://github.com/commercehub-oss/gradle-avro-plugin). See usage of the latter in the [metrics consumer gradle config](https://github.com/mesosphere/dcos-stats/blob/master/consumer/build.gradle).
 
 ```
 java -jar avro-tools-1.8.0.jar compile schema metrics.avsc java/

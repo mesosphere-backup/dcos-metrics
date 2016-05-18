@@ -1,4 +1,4 @@
-package com.mesosphere.metrics.consumer;
+package com.mesosphere.metrics.consumer.common;
 
 import org.apache.commons.io.IOUtils;
 import org.json.JSONArray;

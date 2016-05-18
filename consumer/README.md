@@ -1,8 +1,19 @@
 # Metrics Consumer
 
-A reference implementation of grabbing Avro-formatted metrics data from a Kafka cluster, which prints out the content of the records it receives.
+A set of Kafka metrics consumer implementations which grab Avro-formatted metrics data from a Kafka cluster, then do something with the records it receives.
 
-First, get a [Metrics Collector](../../collector) producing data into a Kafka cluster, then launch the Consumer as a Marathon task (JSON Mode):
+## Project contents
+
+- **[common](common/)**: Shared code across consumer implementations. Handles everything except the output itself.
+- **[graphite](graphite/)**: Outputs data to a Graphite service which is running at a provided `OUTPUT_HOST`/`OUTPUT_PORT`.
+- **[kairos](kairos/)**: Outputs data to a KairosDB service which is running at a provided `OUTPUT_HOST`/`OUTPUT_PORT`.
+- **[print](print/)**: Outputs consumed data to `stdout`.
+
+## Usage
+
+**TODO new instructions for each output type**
+
+First, get a [Metrics Collector](../collector) producing data into a Kafka cluster, then launch one or more Consumers as Marathon tasks (JSON Mode):
 
 ```json
 {

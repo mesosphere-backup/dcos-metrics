@@ -1,0 +1,37 @@
+allprojects {
+  apply plugin: 'java'
+  apply plugin: 'idea'
+  apply plugin: 'eclipse'
+  apply plugin: 'application'
+
+  apply from: "$rootDir/gradle/quality.gradle"
+  group = "mesosphere"
+  version = "0.1.0-SNAPSHOT"
+
+  sourceCompatibility = 1.8
+  targetCompatibility = 1.8
+
+  repositories {
+    mavenLocal()
+    mavenCentral()
+  }
+
+  task wrapper(type: Wrapper) {
+    gradleVersion = '2.3'
+  }
+}
+
+dependencies {
+  compile project(':common')
+  compile project(':graphite')
+  compile project(':kairos')
+  compile project(':print')
+}
+
+distributions {
+  main {
+    mainClassName = ''
+    baseName = 'metrics-consumer-root'
+    version = ''
+  }
+}

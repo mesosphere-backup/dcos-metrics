@@ -1,0 +1,25 @@
+plugins {
+  id 'com.github.johnrengelman.shadow' version '1.2.3'
+}
+
+shadowJar {
+  classifier = 'uber'
+
+  mergeServiceFiles()
+
+  exclude 'META-INF/*.SF'
+  exclude 'META-INF/*.DSA'
+  exclude 'META-INF/*.RSA'
+}
+
+dependencies {
+  compile project(':common')
+}
+
+distributions {
+  main {
+    mainClassName = 'com.mesosphere.metrics.consumer.GraphiteMain'
+    baseName = 'metrics-consumer-graphite'
+    version = ''
+  }
+}

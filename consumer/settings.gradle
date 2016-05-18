@@ -1,0 +1,6 @@
+rootProject.name = 'consumer'
+
+include 'common'
+include 'graphite'
+include 'kairos'
+include 'print'

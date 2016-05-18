@@ -3,16 +3,7 @@ plugins {
   id 'com.commercehub.gradle.plugin.avro' version '0.8.0'
 }
 
-apply plugin: 'java'
-apply plugin: 'idea'
-apply plugin: 'eclipse'
-apply plugin: 'application'
 apply plugin: "com.commercehub.gradle.plugin.avro-base"
-
-repositories {
-  mavenLocal()
-  mavenCentral()
-}
 
 ext {
   avroVer = "1.7.7" // match version used by gradle-avro-plugin
@@ -47,10 +38,6 @@ shadowJar {
   exclude 'META-INF/*.RSA'
 }
 
-task wrapper(type: Wrapper) {
-  gradleVersion = '2.3'
-}
-
 task generateAvro(type: com.commercehub.gradle.plugin.avro.GenerateAvroJavaTask) {
   fieldVisibility("PRIVATE")
   source("../../schema/metrics.avsc")
@@ -60,9 +47,8 @@ compileJava.source(generateAvro.outputs)
 
 distributions {
   main {
-    mainClassName = 'com.mesosphere.metrics.consumer.Main'
-    baseName = 'metrics-consumer'
+    mainClassName = ''
+    baseName = 'metrics-consumer-common'
     version = ''
   }
 }
-

@@ -1,4 +1,10 @@
-package com.mesosphere.metrics.consumer;
+package com.mesosphere.metrics.consumer.common;
+
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.io.DatumReader;
@@ -12,27 +18,23 @@ import org.slf4j.LoggerFactory;
 
 import dcos.metrics.MetricList;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+public class ConsumerRunner {
 
-public final class Main {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ConsumerRunner.class);
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
-
-  private static class ConsumerRunner implements Runnable {
-
+  private static class ConsumerRunnable implements Runnable {
+    private final MetricOutput output;
     private final KafkaConsumer<byte[], byte[]> kafkaConsumer;
     private final ClientConfigs.ConsumerConfig consumerConfig;
     private final Stats.Values values;
 
-    private ConsumerRunner(
-      Map<String, Object> kafkaConfig,
-      ClientConfigs.ConsumerConfig consumerConfig,
-      Stats.Values values) {
+    private ConsumerRunnable(
+        MetricOutput output,
+        Map<String, Object> kafkaConfig,
+        ClientConfigs.ConsumerConfig consumerConfig,
+        Stats.Values values) {
       ByteArrayDeserializer deserializer = new ByteArrayDeserializer();
+      this.output = output;
       this.kafkaConsumer = new KafkaConsumer<>(kafkaConfig, deserializer, deserializer);
       this.consumerConfig = consumerConfig;
       this.values = values;
@@ -72,9 +74,7 @@ public final class Main {
             while (dataFileStream.hasNext()) {
               metricList = dataFileStream.next(metricList);// reuse same object. docs imply this is more efficient.
 
-              if (consumerConfig.printRecords) {
-                LOGGER.info("Record: {}", metricList);
-              }
+              output.append(metricList);
 
               metricLists++;
               tags += metricList.getTags().size();
@@ -89,15 +89,15 @@ public final class Main {
         } catch (Throwable e) {
           values.registerError(e);
         }
+        output.flush(); // always flush, even if consumption fails (in case it failed after several append()s)
         values.incMessages(messages);
         values.incBytes(bytes);
       }
       kafkaConsumer.close();
     }
-
   }
 
-  private static boolean runConsumers(ConfigParser.Config config, Stats.PrintRunner printer) {
+  private static boolean runConsumers(MetricOutput output, ConfigParser.Config config, Stats.PrintRunner printer) {
     ClientConfigs.ConsumerConfig consumerConfig = config.getConsumerConfig();
     if (consumerConfig == null) {
       LOGGER.error("Unable to load consumer config, exiting");
@@ -107,9 +107,9 @@ public final class Main {
     ThreadRunner runner = new ThreadRunner(printer.getValues());
     runner.add("printStatsThread", printer);
     for (int i = 0; i < consumerConfig.threads; ++i) {
-      ConsumerRunner consumer;
+      ConsumerRunnable consumer;
       try {
-        consumer = new ConsumerRunner(config.getKafkaConfig(), consumerConfig, printer.getValues());
+        consumer = new ConsumerRunnable(output, config.getKafkaConfig(), consumerConfig, printer.getValues());
       } catch (Throwable e) {
         printer.getValues().registerError(e);
         return false;
@@ -121,7 +121,7 @@ public final class Main {
     return !runner.isFatalError();
   }
 
-  public static void main(String[] args) {
+  public static void run(MetricOutput output) {
     ConfigParser.Config config = ConfigParser.getConfig();
     if (config == null) {
       LOGGER.error("Unable to load base config, exiting");
@@ -134,7 +134,6 @@ public final class Main {
       System.exit(1);
     }
     Stats.PrintRunner printer = new Stats.PrintRunner(statsConfig);
-    boolean success = runConsumers(config, printer);
-    System.exit(success ? 0 : 1);
+    runConsumers(output, config, printer);
   }
 }

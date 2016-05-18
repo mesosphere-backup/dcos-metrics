@@ -113,13 +113,13 @@ If the Kafka framework isn't reachable (not deployed yet? wrong name passed to `
 
 ### Consuming collected data
 
-Once `collector` is up and running, the raw binary data it's passing to Kafka may be viewed by running one or more [example metrics consumers](../examples/metrics-consumer/).
+Once `collector` is up and running, the raw binary data it's passing to Kafka may be viewed by running one or more [Kafka metrics consumers](../consumer/).
 
 ## Sample Producer
 
-The sample producer is an alternate Collector implementation which just grabs some data from the mesos agent and forwards it to a Kafka cluster.
+The sample producer is an alternate Collector implementation which polls the local mesos agent and sends the metrics it retrieves to the Kafka cluster.
 
-It's meant to allow testing of metrics Kafka Consumers without requiring that the DC/OS cluster have the latest Metrics Agent Module.
+It's meant for development purposes, to allow testing of metrics Kafka Consumers without requiring a DC/OS cluster with the latest Metrics Agent Module.
 
 ### Deploy
 
@@ -161,4 +161,4 @@ As `sample-producer` is deployed on every node, each instance should automatical
 
 If the Kafka framework isn't reachable (not deployed yet? wrong name passed to `KAFKA_FRAMEWORK` envvar?), then `sample-producer` will loop until it comes up (complaining to `stderr` every few seconds).
 
-Once `sample-producer` is running, the data it's passing to Kafka may be viewed by running one or more [example metrics consumers](../examples/metrics-consumer/).
+Once `sample-producer` is running, the data it's passing to Kafka may be viewed by running one or more [Kafka metrics consumers](../consumer/).
