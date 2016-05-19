@@ -38,11 +38,11 @@ The consumers are configured via environment variables, making it easy to make c
 
 Each consumer implementation shares the following settings from `metrics-consumer-common`:
 
-**FRAMEWORK_NAME**: The Kafka Framework to consume against. If a manual broker list is desired, it can be provided via `KAFKA_OVERRIDE_BOOTSTRAP_SERVERS`, in which case `FRAMEWORK_NAME` will be ignored.  Default: `kafka`
-**TOPIC**: The topic to be consumed from. Default: `sample_metrics` (TODO support wildcard subscription)
-**STATS_PRINT_PERIOD_MS**: How frequently to print statistics about the amount of records/bytes consumed to stdout. Default: `500`
-**POLL_TIMEOUT_MS**: The timeout value to use when calling Kafka's poll() function. Default: `1000`
-**CONSUMER_THREADS**: The number of consumer threads to run in parallel. Default: `1`
+- **FRAMEWORK_NAME**: The Kafka Framework to consume against. If a manual broker list is desired, it can be provided via `KAFKA_OVERRIDE_BOOTSTRAP_SERVERS`, in which case `FRAMEWORK_NAME` will be ignored.  Default: `kafka`
+- **TOPIC**: The topic to be consumed from. Default: `sample_metrics` (TODO support wildcard subscription)
+- **STATS_PRINT_PERIOD_MS**: How frequently to print statistics about the amount of records/bytes consumed to stdout. Default: `500`
+- **POLL_TIMEOUT_MS**: The timeout value to use when calling Kafka's poll() function. Default: `1000`
+- **CONSUMER_THREADS**: The number of consumer threads to run in parallel. Default: `1`
 
 In addition to the above values, any configuration variables defined by the Kafka Consumer client library can be configured via the environment. Any values of the form `KAFKA_OVERRIDE_X_Y` will be given to the Kafka library in the form `x.y`. For example, the value `KAFKA_OVERRIDE_BOOTSTRAP_SERVERS=broker1:1234,broker2:2345` will be given to Kafka as `bootstrap.servers=broker1:1234,broker2:2345`. This allows full customization of the underlying Kafka consumer.
 
@@ -83,12 +83,12 @@ Sends data to a Graphite server.
 
 #### Options
 
-**OUTPUT_HOST**: The hostname or IP of the Graphite server. Required, no default.
-**OUTPUT_PORT**: The port of the Graphite server. Default: `2003`
-**GRAPHITE_PROTOCOL**: The connection type to use. May be `TCP`, `UDP`, `PICKLE`, or `RABBITMQ`. `RABBITMQ` requires also providing `RABBIT_USERNAME`, `RABBIT_PASSWORD`, and `RABBIT_EXCHANGE`. Default: `TCP`
-**EXIT_ON_CONNECT_FAILURE**: Whether to exit the consumer process if it fails to connect to `OUTPUT_HOST`/`OUTPUT_PORT`. Default: `true`
-**GRAPHITE_PREFIX**: A prefix string to be prepended on metric names. For example, `GRAPHITE_PREFIX=foo` will result in `some.value=5` being passed to Graphite as `foo.some.value=5`. Default: `""`
-**GRAPHITE_PREFIX_IDS**: Boolean flag which specifies whether metric names should be prefixed with the framework id, executor id, and container id tag values. For example, this will result in `some.value=5` being passed to Graphite as `<framework_id>.<executor_id>.<container_id>.some.value=5`. This may be combined with `GRAPHITE_PREFIX` in which case the `GRAPHITE_PREFIX` value will come first. Default: `true`
+- **OUTPUT_HOST**: The hostname or IP of the Graphite server. Required, no default.
+- **OUTPUT_PORT**: The port of the Graphite server. Default: `2003`
+- **GRAPHITE_PROTOCOL**: The connection type to use. May be `TCP`, `UDP`, `PICKLE`, or `RABBITMQ`. `RABBITMQ` requires also providing `RABBIT_USERNAME`, `RABBIT_PASSWORD`, and `RABBIT_EXCHANGE`. Default: `TCP`
+- **EXIT_ON_CONNECT_FAILURE**: Whether to exit the consumer process if it fails to connect to `OUTPUT_HOST`/`OUTPUT_PORT`. Default: `true`
+- **GRAPHITE_PREFIX**: A prefix string to be prepended on metric names. For example, `GRAPHITE_PREFIX=foo` will result in `some.value=5` being passed to Graphite as `foo.some.value=5`. Default: `""`
+- **GRAPHITE_PREFIX_IDS**: Boolean flag which specifies whether metric names should be prefixed with the framework id, executor id, and container id tag values. For example, this will result in `some.value=5` being passed to Graphite as `<framework_id>.<executor_id>.<container_id>.some.value=5`. This may be combined with `GRAPHITE_PREFIX` in which case the `GRAPHITE_PREFIX` value will come first. Default: `true`
 
 #### Deployment
 
@@ -129,9 +129,9 @@ Sends data to a KairosDB server, using the REST API.
 
 #### Options
 
-**OUTPUT_HOST**: The hostname or IP of the Graphite server. Required, no default.
-**OUTPUT_PORT**: The port of the Graphite server. Required, no default.
-**EXIT_ON_CONNECT_FAILURE**: Whether to exit the consumer process if it fails to connect to `OUTPUT_HOST`/`OUTPUT_PORT`. Default: `true`
+- **OUTPUT_HOST**: The hostname or IP of the Graphite server. Required, no default.
+- **OUTPUT_PORT**: The port of the Graphite server. Required, no default.
+- **EXIT_ON_CONNECT_FAILURE**: Whether to exit the consumer process if it fails to connect to `OUTPUT_HOST`/`OUTPUT_PORT`. Default: `true`
 
 #### Deployment
 
