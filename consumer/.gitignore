@@ -4,5 +4,5 @@
 .settings/
 
 build/
-/bin/
+bin/
 avro/

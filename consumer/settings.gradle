@@ -1,6 +1,6 @@
-rootProject.name = 'consumer'
+rootProject.name = 'metrics-consumer-root'
 
-include 'common'
-include 'graphite'
-include 'kairos'
-include 'print'
+include 'metrics-consumer-common'
+include 'metrics-consumer-graphite'
+include 'metrics-consumer-kairos'
+include 'metrics-consumer-print'

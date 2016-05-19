@@ -22,10 +22,10 @@ allprojects {
 }
 
 dependencies {
-  compile project(':common')
-  compile project(':graphite')
-  compile project(':kairos')
-  compile project(':print')
+  compile project(':metrics-consumer-common')
+  compile project(':metrics-consumer-graphite')
+  compile project(':metrics-consumer-kairos')
+  compile project(':metrics-consumer-print')
 }
 
 distributions {

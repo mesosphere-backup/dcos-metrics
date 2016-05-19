@@ -1,0 +1,43 @@
+plugins {
+  id 'com.commercehub.gradle.plugin.avro' version '0.8.0'
+}
+
+apply plugin: "com.commercehub.gradle.plugin.avro-base"
+
+ext {
+  avroVer = "1.7.7" // match version used by gradle-avro-plugin
+  jsonVer = "20151123"
+  kafkaClientsVer = "0.9.0.1"
+  logbackVer = "1.1.2"
+}
+
+dependencies {
+  compile "org.apache.avro:avro:${avroVer}"
+  compile "org.apache.kafka:kafka-clients:${kafkaClientsVer}"
+  compile "ch.qos.logback:logback-classic:${logbackVer}"
+  compile 'commons-io:commons-io:2.4'
+  compile "org.json:json:${jsonVer}"
+}
+
+sourceSets {
+  main {
+    java {
+      srcDirs = ['src/main/java', 'avro/']
+    }
+  }
+}
+
+task generateAvro(type: com.commercehub.gradle.plugin.avro.GenerateAvroJavaTask) {
+  fieldVisibility("PRIVATE")
+  source("../../schema/metrics.avsc")
+  outputDir = file("avro/")
+}
+compileJava.source(generateAvro.outputs)
+
+distributions {
+  main {
+    mainClassName = ''
+    baseName = 'metrics-consumer-common'
+    version = ''
+  }
+}
