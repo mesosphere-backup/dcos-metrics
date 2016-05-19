@@ -53,9 +53,9 @@ add_executable(range_pool_tests range_pool_tests.cpp)
 target_link_libraries(range_pool_tests gtest metrics-module)
 add_test(range_pool_tests range_pool_tests)
 
-add_executable(sync_util_tests sync_util_tests.cpp)
-target_link_libraries(sync_util_tests gtest metrics-module)
-add_test(sync_util_tests sync_util_tests)
+add_executable(sample_translator sample_translator.cpp)
+target_link_libraries(sample_translator metrics-module)
+# not a unit test
 
 add_executable(statsd_tagger_tests statsd_tagger_tests.cpp)
 target_link_libraries(statsd_tagger_tests gtest metrics-module)
@@ -69,6 +69,10 @@ target_link_libraries(statsd_output_writer_fuzz gmock gtest metrics-module)
 add_executable(statsd_output_writer_tests statsd_output_writer_tests.cpp)
 target_link_libraries(statsd_output_writer_tests gtest metrics-module)
 add_test(statsd_output_writer_tests statsd_output_writer_tests)
+
+add_executable(sync_util_tests sync_util_tests.cpp)
+target_link_libraries(sync_util_tests gtest metrics-module)
+add_test(sync_util_tests sync_util_tests)
 
 add_executable(tcp_sender_tests tcp_sender_tests.cpp)
 target_link_libraries(tcp_sender_tests gtest metrics-module)

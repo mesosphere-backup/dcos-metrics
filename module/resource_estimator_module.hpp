@@ -5,10 +5,9 @@
 #include <process/future.hpp>
 #include <stout/try.hpp>
 
-#include "io_runner.hpp"
-
 namespace metrics {
 
+  class IORunner;
   class ResourceEstimatorProcess;
 
   /**

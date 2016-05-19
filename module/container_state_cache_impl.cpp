@@ -1,7 +1,7 @@
 #include "container_state_cache_impl.hpp"
 
-#include <stout/fs.hpp>
 #include <stout/json.hpp>
+#include <stout/os.hpp>
 #include <stout/path.hpp>
 
 /*

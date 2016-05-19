@@ -33,8 +33,8 @@ namespace metrics {
   template <typename ContainerAssigner>
   class IsolatorProcess : public process::Process<IsolatorProcess<ContainerAssigner>> {
    public:
-    IsolatorProcess(std::shared_ptr<ContainerAssigner> input_assigner)
-      : input_assigner(input_assigner) { }
+    IsolatorProcess(std::shared_ptr<ContainerAssigner> container_assigner)
+      : container_assigner(container_assigner) { }
     virtual ~IsolatorProcess() { }
 
     process::Future<Nothing> recover(
@@ -45,7 +45,7 @@ namespace metrics {
       for (const mesos::slave::ContainerState& state : states) {
         LOG(INFO) << "  container_state[" << state.ShortDebugString() << "]";
       }
-      input_assigner->recover_containers(states);
+      container_assigner->recover_containers(states);
       return Nothing();
     }
 
@@ -56,7 +56,7 @@ namespace metrics {
                 << "container_id[" << container_id.ShortDebugString() << "] "
                 << "container_config[" << container_config.ShortDebugString() << "]";
       Try<UDPEndpoint> endpoint =
-        input_assigner->register_container(container_id, container_config.executorinfo());
+        container_assigner->register_container(container_id, container_config.executorinfo());
       if (endpoint.isError()) {
         LOG(ERROR) << "Failed to register container, no statsd endpoint to inject: "
                    << container_id.ShortDebugString();
@@ -69,18 +69,19 @@ namespace metrics {
 
     process::Future<Nothing> cleanup(
         const mesos::ContainerID& container_id) {
-      input_assigner->unregister_container(container_id);
+      container_assigner->unregister_container(container_id);
       return Nothing();
     }
 
    private:
-    std::shared_ptr<ContainerAssigner> input_assigner;
+    std::shared_ptr<ContainerAssigner> container_assigner;
   };
 }
 
 template <typename ContainerAssigner>
-metrics::IsolatorModule<ContainerAssigner>::IsolatorModule(std::shared_ptr<ContainerAssigner> input_assigner)
-  : impl(new IsolatorProcess<ContainerAssigner>(input_assigner)) {
+metrics::IsolatorModule<ContainerAssigner>::IsolatorModule(
+    std::shared_ptr<ContainerAssigner> container_assigner)
+  : impl(new IsolatorProcess<ContainerAssigner>(container_assigner)) {
   process::spawn(*impl);
 }
 

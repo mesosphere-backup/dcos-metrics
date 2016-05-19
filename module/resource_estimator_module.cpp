@@ -5,6 +5,7 @@
 #include <process/process.hpp>
 
 #include "container_assigner.hpp"
+#include "io_runner.hpp"
 #include "module_access_factory.hpp"
 
 namespace metrics {
@@ -15,7 +16,7 @@ namespace metrics {
     virtual ~ResourceEstimatorProcess() { }
 
     void initialize(const lambda::function<process::Future<mesos::ResourceUsage>()>& usage) {
-      LOG(INFO) << "Initializing resource usage callback.";
+      DLOG(INFO) << "Initializing resource usage callback.";
       this->usage = usage;
     }
 
@@ -24,7 +25,7 @@ namespace metrics {
         LOG(ERROR) << "ResourceEstimator::oversubscribable() was called without initialize()!";
         return mesos::Resources(); // no-op
       }
-      LOG(INFO) << "ResourceEstimator::oversubscribable() was called. Fetching usage.";
+      DLOG(INFO) << "ResourceEstimator::oversubscribable() was called. Fetching usage.";
       io_runner->update_usage(usage());
       return mesos::Resources(); // no-op
     }
