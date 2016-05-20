@@ -14,7 +14,9 @@ func BoolEnvFlag(flagName string, defaultVal bool, usage string) *bool {
 	if err != nil {
 		defaultValToUse = defaultVal
 	}
-	return flag.Bool(flagName, defaultValToUse, formatUsage(envName, usage))
+	val := flag.Bool(flagName, defaultValToUse, formatUsage(envName, usage))
+	fmt.Fprintf(os.Stderr, "%s = %t\n", envName, *val)
+	return val
 }
 
 func IntEnvFlag(flagName string, defaultVal int64, usage string) *int64 {
@@ -23,7 +25,9 @@ func IntEnvFlag(flagName string, defaultVal int64, usage string) *int64 {
 	if err != nil {
 		defaultValToUse = defaultVal
 	}
-	return flag.Int64(flagName, defaultValToUse, formatUsage(envName, usage))
+	val := flag.Int64(flagName, defaultValToUse, formatUsage(envName, usage))
+	fmt.Fprintf(os.Stderr, "%s = %d\n", envName, *val)
+	return val
 }
 
 func StringEnvFlag(flagName string, defaultVal string, usage string) *string {
@@ -32,7 +36,9 @@ func StringEnvFlag(flagName string, defaultVal string, usage string) *string {
 	if len(defaultValToUse) == 0 {
 		defaultValToUse = defaultVal
 	}
-	return flag.String(flagName, defaultValToUse, formatUsage(envName, usage))
+	val := flag.String(flagName, defaultValToUse, formatUsage(envName, usage))
+	fmt.Fprintf(os.Stderr, "%s = %s\n", envName, *val)
+	return val
 }
 
 // ---

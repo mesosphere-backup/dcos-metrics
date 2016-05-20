@@ -60,19 +60,19 @@ public class ConfigParser {
   public static Config getConfig() {
     Map<String, Object> kafkaConfig = new TreeMap<>();
 
-    Map<String, String> testClientConfig = new TreeMap<>();
+    Map<String, String> envConfig = new TreeMap<>();
     for (Entry<String, String> entry : System.getenv().entrySet()) {
       if (entry.getKey().startsWith(KAFKA_OVERRIDE_STARTS_WITH)) {
         String kafkaKey = entry.getKey().substring(KAFKA_OVERRIDE_STARTS_WITH.length(), entry.getKey().length());
         kafkaConfig.put(kafkaKey.replace('_', '.').toLowerCase(), entry.getValue());
       } else {
-        testClientConfig.put(entry.getKey(), entry.getValue());
+        envConfig.put(entry.getKey(), entry.getValue());
       }
     }
 
     // special case: get the bootstrap endpoints from the Kafka framework.
     // this can be overridden by providing "KAFKA_OVERRIDE_BOOTSTRAP_SERVERS=..." in env.
-    ClientConfigs.StartupConfig startupConfig = ClientConfigs.StartupConfig.parseFrom(testClientConfig);
+    ClientConfigs.StartupConfig startupConfig = ClientConfigs.StartupConfig.parseFrom(envConfig);
     if (startupConfig == null) {
       LOGGER.error("Failed to parse startup config, exiting");
       return null;
@@ -104,6 +104,6 @@ public class ConfigParser {
       }
     }
 
-    return new Config(kafkaConfig, testClientConfig);
+    return new Config(kafkaConfig, envConfig);
   }
 }

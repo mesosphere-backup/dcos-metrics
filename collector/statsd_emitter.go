@@ -86,7 +86,6 @@ func RunStatsEmitter(events <-chan StatsEvent) {
 			}
 		case _ = <-ticker.C:
 			flushGauges(statsdConn, &gauges)
-			gauges = make(map[string]int64)
 		}
 	}
 }
@@ -173,49 +172,54 @@ func getStatsdConn() *net.UDPConn {
 }
 
 func flushGauges(conn *net.UDPConn, gauges *map[string]int64) {
-	// insert a meta-value into the stats before sending them
-	(*gauges)["collector.metrics_entries"] = int64(len(*gauges)) + 1 // don't forget self!
+	var keysToClear []string
 
 	if conn == nil {
 		// Statsd export isn't available. Just print stats to stdout.
-		log.Printf("Flushing %d internal gauges (StatsD export disabled):\n", len(*gauges))
+		log.Printf("Printing %d internal gauges (StatsD export disabled):\n", len(*gauges))
 		for k, v := range *gauges {
 			log.Printf("- %s = %s\n", k, strconv.FormatInt(v, 10))
+			keysToClear = append(keysToClear, k)
 		}
-		return
-	}
-
-	// accumulate statsd data into a newline-separated block, staying within UDP packet limits
-	msgBlock := ""
-	log.Printf("Sending %d internal gauges to StatsD endpoint %s:\n", len(*gauges), conn.RemoteAddr())
-	for k, v := range *gauges {
-		log.Printf("- %s = %s\n", k, strconv.FormatInt(v, 10))
-		nextMsg := fmt.Sprintf("%s:%s|g", k, strconv.FormatInt(v, 10))
-		if len(msgBlock)+len(nextMsg)+1 > udpFrameSize {
-			// would exceed udp max. flush msgBlock and populate with nextMsg
-			if len(msgBlock) != 0 {
-				_, err := conn.Write([]byte(msgBlock))
-				if err != nil {
-					log.Printf("Failed to send %d bytes to StatsD endpoint %s: %s\n",
-						len(msgBlock), conn.RemoteAddr(), err)
+	} else {
+		// accumulate statsd data into a newline-separated block, staying within UDP packet limits
+		msgBlock := ""
+		log.Printf("Sending %d internal gauges to StatsD endpoint %s:\n", len(*gauges), conn.RemoteAddr())
+		for k, v := range *gauges {
+			log.Printf("- %s = %s\n", k, strconv.FormatInt(v, 10))
+			nextMsg := fmt.Sprintf("%s:%s|g", k, strconv.FormatInt(v, 10))
+			if len(msgBlock)+len(nextMsg)+1 > udpFrameSize {
+				// would exceed udp max. flush msgBlock and populate with nextMsg
+				if len(msgBlock) != 0 {
+					_, err := conn.Write([]byte(msgBlock))
+					if err != nil {
+						log.Printf("Failed to send %d bytes to StatsD endpoint %s: %s\n",
+							len(msgBlock), conn.RemoteAddr(), err)
+					}
 				}
-			}
-			msgBlock = nextMsg
-		} else {
-			// append nextMsg to msg
-			if len(msgBlock) == 0 {
 				msgBlock = nextMsg
 			} else {
-				msgBlock += "\n" + nextMsg
+				// append nextMsg to msg
+				if len(msgBlock) == 0 {
+					msgBlock = nextMsg
+				} else {
+					msgBlock += "\n" + nextMsg
+				}
+			}
+			keysToClear = append(keysToClear, k)
+		}
+		if len(msgBlock) != 0 {
+			// flush any remainder
+			_, err := conn.Write([]byte(msgBlock))
+			if err != nil {
+				log.Printf("Failed to send %d bytes to StatsD endpoint %s: %s\n",
+					len(msgBlock), conn.RemoteAddr(), err)
 			}
 		}
 	}
-	if len(msgBlock) != 0 {
-		// flush any remainder
-		_, err := conn.Write([]byte(msgBlock))
-		if err != nil {
-			log.Printf("Failed to send %d bytes to StatsD endpoint %s: %s\n",
-				len(msgBlock), conn.RemoteAddr(), err)
-		}
+
+	// set all defined gauge values to zero
+	for _, k := range keysToClear {
+		(*gauges)[k] = 0
 	}
 }

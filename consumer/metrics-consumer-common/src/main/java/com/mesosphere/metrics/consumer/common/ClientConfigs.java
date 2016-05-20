@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
+import java.util.regex.Pattern;
 
 
 /**
@@ -50,7 +51,7 @@ public class ClientConfigs {
      */
     public static StatsConfig parseFrom(Map<String, String> config) {
       try {
-        long printPeriodMs = Long.parseLong(get(config, "STATS_PRINT_PERIOD_MS", "500"));
+        long printPeriodMs = Long.parseLong(get(config, "STATS_PRINT_PERIOD_MS", "5000"));
         return new StatsConfig(printPeriodMs);
       } catch (Throwable e) {
         printFlagParseFailure(e);
@@ -69,7 +70,11 @@ public class ClientConfigs {
   public static class ConsumerConfig {
     public final long pollTimeoutMs;
     public final int threads;
-    public final String topic;
+    /** Nullable */
+    public final String topicExact;
+    /** Nullable */
+    public final Pattern topicPattern;
+    public final long topicPollPeriodMs;
 
     /**
      * Returns {@code null} if parsing fails.
@@ -78,18 +83,35 @@ public class ClientConfigs {
       try {
         long pollTimeoutMs = Long.parseLong(get(config, "POLL_TIMEOUT_MS", "1000"));
         int threads = Integer.parseInt(get(config, "CONSUMER_THREADS", "1"));
-        String topic = get(config, "TOPIC", "sample_metrics");//TODO support a regex for auto-subscribe
-        return new ConsumerConfig(pollTimeoutMs, threads, topic);
+        String topicExact = get(config, "TOPIC_EXACT", "");
+        if (!topicExact.isEmpty()) {
+          // exact mode
+          return new ConsumerConfig(pollTimeoutMs, threads, topicExact);
+        }
+        // regex mode
+        Pattern topicPattern = Pattern.compile(get(config, "TOPIC_PATTERN", "metrics-.*"));
+        long topicPollPeriodMs = Long.parseLong(get(config, "TOPIC_POLL_PERIOD_MS", "60000"));
+        return new ConsumerConfig(pollTimeoutMs, threads, topicPattern, topicPollPeriodMs);
       } catch (Throwable e) {
         printFlagParseFailure(e);
         return null;
       }
     }
 
-    private ConsumerConfig(long pollTimeoutMs, int threads, String topic) {
+    private ConsumerConfig(long pollTimeoutMs, int threads, String topicExact) {
       this.pollTimeoutMs = pollTimeoutMs;
       this.threads = threads;
-      this.topic = topic;
+      this.topicExact = topicExact;
+      this.topicPattern = null;
+      this.topicPollPeriodMs = 0;
+    }
+
+    private ConsumerConfig(long pollTimeoutMs, int threads, Pattern topicPattern, long topicPollPeriodMs) {
+      this.pollTimeoutMs = pollTimeoutMs;
+      this.threads = threads;
+      this.topicExact = null;
+      this.topicPattern = topicPattern;
+      this.topicPollPeriodMs = topicPollPeriodMs;
     }
   }
 
@@ -104,11 +126,12 @@ public class ClientConfigs {
     LOGGER.error(String.format("Failed to parse value for arg %s=%s", lastGetKey, lastGetValue), e);
   }
 
-  private static String get(Map<String, String> testClientConfig, String key, String defaultVal) {
+  private static String get(Map<String, String> config, String key, String defaultVal) {
     lastGetKey = key;
-    String setVal = testClientConfig.get(key);
-    String val = (setVal != null) ? setVal : defaultVal;
+    String configVal = config.get(key);
+    String val = (configVal != null) ? configVal : defaultVal;
     lastGetValue = val;
+    LOGGER.info(String.format("%s = %s", key, val));
     return val;
   }
 }

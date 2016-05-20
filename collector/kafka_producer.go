@@ -15,9 +15,9 @@ import (
 
 var (
 	brokersFlag = StringEnvFlag("kafka-brokers", "",
-		"The Kafka brokers to connect to, as a comma separated list.")
+		"The Kafka brokers to connect to, as a comma separated list. (overrides -kafka-framework)")
 	frameworkFlag = StringEnvFlag("kafka-framework", "kafka",
-		"The Kafka framework to query for brokers. (overrides '-kafka-brokers')")
+		"The Kafka framework to query for brokers.")
 	flushPeriodFlag = IntEnvFlag("kafka-flush-ms", 5000,
 		"Number of milliseconds to wait between output flushes")
 	snappyCompressionFlag = BoolEnvFlag("kafka-compress-snappy", true,
@@ -46,6 +46,9 @@ func RunKafkaProducer(messages <-chan KafkaMessage, stats chan<- StatsEvent) {
 		if err != nil {
 			stats <- MakeEvent(KafkaConnectionFailed)
 			log.Println("Failed to open Kafka producer:", err)
+			// reuse flush period as the retry delay:
+			log.Printf("Waiting for %dms\n", *flushPeriodFlag)
+			time.Sleep(time.Duration(*flushPeriodFlag) * time.Millisecond)
 			continue
 		}
 		stats <- MakeEvent(KafkaSessionOpened)
@@ -70,7 +73,12 @@ func RunKafkaProducer(messages <-chan KafkaMessage, stats chan<- StatsEvent) {
 
 func kafkaProducer(stats chan<- StatsEvent) (kafkaProducer sarama.AsyncProducer, err error) {
 	brokers := make([]string, 0)
-	if *frameworkFlag != "" {
+	if len(*brokersFlag) != 0 {
+		brokers = strings.Split(*brokersFlag, ",")
+		if len(brokers) == 0 {
+			log.Fatal("-kafka-brokers must be non-empty.")
+		}
+	} else if len(*frameworkFlag) != 0 {
 		foundBrokers, err := lookupBrokers(*frameworkFlag)
 		if err != nil {
 			stats <- MakeEventSuff(KafkaLookupFailed, *frameworkFlag)
@@ -78,14 +86,9 @@ func kafkaProducer(stats chan<- StatsEvent) (kafkaProducer sarama.AsyncProducer,
 				"Broker lookup against framework %s failed: %s", *frameworkFlag, err))
 		}
 		brokers = append(brokers, foundBrokers...)
-	} else if *brokersFlag != "" {
-		brokers = strings.Split(*brokersFlag, ",")
-		if len(brokers) == 0 {
-			log.Fatal("-brokers must be non-empty.")
-		}
 	} else {
 		flag.Usage()
-		log.Fatal("Either -framework or -brokers must be specified, or -kafka must be false.")
+		log.Fatal("Either -kafka-framework or -kafka-brokers must be specified, or -kafka-enabled must be false.")
 	}
 	log.Println("Kafka brokers:", strings.Join(brokers, ", "))
 

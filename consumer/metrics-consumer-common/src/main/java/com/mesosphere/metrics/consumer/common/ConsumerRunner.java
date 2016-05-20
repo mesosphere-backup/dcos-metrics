@@ -1,10 +1,12 @@
 package com.mesosphere.metrics.consumer.common;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.io.DatumReader;
@@ -12,6 +14,7 @@ import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,37 +49,61 @@ public class ConsumerRunner {
 
     @Override
     public void run() {
-      List<String> topics = new ArrayList<>();
-      topics.add(consumerConfig.topic);
-      kafkaConsumer.subscribe(topics);//TODO automatically subscribe to topics that start with 'metrics-' (see collector's -kafka-topic-prefix)
+      if (consumerConfig.topicExact != null) {
+        // subscribe to specific topic up-front
+        List<String> topics = new ArrayList<>();
+        topics.add(consumerConfig.topicExact);
+        kafkaConsumer.subscribe(topics);
+      }
       DatumReader<MetricList> datumReader = new SpecificDatumReader<MetricList>(MetricList.class);
+      MetricList metricList = null;
+      long lastTopicPollMs = 0;
       while (!values.isShutdown()) {
         long messages = 0;
         long bytes = 0;
-        MetricList metricList = null;
+
+        if (consumerConfig.topicPattern != null) {
+          // Every so often, update the list of topics and re-subscribe if needed
+          long currentTimeMs = System.currentTimeMillis();
+          if (currentTimeMs - lastTopicPollMs > consumerConfig.topicPollPeriodMs) {
+            lastTopicPollMs = currentTimeMs;
+            try {
+              updateSubscriptions();
+            } catch (Throwable e) {
+              values.setFatalError(e);
+              break;
+            }
+          }
+        }
+
         try {
           LOGGER.info("Waiting {}ms for messages", consumerConfig.pollTimeoutMs);
           ConsumerRecords<byte[], byte[]> kafkaRecords = kafkaConsumer.poll(consumerConfig.pollTimeoutMs);
           messages = kafkaRecords.count();
           for (ConsumerRecord<byte[], byte[]> kafkaRecord : kafkaRecords) {
             if (kafkaRecord.key() != null) {
-              bytes += kafkaRecord.key().length;
-              LOGGER.warn("Kafka message had non-null key ({} bytes), expected key to be missing.",
-                  kafkaRecord.key().length);
+              bytes += kafkaRecord.key().length; // not used, but count as received
             }
             bytes += kafkaRecord.value().length;
 
             LOGGER.info("Processing {} byte Kafka message", kafkaRecord.value().length);
 
             // Recreate the DataFileStream every time: Each Kafka record has a datafile header.
-            InputStream inputStream = new ByteArrayInputStream(kafkaRecord.value());
+            DebuggingByteArrayInputStream inputStream = new DebuggingByteArrayInputStream(kafkaRecord.value());
             DataFileStream<MetricList> dataFileStream =
                 new DataFileStream<MetricList>(inputStream, datumReader);
             long metricLists = 0;
             long tags = 0;
             long datapoints = 0;
             while (dataFileStream.hasNext()) {
-              metricList = dataFileStream.next(metricList);// reuse same object. docs imply this is more efficient.
+              // reuse the same MetricList object. docs imply this is more efficient
+              try {
+                metricList = dataFileStream.next(metricList);
+              } catch (IOException e) {
+                inputStream.dumpState();
+                dataFileStream.close();
+                throw e;
+              }
 
               output.append(metricList);
 
@@ -90,6 +117,9 @@ public class ConsumerRunner {
                 kafkaRecord.value().length, datapoints, tags, metricLists, kafkaRecord.value().length);
           }
           LOGGER.info("Got {} messages ({} bytes)", messages, bytes);
+        } catch (KafkaException e) {
+          values.setFatalError(e);
+          break;
         } catch (Throwable e) {
           values.registerError(e);
         }
@@ -98,6 +128,45 @@ public class ConsumerRunner {
         values.incBytes(bytes);
       }
       kafkaConsumer.close();
+    }
+
+    void updateSubscriptions() {
+      // note: timeout is configured by kafka's 'request.timeout.ms'
+      // try to get list. exit if fails AND no preceding list
+      // if matching list is empty (after successful fetch), fail in all cases
+      // update subscription if needed. exit if
+      Set<String> allTopics;
+      try {
+        LOGGER.info(String.format("Fetching topics and searching for matches of pattern '%s'", consumerConfig.topicPattern));
+        allTopics = kafkaConsumer.listTopics().keySet();
+      } catch (Throwable e) {
+        values.registerError(e);
+        if (!kafkaConsumer.subscription().isEmpty()) {
+          // consumer is currently subscribed to something. don't let this failed lookup kill the consumer
+          return;
+        }
+        // consumer has nothing subscribed. exit.
+        throw new IllegalStateException(
+            "Unable to proceed: failed to get initial list of topics, and consumer isn't subscribed to any", e);
+      }
+
+      List<String> matchingTopics = new ArrayList<>();
+      for (String topic : allTopics) {
+        if (consumerConfig.topicPattern.matcher(topic).matches()) {
+          matchingTopics.add(topic);
+        }
+      }
+      if (matchingTopics.isEmpty()) {
+        throw new IllegalStateException(
+            String.format("Unable to proceed: no matching topics exist (pattern: '%s', all topics: %s)",
+                consumerConfig.topicPattern.toString(), Arrays.toString(allTopics.toArray())));
+      }
+      if (kafkaConsumer.subscription().equals(new HashSet<>(matchingTopics))) {
+        LOGGER.info(String.format("Current topic subscription is up to date: %s", Arrays.toString(matchingTopics.toArray())));
+      } else {
+        LOGGER.info(String.format("Updating topic subscription to: %s", Arrays.toString(matchingTopics.toArray())));
+        kafkaConsumer.subscribe(matchingTopics);
+      }
     }
   }
 
