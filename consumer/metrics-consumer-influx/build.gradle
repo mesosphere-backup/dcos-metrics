@@ -1,0 +1,30 @@
+plugins {
+  id 'com.github.johnrengelman.shadow' version '1.2.3'
+}
+
+ext {
+  influxDbClientVer = "2.2"
+}
+
+dependencies {
+  compile project(':metrics-consumer-common')
+  compile "org.influxdb:influxdb-java:${influxDbClientVer}"
+}
+
+shadowJar {
+  classifier = 'uber'
+
+  mergeServiceFiles()
+
+  exclude 'META-INF/*.SF'
+  exclude 'META-INF/*.DSA'
+  exclude 'META-INF/*.RSA'
+}
+
+distributions {
+  main {
+    mainClassName = 'com.mesosphere.metrics.consumer.InfluxMain'
+    baseName = 'metrics-consumer-influx'
+    version = ''
+  }
+}

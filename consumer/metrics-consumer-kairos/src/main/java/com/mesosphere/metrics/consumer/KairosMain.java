@@ -1,7 +1,6 @@
 package com.mesosphere.metrics.consumer;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
 import org.kairosdb.client.HttpClient;
 import org.kairosdb.client.builder.Metric;
 import org.kairosdb.client.builder.MetricBuilder;
@@ -36,8 +35,7 @@ public class KairosMain {
       // however, we would also need to ensure that we don't have mismatched tags within these groupings.
       // and in practice I suspect we won't see a ton of duplicate metric names between flush()es anyway
       for (Datapoint d : list.getDatapoints()) {
-        Double val = d.getValue();
-        if (Double.isNaN(val)) {
+        if (Double.isNaN(d.getValue())) {
           LOGGER.warn("Skipping value {} = NaN, it won't encode for Kairos anyway.", d.getName());
           continue;
         }
@@ -66,7 +64,16 @@ public class KairosMain {
     }
   }
 
-  private static boolean parseBool(String str, boolean defaultVal) {
+  private static String parseRequiredStr(String envName) {
+    String str = System.getenv(envName);
+    if (str == null || str.isEmpty()) {
+      throw new IllegalArgumentException(envName + " is required");
+    }
+    return str;
+  }
+
+  private static boolean parseBool(String envName, boolean defaultVal) {
+    String str = System.getenv(envName);
     if (str == null || str.isEmpty()) {
       return defaultVal;
     }
@@ -80,14 +87,15 @@ public class KairosMain {
     }
   }
 
-  public static void main(String[] args) throws IOException {
-    String hostFlag = System.getenv("OUTPUT_HOST");
-    String portFlag = System.getenv("OUTPUT_PORT");
-    if (hostFlag == null || portFlag == null) {
-      throw new IllegalArgumentException("OUTPUT_HOST and OUTPUT_PORT are required");
-    }
-    boolean exitOnConnectFailure = parseBool(System.getenv("EXIT_ON_CONNECT_FAILURE"), true);
-    ConsumerRunner.run(new KairosOutput(
-        hostFlag, Integer.parseInt(portFlag), exitOnConnectFailure));
+  public static void main(String[] args) {
+    ConsumerRunner.run(new ConsumerRunner.MetricOutputFactory() {
+      @Override
+      public MetricOutput getOutput() throws Exception {
+        return new KairosOutput(
+            parseRequiredStr("OUTPUT_HOST"),
+            Integer.parseInt(parseRequiredStr("OUTPUT_PORT")),
+            parseBool("EXIT_ON_CONNECT_FAILURE", true));
+      }
+    });
   }
 }

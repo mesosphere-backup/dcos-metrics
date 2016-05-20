@@ -24,6 +24,11 @@ public class PrintMain {
   }
 
   public static void main(String[] args) {
-    ConsumerRunner.run(new PrintOutput());
+    ConsumerRunner.run(new ConsumerRunner.MetricOutputFactory() {
+      @Override
+      public MetricOutput getOutput() throws Exception {
+        return new PrintOutput();
+      }
+    });
   }
 }

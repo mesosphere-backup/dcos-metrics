@@ -20,6 +20,10 @@ import dcos.metrics.MetricList;
 
 public class ConsumerRunner {
 
+  public interface MetricOutputFactory {
+    public MetricOutput getOutput() throws Exception;
+  }
+
   private static final Logger LOGGER = LoggerFactory.getLogger(ConsumerRunner.class);
 
   private static class ConsumerRunnable implements Runnable {
@@ -29,12 +33,12 @@ public class ConsumerRunner {
     private final Stats.Values values;
 
     private ConsumerRunnable(
-        MetricOutput output,
+        MetricOutputFactory outputFactory,
         Map<String, Object> kafkaConfig,
         ClientConfigs.ConsumerConfig consumerConfig,
-        Stats.Values values) {
+        Stats.Values values) throws Exception {
       ByteArrayDeserializer deserializer = new ByteArrayDeserializer();
-      this.output = output;
+      this.output = outputFactory.getOutput();
       this.kafkaConsumer = new KafkaConsumer<>(kafkaConfig, deserializer, deserializer);
       this.consumerConfig = consumerConfig;
       this.values = values;
@@ -97,7 +101,7 @@ public class ConsumerRunner {
     }
   }
 
-  private static boolean runConsumers(MetricOutput output, ConfigParser.Config config, Stats.PrintRunner printer) {
+  private static boolean runConsumers(MetricOutputFactory outputFactory, ConfigParser.Config config, Stats.PrintRunner printer) {
     ClientConfigs.ConsumerConfig consumerConfig = config.getConsumerConfig();
     if (consumerConfig == null) {
       LOGGER.error("Unable to load consumer config, exiting");
@@ -109,7 +113,7 @@ public class ConsumerRunner {
     for (int i = 0; i < consumerConfig.threads; ++i) {
       ConsumerRunnable consumer;
       try {
-        consumer = new ConsumerRunnable(output, config.getKafkaConfig(), consumerConfig, printer.getValues());
+        consumer = new ConsumerRunnable(outputFactory, config.getKafkaConfig(), consumerConfig, printer.getValues());
       } catch (Throwable e) {
         printer.getValues().registerError(e);
         return false;
@@ -121,7 +125,7 @@ public class ConsumerRunner {
     return !runner.isFatalError();
   }
 
-  public static void run(MetricOutput output) {
+  public static void run(MetricOutputFactory outputFactory) {
     ConfigParser.Config config = ConfigParser.getConfig();
     if (config == null) {
       LOGGER.error("Unable to load base config, exiting");
@@ -134,6 +138,6 @@ public class ConsumerRunner {
       System.exit(1);
     }
     Stats.PrintRunner printer = new Stats.PrintRunner(statsConfig);
-    runConsumers(output, config, printer);
+    System.exit(runConsumers(outputFactory, config, printer) ? 0 : -1);
   }
 }

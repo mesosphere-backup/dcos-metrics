@@ -136,13 +136,18 @@ public class GraphiteMain {
     return sender;
   }
 
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) {
     String hostFlag = parseString("OUTPUT_HOST", null);
     String portFlag = parseString("OUTPUT_PORT", "2003");
     String prefixFlag = parseString("GRAPHITE_PREFIX", "");
     boolean prefixContainerIds = parseBool("GRAPHITE_PREFIX_IDS", true);
     boolean exitOnConnectFailure = parseBool("EXIT_ON_CONNECT_FAILURE", true);
-    ConsumerRunner.run(new GraphiteOutput(
-        getSender(hostFlag, Integer.valueOf(portFlag)), prefixFlag, prefixContainerIds, exitOnConnectFailure));
+    ConsumerRunner.run(new ConsumerRunner.MetricOutputFactory() {
+      @Override
+      public MetricOutput getOutput() throws Exception {
+        return new GraphiteOutput(
+            getSender(hostFlag, Integer.valueOf(portFlag)), prefixFlag, prefixContainerIds, exitOnConnectFailure);
+      }
+    });
   }
 }

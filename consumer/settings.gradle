@@ -2,5 +2,6 @@ rootProject.name = 'metrics-consumer-root'
 
 include 'metrics-consumer-common'
 include 'metrics-consumer-graphite'
+include 'metrics-consumer-influx'
 include 'metrics-consumer-kairos'
 include 'metrics-consumer-print'
