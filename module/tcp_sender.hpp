@@ -48,7 +48,7 @@ namespace metrics {
     void send(buf_ptr_t buf);
 
    private:
-    void schedule_connect();
+    void set_state_schedule_connect();
     void start_connect();
     void connect_deadline_cb();
     void connect_outcome_cb(boost::system::error_code ec);
@@ -67,11 +67,33 @@ namespace metrics {
     boost::asio::deadline_timer connect_retry_timer;
     boost::asio::deadline_timer report_bytes_timer;
     boost::asio::ip::tcp::socket socket;
-    bool is_reconnect_scheduled;
+
+    enum SocketState {
+      UNKNOWN = 0,
+      NOT_STARTED = 1,
+      DISCONNECTED = 2,
+      CONNECT_PENDING = 3,
+      CONNECT_IN_PROGRESS = 4,
+      CONNECTED_DATA_NOT_READY = 5,
+      CONNECTED_DATA_READY = 6,
+      SHUTDOWN = 7
+    };
+    static const char* to_string(SocketState state) {
+      switch (state) {
+        case UNKNOWN: return "UNKNOWN";
+        case NOT_STARTED: return "NOT_STARTED";
+        case DISCONNECTED: return "DISCONNECTED";
+        case CONNECT_PENDING: return "CONNECT_PENDING";
+        case CONNECT_IN_PROGRESS: return "CONNECT_IN_PROGRESS";
+        case CONNECTED_DATA_NOT_READY: return "CONNECTED_DATA_NOT_READY";
+        case CONNECTED_DATA_READY: return "CONNECTED_DATA_READY";
+        case SHUTDOWN: return "SHUTDOWN";
+      }
+      return "???";
+    }
+    SocketState socket_state;
+
     size_t reconnect_delay;
-    bool sent_session_header;
-    size_t pending_bytes;
-    size_t sent_bytes, dropped_bytes, failed_bytes;
-    bool shutdown;
+    size_t pending_bytes, sent_bytes, dropped_bytes, failed_bytes;
   };
 }

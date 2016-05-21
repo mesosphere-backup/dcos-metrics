@@ -163,10 +163,10 @@ void metrics::ContainerReaderImpl::recv_cb(
       size_t newline_offset = (next_newline != NULL)
         ? next_newline - socket_buffer.data()
         : bytes_transferred; // no more newlines, use end of buffer
-      DLOG(INFO) << "newline_offset=" << newline_offset << ", start_index=" << start_index;
+      //DLOG(INFO) << "newline_offset=" << newline_offset << ", start_index=" << start_index;
       size_t entry_size = newline_offset - start_index;
-      DLOG(INFO) << "entry_size " << entry_size << " => copy "
-                 << "[" << start_index << "," << start_index+entry_size << ") to front of scratch";
+      //DLOG(INFO) << "entry_size " << entry_size << " => copy "
+      //           << "[" << start_index << "," << start_index+entry_size << ") to front of scratch";
       if (entry_size > 0) { // check/skip empty rows ("\n\n", or "\n" at start/end of pkt)
         write_message(socket_buffer.data() + start_index, entry_size);
       }
@@ -185,7 +185,7 @@ void metrics::ContainerReaderImpl::recv_cb(
 }
 
 void metrics::ContainerReaderImpl::write_message(const char* data, size_t size) {
-  DLOG(INFO) << "Received/forwarded " << size << " byte entry from "
+  DLOG(INFO) << "Received " << size << " byte entry from "
              << "endpoint[" << sender_endpoint << "] => "
              << registered_containers.size() << " containers";
   switch (registered_containers.size()) {

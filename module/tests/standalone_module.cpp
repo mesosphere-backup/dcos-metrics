@@ -1,4 +1,3 @@
-
 #include <stout/os.hpp>
 #include <stout/path.hpp>
 
@@ -19,7 +18,8 @@
 int main(int argc, char* argv[]) {
   if (argc != 4) {
     fprintf(stderr,
-        "Usage: %s <input_statsd_port> <output_collector_port> <output_statsd_port>\n", argv[0]);
+        "Usage: %s <input_statsd_port> <output_collector_port> <output_statsd_port>\n"
+        "Use \"\" for either of the outputs to disable them.\n", argv[0]);
     return -1;
   }
 
@@ -60,19 +60,37 @@ int main(int argc, char* argv[]) {
     param->set_value(argv[1]);
     LOG(INFO) << "STATSD IN:  " << param->value();
 
-    param = params.add_parameter();
-    param->set_key(metrics::params::OUTPUT_COLLECTOR_PORT);
-    param->set_value(argv[2]);
-    LOG(INFO) << "AVRO OUT:   " << param->value();
+    if (strnlen(argv[2], 100) == 0) {
+      param = params.add_parameter();
+      param->set_key(metrics::params::OUTPUT_COLLECTOR_ENABLED);
+      param->set_value("false");
+      LOG(INFO) << "AVRO OUT:   disabled";
+    } else {
+      param = params.add_parameter();
+      param->set_key(metrics::params::OUTPUT_COLLECTOR_IP);
+      param->set_value("127.0.0.1");// use 10.255.255.1 to test timeouts
 
-    param = params.add_parameter();
-    param->set_key(metrics::params::OUTPUT_STATSD_HOST);
-    param->set_value("127.0.0.1");
+      param = params.add_parameter();
+      param->set_key(metrics::params::OUTPUT_COLLECTOR_PORT);
+      param->set_value(argv[2]);
+      LOG(INFO) << "AVRO OUT:   " << param->value();
+    }
 
-    param = params.add_parameter();
-    param->set_key(metrics::params::OUTPUT_STATSD_PORT);
-    param->set_value(argv[3]);
-    LOG(INFO) << "STATSD OUT: " << param->value();
+    if (strnlen(argv[3], 100) == 0) {
+      param = params.add_parameter();
+      param->set_key(metrics::params::OUTPUT_STATSD_ENABLED);
+      param->set_value("false");
+      LOG(INFO) << "STATSD OUT: disabled";
+    } else {
+      param = params.add_parameter();
+      param->set_key(metrics::params::OUTPUT_STATSD_HOST);
+      param->set_value("127.0.0.1");
+
+      param = params.add_parameter();
+      param->set_key(metrics::params::OUTPUT_STATSD_PORT);
+      param->set_value(argv[3]);
+      LOG(INFO) << "STATSD OUT: " << param->value();
+    }
 
     param = params.add_parameter();
     param->set_key(metrics::params::STATE_PATH_DIR);

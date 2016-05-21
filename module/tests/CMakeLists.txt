@@ -53,8 +53,8 @@ add_executable(range_pool_tests range_pool_tests.cpp)
 target_link_libraries(range_pool_tests gtest metrics-module)
 add_test(range_pool_tests range_pool_tests)
 
-add_executable(sample_translator sample_translator.cpp)
-target_link_libraries(sample_translator metrics-module)
+add_executable(standalone_module standalone_module.cpp)
+target_link_libraries(standalone_module metrics-module)
 # not a unit test
 
 add_executable(statsd_tagger_tests statsd_tagger_tests.cpp)

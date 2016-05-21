@@ -6,6 +6,9 @@
 
 namespace sp = std::placeholders;
 
+#define MAX_RECONNECT_DELAY 60
+#define CONNECT_TIMEOUT_SECS 60
+
 metrics::TCPSender::TCPSender(
     std::shared_ptr<boost::asio::io_service> io_service,
     const std::string& session_header,
@@ -21,21 +24,19 @@ metrics::TCPSender::TCPSender(
     connect_retry_timer(*io_service),
     report_bytes_timer(*io_service),
     socket(*io_service),
-    is_reconnect_scheduled(false),
+    socket_state(NOT_STARTED),
     reconnect_delay(1),
-    sent_session_header(false),
     pending_bytes(0),
     sent_bytes(0),
     dropped_bytes(0),
-    failed_bytes(0),
-    shutdown(false) {
+    failed_bytes(0) {
   LOG(INFO) << "TCPSender constructed for " << send_ip << ":" << send_port;
 }
 
 metrics::TCPSender::~TCPSender() {
   LOG(INFO) << "Asynchronously triggering TCPSender shutdown for "
             << send_ip << ":" << send_port;
-  shutdown = true;
+  socket_state = SHUTDOWN;
   // Run the shutdown work itself from within the scheduler:
   if (sync_util::dispatch_run(
           "~TCPSender", *io_service, std::bind(&TCPSender::shutdown_cb, this))) {
@@ -48,38 +49,31 @@ metrics::TCPSender::~TCPSender() {
 void metrics::TCPSender::start() {
   // Only run the timer callbacks within the io_service thread:
   LOG(INFO) << "TCPSender starting work";
+  if (socket_state != NOT_STARTED) {
+    LOG(FATAL) << "start() called when already started! current state is: "
+               << to_string(socket_state);
+  }
+  socket_state = DISCONNECTED;
   io_service->dispatch(std::bind(&TCPSender::start_report_bytes_timer, this));
   io_service->dispatch(std::bind(&TCPSender::start_connect, this));
 }
 
 void metrics::TCPSender::send(buf_ptr_t buf) {
-  if (shutdown || !buf || buf->size() == 0) {
+  if (socket_state == SHUTDOWN || !buf || buf->size() == 0) {
     //DLOG(INFO) << "Skipping scheduled send of zero bytes";
     return;
   }
 
-  if (!socket.is_open() || pending_bytes + buf->size() > pending_limit) {
-    // Log dropped data for periodic cumulative reporting
+  if (socket_state != CONNECTED_DATA_READY) {
     DLOG(INFO) << "Drop " << buf->size() << " bytes to " << send_ip << ":" << send_port
-               << " (pending " << pending_bytes << ")";
+               << " (pending " << pending_bytes << ") due to state " << to_string(socket_state);
     dropped_bytes += buf->size();
     return;
-  }
-
-  if (!sent_session_header) {
-    // Enforce header in the send() call itself. If we did this in connect_outcome_cb, there'd be a
-    // race window where data could be send()ed before connect_outcome_cb is called (with
-    // socket.is_open somehow?)
-    DLOG(INFO) << "Inserting header before first packet";
-    buf_ptr_t hdr_buf(new boost::asio::streambuf);
-    std::ostream ostream(hdr_buf.get());
-    ostream << session_header;
-    // Intentionally omit the header message from enforcement of pending_bytes
-    // (Just to keep things a bit simpler)
-    boost::asio::async_write(
-        socket, *hdr_buf,
-        std::bind(&TCPSender::send_cb, this, sp::_1, sp::_2, hdr_buf));
-    sent_session_header = true;
+  } else if (pending_bytes + buf->size() > pending_limit) {
+    DLOG(INFO) << "Drop " << buf->size() << " bytes to " << send_ip << ":" << send_port
+               << " (pending " << pending_bytes << ") due to buffer too large";
+    dropped_bytes += buf->size();
+    return;
   }
 
   pending_bytes += buf->size();
@@ -91,58 +85,65 @@ void metrics::TCPSender::send(buf_ptr_t buf) {
       std::bind(&TCPSender::send_cb, this, sp::_1, sp::_2, buf));
 }
 
-void metrics::TCPSender::schedule_connect() {
-  if (is_reconnect_scheduled) {
+void metrics::TCPSender::set_state_schedule_connect() {
+  if (socket_state == CONNECT_PENDING || socket_state == CONNECT_IN_PROGRESS) {
     DLOG(INFO) << "Reconnect already scheduled.";
     return;
   }
   LOG(INFO) << "Scheduling reconnect to " << send_ip << ":" << send_port << " in "
             << reconnect_delay << "s...";
 
-  is_reconnect_scheduled = true;
+  socket_state = CONNECT_PENDING;
   connect_retry_timer.expires_from_now(boost::posix_time::seconds(reconnect_delay));
   connect_retry_timer.async_wait(std::bind(&TCPSender::start_connect, this));
   reconnect_delay *= 2; // exponential backoff ..
-  if (reconnect_delay > 60) {
-    reconnect_delay = 60; // .. max 60s
+  if (reconnect_delay > MAX_RECONNECT_DELAY) {
+    reconnect_delay = MAX_RECONNECT_DELAY;
   }
 }
 
 void metrics::TCPSender::start_connect() {
-  if (shutdown) {
+  if (socket_state == SHUTDOWN) {
     return;
   }
-  is_reconnect_scheduled = false;
+
+  socket_state = CONNECT_IN_PROGRESS;
   LOG(INFO) << "Attempting to open connection to " << send_ip << ":" << send_port;
-  connect_deadline_timer.expires_from_now(boost::posix_time::seconds(60));
+  connect_deadline_timer.expires_from_now(boost::posix_time::seconds(CONNECT_TIMEOUT_SECS));
   connect_deadline_timer.async_wait(std::bind(&TCPSender::connect_deadline_cb, this));
   socket.async_connect(boost::asio::ip::tcp::endpoint(send_ip, send_port),
       std::bind(&TCPSender::connect_outcome_cb, this, sp::_1));
 }
 
 void metrics::TCPSender::connect_deadline_cb() {
-  if (shutdown) {
+  if (socket_state == SHUTDOWN
+      || socket_state == CONNECTED_DATA_NOT_READY
+      || socket_state == CONNECTED_DATA_READY) {
+    DLOG(INFO) << "Connect timeout checked, looks fine! (state " << to_string(socket_state) << ")";
     return;
   }
   if (connect_deadline_timer.expires_at() <= boost::asio::deadline_timer::traits_type::now()) {
-    LOG(WARNING) << "Timed out when opening connection to " << send_ip << ":" << send_port;
-    socket.close();
-    schedule_connect();
+    LOG(WARNING) << "Timed out when opening connection to " << send_ip << ":" << send_port
+                 << ", giving socket a kick (state " << to_string(socket_state) << ")";
+    socket.close(); // this will fire connect_outcome
   }
 }
 
 void metrics::TCPSender::connect_outcome_cb(boost::system::error_code ec) {
-  if (shutdown) {
+  if (socket_state == SHUTDOWN) {
     return;
   }
   if (!socket.is_open() || ec) {
-    if (!socket.is_open()) {
-      LOG(WARNING) << "Socket not open after connecting to " << send_ip << ":" << send_port;
-    } else if (ec) {
+    if (ec) {
       LOG(WARNING) << "Got error '" << ec.message() << "'(" << ec << ")"
-                   << " when connecting to " << send_ip << ":" << send_port;
+                   << " when connecting to " << send_ip << ":" << send_port
+                   << " (state " << to_string(socket_state) << ")";
+    } else if (!socket.is_open()) {
+      LOG(WARNING) << "Socket not open after connecting to " << send_ip << ":" << send_port
+                   << " (state " << to_string(socket_state) << ")";
     }
-    schedule_connect();
+    socket_state = DISCONNECTED;
+    set_state_schedule_connect();
     return;
   }
 
@@ -150,37 +151,54 @@ void metrics::TCPSender::connect_outcome_cb(boost::system::error_code ec) {
 
   boost::asio::socket_base::keep_alive option(true);
   socket.set_option(option);
+
+  socket_state = CONNECTED_DATA_NOT_READY;
+  DLOG(INFO) << "Connected to " << send_ip << ":" << send_port << ". "
+             << "Inserting " << session_header.size() << " byte header data before first packet";
+  buf_ptr_t hdr_buf(new boost::asio::streambuf);
+  std::ostream ostream(hdr_buf.get());
+  ostream << session_header;
+  // Intentionally omit the header message from enforcement of pending_bytes
+  // (Just to keep things a bit simpler)
+  boost::asio::async_write(
+      socket, *hdr_buf,
+      std::bind(&TCPSender::send_cb, this, sp::_1, sp::_2, hdr_buf));
 }
 
 void metrics::TCPSender::send_cb(
     boost::system::error_code ec, size_t bytes_transferred, buf_ptr_t keepalive) {
-  if (shutdown) {
+  if (socket_state == SHUTDOWN) {
     return;
   }
 
   keepalive.reset();
-  if (!socket.is_open()) {
-    LOG(WARNING) << "Socket not open after sending data to " << send_ip << ":" << send_port;
-    sent_session_header = false;
-    pending_bytes = 0;
-    failed_bytes += bytes_transferred;
-    schedule_connect();
-  } else if (ec) {
+  if (ec) {
     LOG(WARNING) << "Got error '" << ec.message() << "'(" << ec << ")"
-                 << " when sending data to " << send_ip << ":" << send_port;
-    sent_session_header = false;
+                 << " when sending data to " << send_ip << ":" << send_port
+                 << " (state " << to_string(socket_state) << ")";
     pending_bytes = 0;
     failed_bytes += bytes_transferred;
     socket.close();
-    schedule_connect();
+    set_state_schedule_connect();
+  } else if (!socket.is_open()) {
+    LOG(WARNING) << "Socket not open after sending data to " << send_ip << ":" << send_port
+                 << " (state " << to_string(socket_state) << ")";
+    pending_bytes = 0;
+    failed_bytes += bytes_transferred;
+    set_state_schedule_connect();
   } else {
+    if (socket_state == CONNECTED_DATA_NOT_READY) {
+      socket_state = CONNECTED_DATA_READY; // we likely just successfully sent the header
+      DLOG(INFO) << "Header sent, socket is now " << to_string(socket_state);
+    }
     if (bytes_transferred > pending_bytes) {
       pending_bytes = 0; //just in case
     } else {
       pending_bytes -= bytes_transferred;
     }
     sent_bytes += bytes_transferred;
-    DLOG(INFO) << "Sent " << bytes_transferred << " bytes (now pending " << pending_bytes << ")";
+    DLOG(INFO) << "Sent " << bytes_transferred << " bytes "
+               << "(now pending " << pending_bytes << ", state " << to_string(socket_state) << ")";
   }
 }
 
@@ -215,7 +233,7 @@ void metrics::TCPSender::shutdown_cb() {
 }
 
 void metrics::TCPSender::start_report_bytes_timer() {
-  if (shutdown) {
+  if (socket_state == SHUTDOWN) {
     return;
   }
   report_bytes_timer.expires_from_now(boost::posix_time::seconds(60));
@@ -223,14 +241,15 @@ void metrics::TCPSender::start_report_bytes_timer() {
 }
 
 void metrics::TCPSender::report_bytes_cb() {
-  if (shutdown) {
+  if (socket_state == SHUTDOWN) {
     return;
   }
   LOG(INFO) << "TCP Throughput (bytes): "
             << "sent=" << sent_bytes << ", "
             << "dropped=" << dropped_bytes << ", "
             << "failed=" << failed_bytes << ", "
-            << "pending=" << pending_bytes;
+            << "pending=" << pending_bytes
+            << " (state " << to_string(socket_state) << ")";
   sent_bytes = 0;
   dropped_bytes = 0;
   failed_bytes = 0;

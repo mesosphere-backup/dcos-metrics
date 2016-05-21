@@ -113,8 +113,9 @@ TEST(TCPSenderTests, small_limit_data_dropped) {
     metrics::TCPSender sender(thread.svc(), SESSION_HEADER, DEST_LOCAL_IP, listen_port, 4);
     sender.start();
 
-    thread.flush();
-    EXPECT_FALSE(test_reader.wait_for_available(1));
+    thread.flush(); // wait for socket to connect (and automatically send header)
+    EXPECT_TRUE(test_reader.wait_for_available(1)); // header sent
+    EXPECT_EQ(SESSION_HEADER, *test_reader.read());
 
     sender.send(build_buf(HELLO));
     thread.flush();
@@ -123,14 +124,12 @@ TEST(TCPSenderTests, small_limit_data_dropped) {
     sender.send(build_buf(HEY));
     thread.flush();
     EXPECT_TRUE(test_reader.wait_for_available()); // "hey" passes
-    // "BIG_OL_HDR" sent before sending "hey" (and bypasses limit):
-    EXPECT_EQ(SESSION_HEADER, *test_reader.read());
     EXPECT_EQ(HEY, *test_reader.read());
 
     sender.send(build_buf(HI));
     thread.flush();
     EXPECT_TRUE(test_reader.wait_for_available());
-    EXPECT_EQ(HI, *test_reader.read()); // "hi" passes (after "hey" was flushed)
+    EXPECT_EQ(HI, *test_reader.read()); // "hi" passes
 
     size_t hey_max = 25;
     for (size_t i = 0; i < hey_max; ++i) {
@@ -168,12 +167,12 @@ TEST(TCPSenderTests, connect_succeeds_data_sent) {
     sender.start();
 
     thread.flush();
-    EXPECT_FALSE(test_reader.wait_for_available(1)); // no data yet
+    EXPECT_TRUE(test_reader.wait_for_available(1)); // header sent automatically
+    EXPECT_EQ(SESSION_HEADER, *test_reader.read());
 
     sender.send(build_buf(HELLO));
     thread.flush();
     EXPECT_TRUE(test_reader.wait_for_available());
-    EXPECT_EQ(SESSION_HEADER, *test_reader.read()); // header sent just preceding first data
     EXPECT_EQ(HELLO, *test_reader.read());
 
     sender.send(build_buf(HEY));
@@ -181,10 +180,17 @@ TEST(TCPSenderTests, connect_succeeds_data_sent) {
     EXPECT_TRUE(test_reader.wait_for_available());
     EXPECT_EQ(HEY, *test_reader.read());
 
+    sender.send(build_buf(HEY));
     sender.send(build_buf(HI));
+    sender.send(build_buf(HELLO));
     thread.flush();
     EXPECT_TRUE(test_reader.wait_for_available());
-    EXPECT_EQ(HI, *test_reader.read());
+    // data may get clumped together, so just test against pre-clumped form:
+    std::ostringstream oss;
+    oss << *test_reader.read();
+    oss << *test_reader.read();
+    oss << *test_reader.read();
+    EXPECT_EQ(HEY + HI + HELLO, oss.str());
   }
   thread.join();
 
@@ -211,7 +217,7 @@ TEST(TCPSenderTests, connect_fails_then_succeeds) {
 
     // wait long enough for sender to reconnect
     LOG(INFO) << "TEST SLEEP FOR SENDER";
-    sleep(2);
+    sleep(5); // needs pleeenty of sleep to avoid dropping
 
     sender.send(build_buf(HEY));
     thread.flush();
@@ -239,12 +245,13 @@ TEST(TCPSenderTests, connect_succeeds_then_fails) {
     sender.start();
 
     thread.flush();
-    EXPECT_FALSE(test_reader->wait_for_available(1)); // no data yet
+    EXPECT_TRUE(test_reader->wait_for_available());
+    EXPECT_EQ(SESSION_HEADER, *test_reader->read()); // header sent automatically
+    EXPECT_FALSE(test_reader->wait_for_available(1));
 
     sender.send(build_buf(HELLO));
     thread.flush();
     EXPECT_TRUE(test_reader->wait_for_available());
-    EXPECT_EQ(SESSION_HEADER, *test_reader->read()); // header sent just preceding first data
     EXPECT_EQ(HELLO, *test_reader->read());
 
     // close reader socket
@@ -269,12 +276,11 @@ TEST(TCPSenderTests, connect_succeeds_then_fails_then_succeeds) {
     sender.start();
 
     thread.flush();
-    EXPECT_FALSE(test_reader->wait_for_available(1)); // no data yet
+    EXPECT_TRUE(test_reader->wait_for_available());
+    EXPECT_EQ(SESSION_HEADER, *test_reader->read());
 
     sender.send(build_buf(HELLO));
     thread.flush();
-    EXPECT_TRUE(test_reader->wait_for_available());
-    EXPECT_EQ(SESSION_HEADER, *test_reader->read()); // header sent just preceding first data
     EXPECT_EQ(HELLO, *test_reader->read());
 
     sender.send(build_buf(HI));
