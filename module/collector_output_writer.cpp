@@ -100,6 +100,7 @@ void metrics::CollectorOutputWriter::start_chunk_flush_timer() {
 }
 
 void metrics::CollectorOutputWriter::flush() {
+  datapoint_count = 0;
   if (container_map.empty()) {
     return; // nothing to flush
   }
@@ -116,7 +117,7 @@ void metrics::CollectorOutputWriter::flush() {
 }
 
 void metrics::CollectorOutputWriter::chunk_flush_cb(boost::system::error_code ec) {
-  //DLOG(INFO) << "Flush triggered";
+  DLOG(INFO) << "Flush triggered";
   if (ec) {
     if (boost::asio::error::operation_aborted) {
       // We're being destroyed. Don't look at local state, it may be destroyed already.
