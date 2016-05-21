@@ -184,6 +184,10 @@ TEST_F(IORunnerImplTests, data_flow_multi_stream) {
   TestUDPWriteSocket writer1;
   writer1.connect(input_port1);
 
+  // wait for the TCP sender to finish sending its header.
+  // otherwise it'll reject our data:
+  tcp_reader.wait_for_available(5);
+
   writer1.write("writer1:1");
 
   std::shared_ptr<metrics::ContainerReader> reader2 = runner.create_container_reader(0);
@@ -231,21 +235,16 @@ TEST_F(IORunnerImplTests, data_flow_multi_stream) {
   EXPECT_TRUE(udp_stat_rows.count(annotated_row("writer3:2", container3, executor3, "|@0.3|#tag2,")));
   EXPECT_TRUE(udp_stat_rows.count(annotated_row("writer3:3", container3, executor3)));
 
-  std::unordered_set<std::string> tcp_stat_rows;
   std::ostringstream tcp_oss;
-  for (size_t i = 0; i < 30 && tcp_stat_rows.size() != 2 && tcp_reader.wait_for_available(1); i++) {
+  for (size_t i = 0; i < 10 && tcp_reader.wait_for_available(1); i++) {
     while (tcp_reader.available()) {
       std::string chunk = *tcp_reader.read();
+      LOG(INFO) << "\n\n" << chunk << "\n\n";
       tcp_oss << chunk;
-      std::istringstream iss(chunk);
-      std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(),
-          std::inserter(tcp_stat_rows, tcp_stat_rows.begin()));
     }
   }
 
   // verify that content parses as an avro file
-  LOG(INFO) << "------------- " << tcp_stat_rows.size() << " ROWS ------------";
-  //EXPECT_EQ(2, tcp_stat_rows.size()); // header, records (sometimes still produces 10)
   LOG(INFO) << tcp_oss.str();
   std::string tmppath = write_tmp(tcp_oss.str());
   avro::DataFileReader<metrics_schema::MetricList> avro_reader(tmppath.data());
@@ -429,19 +428,15 @@ TEST_F(IORunnerImplTests, data_flow_multi_stream_unannotated) {
   EXPECT_TRUE(udp_stat_rows.count("writer3:2|@0.3|#tag2"));
   EXPECT_TRUE(udp_stat_rows.count("writer3:3"));
 
-  size_t record_count = 0;
   std::ostringstream tcp_oss;
-  for (size_t i = 0; i < 30 && record_count != 2 && tcp_reader.wait_for_available(1); i++) {
+  for (size_t i = 0; i < 10 && tcp_reader.wait_for_available(1); i++) {
     while (tcp_reader.available()) {
       std::string chunk = *tcp_reader.read();
       tcp_oss << chunk;
-      ++record_count;
     }
   }
 
   // verify that content parses as an avro file
-  LOG(INFO) << "------------- " << record_count << " ROWS ------------";
-  EXPECT_TRUE(record_count == 2 || record_count == 10); // header, records (sometimes 10 regardless)
   LOG(INFO) << tcp_oss.str();
   std::string tmppath = write_tmp(tcp_oss.str());
   avro::DataFileReader<metrics_schema::MetricList> avro_reader(tmppath.data());
