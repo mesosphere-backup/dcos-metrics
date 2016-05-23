@@ -9,8 +9,8 @@ Routing of metrics from DC/OS.
 - **[module](module/)**: C++ code for the mesos-agent module. This module is installed by default on DC/OS EE 1.7+, with additional input/output support added as of EE 1.8+.
   - Metrics from containers: Containers are each given a unique StatsD endpoint, advertised via `STATSD_UDP_HOST`/`STATSD_UDP_PORT` environment variables. The module then tags and forwards upstream any metrics sent to that endpoint. (EE 1.7+)
   - Metrics from the agent itself: Forwards information about each container's resource utilization ([ResourceStatistics](https://github.com/apache/mesos/blob/master/include/mesos/mesos.proto#L908)), as reported by the agent. (EE 1.8+)
-  - Output formats: StatsD to `metrics.marathon.mesos` with tags added via key prefixes or datadog tags (EE 1.7+), and/or Avro metrics sent to a local Collector on TCP port `64113` (EE 1.8+)
-- **[collector](collector/)**: A Marathon process which runs on every agent node. Listens on TCP port `64113` for Avro-formatted metrics from the mesos-agent module as well as other processes on the system. Data is collated and forwarded to a Kafka instance, and/or exposed to local partner agents (TBD).
+  - Output formats: StatsD to `metrics.marathon.mesos` with tags added via key prefixes or datadog tags (EE 1.7+), and/or Avro metrics sent to a local Collector on TCP port `8124` (EE 1.8+)
+- **[collector](collector/)**: A Marathon process which runs on every agent node. Listens on TCP port `8124` for Avro-formatted metrics from the mesos-agent module as well as other processes on the system. Data is collated and forwarded to a Kafka instance, and/or exposed to local partner agents (TBD).
 - **[consumer](consumer/)**: Kafka Consumer implementations which fetch Avro-formatted metrics and do something with them (print to `stdout`, write to a database, etc).
 - **examples**: Reference implementations of programs which integrate with the metrics stack:
   - **[collector-emitter](examples/collector-emitter/)**: A reference for DC/OS system processes which emit metrics. Sends some Avro metrics data to a local Collector process.

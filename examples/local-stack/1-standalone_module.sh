@@ -8,4 +8,4 @@ if [ $? -ne 0 ]; then
 fi
 
 # <input statsd port> <output collector port> <output statsd port>
-./standalone_module 8125 64113 ""
+./standalone_module 8125 8124 ""

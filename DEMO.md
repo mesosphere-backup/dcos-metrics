@@ -63,9 +63,34 @@ As Kafka brokers start, they will automatically be configured for metrics export
 [2016-04-07 18:15:18,782] INFO Started Reporter with host=127.0.0.1, port=35542, polling_period_secs=10, prefix= (com.airbnb.metrics.StatsDReporter)
 ```
 
-## Receiving Metrics
+## Receiving Metrics via Kafka (Current)
 
-All agents running the metrics module periodically do an A Record lookup of `metrics.marathon.mesos` (aka a Marathon job named `metrics`). Until it resolves, metrics data will be dropped at the agents, since there's nowhere for them to go, but containers are still given `STATSD_UDP_HOST`/`STATSD_UDP_PORT` endpoints at this point, so forwarding can begin immediately once `metrics.marathon.mesos` begins to resolve.
+All agents running the metrics module periodically attempt to connect to a local TCP port at `127.0.0.1:8124`. The avro output format is disabled until the endpoint is resolved, but containers are still given `STATSD_UDP_HOST`/`STATSD_UDP_PORT` endpoints, so forwarding can begin immediately once `127.0.0.1:8124` has successfully connected.
+
+Once `127.0.0.1:8124` has connected, the module begins sending data in Avro OCF format as described in the [schema standard](schema/). If the connection is lost, the module will periodically attempt to reconnect automatically, dropping any data that cannot be sent in the meantime.
+
+### Launching a Collector
+
+The Collector is the process which runs on each DC/OS agent node. They listen on a commonly-known local TCP port (8124), accepting metrics from local system processes and sending them upstream to a Kafka cluster. Collectors currently run as Mesos tasks, but this may be revisited later.
+
+See the [Collector docs](collector/) for more information on starting the Collectors.
+
+### Launching Consumers
+
+The Consumers retrieve data which has been published to the Kafka cluster. One or more Consumer types may consume the same data, and more than one Consumer instances may run in each type. These are standard behavior for Kafka Consumers.
+
+See the [Consumer docs](consumer/) for more information on starting Consumerss.
+
+## Receiving Metrics via StatsD (Old)
+
+Before we get started, it's worth noting that direct statsd output from the agent is meant for demo/testing purposes and is **not suitable for real everyday use**. Here are some reasons:
+- Effectively zero protections against silently losing data if there's a hiccup, compared to Kafka
+- No support for passing through arbitrary tag data from containers, unless the output format is manually switched to `tag_datadog` on all agents. But this in turn breaks compatibility with most statsd implementations.
+- No support for sending data via a collector, so other non-Agent processes on the system need to implement their own systems for getting data upstream.
+
+Now on with the instructions...
+
+In addition to the above Kafka support, all agents running the metrics module also periodically do an A Record lookup of `metrics.marathon.mesos` (aka a Marathon job named `metrics`). The statsd output format is disabled until the endpoint is resolved, but containers are still given `STATSD_UDP_HOST`/`STATSD_UDP_PORT` endpoints, so forwarding can begin immediately once `metrics.marathon.mesos` begins to resolve.
 
 Once `metrics.marathon.mesos` resolves to one or more A Records, the module picks one A Record at random and starts sending metrics to port `8125` (the standard statsd port) at that location. The `metrics.marathon.mesos` hostname continues to be periodically resolved, and any material changes to the returned list of records (entries changed/added/removed) will trigger a reselection of a random A Record.
 
@@ -101,7 +126,7 @@ In Marathon, create the following application (in JSON Mode):
 
 ## Launching a sample graphite receiver
 
-Runs a sample copy of Graphite in a Docker container. This is just a stock Docker image that someone put up on Dockerhub. Note that **using this receiver requires `annotation_mode` = `key_prefix`**, which is the default in DCOS. `tag_datadog` is NOT supported.
+Runs a sample copy of Graphite in a Docker container. This is just a stock Docker image that someone put up on Dockerhub. It is **NOT** suitable for real production use, as it merely takes hours for it to consume gigabytes of space and then fall over. Note that **using this receiver requires `annotation_mode` = `key_prefix`**, which is the default in DCOS. `tag_datadog` is NOT supported.
 
 In Marathon, create the following application (in JSON Mode):
 ```json

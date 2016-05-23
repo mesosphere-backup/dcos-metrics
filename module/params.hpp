@@ -66,7 +66,7 @@ namespace metrics {
 
     // The TCP port to send to.
     const std::string OUTPUT_COLLECTOR_PORT = "output_collector_port";
-    const size_t OUTPUT_COLLECTOR_PORT_DEFAULT = 64113;
+    const size_t OUTPUT_COLLECTOR_PORT_DEFAULT = 8124;
 
     // Whether to group output metrics into a smaller number of packets.
     const std::string OUTPUT_COLLECTOR_CHUNKING = "output_collector_chunking";

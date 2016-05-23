@@ -58,7 +58,7 @@ govendor list
 
 ## Collector
 
-The Collector runs on each Mesos agent, listening on TCP port 64113 for data from the mesos module (and any other processes on the system). The Collector then sends any avro-formatted data it receives into a Kafka cluster.
+The Collector runs on each Mesos agent, listening on TCP port 8124 for data from the mesos module (and any other processes on the system). The Collector then sends any avro-formatted data it receives into a Kafka cluster.
 
 ### Run Locally
 
@@ -81,7 +81,7 @@ With the Collector running in this mode, sample data can be sent to it using the
   "instances": 100,
   "env": {
     "KAFKA_FRAMEWORK": "kafka",
-    "KAFKA_SINGLE_TOPIC": "sample_metrics",
+    "KAFKA_TOPIC_PREFIX": "metrics-",
     "LOG_RECORD_INPUT": "true",
     "LOG_RECORD_OUTPUT": "true"
   },
@@ -91,11 +91,11 @@ With the Collector running in this mode, sample data can be sent to it using the
   "mem": 128,
   "disk": 0,
   "uris": [
-    "https://s3-us-west-2.amazonaws.com/nick-dev/collector"
+    "https://s3-us-west-2.amazonaws.com/nick-dev/collector.tgz"
   ],
   "portDefinitions": [
     {
-      "port": 64113,
+      "port": 8124,
       "protocol": "tcp",
       "name": null,
       "labels": null
@@ -143,11 +143,11 @@ It's meant for development purposes, to allow testing of metrics Kafka Consumers
   "mem": 128,
   "disk": 0,
   "uris": [
-    "https://s3-us-west-2.amazonaws.com/nick-dev/sample-producer"
+    "https://s3-us-west-2.amazonaws.com/nick-dev/sample-producer.tgz"
   ],
   "portDefinitions": [
     {
-      "port": 64113,
+      "port": 8124,
       "protocol": "tcp",
       "name": null,
       "labels": null
