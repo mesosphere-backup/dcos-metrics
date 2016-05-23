@@ -58,7 +58,7 @@ govendor list
 
 ## Collector
 
-The Collector runs on each Mesos agent, listening on TCP port 8124 for data from the mesos module (and any other processes on the system). The Collector then sends any avro-formatted data it receives into a Kafka cluster.
+The Collector runs on each Mesos agent, listening on TCP port 64113 for data from the mesos module (and any other processes on the system). The Collector then sends any avro-formatted data it receives into a Kafka cluster.
 
 ### Run Locally
 
@@ -95,7 +95,7 @@ With the Collector running in this mode, sample data can be sent to it using the
   ],
   "portDefinitions": [
     {
-      "port": 8124,
+      "port": 64113,
       "protocol": "tcp",
       "name": null,
       "labels": null
@@ -147,7 +147,7 @@ It's meant for development purposes, to allow testing of metrics Kafka Consumers
   ],
   "portDefinitions": [
     {
-      "port": 8124,
+      "port": 64113,
       "protocol": "tcp",
       "name": null,
       "labels": null

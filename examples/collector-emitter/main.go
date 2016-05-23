@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	sendEndpointFlag = flag.String("endpoint", "127.0.0.1:8124",
+	sendEndpointFlag = flag.String("endpoint", "127.0.0.1:64113",
 		"TCP endpoint for outgoing MetricsList avro data")
 	topicFlag = flag.String("topic", "collector-client",
 		"Topic to use for sent avro records")

@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	listenEndpointFlag = collector.StringEnvFlag("listen-endpont", "127.0.0.1:8124",
+	listenEndpointFlag = collector.StringEnvFlag("listen-endpont", "127.0.0.1:64113",
 		"TCP endpoint for incoming MetricsList avro data")
 	logRecordInputFlag = collector.BoolEnvFlag("log-record-input", false,
 		"Whether to log the parsed content of incoming records")
