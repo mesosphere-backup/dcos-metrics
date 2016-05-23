@@ -56,14 +56,15 @@ public class DebuggingByteArrayInputStream extends ByteArrayInputStream {
     }
     StringBuilder sb = new StringBuilder();
     StringBuilder literal = new StringBuilder(); // for the literal string at the end of each line
+    final int rowLen = 16;
     for (int i = 0; i < bytes.length; ++i) {
       if (i == 0) { // print initial line header
         sb.append(String.format("%08x  ", i));
       } else {
-        if (i % 16 == 0) { // end of line. print literal column then start new line
+        if (i % rowLen == 0) { // end of line. print literal column then start new line
           sb.append(String.format(" |%s|\n%08x  ", literal.toString(), i));
           literal = new StringBuilder();
-        } else if (i % 8 == 0) { // middle of line. insert space to break up columns
+        } else if (i % (rowLen / 2) == 0) { // middle of line. insert space to break up columns
           sb.append(' ');
         }
       }
@@ -75,12 +76,13 @@ public class DebuggingByteArrayInputStream extends ByteArrayInputStream {
       sb.append(String.format("%02x ", bytes[i])); // print the byte as hex
     }
     // after all bytes have printed, finish up the last line:
-    if (bytes.length % 16 != 0) {
-      // add space to line up literal column
-      if (bytes.length % 16 <= 8) { // include an additional 'break up' space if needed
+    final int lastRowLen = bytes.length % rowLen;
+    if (lastRowLen != 0) {
+      // add space to line up the last row's literal column
+      if (lastRowLen <= (rowLen / 2)) { // include an additional 'break up' space if needed
         sb.append(' ');
       }
-      for (int i = 0; i < 16 - (bytes.length % 16); ++i) {
+      for (int i = 0; i < rowLen - lastRowLen; ++i) {
         sb.append("   ");
       }
     }
