@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.specific.SpecificDatumReader;
@@ -95,21 +96,24 @@ public class ConsumerRunner {
             long metricLists = 0;
             long tags = 0;
             long datapoints = 0;
-            while (dataFileStream.hasNext()) {
-              // reuse the same MetricList object. docs imply this is more efficient
-              try {
+            try {
+              while (dataFileStream.hasNext()) {
+                // reuse the same MetricList object. docs imply this is more efficient
                 metricList = dataFileStream.next(metricList);
-              } catch (IOException e) {
-                inputStream.dumpState();
-                dataFileStream.close();
-                throw e;
+
+                output.append(metricList);
+
+                metricLists++;
+                tags += metricList.getTags().size();
+                datapoints += metricList.getDatapoints().size();
               }
-
-              output.append(metricList);
-
-              metricLists++;
-              tags += metricList.getTags().size();
-              datapoints += metricList.getDatapoints().size();
+            } catch (IOException | AvroRuntimeException e) {
+              LOGGER.warn("Hit corrupt data in Kafka message ({} bytes) after extracting {} Datapoints and {} Tags across {} MetricLists",
+                  kafkaRecord.value().length, datapoints, tags, metricLists, kafkaRecord.value().length);
+              inputStream.dumpState();
+              dataFileStream.close();
+              values.registerError(e);
+              continue;
             }
             dataFileStream.close();
 

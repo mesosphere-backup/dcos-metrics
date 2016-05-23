@@ -2,8 +2,6 @@ package com.mesosphere.metrics.consumer.common;
 
 import java.io.ByteArrayInputStream;
 
-import javax.xml.bind.DatatypeConverter;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,6 +12,7 @@ public class DebuggingByteArrayInputStream extends ByteArrayInputStream {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(DebuggingByteArrayInputStream.class);
 
+  private Integer lastBufLen = 0;
   private int lastReadOff = 0;
   private int lastReadLen = 0;
   private int lastReadResult = 0;
@@ -23,6 +22,7 @@ public class DebuggingByteArrayInputStream extends ByteArrayInputStream {
   }
 
   public int read(byte[] b, int off, int len) {
+    lastBufLen = (b == null) ? null : b.length;
     lastReadOff = off;
     lastReadLen = len;
     lastReadResult = super.read(b, off, len);
@@ -30,14 +30,61 @@ public class DebuggingByteArrayInputStream extends ByteArrayInputStream {
   }
 
   public void dumpState() {
+    LOGGER.warn("----");
+    // print info as header
     LOGGER.warn(String.format("State: count=%d, mark=%d, pos=%d", count, mark, pos));
-    LOGGER.warn(String.format("Last ranged read: off=%d len=%d => result=%d", lastReadOff, lastReadLen, lastReadResult));
-    if (lastReadResult > 0) {
-      byte[] data = new byte[lastReadLen];
-      read(data, lastReadOff, lastReadLen);
-      LOGGER.warn(DatatypeConverter.printHexBinary(data));
+    LOGGER.warn(String.format("Last ranged read: buflen=%d off=%d len=%d => result=%d",
+        lastBufLen, lastReadOff, lastReadLen, lastReadResult));
+
+    // print buffer surrounded by header/footer which both specify the length
+    LOGGER.warn(String.format("Buffer of %d bytes:\n%s\nEnd buffer of %d bytes",
+        buf.length, hexDump(buf), buf.length));
+
+    // print info again as footer
+    LOGGER.warn(String.format("State: count=%d, mark=%d, pos=%d", count, mark, pos));
+    LOGGER.warn(String.format("Last ranged read: buflen=%d off=%d len=%d => result=%d",
+        lastBufLen, lastReadOff, lastReadLen, lastReadResult));
+    LOGGER.warn("----");
+  }
+
+  /**
+   * Returns a representation of the provided buffer which mimics the output of 'hexdump -C <file>'
+   */
+  private String hexDump(byte[] bytes) {
+    if (bytes == null) {
+      return "NULL";
     }
-    LOGGER.warn(String.format("Buffer of %d bytes:", buf.length));
-    LOGGER.warn(DatatypeConverter.printHexBinary(buf));
+    StringBuilder sb = new StringBuilder();
+    StringBuilder literal = new StringBuilder(); // for the literal string at the end of each line
+    for (int i = 0; i < bytes.length; ++i) {
+      if (i == 0) { // print initial line header
+        sb.append(String.format("%08x  ", i));
+      } else {
+        if (i % 16 == 0) { // end of line. print literal column then start new line
+          sb.append(String.format(" |%s|\n%08x  ", literal.toString(), i));
+          literal = new StringBuilder();
+        } else if (i % 8 == 0) { // middle of line. insert space to break up columns
+          sb.append(' ');
+        }
+      }
+      if (bytes[i] >= 32 && bytes[i] <= 126) { // printable
+        literal.append((char)bytes[i]);
+      } else { // not printable
+        literal.append('.');
+      }
+      sb.append(String.format("%02x ", bytes[i])); // print the byte as hex
+    }
+    // after all bytes have printed, finish up the last line:
+    if (bytes.length % 16 != 0) {
+      // add space to line up literal column
+      if (bytes.length % 16 <= 8) { // include an additional 'break up' space if needed
+        sb.append(' ');
+      }
+      for (int i = 0; i < 16 - (bytes.length % 16); ++i) {
+        sb.append("   ");
+      }
+    }
+    sb.append(String.format(" |%s|", literal.toString()));
+    return sb.toString();
   }
 }

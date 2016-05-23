@@ -38,7 +38,7 @@ func RunAvroTCPReader(recordsChan chan<- interface{}, stats chan<- collector.Sta
 			continue
 		}
 		stats <- collector.MakeEvent(collector.TCPSessionOpened)
-		log.Println("Opening handler for TCP connection from:", conn.RemoteAddr())
+		log.Println("Launching handler for TCP connection from:", conn.RemoteAddr())
 		go handleConnection(conn, recordsChan, stats)
 	}
 }

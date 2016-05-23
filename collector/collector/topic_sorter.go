@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/hex"
 	"github.com/linkedin/goavro"
 	"github.com/mesosphere/dcos-stats/collector"
 	"github.com/mesosphere/dcos-stats/collector/metrics-schema"
@@ -12,7 +13,7 @@ import (
 var (
 	kafkaProduceCountFlag = collector.IntEnvFlag("kafka-produce-count", 1024,
 		"The number of Avro records to accumulate in a Kafka record before passing to the Kafka Producer.")
-	kafkaProducePeriodFlag = collector.IntEnvFlag("kafka-produce-period-ms", 15000,
+	kafkaProducePeriodMsFlag = collector.IntEnvFlag("kafka-produce-period-ms", 15000,
 		"Interval period between calls to the Kafka Producer.")
 	kafkaTopicPrefixFlag = collector.StringEnvFlag("kafka-topic-prefix", "metrics-",
 		"Prefix string to include on Kafka topic labels (ignored if -kafka-single-topic is used)")
@@ -20,6 +21,8 @@ var (
 		"If non-empty, writes all metric data to a single Kafka topic, ignoring record.topic values")
 	logRecordOutputFlag = collector.BoolEnvFlag("log-record-output", false,
 		"Whether to log the parsed content of outgoing records")
+	hexDumpOutputFlag = collector.BoolEnvFlag("hexdump-record-output", false,
+		"Whether to print a verbose hex dump of outgoing records")
 )
 
 type sortedRecs []interface{}
@@ -33,8 +36,7 @@ func RunTopicSorter(
 	}
 
 	topics := make(map[string][]interface{})
-	ticker := time.NewTicker(time.Millisecond * time.Duration(*kafkaProducePeriodFlag))
-	buf := new(bytes.Buffer)
+	ticker := time.NewTicker(time.Millisecond * time.Duration(*kafkaProducePeriodMsFlag))
 	for {
 		select {
 		case record := <-avroInput:
@@ -42,33 +44,45 @@ func RunTopicSorter(
 			topicRecs := append(topics[topic], record)
 			if len(topicRecs) >= int(*kafkaProduceCountFlag) {
 				// topic has hit size limit, flush (and wipe) preemptively
-				log.Printf("Producing full topic (%d records) to Kafka: '%s'\n", len(topicRecs), topic)
 				stats <- collector.MakeEventSuffCount(collector.AvroRecordOut, topic, len(topicRecs))
 
-				err = serializeRecs(buf, topicRecs, codec)
+				buf, err := serializeRecs(topicRecs, codec)
 				if err != nil {
-					log.Printf("Failed to serialize %d records: %s\n", len(topicRecs), err)
+					log.Printf("Failed to serialize %d records for Kafka topic %s: %s\n",
+						len(topicRecs), topic, err)
 					stats <- collector.MakeEvent(collector.AvroWriterFailed)
 				} else {
-					flushTopic(kafkaOutput, topic, buf)
+					log.Printf("Producing %d MetricLists (%d bytes) for Kafka topic '%s' (trigger: %d records)\n",
+						len(topicRecs), buf.Len(), topic, *kafkaProduceCountFlag)
+					kafkaOutput <- collector.KafkaMessage{
+						Topic: topic,
+						Data:  buf.Bytes(),
+					}
 				}
 				delete(topics, topic)
 			} else {
 				topics[topic] = topicRecs
 			}
 		case _ = <-ticker.C:
-			// timeout reached, flush all data
-			log.Printf("Producing %d topics to Kafka", len(topics))
+			// timeout reached, flush all pending data
+			if len(topics) == 0 {
+				log.Printf("No Kafka topics to flush after %dms\n", *kafkaProducePeriodMsFlag)
+			}
 			for topic, topicRecs := range topics {
-				log.Printf("- Topic '%s': %d records\n", topic, len(topicRecs))
 				stats <- collector.MakeEventSuffCount(collector.AvroRecordOut, topic, len(topicRecs))
 
-				err = serializeRecs(buf, topicRecs, codec)
+				buf, err := serializeRecs(topicRecs, codec)
 				if err != nil {
-					log.Printf("Failed to serialize %d records: %s\n", len(topicRecs), err)
+					log.Printf("Failed to serialize %d records for Kafka topic %s: %s\n",
+						len(topicRecs), topic, err)
 					stats <- collector.MakeEvent(collector.AvroWriterFailed)
 				} else {
-					flushTopic(kafkaOutput, topic, buf)
+					log.Printf("Producing %d MetricLists (%d bytes) for Kafka topic '%s' (trigger: %dms)\n",
+						len(topicRecs), buf.Len(), topic, *kafkaProducePeriodMsFlag)
+					kafkaOutput <- collector.KafkaMessage{
+						Topic: topic,
+						Data:  buf.Bytes(),
+					}
 				}
 			}
 			topics = make(map[string][]interface{})
@@ -95,12 +109,16 @@ func getTopic(obj interface{}) string {
 	return *kafkaTopicPrefixFlag + topicStr
 }
 
-func serializeRecs(buf *bytes.Buffer, recs []interface{}, codec goavro.Codec) error {
+// Serializes the provided Avro records into a newly created buffer.
+// NOTE: DO NOT reuse buffers after sending them to the Kafka output channel, or else they will
+// be corrupted in-flight!
+func serializeRecs(recs []interface{}, codec goavro.Codec) (*bytes.Buffer, error) {
 	// Recreate OCF writer for each chunk, so that it writes a header at the top each time:
+	buf := new(bytes.Buffer)
 	avroWriter, err := goavro.NewWriter(
 		goavro.BlockSize(int64(len(recs))), goavro.ToWriter(buf), goavro.UseCodec(codec))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	for _, rec := range recs {
 		if *logRecordOutputFlag {
@@ -109,13 +127,10 @@ func serializeRecs(buf *bytes.Buffer, recs []interface{}, codec goavro.Codec) er
 		avroWriter.Write(rec)
 	}
 
-	return avroWriter.Close() // ensure flush to buf occurs before buf is used
-}
-
-func flushTopic(kafkaOutput chan<- collector.KafkaMessage, topic string, buf *bytes.Buffer) {
-	kafkaOutput <- collector.KafkaMessage{
-		Topic: topic,
-		Data:  buf.Bytes(),
+	err = avroWriter.Close() // ensure flush to buf occurs before buf is used
+	if err == nil && *hexDumpOutputFlag {
+		log.Printf("Hex dump of %d records (%d bytes):\n%sEnd dump of %d records (%d bytes)",
+			len(recs), buf.Len(), hex.Dump(buf.Bytes()), len(recs), buf.Len())
 	}
-	buf.Reset()
+	return buf, err
 }
