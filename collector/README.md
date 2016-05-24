@@ -81,9 +81,7 @@ With the Collector running in this mode, sample data can be sent to it using the
   "instances": 100,
   "env": {
     "KAFKA_FRAMEWORK": "kafka",
-    "KAFKA_TOPIC_PREFIX": "metrics-",
-    "LOG_RECORD_INPUT": "true",
-    "LOG_RECORD_OUTPUT": "true"
+    "KAFKA_TOPIC_PREFIX": "metrics-"
   },
 
   "cmd": "env && chmod +x ./collector && ./collector",
