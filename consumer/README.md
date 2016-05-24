@@ -43,9 +43,9 @@ Each consumer implementation shares the following settings from `metrics-consume
 - **FRAMEWORK_NAME**: The Kafka Framework to consume against. If a manual broker list is desired, it can be provided via `KAFKA_OVERRIDE_BOOTSTRAP_SERVERS`, in which case `FRAMEWORK_NAME` will be ignored.  Default: `kafka`
 - **TOPIC_EXACT**: A specific topic to consume from. If this setting is populated, it overrides `TOPIC_PATTERN` and disables `TOPIC_POLL_PERIOD_MS`. Default: &lt;unset>
 - **TOPIC_PATTERN**: A regular expression for topics to be subscribed to. Default: `metrics-.*`
-- **TOPIC_POLL_PERIOD_MS**: How frequently to refresh the available list of topics and subscribe to topics which match `TOPIC_PATTERN`. Default: 60000 (60s)
-- **STATS_PRINT_PERIOD_MS**: How frequently to print statistics about the amount of records/bytes consumed to stdout. Default: `500`
-- **POLL_TIMEOUT_MS**: The timeout value to use when calling Kafka's poll() function. Default: `1000`
+- **TOPIC_POLL_PERIOD_MS**: How frequently to refresh the available list of topics and subscribe to topics which match `TOPIC_PATTERN`. Default: `60000` (60s)
+- **STATS_PRINT_PERIOD_MS**: How frequently to print statistics about the amount of records/bytes consumed to stdout. Default: `5000` (5s)
+- **POLL_TIMEOUT_MS**: The timeout value to use when calling Kafka's poll() function. Default: `1000` (1s)
 - **CONSUMER_THREADS**: The number of consumer threads to run in parallel. Default: `1`
 
 In addition to the above values, any configuration variables defined by the Kafka Consumer client library can be configured via the environment. Any values of the form `KAFKA_OVERRIDE_X_Y` will be given to the Kafka library in the form `x.y`. For example, the value `KAFKA_OVERRIDE_BOOTSTRAP_SERVERS=broker1:1234,broker2:2345` will be given to Kafka as `bootstrap.servers=broker1:1234,broker2:2345`. This allows full customization of the underlying Kafka consumer.
@@ -84,7 +84,7 @@ Example Marathon app (JSON Mode). Before deployment, `OUTPUT_HOST` **must** be m
     "GRAPHITE_PREFIX": "dcos",
     "FRAMEWORK_NAME": "kafka",
     "TOPIC_PATTERN": "metrics-.*",
-    "STATS_PRINT_PERIOD_MS": "500",
+    "STATS_PRINT_PERIOD_MS": "5000",
     "POLL_TIMEOUT_MS": "1000",
     "CONSUMER_THREADS": "1",
     "KAFKA_OVERRIDE_GROUP_ID": "metrics-consumer-graphite"
@@ -137,7 +137,7 @@ Example Marathon app (JSON Mode). Before deployment, `OUTPUT_HOST`, `OUTPUT_USER
     "MEASUREMENT_NAME": "sample_measurement",
     "FRAMEWORK_NAME": "kafka",
     "TOPIC_PATTERN": "metrics-.*",
-    "STATS_PRINT_PERIOD_MS": "500",
+    "STATS_PRINT_PERIOD_MS": "5000",
     "POLL_TIMEOUT_MS": "1000",
     "CONSUMER_THREADS": "1",
     "KAFKA_OVERRIDE_GROUP_ID": "metrics-consumer-influx"
@@ -178,7 +178,7 @@ Example Marathon app (JSON Mode). Before deployment, both `OUTPUT_HOST` and `OUT
     "OUTPUT_PORT": "",
     "FRAMEWORK_NAME": "kafka",
     "TOPIC_PATTERN": "metrics-.*",
-    "STATS_PRINT_PERIOD_MS": "500",
+    "STATS_PRINT_PERIOD_MS": "5000",
     "POLL_TIMEOUT_MS": "1000",
     "CONSUMER_THREADS": "1",
     "KAFKA_OVERRIDE_GROUP_ID": "metrics-consumer-kairos"
@@ -209,7 +209,7 @@ Example Marathon app (JSON Mode):
   "env": {
     "FRAMEWORK_NAME": "kafka",
     "TOPIC_PATTERN": "metrics-.*",
-    "STATS_PRINT_PERIOD_MS": "500",
+    "STATS_PRINT_PERIOD_MS": "5000",
     "POLL_TIMEOUT_MS": "1000",
     "CONSUMER_THREADS": "1",
     "KAFKA_OVERRIDE_GROUP_ID": "metrics-consumer-print"
