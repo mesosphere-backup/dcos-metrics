@@ -22,6 +22,7 @@ Routing of metrics from DC/OS.
 
 - **[Launching demo processes](DEMO.md)**
 - **[Launching the Collector](collector/README.md)**
+- **[Launching Consumers](consumer/README.md)**
 - [Installing custom module builds (for module dev)](module/README.md)
 - [Design doc: Agent module](https://docs.google.com/document/d/11XZF8600Fqfw_yY9YeSh-rX2jJVN4rjw_oQuJFkvlwM/edit#)
 - [Design doc: Collector and forwarding via Kafka](https://docs.google.com/document/d/1aJifYTMrmuHnh_zpt8eLbsaU1WP_Fw3M8OvqRf0B6nE/edit#)
