@@ -41,7 +41,9 @@ The consumers are configured via environment variables, making it easy to make c
 Each consumer implementation shares the following settings from `metrics-consumer-common`:
 
 - **FRAMEWORK_NAME**: The Kafka Framework to consume against. If a manual broker list is desired, it can be provided via `KAFKA_OVERRIDE_BOOTSTRAP_SERVERS`, in which case `FRAMEWORK_NAME` will be ignored.  Default: `kafka`
-- **TOPIC**: The topic to be consumed from. Default: `sample_metrics` (TODO support wildcard subscription)
+- **TOPIC_EXACT**: A specific topic to consume from. If this setting is populated, it overrides `TOPIC_PATTERN` and disables `TOPIC_POLL_PERIOD_MS`. Default: &lt;unset>
+- **TOPIC_PATTERN**: A regular expression for topics to be subscribed to. Default: `metrics-.*`
+- **TOPIC_POLL_PERIOD_MS**: How frequently to refresh the available list of topics and subscribe to topics which match `TOPIC_PATTERN`. Default: 60000 (60s)
 - **STATS_PRINT_PERIOD_MS**: How frequently to print statistics about the amount of records/bytes consumed to stdout. Default: `500`
 - **POLL_TIMEOUT_MS**: The timeout value to use when calling Kafka's poll() function. Default: `1000`
 - **CONSUMER_THREADS**: The number of consumer threads to run in parallel. Default: `1`
@@ -81,7 +83,7 @@ Example Marathon app (JSON Mode). Before deployment, `OUTPUT_HOST` **must** be m
     "GRAPHITE_PROTOCOL": "PICKLE",
     "GRAPHITE_PREFIX": "dcos",
     "FRAMEWORK_NAME": "kafka",
-    "TOPIC": "sample_metrics",
+    "TOPIC_PATTERN": "metrics-.*",
     "STATS_PRINT_PERIOD_MS": "500",
     "POLL_TIMEOUT_MS": "1000",
     "CONSUMER_THREADS": "1",
@@ -134,7 +136,7 @@ Example Marathon app (JSON Mode). Before deployment, `OUTPUT_HOST`, `OUTPUT_USER
     "OUTPUT_DATABASE": "sample_db",
     "MEASUREMENT_NAME": "sample_measurement",
     "FRAMEWORK_NAME": "kafka",
-    "TOPIC": "sample_metrics",
+    "TOPIC_PATTERN": "metrics-.*",
     "STATS_PRINT_PERIOD_MS": "500",
     "POLL_TIMEOUT_MS": "1000",
     "CONSUMER_THREADS": "1",
@@ -175,7 +177,7 @@ Example Marathon app (JSON Mode). Before deployment, both `OUTPUT_HOST` and `OUT
     "OUTPUT_HOST": "",
     "OUTPUT_PORT": "",
     "FRAMEWORK_NAME": "kafka",
-    "TOPIC": "sample_metrics",
+    "TOPIC_PATTERN": "metrics-.*",
     "STATS_PRINT_PERIOD_MS": "500",
     "POLL_TIMEOUT_MS": "1000",
     "CONSUMER_THREADS": "1",
@@ -206,7 +208,7 @@ Example Marathon app (JSON Mode):
   "instances": 1,
   "env": {
     "FRAMEWORK_NAME": "kafka",
-    "TOPIC": "sample_metrics",
+    "TOPIC_PATTERN": "metrics-.*",
     "STATS_PRINT_PERIOD_MS": "500",
     "POLL_TIMEOUT_MS": "1000",
     "CONSUMER_THREADS": "1",
