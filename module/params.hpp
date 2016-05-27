@@ -78,7 +78,7 @@ namespace metrics {
 
     // The maximum period to wait before sending values accumulated in a chunk.
     const std::string OUTPUT_COLLECTOR_CHUNK_TIMEOUT_SECONDS = "output_collector_chunk_timeout_seconds";
-    const int OUTPUT_COLLECTOR_CHUNK_TIMEOUT_SECONDS_DEFAULT = 15;
+    const int OUTPUT_COLLECTOR_CHUNK_TIMEOUT_SECONDS_DEFAULT = 10;
 
     /**
      * StatsD output settings
