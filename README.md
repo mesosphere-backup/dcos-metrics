@@ -4,6 +4,14 @@ Routing of metrics from DC/OS.
 
 ![architecture diagram](architecture.png)
 
+## Audiences
+
+**I want to...**
+- **emit metrics from a Mesos container**: You should check for `STATSD_UDP_HOST` and `STATSD_UDP_PORT` in your application environment, then send statsd-formatted metrics to that endpoint when it's available. You may emit your own tags using the [dogstatsd tag format](http://docs.datadoghq.com/guides/dogstatsd/#datagram-format), and they'll automatically be translated into avro-formatted tags! (see also: [example code](examples/statsd-emitter/))
+- **emit metrics from a system process on the agents**: You should send avro-formatted metrics to the Collector process at `127.0.0.1:8124`. (see also: [avro schema](schema/), [example code](examples/collector-emitter/))
+- **collect and process emitted metrics**: Take a look at the available [Kafka Consumers](consumer/), and see if your format already exists. If it doesn't, a new Consumer is *very* easy. (see also: [avro schema](schema/))
+- **develop parts of the metrics stack**: You can run the whole stack on your local system, no Mesos Agent required! To get started, take a look at the [local stack launcher scripts](examples/local-stack).
+
 ## Repo contents
 
 - **[module](module/)**: C++ code for the mesos-agent module. This module is installed by default on DC/OS EE 1.7+, with additional input/output support added as of EE 1.8+.
