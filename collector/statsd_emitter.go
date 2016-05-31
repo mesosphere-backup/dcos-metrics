@@ -41,13 +41,19 @@ const (
 	AvroWriterFailed
 	AvroRecordOut
 
-	// sample-producer only:
-	FileOutputFailed
-	FileOutputWritten
-	AgentIPFailed
+	AgentIpLookup
+	AgentIpLookupFailed
+	AgentIpLookupEmpty
+	AgentQuery
+	AgentQueryBadMetrics
+	AgentQueryBadState
 	AgentQueryFailed
-	AgentQueryEmpty
-	AgentQueried
+	AgentMetricsValue
+	AgentMetricsValueUnsupported
+
+	RecordNoAgentStateAvailable
+	RecordBadTopic
+	RecordBadTags
 )
 
 type StatsEvent struct {
@@ -130,18 +136,31 @@ func toStatsdLabel(event StatsEvent) string {
 	case AvroRecordOut:
 		typelabel = "avro_output.avro_record"
 
-	case FileOutputFailed:
-		typelabel = "file_output.records_failed"
-	case FileOutputWritten:
-		typelabel = "file_output.records_written"
-	case AgentIPFailed:
-		typelabel = "producer.agent_ip_failures"
+	case AgentIpLookup:
+		typelabel = "agent_poll.ip_lookups"
+	case AgentIpLookupFailed:
+		typelabel = "agent_poll.ip_lookup_failures"
+	case AgentIpLookupEmpty:
+		typelabel = "agent_poll.ip_lookup_empties"
+	case AgentQuery:
+		typelabel = "agent_poll.queries"
+	case AgentQueryBadMetrics:
+		typelabel = "agent_poll.query_bad_metrics"
+	case AgentQueryBadState:
+		typelabel = "agent_poll.query_bad_state"
 	case AgentQueryFailed:
-		typelabel = "producer.agent_query_failures"
-	case AgentQueryEmpty:
-		typelabel = "producer.agent_query_empty_lists"
-	case AgentQueried:
-		typelabel = "producer.agent_queries"
+		typelabel = "agent_poll.query_failures"
+	case AgentMetricsValue:
+		typelabel = "agent_poll.metrics_values"
+	case AgentMetricsValueUnsupported:
+		typelabel = "agent_poll.metrics_values_unsupported"
+
+	case RecordNoAgentStateAvailable:
+		typelabel = "topic_sorter.no_agent_state_available"
+	case RecordBadTopic:
+		typelabel = "topic_sorter.record_bad_topic"
+	case RecordBadTags:
+		typelabel = "topic_sorter.record_bad_tags"
 	}
 	if len(event.suffix) == 0 {
 		return fmt.Sprintf("collector.%s", typelabel)

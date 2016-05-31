@@ -24,7 +24,7 @@ If you see errors about `cannot find package "github.com/.../metrics-schema"`, y
 
 ```
 $ ./collector-emitter -h # view help
-$ ./collector-emitter -log-record-output # print records in json form
+$ ./collector-emitter -record-output-log # print records in json form
 ```
 
 ## Get sent data

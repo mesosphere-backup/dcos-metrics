@@ -56,17 +56,17 @@ govendor status
 govendor list
 ```
 
-## Collector
+## Run
 
 The Collector runs on each Mesos agent, listening on TCP port 8124 for data from the mesos module (and any other processes on the system). The Collector then sends any avro-formatted data it receives into a Kafka cluster.
 
-### Run Locally
+### Local Test
 
-The Collector's Kafka export can be disabled for local use. Just run it with `-kafka-enabled=false` (and optionally `-log-record-input` and/or `-log-record-output`).
+The Collector's Kafka export can be disabled for local use. Just run it with `-kafka-enabled=false -agent-polling-enabled=false`, and optionally with `-record-input-log` and/or `-record-output-log`.
 
 With the Collector running in this mode, sample data can be sent to it using the reference [collector-emitter](../examples/collector-emitter/).
 
-### Deploy To Cluster
+### Deployment to a Cluster
 
 1. Configure and deploy a Kafka instance on your DC/OS cluster. By default it will be named `kafka`. If you use a different name, you'll need to customize the `KAFKA_FRAMEWORK` value below.
 2. Run `collector` as a Marathon task by editing and submitting the following JSON config:
@@ -111,52 +111,4 @@ If the Kafka framework isn't reachable (not deployed yet? wrong name passed to `
 
 ### Consuming collected data
 
-Once `collector` is up and running, the raw binary data it's passing to Kafka may be viewed by running one or more [Kafka metrics consumers](../consumer/).
-
-## Sample Producer
-
-The sample producer is an alternate Collector implementation which polls the local mesos agent and sends the metrics it retrieves to the Kafka cluster.
-
-It's meant for development purposes, to allow testing of metrics Kafka Consumers without requiring a DC/OS cluster with the latest Metrics Agent Module.
-
-### Deploy
-
-1. Configure and deploy a Kafka instance on your DC/OS cluster. By default it will be named `kafka`.
-2. Upload the `sample-producer` executable you built to somewhere that's visible to your cluster (eg S3).
-3. Run `sample-producer` as a task in Marathon, by editing the following JSON config:
-  - Set `instances` to the number of instances to run. At most one instance will run on each agent node. If you have 5 nodes and you launch 6 instances, the 6th instance will stay in an "Unscheduled" state in Marathon.
-  - Edit `kafka` in the env to match the name of your deployed Kafka cluster, if needed.
-  - If you want to run the producer on your Public nodes, you must create a separate additional task in Marathon, with a different `id`, which also includes `acceptedResourceRoles": [ "slave_public" ]` in its config.
-
-```json
-{
-  "id": "sample-producer",
-  "instances": 100,
-  "env": {
-    "KAFKA_FRAMEWORK": "kafka"
-  },
-
-  "cmd": "env && chmod +x ./sample-producer && ./sample-producer",
-  "cpus": 1,
-  "mem": 128,
-  "disk": 0,
-  "uris": [
-    "https://s3-us-west-2.amazonaws.com/nick-dev/sample-producer.tgz"
-  ],
-  "portDefinitions": [
-    {
-      "port": 8124,
-      "protocol": "tcp",
-      "name": null,
-      "labels": null
-    }
-  ],
-  "requirePorts" : true
-}
-```
-
-As `sample-producer` is deployed on every node, each instance should automatically start forwarding stats from `http://<local-agent-ip>:5051/monitor/statistics.json` to the brokers it got from querying the Kafka Scheduler. Once all nodes have been filled, the Marathon task will enter a `Waiting` state, but all nodes will have a running copy at this point.
-
-If the Kafka framework isn't reachable (not deployed yet? wrong name passed to `KAFKA_FRAMEWORK` envvar?), then `sample-producer` will loop until it comes up (complaining to `stderr` every few seconds).
-
-Once `sample-producer` is running, the data it's passing to Kafka may be viewed by running one or more [Kafka metrics consumers](../consumer/).
+Once `collector` is up and running, the raw binary data that it's passing to Kafka may be viewed by running one or more [Kafka metrics consumers](../consumer/).

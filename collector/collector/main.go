@@ -9,18 +9,21 @@ import (
 )
 
 var (
+	agentPollingEnabledFlag = collector.BoolEnvFlag("agent-polling-enabled", true,
+		"Polls the local Mesos Agent for system information")
 	kafkaEnabledFlag = collector.BoolEnvFlag("kafka-enabled", true,
-		"Whether received data should be written to Kafka")
+		"Sends output data to Kafka")
 )
 
 func main() {
 	flag.Usage = func() {
 		fmt.Fprint(os.Stderr,
-			"Sends various stats in Metrics Avro format to the provided Kafka service\n")
+			"Collects and forwards data in Metrics Avro format to the provided Kafka service\n")
 		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+	flag.VisitAll(collector.PrintFlagEnv)
 
 	stats := make(chan collector.StatsEvent)
 	go collector.RunStatsEmitter(stats)
@@ -33,15 +36,20 @@ func main() {
 	}
 
 	recordInputChan := make(chan interface{})
-	go RunAvroTCPReader(recordInputChan, stats)
+	agentStateChan := make(chan *collector.AgentState)
+	if *agentPollingEnabledFlag {
+		go collector.RunAgentPoller(recordInputChan, agentStateChan, stats)
+	}
+	go collector.RunAvroTCPReader(recordInputChan, stats)
 
 	// Run the sorter on the main thread (exit process if Kafka stops accepting data)
-	RunTopicSorter(recordInputChan, kafkaOutputChan, stats)
+	collector.RunTopicSorter(recordInputChan, agentStateChan, kafkaOutputChan, stats)
 }
 
 func printReceivedMessages(msgChan <-chan collector.KafkaMessage) {
 	for {
 		msg := <-msgChan
-		log.Printf("Topic %s: %d bytes would've been written (-kafka-enabled=false)\n", msg.Topic, len(msg.Data))
+		log.Printf("Topic '%s': %d bytes would've been written (-kafka-enabled=false)\n",
+			msg.Topic, len(msg.Data))
 	}
 }

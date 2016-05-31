@@ -21,7 +21,7 @@ var (
 		"TCP endpoint for outgoing MetricsList avro data")
 	topicFlag = flag.String("topic", "collector-client",
 		"Topic to use for sent avro records")
-	logRecordOutputFlag = flag.Bool("log-record-output", false,
+	recordOutputLogFlag = flag.Bool("record-output-log", false,
 		"Whether to log the parsed content of outgoing records")
 	sendPeriodFlag = flag.Int("period", 1, "Seconds to wait between stats refreshes")
 	blockSizeFlag  = flag.Int("block-size", 10,
@@ -179,7 +179,7 @@ func runTCPSerializerSender(recordsChan <-chan []interface{}) {
 		// Send data until the connection is lost (detected via TCPWriterProxy)
 		for {
 			for _, rec := range <-recordsChan {
-				if *logRecordOutputFlag {
+				if *recordOutputLogFlag {
 					log.Println("RECORD OUT:", rec)
 				}
 				avroWriter.Write(rec)

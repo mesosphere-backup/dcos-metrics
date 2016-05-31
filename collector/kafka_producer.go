@@ -21,11 +21,11 @@ var (
 	flushPeriodFlag = IntEnvFlag("kafka-flush-ms", 5000,
 		"Number of milliseconds to wait between output flushes")
 	snappyCompressionFlag = BoolEnvFlag("kafka-compress-snappy", true,
-		"Whether to enable Snappy compression on outgoing Kafka data")
+		"Enables Snappy compression on outgoing Kafka data")
 	requireAllAcksFlag = BoolEnvFlag("kafka-require-all-acks", false,
-		"Whether to require all replicas to commit outgoing data (true) "+
-			" or to require only one replica commit (false)")
-	verboseFlag = BoolEnvFlag("kafka-verbose", false,
+		"Requires that all Kafka replicas commit outgoing data (true) "+
+			"rather than just one replica commit (false)")
+	kafkaVerboseFlag = BoolEnvFlag("kafka-verbose", false,
 		"Enable extra logging in the underlying Kafka client.")
 )
 
@@ -37,7 +37,7 @@ type KafkaMessage struct {
 // Creates and runs a Kafka Producer which sends records passed to the provided channel.
 // This function should be run as a gofunc.
 func RunKafkaProducer(messages <-chan KafkaMessage, stats chan<- StatsEvent) {
-	if *verboseFlag {
+	if *kafkaVerboseFlag {
 		sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 	}
 
