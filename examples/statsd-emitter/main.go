@@ -81,10 +81,12 @@ func formatTimerMsi(key string, val int64) string {
 	return formati(key, val, "ms")
 }
 func formati(key string, val int64, tipe string) string {
-	return fmt.Sprintf("statsd_emitter.%s:%s|%s", key, strconv.FormatInt(val, 10), tipe)
+	return fmt.Sprintf("statsd_emitter.%s:%s|%s|#sample_tag:sample_val",
+		key, strconv.FormatInt(val, 10), tipe)
 }
 func formatf(key string, val float64, tipe string) string {
-	return fmt.Sprintf("statsd_emitter.%s:%s|%s", key, strconv.FormatFloat(val, 'f', -1, 64), tipe)
+	return fmt.Sprintf("statsd_emitter.%s:%s|%s|#sample_tag:sample_val",
+		key, strconv.FormatFloat(val, 'f', -1, 64), tipe)
 }
 
 func sendCounteri(conn *net.UDPConn, key string, val int64) ByteCount {
