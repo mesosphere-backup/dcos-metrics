@@ -16,7 +16,7 @@ namespace metrics {
   template <typename ContainerAssigner>
   class IsolatorModule : public mesos::slave::Isolator {
    public:
-    IsolatorModule(std::shared_ptr<ContainerAssigner> input_assigner);
+    IsolatorModule(std::shared_ptr<ContainerAssigner> container_assigner);
     virtual ~IsolatorModule();
 
     process::Future<Nothing> recover(

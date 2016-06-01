@@ -76,7 +76,8 @@ std::shared_ptr<metrics::ContainerReader> metrics::IORunnerImpl::create_containe
 
 void metrics::IORunnerImpl::update_usage(process::Future<mesos::ResourceUsage> usage) {
   if (!io_service) {
-    LOG(FATAL) << "IORunner::init() wasn't called before update_usage()";
+    LOG(FATAL) << "IORunner::init() wasn't called before update_usage(). "
+               << "Bad mesos agent config?";
     return;
   }
   // Run the resource usage handling within the IO thread.

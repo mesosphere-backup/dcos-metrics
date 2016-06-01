@@ -55,7 +55,8 @@ Try<metrics::UDPEndpoint> metrics::ContainerAssigner::register_container(
   std::unique_lock<std::mutex> lock(mutex);
   if (!strategy) {
     std::ostringstream oss;
-    oss << "ContainerAssigner::init() wasn't called before register_container()";
+    oss << "ContainerAssigner::init() wasn't called before register_container(). "
+        << "Bad mesos agent config?";
     LOG(FATAL) << oss.str();
     return Try<UDPEndpoint>(Error(oss.str()));
   }
