@@ -25,8 +25,8 @@ namespace metrics {
      */
 
     // The host to listen on. Should stay with "localhost" except in ip-per-container environments.
-    const std::string LISTEN_IFACE = "listen_iface";
-    const std::string LISTEN_IFACE_DEFAULT = "lo";
+    const std::string LISTEN_INTERFACE = "listen_interface";
+    const std::string LISTEN_INTERFACE_DEFAULT = "lo";
 
     // The mode to use for assigning containers to listen ports.
     const std::string LISTEN_PORT_MODE = "listen_port_mode";

@@ -57,7 +57,7 @@ namespace {
     size_t hostlen = strnlen(host, sizeof(host));
     if (hostlen == 0) {
       LOG(FATAL) << "Interface named '" << iface << "' was not found, see list above. "
-                 << "Check configuration of '" << metrics::params::LISTEN_IFACE << "'.";
+                 << "Check configuration of '" << metrics::params::LISTEN_INTERFACE << "'.";
     }
     return std::string(host, hostlen);
   }
@@ -87,7 +87,7 @@ void metrics::IORunnerImpl::init(const mesos::Parameters& parameters) {
   // - fail early if requested iface isn't found (don't wait for a container to arrive)
   // - this shouldn't change, and any existing container streams would be lost if it changed anyway
   listen_host = get_iface_host(params::get_str(
-          parameters, params::LISTEN_IFACE, params::LISTEN_IFACE_DEFAULT));
+          parameters, params::LISTEN_INTERFACE, params::LISTEN_INTERFACE_DEFAULT));
 
   io_service.reset(new boost::asio::io_service);
   if (params::get_bool(
