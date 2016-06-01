@@ -5,11 +5,63 @@
 #endif
 #define THREAD_NAME "metrics-io-service"
 
+#include <ifaddrs.h>
+#define IFACE_TYPE AF_INET // ipv4
+#define IFACE_ADDR_STRUCT struct sockaddr_in // ipv4
+
 #include <glog/logging.h>
 
 #include "collector_output_writer.hpp"
 #include "container_reader_impl.hpp"
 #include "statsd_output_writer.hpp"
+
+namespace {
+  std::string get_iface_host(const std::string& iface) {
+    struct ifaddrs* ifaces = NULL;
+    if (getifaddrs(&ifaces) < 0) {
+      int errnum = errno;
+      LOG(FATAL) << "Unable to get list of network interfaces, "
+                 << "errno=" << errnum << " => " << strerror(errnum);
+    }
+
+    char host[512];
+    memset(host, 0, sizeof(host));
+
+    LOG(INFO) << "Network interfaces (searching for '" << iface << "'):";
+    for (struct ifaddrs* cur = ifaces; cur != NULL; cur = cur->ifa_next) {
+      std::string cur_name(cur->ifa_name);
+      if (cur_name != iface) {
+        LOG(INFO) << "- found '" << cur_name << "' (!= '" << iface << "')";
+        continue;
+      }
+      if (cur->ifa_addr == NULL) {
+        LOG(INFO) << "- found '" << cur_name << "' has null address";
+        continue;
+      }
+      if (cur->ifa_addr->sa_family != IFACE_TYPE) {
+        LOG(INFO) << "- found '" << cur_name << "', but "
+                  << "family is '" << cur->ifa_addr->sa_family << "' (!= '" << IFACE_TYPE << "')";
+        continue;
+      }
+      int result = getnameinfo(
+          cur->ifa_addr, sizeof(IFACE_ADDR_STRUCT), host, sizeof(host), NULL, 0, NI_NUMERICHOST);
+      if (result != 0) {
+        LOG(FATAL) << "Failed to get host for interface name '" << cur_name << "': "
+                   << gai_strerror(result);
+      }
+      LOG(INFO) << "Interface '" << cur_name << "' (family '" << cur->ifa_addr->sa_family << "') "
+                << "is using host '" << host << "'";
+      break;
+    }
+    freeifaddrs(ifaces);
+    size_t hostlen = strnlen(host, sizeof(host));
+    if (hostlen == 0) {
+      LOG(FATAL) << "Interface named '" << iface << "' was not found, see list above. "
+                 << "Check configuration of '" << metrics::params::LISTEN_IFACE << "'.";
+    }
+    return std::string(host, hostlen);
+  }
+}
 
 metrics::IORunnerImpl::IORunnerImpl() { }
 
@@ -31,7 +83,11 @@ void metrics::IORunnerImpl::init(const mesos::Parameters& parameters) {
     return;
   }
 
-  listen_host = params::get_str(parameters, params::LISTEN_HOST, params::LISTEN_HOST_DEFAULT);
+  // do this once, up-front.
+  // - fail early if requested iface isn't found (don't wait for a container to arrive)
+  // - this shouldn't change, and any existing container streams would be lost if it changed anyway
+  listen_host = get_iface_host(params::get_str(
+          parameters, params::LISTEN_IFACE, params::LISTEN_IFACE_DEFAULT));
 
   io_service.reset(new boost::asio::io_service);
   if (params::get_bool(
