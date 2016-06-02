@@ -6,20 +6,37 @@
 #include "sync_util.hpp"
 
 #define UDP_MAX_PACKET_BYTES 65536 /* UDP size limit in IPv4 (may be larger in IPv6) */
+#define RECEIVED_BYTES_STATSD_LABEL "dcos.metrics.container_received_bytes_per_sec"
+#define THROTTLED_BYTES_STATSD_LABEL "dcos.metrics.container_throttled_bytes_per_sec"
 
 typedef boost::asio::ip::udp::endpoint udp_endpoint_t;
 typedef boost::asio::ip::udp::resolver resolver_t;
 
+namespace {
+  inline std::string to_statsd(const char* label, size_t value, size_t period_ms) {
+    std::ostringstream oss;
+    oss << label << ':' << value / (period_ms / 1000.) << "|g";
+    return oss.str();
+  }
+}
+
 metrics::ContainerReaderImpl::ContainerReaderImpl(
     const std::shared_ptr<boost::asio::io_service>& io_service,
     const std::vector<output_writer_ptr_t>& writers,
-    const UDPEndpoint& requested_endpoint)
+    const UDPEndpoint& requested_endpoint,
+    size_t limit_period_ms,
+    size_t limit_amount_bytes)
   : writers(writers),
     requested_endpoint(requested_endpoint),
+    limit_period_ms(limit_period_ms),
+    limit_amount_bytes(limit_amount_bytes),
     io_service(io_service),
     shutdown(false),
+    limit_reset_timer(*io_service),
     socket(*io_service),
-    socket_buffer(UDP_MAX_PACKET_BYTES, '\0') {
+    socket_buffer(UDP_MAX_PACKET_BYTES, '\0'),
+    received_bytes(0),
+    dropped_bytes(0) {
   LOG(INFO) << "Reader constructed for " << requested_endpoint.string();
 }
 
@@ -99,6 +116,7 @@ Try<metrics::UDPEndpoint> metrics::ContainerReaderImpl::open() {
   // Set endpoint (indicates open socket) and start listening AFTER all error conditions are clear
   actual_endpoint.reset(new UDPEndpoint(bound_endpoint_address_str, bound_endpoint.port()));
   start_recv();
+  start_limit_reset_timer();
 
   LOG(INFO) << "Reader listening on " << actual_endpoint->string();
   return *actual_endpoint;
@@ -121,6 +139,47 @@ void metrics::ContainerReaderImpl::register_container(
 void metrics::ContainerReaderImpl::unregister_container(
     const mesos::ContainerID& container_id) {
   registered_containers.erase(container_id);
+}
+
+void metrics::ContainerReaderImpl::start_limit_reset_timer() {
+  limit_reset_timer.expires_from_now(boost::posix_time::milliseconds(limit_period_ms));
+  limit_reset_timer.async_wait(
+      std::bind(&ContainerReaderImpl::limit_reset_cb, this, std::placeholders::_1));
+}
+
+void metrics::ContainerReaderImpl::limit_reset_cb(boost::system::error_code ec) {
+  if (ec) {
+    if (boost::asio::error::operation_aborted) {
+      // We're being destroyed. Don't look at local state, it may be destroyed already.
+      LOG(WARNING) << "Limit timer aborted: Exiting loop immediately";
+      return;
+    } else {
+      LOG(ERROR) << "Limit timer returned error. "
+                 << "err='" << ec.message() << "'(" << ec << ")";
+    }
+  }
+
+  // Also produce throughput stats while we're here.
+  if (actual_endpoint) {
+    LOG(INFO) << "Container Throughput (port " << actual_endpoint->port <<"): "
+              << "received=" << received_bytes << "b, " << "dropped=" << dropped_bytes << "b";
+  } else {
+    LOG(INFO) << "Container Throughput (port ?): "
+              << "received=" << received_bytes << "b, " << "dropped=" << dropped_bytes << "b";
+  }
+
+  // Send our own metrics on the data we received and/or dropped
+  // Always emit, even if values are zero, just to let upstream know we're listening
+  std::string msg = to_statsd(RECEIVED_BYTES_STATSD_LABEL, received_bytes, limit_period_ms);
+  write_message(msg.data(), msg.size());
+  msg = to_statsd(THROTTLED_BYTES_STATSD_LABEL, dropped_bytes, limit_period_ms);
+  write_message(msg.data(), msg.size());
+
+  received_bytes = 0;
+  dropped_bytes = 0;
+  if (!shutdown) {
+    start_limit_reset_timer();
+  }
 }
 
 void metrics::ContainerReaderImpl::start_recv() {
@@ -151,34 +210,40 @@ void metrics::ContainerReaderImpl::recv_cb(
     return;
   }
 
-  // Search for newline chars, which indicate multiple statsd entries in a single packet
-  char* next_newline = (char*) memchr(socket_buffer.data(), '\n', bytes_transferred);
-  if (next_newline == NULL) {
-    // Single entry. Pass buffer directly.
-    write_message(socket_buffer.data(), bytes_transferred);
+  if (received_bytes >= limit_amount_bytes) {
+    // We've hit the limit, drop data and continue.
+    dropped_bytes += bytes_transferred;
   } else {
-    // Multiple newline-separated entries. Pass each from buffer as separate messages.
-    size_t start_index = 0;
-    for (;;) {
-      size_t newline_offset = (next_newline != NULL)
-        ? next_newline - socket_buffer.data()
-        : bytes_transferred; // no more newlines, use end of buffer
-      //DLOG(INFO) << "newline_offset=" << newline_offset << ", start_index=" << start_index;
-      size_t entry_size = newline_offset - start_index;
-      //DLOG(INFO) << "entry_size " << entry_size << " => copy "
-      //           << "[" << start_index << "," << start_index+entry_size << ") to front of scratch";
-      if (entry_size > 0) { // check/skip empty rows ("\n\n", or "\n" at start/end of pkt)
-        write_message(socket_buffer.data() + start_index, entry_size);
+    // Search for newline chars, which indicate multiple statsd entries in a single packet
+    char* next_newline = (char*) memchr(socket_buffer.data(), '\n', bytes_transferred);
+    if (next_newline == NULL) {
+      // Single entry. Pass buffer directly.
+      write_message(socket_buffer.data(), bytes_transferred);
+    } else {
+      // Multiple newline-separated entries. Pass each from buffer as separate messages.
+      size_t start_index = 0;
+      for (;;) {
+        size_t newline_offset = (next_newline != NULL)
+          ? next_newline - socket_buffer.data()
+          : bytes_transferred; // no more newlines, use end of buffer
+        //DLOG(INFO) << "newline_offset=" << newline_offset << ", start_index=" << start_index;
+        size_t entry_size = newline_offset - start_index;
+        //DLOG(INFO) << "entry_size " << entry_size << " => copy "
+        //           << "[" << start_index << "," << start_index+entry_size << ") to front of scratch";
+        if (entry_size > 0) { // check/skip empty rows ("\n\n", or "\n" at start/end of pkt)
+          write_message(socket_buffer.data() + start_index, entry_size);
+        }
+        start_index = start_index + entry_size + 1; // pass over newline itself
+        if (start_index >= bytes_transferred) {
+          break; // seeked to end of received data
+        }
+        next_newline =
+          (char*) memchr(socket_buffer.data() + start_index, '\n', bytes_transferred - start_index);
       }
-      start_index = start_index + entry_size + 1; // pass over newline itself
-      if (start_index >= bytes_transferred) {
-        break; // seeked to end of received data
-      }
-      next_newline =
-        (char*) memchr(socket_buffer.data() + start_index, '\n', bytes_transferred - start_index);
     }
   }
 
+  received_bytes += bytes_transferred;
   if (!shutdown) {
     start_recv();
   }
@@ -222,10 +287,17 @@ void metrics::ContainerReaderImpl::shutdown_cb() {
   udp_endpoint_t bound_endpoint = socket.local_endpoint(ec);
   if (ec) {
     LOG(INFO) << "Destroying reader for requested[" << requested_endpoint.string() << "] -> "
-              << "actual[???], " << socket.available() << " bytes dropped";
+              << "actual[???], " << socket.available() << " socket bytes dropped";
   } else {
     LOG(INFO) << "Destroying reader for requested[" << requested_endpoint.string() << "] -> "
-              << "actual[" << bound_endpoint << "], " << socket.available() << " bytes dropped";
+              << "actual[" << bound_endpoint << "], " << socket.available() << " socket bytes dropped";
+  }
+
+  // Shut down the throttle timer
+  limit_reset_timer.cancel(ec);
+  if (ec) {
+    LOG(ERROR) << "Resolve timer cancellation returned error. "
+               << "err='" << ec.message() << "'(" << ec << ")";
   }
 
   // Flush any remaining data queued in the socket

@@ -94,7 +94,7 @@ void metrics::UDPSender::dest_resolve_cb(boost::system::error_code ec) {
   }
 
   // Also produce throughput stats while we're here.
-  LOG(INFO) << "UDP Throughput (bytes): sent=" << sent_bytes << ", " << "dropped=" << dropped_bytes;
+  LOG(INFO) << "UDP Throughput (bytes): sent=" << sent_bytes << ", dropped=" << dropped_bytes;
   sent_bytes = 0;
   dropped_bytes = 0;
 
@@ -114,12 +114,12 @@ void metrics::UDPSender::dest_resolve_cb(boost::system::error_code ec) {
                    << "err='" << ec.message() << "'(" << ec << "),"
                    << "err2='" << ec2.message() << "'(" << ec2 << ")";
       } else {
-        // Log as warning: User may not have brought up their metrics service yet.
-        LOG(WARNING) << "Error when resolving host[" << send_host << "]. "
-                     << "Dropping data and trying again in "
-                     << resolve_period_ms / 1000. << " seconds. "
-                     << "err='" << ec.message() << "'(" << ec << "),"
-                     << "err2='" << ec2.message() << "'(" << ec2 << ")";
+        // Log as debug warning: Most users would use the collector instead anyway.
+        DLOG(WARNING) << "Error when resolving host[" << send_host << "]. "
+                      << "Dropping data and trying again in "
+                      << resolve_period_ms / 1000. << " seconds. "
+                      << "err='" << ec.message() << "'(" << ec << "),"
+                      << "err2='" << ec2.message() << "'(" << ec2 << ")";
       }
       start_dest_resolve_timer();
       return;
@@ -138,11 +138,11 @@ void metrics::UDPSender::dest_resolve_cb(boost::system::error_code ec) {
                    << "and trying again in " << resolve_period_ms / 1000. << " seconds. "
                    << "err='" << ec.message() << "'(" << ec << ")";
       } else {
-        // Log as warning: User may not have brought up their metrics service yet.
-        LOG(WARNING) << "No results when resolving host[" << send_host << "]. "
-                     << "Dropping data and trying again in "
-                     << resolve_period_ms / 1000. << " seconds. "
-                     << "err='" << ec.message() << "'(" << ec << ")";
+        // Log as debug warning: Most users would use the collector instead anyway.
+        DLOG(WARNING) << "No results when resolving host[" << send_host << "]. "
+                      << "Dropping data and trying again in "
+                      << resolve_period_ms / 1000. << " seconds. "
+                      << "err='" << ec.message() << "'(" << ec << ")";
       }
       start_dest_resolve_timer();
       return;

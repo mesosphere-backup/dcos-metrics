@@ -89,6 +89,11 @@ void metrics::IORunnerImpl::init(const mesos::Parameters& parameters) {
   listen_host = get_iface_host(params::get_str(
           parameters, params::LISTEN_INTERFACE, params::LISTEN_INTERFACE_DEFAULT));
 
+  container_limit_period_secs = params::get_uint(parameters,
+      params::CONTAINER_LIMIT_PERIOD_SECS, params::CONTAINER_LIMIT_PERIOD_SECS_DEFAULT);
+  container_limit_amount_kbytes = params::get_uint(parameters,
+      params::CONTAINER_LIMIT_AMOUNT_KBYTES, params::CONTAINER_LIMIT_AMOUNT_KBYTES_DEFAULT);
+
   io_service.reset(new boost::asio::io_service);
   if (params::get_bool(
           parameters, params::OUTPUT_STATSD_ENABLED, params::OUTPUT_STATSD_ENABLED_DEFAULT)) {
@@ -127,7 +132,8 @@ std::shared_ptr<metrics::ContainerReader> metrics::IORunnerImpl::create_containe
     return std::shared_ptr<metrics::ContainerReader>();
   }
   return std::shared_ptr<ContainerReader>(
-      new ContainerReaderImpl(io_service, writers, UDPEndpoint(listen_host, port)));
+      new ContainerReaderImpl(io_service, writers, UDPEndpoint(listen_host, port),
+          container_limit_period_secs * 1000, container_limit_amount_kbytes * 1024));
 }
 
 void metrics::IORunnerImpl::update_usage(process::Future<mesos::ResourceUsage> usage) {

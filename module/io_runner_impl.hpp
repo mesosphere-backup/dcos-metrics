@@ -47,7 +47,8 @@ namespace metrics {
     void run_io_service();
 
     std::string listen_host;
-    params::annotation_mode::Value annotation_mode;
+    size_t container_limit_period_secs;
+    size_t container_limit_amount_kbytes;
 
     std::shared_ptr<boost::asio::io_service> io_service;
     std::vector<output_writer_ptr_t> writers;

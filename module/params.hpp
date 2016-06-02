@@ -24,6 +24,16 @@ namespace metrics {
      * Container input settings
      */
 
+    // The number of bytes that can be sent from a single container over a given period.
+    // Prevents a single container from DOSing the others on the node.
+    // Note that other per-node limits may additionally be enforced upstream.
+    const std::string CONTAINER_LIMIT_AMOUNT_KBYTES = "container_limit_amount_kbytes";
+    const size_t CONTAINER_LIMIT_AMOUNT_KBYTES_DEFAULT = 10240; // 10 MB
+
+    // The enforcement period for the container byte limit
+    const std::string CONTAINER_LIMIT_PERIOD_SECS = "container_limit_period_secs";
+    const size_t CONTAINER_LIMIT_PERIOD_SECS_DEFAULT = 60;
+
     // The host to listen on. Should stay with "localhost" except in ip-per-container environments.
     const std::string LISTEN_INTERFACE = "listen_interface";
     const std::string LISTEN_INTERFACE_DEFAULT = "lo";

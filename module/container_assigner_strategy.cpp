@@ -57,8 +57,8 @@ void metrics::SinglePortStrategy::insert_container(
     const UDPEndpoint& endpoint) {
   Try<std::shared_ptr<ContainerReader>> reader = init_reader();
   if (reader.isError()) {
-    LOG(ERROR) << "Unable to recover container[" << container_id.ShortDebugString() << "]: "
-               << reader.error();
+    LOG(ERROR) << "Unable to insert recovered "
+               << "container[" << container_id.ShortDebugString() << "]: " << reader.error();
     return;
   }
 
@@ -170,7 +170,8 @@ void metrics::EphemeralPortStrategy::insert_container(
   std::shared_ptr<ContainerReader> reader = io_runner->create_container_reader(endpoint.port);
   Try<UDPEndpoint> new_endpoint = reader->open();
   if (new_endpoint.isError()) {
-    LOG(ERROR) << "Unable to recover ephemeral-port reader at port[" << endpoint.port << "] "
+    LOG(ERROR) << "Unable to insert recovered ephemeral-port reader "
+               << "at port[" << endpoint.port << "] "
                << "for container[" << container_id.ShortDebugString() << "]: "
                << new_endpoint.error();
     return;
@@ -295,7 +296,7 @@ void metrics::PortRangeStrategy::insert_container(
   // Get the recovered port from the pool.
   Try<size_t> port = range_pool->get(endpoint.port);
   if (port.isError()) {
-    LOG(ERROR) << "Unable to recover port[" << endpoint.port << "] for "
+    LOG(ERROR) << "Unable to assign recovered port[" << endpoint.port << "] for "
                << "container[" << container_id.ShortDebugString() << "]: " << port.error();
     return;
   }
