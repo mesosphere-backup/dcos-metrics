@@ -161,11 +161,11 @@ void metrics::ContainerReaderImpl::limit_reset_cb(boost::system::error_code ec) 
 
   // Also produce throughput stats while we're here.
   if (actual_endpoint) {
-    LOG(INFO) << "Container Throughput (port " << actual_endpoint->port <<"): "
-              << "received=" << received_bytes << "b, " << "dropped=" << dropped_bytes << "b";
+    LOG(INFO) << "Throughput from container at port " << actual_endpoint->port <<" (bytes): "
+              << "received=" << received_bytes << ", throttled=" << dropped_bytes;
   } else {
-    LOG(INFO) << "Container Throughput (port ?): "
-              << "received=" << received_bytes << "b, " << "dropped=" << dropped_bytes << "b";
+    LOG(INFO) << "Throughput from container at port ?UNKNOWN? (bytes): "
+              << "received=" << received_bytes << ", throttled=" << dropped_bytes;
   }
 
   // Send our own metrics on the data we received and/or dropped
