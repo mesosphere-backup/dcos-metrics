@@ -123,7 +123,7 @@ void metrics::TCPSender::connect_deadline_cb() {
     return;
   }
   if (connect_deadline_timer.expires_at() <= boost::asio::deadline_timer::traits_type::now()) {
-    LOG(WARNING) << "Timed out when opening connection to " << send_ip << ":" << send_port
+    LOG(WARNING) << "Timed out when opening metrics connection to " << send_ip << ":" << send_port
                  << ", giving socket a kick (state " << to_string(socket_state) << ")";
     socket.close(); // this will fire connect_outcome
   }
@@ -136,10 +136,10 @@ void metrics::TCPSender::connect_outcome_cb(boost::system::error_code ec) {
   if (!socket.is_open() || ec) {
     if (ec) {
       LOG(WARNING) << "Got error '" << ec.message() << "'(" << ec << ")"
-                   << " when connecting to " << send_ip << ":" << send_port
+                   << " when connecting to metrics service at " << send_ip << ":" << send_port
                    << " (state " << to_string(socket_state) << ")";
     } else if (!socket.is_open()) {
-      LOG(WARNING) << "Socket not open after connecting to " << send_ip << ":" << send_port
+      LOG(WARNING) << "Metrics socket not open after connecting to " << send_ip << ":" << send_port
                    << " (state " << to_string(socket_state) << ")";
     }
     socket_state = DISCONNECTED;
@@ -153,7 +153,7 @@ void metrics::TCPSender::connect_outcome_cb(boost::system::error_code ec) {
   socket.set_option(option);
 
   socket_state = CONNECTED_DATA_NOT_READY;
-  DLOG(INFO) << "Connected to " << send_ip << ":" << send_port << ". "
+  DLOG(INFO) << "Connected to metrics service at " << send_ip << ":" << send_port << ". "
              << "Inserting " << session_header.size() << " byte header data before first packet";
   buf_ptr_t hdr_buf(new boost::asio::streambuf);
   std::ostream ostream(hdr_buf.get());
@@ -174,14 +174,14 @@ void metrics::TCPSender::send_cb(
   keepalive.reset();
   if (ec) {
     LOG(WARNING) << "Got error '" << ec.message() << "'(" << ec << ")"
-                 << " when sending data to " << send_ip << ":" << send_port
+                 << " when sending data to metrics service at " << send_ip << ":" << send_port
                  << " (state " << to_string(socket_state) << ")";
     pending_bytes = 0;
     failed_bytes += bytes_transferred;
     socket.close();
     set_state_schedule_connect();
   } else if (!socket.is_open()) {
-    LOG(WARNING) << "Socket not open after sending data to " << send_ip << ":" << send_port
+    LOG(WARNING) << "Socket not open after sending metrics data to " << send_ip << ":" << send_port
                  << " (state " << to_string(socket_state) << ")";
     pending_bytes = 0;
     failed_bytes += bytes_transferred;
