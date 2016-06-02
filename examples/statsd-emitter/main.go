@@ -12,11 +12,15 @@ import (
 )
 
 const (
-	envvarHost = "STATSD_UDP_HOST"
-	envvarPort = "STATSD_UDP_PORT"
+	envvarHost   = "STATSD_UDP_HOST"
+	envvarPort   = "STATSD_UDP_PORT"
+	reportPeriod = 10 // seconds
 )
 
-var debug_enabled bool
+var (
+	debugFlag = flag.Bool("debug", false, "Enables debug log messages")
+	floodFlag = flag.Bool("flood", false, "Floods the port with stats, for capacity testing")
+)
 
 type ByteCount struct {
 	success int64
@@ -27,9 +31,13 @@ func (b *ByteCount) add(b2 ByteCount) {
 	b.success += b2.success
 	b.failed += b2.failed
 }
+func (b *ByteCount) reset() {
+	b.success = 0
+	b.failed = 0
+}
 
 func debugf(format string, v ...interface{}) {
-	if !debug_enabled {
+	if !*debugFlag {
 		return
 	}
 	log.Printf(format, v...)
@@ -111,57 +119,79 @@ func send(conn *net.UDPConn, msg string) ByteCount {
 	return ByteCount{success: int64(sent), failed: 0}
 }
 
+func printOutputRateLoop(byteCountChan <-chan ByteCount) {
+	ticker := time.NewTicker(time.Second * time.Duration(reportPeriod))
+	var bc ByteCount
+	for {
+		select {
+		case _ = <-ticker.C:
+			total := bc.success + bc.failed
+			log.Printf("Bytes sent: %d success, %d failed, %d total (%d B/s)",
+				bc.success, bc.failed, total, total*(60./reportPeriod))
+			bc.reset()
+		case addme := <-byteCountChan:
+			bc.add(addme)
+		}
+	}
+}
+
+func sendSomeStats(conn *net.UDPConn, start time.Time, loopCount int64) ByteCount {
+	now := time.Now()
+
+	var bytes ByteCount
+
+	bytes.add(sendGaugei(conn, "time.unix", int64(now.Unix())))
+	bytes.add(sendGaugei(conn, "time.unix_nano", int64(now.UnixNano())))
+	bytes.add(sendGaugef(conn, "time.unix_float", float64(now.UnixNano())/1000000000))
+	uptime_ms := int64((now.UnixNano() - start.UnixNano()) / 1000000 /* nano -> milli */)
+	bytes.add(sendGaugei(conn, "time.uptime_gauge_ms", uptime_ms))
+	bytes.add(sendTimerMsi(conn, "time.uptime_timer_ms", uptime_ms))
+
+	bytes.add(sendGaugei(conn, "proc.pid", int64(os.Getpid())))
+
+	var memstats runtime.MemStats
+	runtime.ReadMemStats(&memstats) // Alloc, TotalAlloc, Sys, Lookups, Mallocs, Frees
+	bytes.add(sendGaugei(conn, "mem.alloc", int64(memstats.Alloc)))
+	bytes.add(sendGaugei(conn, "mem.total_alloc", int64(memstats.TotalAlloc)))
+	bytes.add(sendGaugei(conn, "mem.sys", int64(memstats.Sys)))
+	bytes.add(sendGaugei(conn, "mem.lookups", int64(memstats.Lookups)))
+	bytes.add(sendGaugei(conn, "mem.mallocs", int64(memstats.Mallocs)))
+	bytes.add(sendGaugei(conn, "mem.frees", int64(memstats.Frees)))
+
+	bytes.add(sendCounteri(conn, "sent.loop_counter", 1))
+	bytes.add(sendGaugei(conn, "sent.loop_gauge", loopCount))
+	bytes.add(sendGaugei(conn, "sent.bytes_success", bytes.success))
+	bytes.add(sendGaugei(conn, "sent.bytes_failed", bytes.failed))
+
+	return bytes
+}
+
 func main() {
 	start := time.Now()
-
-	flag.BoolVar(&debug_enabled, "debug", false, "Enables debug log messages")
 	flag.Parse()
 
 	log.SetPrefix("statsd-emitter ")
 
 	addr := getEnvAddress()
-	log.Printf("Sending to: %s", addr)
+	log.Printf("Sending stats to: %s", addr)
 	conn := getConn(addr)
 	defer conn.Close()
 
-	var bytes ByteCount
-	bytes.add(sendCounteri(conn, "proc.instance_counter", 1))
+	byteCountChan := make(chan ByteCount)
+	go printOutputRateLoop(byteCountChan)
 
-	var loop_count int64 = 0
+	byteCountChan <- sendCounteri(conn, "proc.instance_counter", 1)
+
+	var loopCount int64 = 0
 	for {
-		bytes_start := bytes
-		debugf("-- %d", loop_count)
+		// send some random stats, record bytes sent
+		debugf("-- %d", loopCount)
+		loopCount++
+		byteCountChan <- sendSomeStats(conn, start, loopCount)
 
-		now := time.Now()
-		bytes.add(sendGaugei(conn, "time.unix", int64(now.Unix())))
-		bytes.add(sendGaugei(conn, "time.unix_nano", int64(now.UnixNano())))
-		bytes.add(sendGaugef(conn, "time.unix_float", float64(now.UnixNano())/1000000000))
-		uptime_ms := int64((now.UnixNano() - start.UnixNano()) / 1000000 /* nano -> milli */)
-		bytes.add(sendGaugei(conn, "time.uptime_gauge_ms", uptime_ms))
-		bytes.add(sendTimerMsi(conn, "time.uptime_timer_ms", uptime_ms))
-
-		bytes.add(sendGaugei(conn, "proc.pid", int64(os.Getpid())))
-
-		var memstats runtime.MemStats
-		runtime.ReadMemStats(&memstats) // Alloc, TotalAlloc, Sys, Lookups, Mallocs, Frees
-		bytes.add(sendGaugei(conn, "mem.alloc", int64(memstats.Alloc)))
-		bytes.add(sendGaugei(conn, "mem.total_alloc", int64(memstats.TotalAlloc)))
-		bytes.add(sendGaugei(conn, "mem.sys", int64(memstats.Sys)))
-		bytes.add(sendGaugei(conn, "mem.lookups", int64(memstats.Lookups)))
-		bytes.add(sendGaugei(conn, "mem.mallocs", int64(memstats.Mallocs)))
-		bytes.add(sendGaugei(conn, "mem.frees", int64(memstats.Frees)))
-
-		bytes.add(sendCounteri(conn, "sent.loop_counter", 1))
-		bytes.add(sendGaugei(conn, "sent.loop_gauge", loop_count))
-		bytes.add(sendGaugei(conn, "sent.bytes_success", bytes.success))
-		bytes.add(sendGaugei(conn, "sent.bytes_failed", bytes.failed))
-
-		loop_count++
-
-		success := bytes.success - bytes_start.success
-		failed := bytes.failed - bytes_start.failed
-		log.Printf("Bytes sent: %d success, %d failed, %d total",
-			success, failed, success+failed)
-		time.Sleep(time.Second * 1)
+		if !*floodFlag {
+			// wait a bit before sending more stats
+			time.Sleep(time.Second * 1)
+		}
 	}
 }
