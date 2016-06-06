@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sort"
 	"strconv"
 	"time"
 )
@@ -20,6 +21,7 @@ var (
 type StatsEventType int
 
 const (
+	statsdPrefix = "dcos.metrics.collector"
 	udpFrameSize = 512
 
 	TCPResolveFailed StatsEventType = iota
@@ -30,6 +32,7 @@ const (
 	AvroReaderOpenFailed
 	AvroReaderCloseFailed
 	AvroRecordIn
+	AvroRecordThrottled
 
 	KafkaLookupFailed
 	KafkaConnectionFailed
@@ -85,10 +88,10 @@ func RunStatsEmitter(events <-chan StatsEvent) {
 	for {
 		select {
 		case event := <-events:
-			gauges[toStatsdLabel(event)]++
+			gauges[toStatsdLabel(event)] += int64(event.count)
 			if len(event.suffix) != 0 {
 				// also count against non-suffix bucket:
-				gauges[toStatsdLabel(StatsEvent{event.evttype, "", event.count})]++
+				gauges[toStatsdLabel(StatsEvent{event.evttype, "", event.count})] += int64(event.count)
 			}
 		case _ = <-ticker.C:
 			flushGauges(statsdConn, &gauges)
@@ -99,73 +102,75 @@ func RunStatsEmitter(events <-chan StatsEvent) {
 // ---
 
 func toStatsdLabel(event StatsEvent) string {
-	typelabel := "UNKNOWN"
+	statsdKey := "UNKNOWN"
 	switch event.evttype {
 	case TCPResolveFailed:
-		typelabel = "tcp_input.tcp_resolve_failures"
+		statsdKey = "tcp_input.tcp_resolve_failures"
 	case TCPListenFailed:
-		typelabel = "tcp_input.tcp_listen_failures"
+		statsdKey = "tcp_input.tcp_listen_failures"
 	case TCPAcceptFailed:
-		typelabel = "tcp_input.tcp_accept_failures"
+		statsdKey = "tcp_input.tcp_accept_failures"
 	case TCPSessionOpened:
-		typelabel = "tcp_input.tcp_session_opened"
+		statsdKey = "tcp_input.tcp_session_opened"
 	case TCPSessionClosed:
-		typelabel = "tcp_input.tcp_session_closed"
+		statsdKey = "tcp_input.tcp_session_closed"
 	case AvroReaderOpenFailed:
-		typelabel = "tcp_input.avro_reader_open_failures"
+		statsdKey = "tcp_input.avro_reader_open_failures"
 	case AvroReaderCloseFailed:
-		typelabel = "tcp_input.avro_reader_close_failures"
+		statsdKey = "tcp_input.avro_reader_close_failures"
 	case AvroRecordIn:
-		typelabel = "tcp_input.avro_record"
+		statsdKey = "tcp_input.avro_record"
+	case AvroRecordThrottled:
+		statsdKey = "tcp_input.avro_record_throttled"
 
 	case KafkaLookupFailed:
-		typelabel = "kafka_output.framework_lookup_failures"
+		statsdKey = "kafka_output.framework_lookup_failures"
 	case KafkaConnectionFailed:
-		typelabel = "kafka_output.connection_failures"
+		statsdKey = "kafka_output.connection_failures"
 	case KafkaSessionOpened:
-		typelabel = "kafka_output.sessions_opened"
+		statsdKey = "kafka_output.sessions_opened"
 	case KafkaSessionClosed:
-		typelabel = "kafka_output.sessions_closed"
+		statsdKey = "kafka_output.sessions_closed"
 	case KafkaMessageSent:
-		typelabel = "kafka_output.avro_records_sent"
+		statsdKey = "kafka_output.avro_records_sent"
 	case KafkaBytesSent:
-		typelabel = "kafka_output.bytes_sent"
+		statsdKey = "kafka_output.bytes_sent"
 
 	case AvroWriterFailed:
-		typelabel = "avro_output.writer_open_failures"
+		statsdKey = "avro_output.writer_open_failures"
 	case AvroRecordOut:
-		typelabel = "avro_output.avro_record"
+		statsdKey = "avro_output.avro_record"
 
 	case AgentIpLookup:
-		typelabel = "agent_poll.ip_lookups"
+		statsdKey = "agent_poll.ip_lookups"
 	case AgentIpLookupFailed:
-		typelabel = "agent_poll.ip_lookup_failures"
+		statsdKey = "agent_poll.ip_lookup_failures"
 	case AgentIpLookupEmpty:
-		typelabel = "agent_poll.ip_lookup_empties"
+		statsdKey = "agent_poll.ip_lookup_empties"
 	case AgentQuery:
-		typelabel = "agent_poll.queries"
+		statsdKey = "agent_poll.queries"
 	case AgentQueryBadMetrics:
-		typelabel = "agent_poll.query_bad_metrics"
+		statsdKey = "agent_poll.query_bad_metrics"
 	case AgentQueryBadState:
-		typelabel = "agent_poll.query_bad_state"
+		statsdKey = "agent_poll.query_bad_state"
 	case AgentQueryFailed:
-		typelabel = "agent_poll.query_failures"
+		statsdKey = "agent_poll.query_failures"
 	case AgentMetricsValue:
-		typelabel = "agent_poll.metrics_values"
+		statsdKey = "agent_poll.metrics_values"
 	case AgentMetricsValueUnsupported:
-		typelabel = "agent_poll.metrics_values_unsupported"
+		statsdKey = "agent_poll.metrics_values_unsupported"
 
 	case RecordNoAgentStateAvailable:
-		typelabel = "topic_sorter.no_agent_state_available"
+		statsdKey = "topic_sorter.no_agent_state_available"
 	case RecordBadTopic:
-		typelabel = "topic_sorter.record_bad_topic"
+		statsdKey = "topic_sorter.record_bad_topic"
 	case RecordBadTags:
-		typelabel = "topic_sorter.record_bad_tags"
+		statsdKey = "topic_sorter.record_bad_tags"
 	}
 	if len(event.suffix) == 0 {
-		return fmt.Sprintf("collector.%s", typelabel)
+		return fmt.Sprintf("%s.%s", statsdPrefix, statsdKey)
 	} else {
-		return fmt.Sprintf("collector.%s.%s", typelabel, event.suffix)
+		return fmt.Sprintf("%s.%s.%s", statsdPrefix, statsdKey, event.suffix)
 	}
 }
 
@@ -196,10 +201,15 @@ func flushGauges(conn *net.UDPConn, gauges *map[string]int64) {
 	if conn == nil {
 		// Statsd export isn't available. Just print stats to stdout.
 		log.Printf("Printing %d internal gauges (StatsD export disabled):\n", len(*gauges))
-		for k, v := range *gauges {
-			log.Printf("- %s = %s\n", k, strconv.FormatInt(v, 10))
-			keysToClear = append(keysToClear, k)
+		var orderedKeys []string
+		for k := range *gauges {
+			orderedKeys = append(orderedKeys, k)
 		}
+		sort.Strings(orderedKeys)
+		for _, k := range orderedKeys {
+			log.Printf("- %s = %s\n", k, strconv.FormatInt((*gauges)[k], 10))
+		}
+		keysToClear = orderedKeys
 	} else {
 		// accumulate statsd data into a newline-separated block, staying within UDP packet limits
 		msgBlock := ""

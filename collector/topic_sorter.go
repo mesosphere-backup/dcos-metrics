@@ -47,12 +47,22 @@ func RunTopicSorter(avroInput <-chan interface{}, agentStateInput <-chan *AgentS
 		select {
 		case record := <-avroInput:
 			// got record, sort into correct topic (and flush if topic has reached size limit)
-			topic := getTopic(record, stats)
+			var topic string
+			if len(*kafkaSingleTopicFlag) != 0 {
+				topic = *kafkaSingleTopicFlag
+			} else {
+				var ok bool
+				topic, ok = GetTopic(record)
+				if !ok {
+					stats <- MakeEvent(RecordBadTopic)
+				}
+				topic = *kafkaTopicPrefixFlag + topic
+			}
 			topicRecs := append(topics[topic], record)
 			if len(topicRecs) >= int(*kafkaProduceCountFlag) {
 				// topic has hit size limit, flush now
 				processRecs(agentState, topicRecs, stats)
-				flushTopic(topic, topicRecs, codec, fmt.Sprintf("%dms", *kafkaProduceCountFlag), kafkaOutput, stats)
+				flushTopic(topic, topicRecs, codec, fmt.Sprintf("%d recs", *kafkaProduceCountFlag), kafkaOutput, stats)
 				// wipe this map entry after it's been flushed
 				delete(topics, topic)
 			} else {
@@ -67,7 +77,7 @@ func RunTopicSorter(avroInput <-chan interface{}, agentStateInput <-chan *AgentS
 			}
 		case _ = <-ticker.C:
 			// timeout reached, flush all pending data
-			flushReason := fmt.Sprintf("%dms", *kafkaProducePeriodMsFlag)
+			flushReason := fmt.Sprintf("%d ms", *kafkaProducePeriodMsFlag)
 			if len(topics) == 0 {
 				log.Printf("No Kafka topics to flush after %s\n", flushReason)
 			}
@@ -81,30 +91,24 @@ func RunTopicSorter(avroInput <-chan interface{}, agentStateInput <-chan *AgentS
 	}
 }
 
-// ---
-
-func getTopic(obj interface{}, stats chan<- StatsEvent) string {
-	if len(*kafkaSingleTopicFlag) != 0 {
-		return *kafkaSingleTopicFlag
-	}
-
+// Extracts the topic value from the provided Avro record object, or a stub value with "false" if the topic wasn't retrievable.
+func GetTopic(obj interface{}) (string, bool) {
 	record, ok := obj.(*goavro.Record)
 	if !ok {
-		stats <- MakeEvent(RecordBadTopic)
-		return *kafkaTopicPrefixFlag + "UNKNOWN_RECORD_TYPE"
+		return "UNKNOWN_RECORD_TYPE", false
 	}
 	topicObj, err := record.Get("topic")
 	if err != nil {
-		stats <- MakeEvent(RecordBadTopic)
-		return *kafkaTopicPrefixFlag + "UNKNOWN_TOPIC_VAL"
+		return "UNKNOWN_TOPIC_VAL", false
 	}
 	topicStr, ok := topicObj.(string)
 	if !ok {
-		stats <- MakeEvent(RecordBadTopic)
-		return *kafkaTopicPrefixFlag + "UNKNOWN_TOPIC_TYPE"
+		return "UNKNOWN_TOPIC_TYPE", false
 	}
-	return *kafkaTopicPrefixFlag + topicStr
+	return topicStr, true
 }
+
+// ---
 
 func flushTopic(topic string, topicRecs []interface{}, codec goavro.Codec, logReason string, kafkaOutput chan<- KafkaMessage, stats chan<- StatsEvent) {
 	stats <- MakeEventSuffCount(AvroRecordOut, topic, len(topicRecs))
@@ -234,7 +238,7 @@ func serializeRecs(recs []interface{}, codec goavro.Codec) (*bytes.Buffer, error
 
 	err = avroWriter.Close() // ensure flush to buf occurs before buf is used
 	if err == nil && *recordOutputHexdumpFlag {
-		log.Printf("Hex dump of %d records (%d bytes):\n%sEnd dump of %d records (%d bytes)",
+		log.Printf("Hex dump of %d output records (%d bytes):\n%sEnd dump of %d output records (%d bytes)",
 			len(recs), buf.Len(), hex.Dump(buf.Bytes()), len(recs), buf.Len())
 	}
 	return buf, err

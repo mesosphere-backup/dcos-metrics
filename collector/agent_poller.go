@@ -21,9 +21,9 @@ var (
 		"Period between retrievals of data from the local Mesos Agent, in seconds")
 	agentMetricsTopicFlag = StringEnvFlag("agent-metrics-topic", "agent",
 		"Topic to use for local Mesos Agent statistics. Will be prefixed with -kafka-topic-prefix")
-	agentStateFile = StringEnvFlag("agent-state-file", "",
+	agentTestStateFileFlag = StringEnvFlag("agent-test-state-file", "",
 		"JSON file containing the agent state to be used, for debugging")
-	agentMetricsFile = StringEnvFlag("agent-metrics-file", "",
+	agentTestMetricsFileFlag = StringEnvFlag("agent-test-metrics-file", "",
 		"JSON file containing the agent metrics to be used, for debugging")
 
 	datapointNamespace = goavro.RecordEnclosingNamespace(metrics_schema.DatapointNamespace)
@@ -52,7 +52,7 @@ func RunAgentPoller(recordsChan chan<- interface{}, agentStateChan chan<- *Agent
 		case _ = <-ticker.C:
 			// refresh agent ip (probably don't need to refresh constantly, but just in case..)
 			var agentIp string = ""
-			if len(*agentMetricsFile) == 0 || len(*agentStateFile) == 0 {
+			if len(*agentTestMetricsFileFlag) == 0 || len(*agentTestStateFileFlag) == 0 {
 				// only get the ip if actually needed
 				agentIp = getAgentIp(stats)
 			}
@@ -99,10 +99,10 @@ func getAgentMetrics(agentIp string, agentState *AgentState, stats chan<- StatsE
 	stats <- MakeEvent(AgentQuery)
 	var rawJson []byte = nil
 	var err error = nil
-	if len(*agentMetricsFile) == 0 {
+	if len(*agentTestMetricsFileFlag) == 0 {
 		rawJson, err = HttpGet(fmt.Sprintf("http://%s:%d/metrics/snapshot", agentIp, *agentPortFlag))
 	} else {
-		rawJson, err = ioutil.ReadFile(*agentMetricsFile)
+		rawJson, err = ioutil.ReadFile(*agentTestMetricsFileFlag)
 	}
 	if err != nil {
 		stats <- MakeEvent(AgentQueryFailed)
@@ -159,10 +159,10 @@ func getAgentState(agentIp string, stats chan<- StatsEvent) (*AgentState, error)
 	stats <- MakeEvent(AgentQuery)
 	var rawJson []byte = nil
 	var err error = nil
-	if len(*agentStateFile) == 0 {
+	if len(*agentTestStateFileFlag) == 0 {
 		rawJson, err = HttpGet(fmt.Sprintf("http://%s:%d/state", agentIp, *agentPortFlag))
 	} else {
-		rawJson, err = ioutil.ReadFile(*agentStateFile)
+		rawJson, err = ioutil.ReadFile(*agentTestStateFileFlag)
 	}
 	if err != nil {
 		stats <- MakeEvent(AgentQueryFailed)
