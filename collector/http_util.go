@@ -7,8 +7,20 @@ import (
 	"net/http"
 )
 
+const (
+	userAgent = "metrics-collector/1.0"
+)
+
 func HttpGet(endpoint string) (body []byte, err error) {
-	response, err := http.Get(endpoint)
+	// Configure custom UA header for tracing in mesos logs
+	request, err := http.NewRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("User-Agent", userAgent)
+
+	client := http.Client{}
+	response, err := client.Do(request)
 	if err != nil {
 		return nil, err
 	}
