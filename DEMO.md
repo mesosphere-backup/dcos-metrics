@@ -16,20 +16,7 @@ Emitting metrics is simple: The program just needs to look for `STATSD_UDP_HOST`
 
 This is a reference program that just emits various arbitrary metrics to the endpoint advertised by the metrics agent module via `STATSD_UDP_HOST`/`STATSD_UDP_PORT` environment variables. The sample program's Go source code is included in the .tgz.
 
-In Marathon, create the following application (in JSON Mode):
-```json
-{
-  "id": "statsd-emitter",
-  "cmd": "./statsd-emitter",
-  "cpus": 1,
-  "mem": 128,
-  "disk": 0,
-  "instances": 1,
-  "uris": [
-    "https://s3-us-west-2.amazonaws.com/nick-dev/statsd-emitter.tgz"
-  ]
-}
-```
+See the [StatsD Emitter docs](examples/statsd-emitter/) for more information on starting one or more StatsD Emitters.
 
 ### Integrating with Cassandra/HDFS/Kafka
 
@@ -81,7 +68,7 @@ The Consumers retrieve data which has been published to the Kafka cluster. One o
 
 See the [Consumer docs](consumer/) for more information on starting Consumerss.
 
-## Receiving Metrics via StatsD (Old)
+## Receiving Metrics via StatsD (OLD/DEPRECATED)
 
 Before we get started, it's worth noting that direct statsd output from the agent is meant for demo/testing purposes and is **not suitable for real everyday use**. Here are some reasons:
 - Effectively zero protections against silently losing data if there's a hiccup, compared to Kafka

@@ -1,15 +1,15 @@
 {
     "name": "MetricList",
-    "doc": "One or more named Metrics associated with a given topic and set of tags.",
+    "doc": "One or more named Datapoint values associated with a given topic, along with a list of zero or more metadata Tags.",
     "type": "record",
     "namespace": "dcos.metrics",
     "fields": [ {
         "name": "topic",
-        "doc": "The topic or 'channel' that this metric should be grouped into for subscription purposes. For example, the service that originated the metrics.",
+        "doc": "The topic or 'channel' that this metric should be grouped into for subscription purposes. For example, the service or framework that originated the metrics.",
         "type": "string"
     }, {
         "name": "tags",
-        "doc": "Labels which further identify or categorise the source of the metrics, for example, the service node that originated the metrics.",
+        "doc": "Labels which further identify or categorise the source of the metrics. For example, the service node that originated the metrics.",
         "type": {
             "type": "array",
             "items": {
@@ -37,7 +37,7 @@
                 "namespace": "dcos.metrics",
                 "fields": [ {
                     "name": "name",
-                    "doc": "User-visible label associated with these datapoints, which is unique per topic",
+                    "doc": "User-visible label associated with these datapoints. This is unique per topic",
                     "type": "string"
                 }, {
                     "name": "time_ms",

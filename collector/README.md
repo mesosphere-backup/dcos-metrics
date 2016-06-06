@@ -62,9 +62,20 @@ The Collector runs on each Mesos agent, listening on TCP port 8124 for data from
 
 ### Local Test
 
-The Collector's Kafka export can be disabled for local use. Just run it with `-kafka-enabled=false -agent-polling-enabled=false`, and optionally with `-record-input-log` and/or `-record-output-log`.
+The Collector's Kafka export can be disabled for local use. Just run it with `-kafka=false -agent-polling=false`, and optionally with `-record-input-log` and/or `-record-output-log`.
 
-With the Collector running in this mode, sample data can be sent to it using the reference [collector-emitter](../examples/collector-emitter/).
+With the Collector running in this mode, sample data can be sent to it using the reference [collector-emitter](../examples/collector-emitter/), or by sending it a [generated .avro file](../schema) using netcat:
+
+```bash
+# generate some random data (see schema/):
+java -jar avro-tools-1.8.0.jar random --schema-file metrics.avsc --count 1000 random.avro
+
+# start a test collector with kafka and agent polling disabled:
+./collector -kafka=false -agent-polling=false
+
+# then in another window, pipe the random data to the collector:
+cat random.avro | nc 127.0.0.1 8124
+```
 
 ### Deployment to a Cluster
 

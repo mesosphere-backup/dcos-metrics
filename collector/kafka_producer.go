@@ -23,8 +23,8 @@ var (
 	snappyCompressionFlag = BoolEnvFlag("kafka-compress-snappy", true,
 		"Enables Snappy compression on outgoing Kafka data")
 	requireAllAcksFlag = BoolEnvFlag("kafka-require-all-acks", false,
-		"Requires that all Kafka replicas commit outgoing data (true) "+
-			"rather than just one replica commit (false)")
+		"Requires that outgoing data be committed by all Kafka replicas (true) "+
+			"rather than committed by just one replica (false)")
 	kafkaVerboseFlag = BoolEnvFlag("kafka-verbose", false,
 		"Enable extra logging in the underlying Kafka client.")
 )
@@ -88,7 +88,7 @@ func kafkaProducer(stats chan<- StatsEvent) (kafkaProducer sarama.AsyncProducer,
 		brokers = append(brokers, foundBrokers...)
 	} else {
 		flag.Usage()
-		log.Fatal("Either -kafka-framework or -kafka-brokers must be specified, or -kafka-enabled must be false.")
+		log.Fatal("Either -kafka-framework or -kafka-brokers must be specified, or -kafka must be 'false'.")
 	}
 	log.Println("Kafka brokers:", strings.Join(brokers, ", "))
 
@@ -144,8 +144,8 @@ func lookupBrokers(framework string) (brokers []string, err error) {
 }
 
 func connectionEndpoint(framework string) (endpoint string, err error) {
-	// SRV lookup to get scheduler's port number:
-	// _framework._tcp.marathon.mesos.
+	// Perform SRV lookup to get scheduler's port number:
+	// "_<framework>._tcp.marathon.mesos."
 	_, addrs, err := net.LookupSRV(framework, "tcp", "marathon.mesos")
 	if err != nil {
 		return "", err

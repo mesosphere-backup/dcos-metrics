@@ -9,9 +9,11 @@ import (
 )
 
 var (
-	agentPollingEnabledFlag = collector.BoolEnvFlag("agent-polling-enabled", true,
+	agentPollingFlag = collector.BoolEnvFlag("agent-polling", true,
 		"Polls the local Mesos Agent for system information")
-	kafkaEnabledFlag = collector.BoolEnvFlag("kafka-enabled", true,
+	httpProfileFlag = collector.BoolEnvFlag("http-profile", false,
+		"Allows access to profile data on a random HTTP port at /debug/pprof")
+	kafkaFlag = collector.BoolEnvFlag("kafka", true,
 		"Sends output data to Kafka")
 )
 
@@ -29,7 +31,7 @@ func main() {
 	go collector.RunStatsEmitter(stats)
 
 	kafkaOutputChan := make(chan collector.KafkaMessage)
-	if *kafkaEnabledFlag {
+	if *kafkaFlag {
 		go collector.RunKafkaProducer(kafkaOutputChan, stats)
 	} else {
 		go printReceivedMessages(kafkaOutputChan)
@@ -37,10 +39,14 @@ func main() {
 
 	recordInputChan := make(chan interface{})
 	agentStateChan := make(chan *collector.AgentState)
-	if *agentPollingEnabledFlag {
+	if *agentPollingFlag {
 		go collector.RunAgentPoller(recordInputChan, agentStateChan, stats)
 	}
 	go collector.RunAvroTCPReader(recordInputChan, stats)
+
+	if *httpProfileFlag {
+		go collector.RunHTTPProfAccess()
+	}
 
 	// Run the sorter on the main thread (exit process if Kafka stops accepting data)
 	collector.RunTopicSorter(recordInputChan, agentStateChan, kafkaOutputChan, stats)
@@ -49,7 +55,7 @@ func main() {
 func printReceivedMessages(msgChan <-chan collector.KafkaMessage) {
 	for {
 		msg := <-msgChan
-		log.Printf("Topic '%s': %d bytes would've been written (-kafka-enabled=false)\n",
+		log.Printf("Topic '%s': %d bytes would've been written (-kafka=false)\n",
 			msg.Topic, len(msg.Data))
 	}
 }

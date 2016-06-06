@@ -91,7 +91,7 @@ Example Marathon app (JSON Mode). Before deployment, `OUTPUT_HOST` **must** be m
   },
   "uris": [
     "https://s3-us-west-2.amazonaws.com/nick-dev/metrics-consumer-graphite-uber.jar",
-    "https://s3.amazonaws.com/downloads.mesosphere.io/kafka/assets/jre-8u72-linux-x64.tar.gz"
+    "https://downloads.mesosphere.com/kafka/assets/jre-8u91-linux-x64.tar.gz"
   ]
 }
 ```
@@ -144,7 +144,7 @@ Example Marathon app (JSON Mode). Before deployment, `OUTPUT_HOST`, `OUTPUT_USER
   },
   "uris": [
     "https://s3-us-west-2.amazonaws.com/nick-dev/metrics-consumer-influx-uber.jar",
-    "https://s3.amazonaws.com/downloads.mesosphere.io/kafka/assets/jre-8u72-linux-x64.tar.gz"
+    "https://downloads.mesosphere.com/kafka/assets/jre-8u91-linux-x64.tar.gz"
   ]
 }
 ```
@@ -185,7 +185,7 @@ Example Marathon app (JSON Mode). Before deployment, both `OUTPUT_HOST` and `OUT
   },
   "uris": [
     "https://s3-us-west-2.amazonaws.com/nick-dev/metrics-consumer-kairos-uber.jar",
-    "https://s3.amazonaws.com/downloads.mesosphere.io/kafka/assets/jre-8u72-linux-x64.tar.gz"
+    "https://downloads.mesosphere.com/kafka/assets/jre-8u91-linux-x64.tar.gz"
   ]
 }
 ```
@@ -216,7 +216,7 @@ Example Marathon app (JSON Mode):
   },
   "uris": [
     "https://s3-us-west-2.amazonaws.com/nick-dev/metrics-consumer-print-uber.jar",
-    "https://s3.amazonaws.com/downloads.mesosphere.io/kafka/assets/jre-8u72-linux-x64.tar.gz"
+    "https://downloads.mesosphere.com/kafka/assets/jre-8u91-linux-x64.tar.gz"
   ]
 }
 ```

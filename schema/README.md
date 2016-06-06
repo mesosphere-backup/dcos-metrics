@@ -34,7 +34,7 @@ Whenever the schema is changed, clients which use preprocessed code MUST be upda
 
 Java code can be generated using [avro-tools.jar](http://www.apache.org/dyn/closer.cgi/avro/avro-1.8.0/java/avro-tools-1.8.0.jar), or via the [gradle avro plugin](https://github.com/commercehub-oss/gradle-avro-plugin). See usage of the latter in the [metrics consumer gradle config](https://github.com/mesosphere/dcos-stats/blob/master/consumer/build.gradle).
 
-```
+```bash
 java -jar avro-tools-1.8.0.jar compile schema metrics.avsc java/
 find java/
 ```
@@ -43,7 +43,7 @@ find java/
 
 C++ code, such as the [Agent Module](../module), is generated using `avrogencpp`, which may be built from [avro-cpp.tar.gz](http://www.apache.org/dyn/closer.cgi/avro/avro-1.8.0/cpp/avro-cpp-1.8.0.tar.gz).
 
-```
+```bash
 avrogencpp -i metrics.avsc -n avro -o metrics.hpp
 cat metrics.hpp
 ```
@@ -52,7 +52,7 @@ cat metrics.hpp
 
 Go code, such as the [Collector](../collector) or the [Example Collector Client](../examples/collector-emitter/), is generated using `go generate`:
 
-```
+```bash
 cd go/
 go run generator.go -infile ../metrics.avsc -outfile schema.go
 cat schema.go
@@ -62,7 +62,7 @@ cat schema.go
 
 Convert sample metrics JSON to a binary file, then view info about the file:
 
-```
+```bash
 java -jar avro-tools-1.8.0.jar fromjson --schema-file metrics.avsc --codec deflate sample.json > sample.avro
 java -jar avro-tools-1.8.0.jar getschema sample.avro
 java -jar avro-tools-1.8.0.jar tojson --pretty sample.avro
@@ -70,7 +70,7 @@ java -jar avro-tools-1.8.0.jar tojson --pretty sample.avro
 
 Generate records containing random data:
 
-```
+```bash
 java -jar avro-tools-1.8.0.jar random --schema-file metrics.avsc --codec deflate --count 10 random.avro
 java -jar avro-tools-1.8.0.jar getschema random.avro
 java -jar avro-tools-1.8.0.jar tojson --pretty random.avro
