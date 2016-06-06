@@ -3,22 +3,15 @@
 #include <boost/asio.hpp>
 #include <glog/logging.h>
 
+#include "statsd_util.hpp"
 #include "sync_util.hpp"
 
 #define UDP_MAX_PACKET_BYTES 65536 /* UDP size limit in IPv4 (may be larger in IPv6) */
-#define RECEIVED_BYTES_STATSD_LABEL "dcos.metrics.container_received_bytes_per_sec"
-#define THROTTLED_BYTES_STATSD_LABEL "dcos.metrics.container_throttled_bytes_per_sec"
+#define RECEIVED_BYTES_STATSD_LABEL "container_received_bytes_per_sec"
+#define THROTTLED_BYTES_STATSD_LABEL "container_throttled_bytes_per_sec"
 
 typedef boost::asio::ip::udp::endpoint udp_endpoint_t;
 typedef boost::asio::ip::udp::resolver resolver_t;
-
-namespace {
-  inline std::string to_statsd(const char* label, size_t value, size_t period_ms) {
-    std::ostringstream oss;
-    oss << label << ':' << value / (period_ms / 1000.) << "|g";
-    return oss.str();
-  }
-}
 
 metrics::ContainerReaderImpl::ContainerReaderImpl(
     const std::shared_ptr<boost::asio::io_service>& io_service,
@@ -170,9 +163,9 @@ void metrics::ContainerReaderImpl::limit_reset_cb(boost::system::error_code ec) 
 
   // Send our own metrics on the data we received and/or dropped
   // Always emit, even if values are zero, just to let upstream know we're listening
-  std::string msg = to_statsd(RECEIVED_BYTES_STATSD_LABEL, received_bytes, limit_period_ms);
+  std::string msg = statsd_counter_per_sec(RECEIVED_BYTES_STATSD_LABEL, received_bytes, limit_period_ms);
   write_message(msg.data(), msg.size());
-  msg = to_statsd(THROTTLED_BYTES_STATSD_LABEL, dropped_bytes, limit_period_ms);
+  msg = statsd_counter_per_sec(THROTTLED_BYTES_STATSD_LABEL, dropped_bytes, limit_period_ms);
   write_message(msg.data(), msg.size());
 
   received_bytes = 0;

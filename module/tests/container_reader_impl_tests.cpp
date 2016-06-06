@@ -14,10 +14,10 @@ using ::testing::Invoke;
 
 namespace {
   const std::string
-    received_some_statsd_msg = "dcos.metrics.container_received_bytes_per_sec:20|g",
-    throttled_some_statsd_msg = "dcos.metrics.container_throttled_bytes_per_sec:20|g",
-    received_none_statsd_msg = "dcos.metrics.container_received_bytes_per_sec:0|g",
-    throttled_none_statsd_msg = "dcos.metrics.container_throttled_bytes_per_sec:0|g";
+    received_some_statsd_msg = "dcos.metrics.module.container_received_bytes_per_sec:20|g",
+    throttled_some_statsd_msg = "dcos.metrics.module.container_throttled_bytes_per_sec:20|g",
+    received_none_statsd_msg = "dcos.metrics.module.container_received_bytes_per_sec:0|g",
+    throttled_none_statsd_msg = "dcos.metrics.module.container_throttled_bytes_per_sec:0|g";
 
   class Record {
    public:

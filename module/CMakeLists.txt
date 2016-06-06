@@ -176,6 +176,7 @@ set(SRCS
   sync_util.cpp
   statsd_output_writer.cpp
   statsd_tagger.cpp
+  statsd_util.cpp
   tcp_sender.cpp
   udp_sender.cpp)
 configure_file(
