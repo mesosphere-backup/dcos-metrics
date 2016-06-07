@@ -37,7 +37,7 @@ func main() {
 		go printReceivedMessages(kafkaOutputChan)
 	}
 
-	recordInputChan := make(chan interface{})
+	recordInputChan := make(chan *collector.AvroData)
 	agentStateChan := make(chan *collector.AgentState)
 	if *agentPollingFlag {
 		go collector.RunAgentPoller(recordInputChan, agentStateChan, stats)

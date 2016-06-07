@@ -45,7 +45,7 @@ type AgentState struct {
 
 // Runs an Agent Poller which periodically produces data retrieved from a local Mesos Agent.
 // This function should be run as a gofunc.
-func RunAgentPoller(recordsChan chan<- interface{}, agentStateChan chan<- *AgentState, stats chan<- StatsEvent) {
+func RunAgentPoller(recordsChan chan<- *AvroData, agentStateChan chan<- *AgentState, stats chan<- StatsEvent) {
 	ticker := time.NewTicker(time.Second * time.Duration(*agentPollPeriodFlag))
 	for {
 		select {
@@ -77,7 +77,7 @@ func RunAgentPoller(recordsChan chan<- interface{}, agentStateChan chan<- *Agent
 
 // ---
 
-// run detect_ip => "10.0.3.26\n"
+// runs detect_ip => "10.0.3.26\n"
 func getAgentIp(stats chan<- StatsEvent) string {
 	stats <- MakeEvent(AgentIpLookup)
 	cmdWithArgs := strings.Split(*agentIpCommandFlag, " ")
@@ -95,7 +95,8 @@ func getAgentIp(stats chan<- StatsEvent) string {
 	return ip
 }
 
-func getAgentMetrics(agentIp string, agentState *AgentState, stats chan<- StatsEvent) (interface{}, error) {
+// fetches metrics from the agent and returns a MetricList
+func getAgentMetrics(agentIp string, agentState *AgentState, stats chan<- StatsEvent) (*AvroData, error) {
 	stats <- MakeEvent(AgentQuery)
 	var rawJson []byte = nil
 	var err error = nil
@@ -152,7 +153,9 @@ func getAgentMetrics(agentIp string, agentState *AgentState, stats chan<- StatsE
 	metricListRec.Set("datapoints", datapoints)
 	// note: agent_id tag is automatically added downstream
 	metricListRec.Set("tags", make([]interface{}, 0))
-	return metricListRec, nil
+	// for now, just measure this message as 1 byte. the size is only used for throttling anyway.
+	// hopefully we arent too worried about our own contribution to any rate limit..
+	return &AvroData{metricListRec, *agentMetricsTopicFlag}, nil
 }
 
 func getAgentState(agentIp string, stats chan<- StatsEvent) (*AgentState, error) {

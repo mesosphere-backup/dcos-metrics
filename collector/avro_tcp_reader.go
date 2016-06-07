@@ -16,9 +16,11 @@ var (
 		"Logs the parsed content of records received at -listen-endpoint")
 	recordInputHexdumpFlag = BoolEnvFlag("record-input-hexdump", false,
 		"Prints a verbose hex dump of incoming records (ala 'hexdump -C')")
+
 	inputLimitAmountKBytesFlag = IntEnvFlag("input-limit-amount-kbytes", 20480,
-		"The amount of data that will be accepted from a single input in -input-limit-period. "+
-			"Records from an input beyond this limit will be dropped until the period resets.")
+		"The amount of data that will be accepted from a given input in -input-limit-period. "+
+			"Records from an input beyond this limit will be dropped until the period resets. "+
+			"This value is applied on a PER-CONNECTION basis.")
 	inputLimitPeriodFlag = IntEnvFlag("input-limit-period", 60,
 		"Number of seconds over which to enforce -input-limit-amount-kbytes")
 )
@@ -26,7 +28,7 @@ var (
 // Runs a TCP socket listener which produces Avro records sent to that socket.
 // Expects input which has been formatted in the Avro ODF standard.
 // This function should be run as a gofunc.
-func RunAvroTCPReader(recordsChan chan<- interface{}, stats chan<- StatsEvent) {
+func RunAvroTCPReader(recordsChan chan<- *AvroData, stats chan<- StatsEvent) {
 	addr, err := net.ResolveTCPAddr("tcp", *listenEndpointFlag)
 	if err != nil {
 		stats <- MakeEvent(TCPResolveFailed)
@@ -56,7 +58,7 @@ func RunAvroTCPReader(recordsChan chan<- interface{}, stats chan<- StatsEvent) {
 
 // Function which reads records from a TCP session.
 // This function should be run as a gofunc.
-func handleConnection(conn *net.TCPConn, recordsChan chan<- interface{}, stats chan<- StatsEvent) {
+func handleConnection(conn *net.TCPConn, recordsChan chan<- *AvroData, stats chan<- StatsEvent) {
 	conn.SetKeepAlive(true)
 	defer func() {
 		stats <- MakeEvent(TCPSessionClosed)
@@ -78,51 +80,67 @@ func handleConnection(conn *net.TCPConn, recordsChan chan<- interface{}, stats c
 	}()
 
 	nextInputResetTime := time.Now().Add(time.Second * time.Duration(*inputLimitPeriodFlag))
+	var lastBytesCount int64
 	for {
-		// Waits for records to be available
+		lastBytesCount = reader.inputBytes
+		// Wait for records to be available:
 		if !avroReader.Scan() {
 			// Stream closed, exit
 			break
-		}
-		now := time.Now()
-		if now.After(nextInputResetTime) {
-			// Limit period has transpired, reset limit count before continuing
-			if reader.Count > 1024**inputLimitAmountKBytesFlag {
-				log.Printf("Received %d KB from %s in the last ~%ds. Of this, %d KB was dropped due to throttling.\n",
-					reader.Count/1024,
-					conn.RemoteAddr(),
-					*inputLimitPeriodFlag,
-					reader.Count/1024-*inputLimitAmountKBytesFlag)
-			} else {
-				log.Printf("Received %d KB from %s in the last ~%ds\n",
-					reader.Count/1024, conn.RemoteAddr(), *inputLimitPeriodFlag)
-			}
-			reader.Count = 0
-			nextInputResetTime = now.Add(time.Second * time.Duration(*inputLimitPeriodFlag))
 		}
 		datum, err := avroReader.Read()
 		if err != nil {
 			log.Printf("Cannot read avro record from %+v: %s\n", conn.RemoteAddr(), err)
 			continue
 		}
-		topic, _ := GetTopic(datum)
+		topic, ok := GetTopic(datum)
+		if !ok {
+			stats <- MakeEvent(RecordBadTopic)
+		}
+		// increment counters before reader.inputBytes is modified too much
+		// NOTE: inputBytes is effectively being modified by a gofunc in avroReader, so it's not a perfect measurement
+		approxBytesRead := reader.inputBytes - lastBytesCount
 		stats <- MakeEventSuff(AvroRecordIn, topic)
-		if reader.Count > 1024**inputLimitAmountKBytesFlag {
-			stats <- MakeEventSuff(AvroRecordThrottled, topic)
+		stats <- MakeEventSuffCount(AvroBytesIn, topic, int(approxBytesRead))
+
+		// reset throttle counter if needed, before enforcing it below
+		// ideally we'd use a ticker for this, but the goavro api already requires we use manual polling
+		now := time.Now()
+		if now.After(nextInputResetTime) {
+			// Limit period has transpired, reset limit count before continuing
+			if reader.inputBytes > *inputLimitAmountKBytesFlag*1024 {
+				log.Printf("SUMMARY: Received %d KB from %s in the last ~%ds. "+
+					"Of this, ~%d KB was dropped due to throttling.\n",
+					reader.inputBytes/1024,
+					conn.RemoteAddr(),
+					*inputLimitPeriodFlag,
+					reader.inputBytes/1024-*inputLimitAmountKBytesFlag)
+			} else {
+				log.Printf("SUMMARY: Received %d KB from %s in the last ~%ds\n",
+					reader.inputBytes/1024, conn.RemoteAddr(), *inputLimitPeriodFlag)
+			}
+			reader.inputBytes = 0
+			nextInputResetTime = now.Add(time.Second * time.Duration(*inputLimitPeriodFlag))
+		}
+
+		if reader.inputBytes > *inputLimitAmountKBytesFlag*1024 {
+			// input limit reached, skip
+			stats <- MakeEventSuff(AvroRecordInThrottled, topic)
+			stats <- MakeEventSuffCount(AvroBytesInThrottled, topic, int(approxBytesRead))
 			continue
 		}
 		if *recordInputLogFlag {
 			log.Println("RECORD IN:", datum)
 		}
-		recordsChan <- datum
+		recordsChan <- &AvroData{datum, topic}
 	}
 }
 
-// An io.Reader which provides a count of the number of bytes read, and which supports optional
+// An io.Reader which provides counts of the number of bytes read, and which supports optional
 // hexdumps of the data that it's reading.
 type countingReader struct {
 	readerImpl io.Reader
-	Count      int64
+	inputBytes int64
 }
 
 func (cr *countingReader) Read(p []byte) (int, error) {
@@ -132,6 +150,6 @@ func (cr *countingReader) Read(p []byte) (int, error) {
 		log.Printf("Hex dump of %d input bytes:\n%sEnd dump of %d input bytes",
 			len(p), hex.Dump(p), len(p))
 	}
-	cr.Count += int64(n)
+	cr.inputBytes += int64(n)
 	return n, err
 }

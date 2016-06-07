@@ -32,7 +32,9 @@ const (
 	AvroReaderOpenFailed
 	AvroReaderCloseFailed
 	AvroRecordIn
-	AvroRecordThrottled
+	AvroRecordInThrottled
+	AvroBytesIn
+	AvroBytesInThrottled
 
 	KafkaLookupFailed
 	KafkaConnectionFailed
@@ -40,9 +42,6 @@ const (
 	KafkaSessionClosed
 	KafkaMessageSent
 	KafkaBytesSent
-
-	AvroWriterFailed
-	AvroRecordOut
 
 	AgentIpLookup
 	AgentIpLookupFailed
@@ -57,6 +56,11 @@ const (
 	RecordNoAgentStateAvailable
 	RecordBadTopic
 	RecordBadTags
+	AvroWriterFailed
+	AvroRecordOut
+	AvroRecordOutThrottled
+	AvroBytesOut
+	AvroBytesOutThrottled
 )
 
 type StatsEvent struct {
@@ -111,17 +115,21 @@ func toStatsdLabel(event StatsEvent) string {
 	case TCPAcceptFailed:
 		statsdKey = "tcp_input.tcp_accept_failures"
 	case TCPSessionOpened:
-		statsdKey = "tcp_input.tcp_session_opened"
+		statsdKey = "tcp_input.tcp_sessions_opened"
 	case TCPSessionClosed:
-		statsdKey = "tcp_input.tcp_session_closed"
+		statsdKey = "tcp_input.tcp_sessions_closed"
 	case AvroReaderOpenFailed:
 		statsdKey = "tcp_input.avro_reader_open_failures"
 	case AvroReaderCloseFailed:
 		statsdKey = "tcp_input.avro_reader_close_failures"
 	case AvroRecordIn:
-		statsdKey = "tcp_input.avro_record"
-	case AvroRecordThrottled:
-		statsdKey = "tcp_input.avro_record_throttled"
+		statsdKey = "tcp_input.records"
+	case AvroRecordInThrottled:
+		statsdKey = "tcp_input.records_throttled"
+	case AvroBytesIn:
+		statsdKey = "tcp_input.bytes"
+	case AvroBytesInThrottled:
+		statsdKey = "tcp_input.bytes_throttled"
 
 	case KafkaLookupFailed:
 		statsdKey = "kafka_output.framework_lookup_failures"
@@ -135,11 +143,6 @@ func toStatsdLabel(event StatsEvent) string {
 		statsdKey = "kafka_output.avro_records_sent"
 	case KafkaBytesSent:
 		statsdKey = "kafka_output.bytes_sent"
-
-	case AvroWriterFailed:
-		statsdKey = "avro_output.writer_open_failures"
-	case AvroRecordOut:
-		statsdKey = "avro_output.avro_record"
 
 	case AgentIpLookup:
 		statsdKey = "agent_poll.ip_lookups"
@@ -163,9 +166,19 @@ func toStatsdLabel(event StatsEvent) string {
 	case RecordNoAgentStateAvailable:
 		statsdKey = "topic_sorter.no_agent_state_available"
 	case RecordBadTopic:
-		statsdKey = "topic_sorter.record_bad_topic"
+		statsdKey = "topic_sorter.records_bad_topic"
 	case RecordBadTags:
-		statsdKey = "topic_sorter.record_bad_tags"
+		statsdKey = "topic_sorter.records_bad_tags"
+	case AvroWriterFailed:
+		statsdKey = "topic_sorter.avro_writer_open_failures"
+	case AvroRecordOut:
+		statsdKey = "topic_sorter.records"
+	case AvroRecordOutThrottled:
+		statsdKey = "topic_sorter.records_throttled"
+	case AvroBytesOut:
+		statsdKey = "topic_sorter.bytes"
+	case AvroBytesOutThrottled:
+		statsdKey = "topic_sorter.bytes_throttled"
 	}
 	if len(event.suffix) == 0 {
 		return fmt.Sprintf("%s.%s", statsdPrefix, statsdKey)
