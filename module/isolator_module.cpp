@@ -56,7 +56,7 @@ namespace metrics {
                 << "container_id[" << container_id.ShortDebugString() << "] "
                 << "container_config[" << container_config.ShortDebugString() << "]";
       Try<UDPEndpoint> endpoint =
-        container_assigner->register_container(container_id, container_config.executorinfo());
+        container_assigner->register_container(container_id, container_config.executor_info());
       if (endpoint.isError()) {
         LOG(ERROR) << "Failed to register container, no statsd endpoint to inject: "
                    << container_id.ShortDebugString();

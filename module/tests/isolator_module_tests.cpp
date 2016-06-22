@@ -47,12 +47,12 @@ TEST(IsolatorModuleTests, prepare_returns_success) {
   container_id.set_value("test container");
 
   mesos::slave::ContainerConfig config;
-  config.mutable_executorinfo()->mutable_executor_id()->set_value("test executor");
+  config.mutable_executor_info()->mutable_executor_id()->set_value("test executor");
   config.set_directory("test directory");
   config.set_user("test user");
 
   metrics::UDPEndpoint endpoint("test_host", 1234567);
-  EXPECT_CALL(*mock_assigner, register_container(container_id, config.executorinfo()))
+  EXPECT_CALL(*mock_assigner, register_container(container_id, config.executor_info()))
     .WillOnce(Return(Try<metrics::UDPEndpoint>(endpoint)));
 
   Option<mesos::slave::ContainerLaunchInfo> ret =
@@ -80,11 +80,11 @@ TEST(IsolatorModuleTests, prepare_returns_error) {
   container_id.set_value("test container");
 
   mesos::slave::ContainerConfig config;
-  config.mutable_executorinfo()->mutable_executor_id()->set_value("test executor");
+  config.mutable_executor_info()->mutable_executor_id()->set_value("test executor");
   config.set_directory("test directory");
   config.set_user("test user");
 
-  EXPECT_CALL(*mock_assigner, register_container(container_id, config.executorinfo()))
+  EXPECT_CALL(*mock_assigner, register_container(container_id, config.executor_info()))
     .WillOnce(Return(Try<metrics::UDPEndpoint>(Error("test err"))));
   Option<mesos::slave::ContainerLaunchInfo> ret =
     mod.prepare(container_id, config).get();
