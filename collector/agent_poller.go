@@ -133,7 +133,7 @@ func getAgentMetrics(agentIp string, agentState *AgentState, stats chan<- StatsE
 			continue
 		}
 		datapoint, err := goavro.NewRecord(datapointNamespace, datapointSchema)
-		datapoint.Set("name", strings.Replace(key, "/", ".", -1)) // "key/path" => "key.path"
+		datapoint.Set("name", "agent."+strings.Replace(key, "/", ".", -1)) // "key/path" => "key.path"
 		datapoint.Set("time_ms", nowMillis)
 		datapoint.Set("value", valFloat)
 		datapoints = append(datapoints, datapoint)
