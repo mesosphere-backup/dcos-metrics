@@ -20,14 +20,15 @@ $ find . -iname *-uber.jar
 ./metrics-consumer-influx/build/libs/metrics-consumer-influx-uber.jar
 ./metrics-consumer-kairos/build/libs/metrics-consumer-kairos-uber.jar
 ./metrics-consumer-print/build/libs/metrics-consumer-print-uber.jar
+./metrics-consumer-print/build/libs/metrics-consumer-statsd-uber.jar
 [...]
 ```
 
 Specific consumer:
 ```
-$ ./gradlew :metrics-consumer-graphite:shadowjar
+$ ./gradlew :metrics-consumer-kairos:shadowjar
 $ find . -iname *-uber.jar
-./metrics-consumer-graphite/build/libs/metrics-consumer-graphite-uber.jar
+./metrics-consumer-kairos/build/libs/metrics-consumer-kairos-uber.jar
 ```
 
 ## Configure and Deploy
@@ -216,6 +217,50 @@ Example Marathon app (JSON Mode):
   },
   "uris": [
     "https://s3-us-west-2.amazonaws.com/nick-dev/metrics-consumer-print-uber.jar",
+    "https://downloads.mesosphere.com/kafka/assets/jre-8u91-linux-x64.tar.gz"
+  ]
+}
+```
+
+### (Dog)StatsD Consumer
+
+Sends data to a StatsD or DogstatsD server in StatsD format over UDP.
+
+#### Options
+
+- **OUTPUT_HOST**: The hostname or IP of the server. **Required, no default**.
+- **OUTPUT_PORT**: The port of the server. Default: `8125`
+- **KEY_PREFIX**: String to include as a prefix on all outputted metrics. Default: `""`
+- **ENABLE_TAGS**: Outputs metrics with [Datadog-style tags](http://docs.datadoghq.com/guides/dogstatsd/#datagram-format). This may need to be `false` depending on the receiving service. Default: `true`
+
+#### Deployment
+
+Install the `datadog` package in Universe. You will need to manually go into `Advanced Installation` and provide a value for the `api_key`. Once this is done, it's ready to launch.
+
+Example Marathon app (JSON Mode). The following has been populated with defaults which should align with the default `datadog` package settings:
+
+```json
+{
+  "id": "metrics-consumer-statsd",
+  "cmd": "env && JAVA_HOME=./jre* ./jre*/bin/java -jar *.jar",
+  "cpus": 1,
+  "mem": 512,
+  "disk": 0,
+  "instances": 1,
+  "env": {
+    "OUTPUT_HOST": "datadog-agent.marathon.mesos",
+    "OUTPUT_PORT": "8125",
+    "KEY_PREFIX": "",
+    "ENABLE_TAGS": "true",
+    "FRAMEWORK_NAME": "kafka",
+    "TOPIC_PATTERN": "metrics-.*",
+    "STATS_PRINT_PERIOD_MS": "5000",
+    "POLL_TIMEOUT_MS": "1000",
+    "CONSUMER_THREADS": "1",
+    "KAFKA_OVERRIDE_GROUP_ID": "metrics-consumer-statsd"
+  },
+  "uris": [
+    "https://s3-us-west-2.amazonaws.com/nick-dev/metrics-consumer-statsd-uber.jar",
     "https://downloads.mesosphere.com/kafka/assets/jre-8u91-linux-x64.tar.gz"
   ]
 }
