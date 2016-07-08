@@ -7,6 +7,7 @@ import com.codahale.metrics.graphite.GraphiteRabbitMQ;
 import com.codahale.metrics.graphite.GraphiteSender;
 import com.codahale.metrics.graphite.GraphiteUDP;
 import com.codahale.metrics.graphite.PickledGraphite;
+import com.mesosphere.metrics.consumer.common.ArgUtils;
 import com.mesosphere.metrics.consumer.common.ConsumerRunner;
 import com.mesosphere.metrics.consumer.common.MetricOutput;
 
@@ -91,34 +92,8 @@ public class GraphiteMain {
     }
   }
 
-  private static boolean parseBool(String flag, boolean defaultVal) {
-    String str = System.getenv(flag);
-    if (str == null || str.isEmpty()) {
-      return defaultVal;
-    }
-    switch (str.charAt(0)) {
-    case 't':
-    case 'T':
-    case '1':
-      return true;
-    default:
-      return false;
-    }
-  }
-
-  private static String parseString(String flag, String defaultVal) {
-    String hostFlag = System.getenv(flag);
-    if (hostFlag != null && !hostFlag.isEmpty()) {
-      return hostFlag;
-    }
-    if (defaultVal != null) {
-      return defaultVal;
-    }
-    throw new IllegalArgumentException(flag + " is required");
-  }
-
   private static GraphiteSender getSender(String host, int port) throws Exception {
-    String clientType = parseString("GRAPHITE_PROTOCOL", "TCP");
+    String clientType = ArgUtils.parseStr("GRAPHITE_PROTOCOL", "TCP");
     GraphiteSender sender = null;
     if (clientType.equalsIgnoreCase("TCP")) {
       sender = new Graphite(host, port);
@@ -128,25 +103,27 @@ public class GraphiteMain {
       sender = new PickledGraphite(host, port);
     } else if (clientType.equalsIgnoreCase("RABBITMQ")) {
       sender = new GraphiteRabbitMQ(host, port,
-          parseString("RABBIT_USERNAME", null),
-          parseString("RABBIT_PASSWORD", null),
-          parseString("RABBIT_EXCHANGE", null));
+          ArgUtils.parseRequiredStr("RABBIT_USERNAME"),
+          ArgUtils.parseRequiredStr("RABBIT_PASSWORD"),
+          ArgUtils.parseRequiredStr("RABBIT_EXCHANGE"));
     }
     sender.connect();
     return sender;
   }
 
   public static void main(String[] args) {
-    String hostFlag = parseString("OUTPUT_HOST", null);
-    String portFlag = parseString("OUTPUT_PORT", "2003");
-    String prefixFlag = parseString("GRAPHITE_PREFIX", "");
-    boolean prefixContainerIds = parseBool("GRAPHITE_PREFIX_IDS", true);
-    boolean exitOnConnectFailure = parseBool("EXIT_ON_CONNECT_FAILURE", true);
+    ArgUtils.printArgs("RABBIT_USERNAME", "RABBIT_PASSWORD");
+
     ConsumerRunner.run(new ConsumerRunner.MetricOutputFactory() {
       @Override
       public MetricOutput getOutput() throws Exception {
         return new GraphiteOutput(
-            getSender(hostFlag, Integer.valueOf(portFlag)), prefixFlag, prefixContainerIds, exitOnConnectFailure);
+            getSender(
+                ArgUtils.parseRequiredStr("OUTPUT_HOST"),
+                ArgUtils.parseInt("OUTPUT_PORT", 2003)),
+            ArgUtils.parseStr("GRAPHITE_PREFIX", ""),
+            ArgUtils.parseBool("GRAPHITE_PREFIX_IDS", true),
+            ArgUtils.parseBool("EXIT_ON_CONNECT_FAILURE", true));
       }
     });
   }

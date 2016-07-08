@@ -32,18 +32,18 @@ public class DebuggingByteArrayInputStream extends ByteArrayInputStream {
   public void dumpState() {
     LOGGER.warn("----");
     // print info as header
-    LOGGER.warn(String.format("State: count=%d, mark=%d, pos=%d", count, mark, pos));
-    LOGGER.warn(String.format("Last ranged read: buflen=%d off=%d len=%d => result=%d",
-        lastBufLen, lastReadOff, lastReadLen, lastReadResult));
+    LOGGER.warn("State: count={}, mark={}, pos={}", count, mark, pos);
+    LOGGER.warn("Last ranged read: buflen={} off={} len={} => result={}",
+        lastBufLen, lastReadOff, lastReadLen, lastReadResult);
 
     // print buffer surrounded by header/footer which both specify the length
-    LOGGER.warn(String.format("Buffer of %d bytes:\n%s\nEnd buffer of %d bytes",
-        buf.length, hexDump(buf), buf.length));
+    LOGGER.warn("Buffer of {} bytes:\n{}\nEnd buffer of {} bytes",
+        buf.length, hexDump(buf), buf.length);
 
     // print info again as footer
-    LOGGER.warn(String.format("State: count=%d, mark=%d, pos=%d", count, mark, pos));
-    LOGGER.warn(String.format("Last ranged read: buflen=%d off=%d len=%d => result=%d",
-        lastBufLen, lastReadOff, lastReadLen, lastReadResult));
+    LOGGER.warn("State: count={}, mark={}, pos={}", count, mark, pos);
+    LOGGER.warn("Last ranged read: buflen={} off={} len={} => result={}",
+        lastBufLen, lastReadOff, lastReadLen, lastReadResult);
     LOGGER.warn("----");
   }
 

@@ -7,6 +7,7 @@ import org.kairosdb.client.builder.MetricBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.mesosphere.metrics.consumer.common.ArgUtils;
 import com.mesosphere.metrics.consumer.common.ConsumerRunner;
 import com.mesosphere.metrics.consumer.common.MetricOutput;
 
@@ -64,37 +65,16 @@ public class KairosMain {
     }
   }
 
-  private static String parseRequiredStr(String envName) {
-    String str = System.getenv(envName);
-    if (str == null || str.isEmpty()) {
-      throw new IllegalArgumentException(envName + " is required");
-    }
-    return str;
-  }
-
-  private static boolean parseBool(String envName, boolean defaultVal) {
-    String str = System.getenv(envName);
-    if (str == null || str.isEmpty()) {
-      return defaultVal;
-    }
-    switch (str.charAt(0)) {
-    case 't':
-    case 'T':
-    case '1':
-      return true;
-    default:
-      return false;
-    }
-  }
-
   public static void main(String[] args) {
+    ArgUtils.printArgs();
+
     ConsumerRunner.run(new ConsumerRunner.MetricOutputFactory() {
       @Override
       public MetricOutput getOutput() throws Exception {
         return new KairosOutput(
-            parseRequiredStr("OUTPUT_HOST"),
-            Integer.parseInt(parseRequiredStr("OUTPUT_PORT")),
-            parseBool("EXIT_ON_CONNECT_FAILURE", true));
+            ArgUtils.parseRequiredStr("OUTPUT_HOST"),
+            ArgUtils.parseRequiredInt("OUTPUT_PORT"),
+            ArgUtils.parseBool("EXIT_ON_CONNECT_FAILURE", true));
       }
     });
   }

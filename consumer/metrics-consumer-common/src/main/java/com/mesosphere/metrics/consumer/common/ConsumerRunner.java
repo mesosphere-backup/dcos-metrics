@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import dcos.metrics.MetricList;
+import dcos.metrics.Tag;
 
 public class ConsumerRunner {
 
@@ -31,6 +32,8 @@ public class ConsumerRunner {
   private static final Logger LOGGER = LoggerFactory.getLogger(ConsumerRunner.class);
 
   private static class ConsumerRunnable implements Runnable {
+    private static final String FRAMEWORK_NAME_TAG = "framework_name";
+
     private final MetricOutput output;
     private final KafkaConsumer<byte[], byte[]> kafkaConsumer;
     private final ClientConfigs.ConsumerConfig consumerConfig;
@@ -50,18 +53,21 @@ public class ConsumerRunner {
 
     @Override
     public void run() {
-      if (consumerConfig.topicExact != null) {
-        // subscribe to specific topic up-front
+      if (!consumerConfig.exactTopics.isEmpty()) {
+        // subscribe to specific topics up-front
         List<String> topics = new ArrayList<>();
-        topics.add(consumerConfig.topicExact);
+        topics.addAll(consumerConfig.exactTopics);
         kafkaConsumer.subscribe(topics);
       }
       DatumReader<MetricList> datumReader = new SpecificDatumReader<MetricList>(MetricList.class);
       MetricList metricList = null;
       long lastTopicPollMs = 0;
       while (!values.isShutdown()) {
-        long messages = 0;
-        long bytes = 0;
+        long recordCount = 0;
+        long byteCount = 0;
+        long datapointCount = 0;
+        long tagCount = 0;
+        long metricListCount = 0;
 
         if (consumerConfig.topicPattern != null) {
           // Every so often, update the list of topics and re-subscribe if needed
@@ -78,38 +84,47 @@ public class ConsumerRunner {
         }
 
         try {
-          LOGGER.info("Waiting {}ms for messages", consumerConfig.pollTimeoutMs);
-          ConsumerRecords<byte[], byte[]> kafkaRecords = kafkaConsumer.poll(consumerConfig.pollTimeoutMs);
-          messages = kafkaRecords.count();
+          LOGGER.info("Waiting {}ms for records", consumerConfig.pollTimeoutMs);
+          ConsumerRecords<byte[], byte[]> kafkaRecords =
+              kafkaConsumer.poll(consumerConfig.pollTimeoutMs);
+          recordCount = kafkaRecords.count();
           for (ConsumerRecord<byte[], byte[]> kafkaRecord : kafkaRecords) {
             if (kafkaRecord.key() != null) {
-              bytes += kafkaRecord.key().length; // not used, but count as received
+              byteCount += kafkaRecord.key().length; // not used, but count as received
             }
-            bytes += kafkaRecord.value().length;
+            byteCount += kafkaRecord.value().length;
 
-            LOGGER.info("Processing {} byte Kafka message", kafkaRecord.value().length);
+            LOGGER.info("Processing {} byte Kafka record", kafkaRecord.value().length);
 
             // Recreate the DataFileStream every time: Each Kafka record has a datafile header.
-            DebuggingByteArrayInputStream inputStream = new DebuggingByteArrayInputStream(kafkaRecord.value());
+            DebuggingByteArrayInputStream inputStream =
+                new DebuggingByteArrayInputStream(kafkaRecord.value());
             DataFileStream<MetricList> dataFileStream =
                 new DataFileStream<MetricList>(inputStream, datumReader);
-            long metricLists = 0;
-            long tags = 0;
-            long datapoints = 0;
+            long recordMetricListCount = 0;
+            long filteredMetricListCount = 0;
+            long recordTagCount = 0;
+            long recordDatapointCount = 0;
             try {
               while (dataFileStream.hasNext()) {
                 // reuse the same MetricList object. docs imply this is more efficient
                 metricList = dataFileStream.next(metricList);
 
-                output.append(metricList);
+                if (isFrameworkMatch(consumerConfig.frameworkWhitelist, metricList)) {
+                  output.append(metricList);
+                } else {
+                  filteredMetricListCount++;
+                }
 
-                metricLists++;
-                tags += metricList.getTags().size();
-                datapoints += metricList.getDatapoints().size();
+                recordMetricListCount++;
+                recordTagCount += metricList.getTags().size();
+                recordDatapointCount += metricList.getDatapoints().size();
               }
             } catch (IOException | AvroRuntimeException e) {
-              LOGGER.warn("Hit corrupt data in Kafka message ({} bytes) after extracting {} Datapoints and {} Tags across {} MetricLists",
-                  kafkaRecord.value().length, datapoints, tags, metricLists, kafkaRecord.value().length);
+              LOGGER.warn("Hit corrupt data in Kafka record ({} bytes) " +
+                  "after extracting {} Datapoints and {} Tags across {} MetricLists",
+                  kafkaRecord.value().length,
+                  recordDatapointCount, recordTagCount, recordMetricListCount);
               inputStream.dumpState();
               dataFileStream.close();
               values.registerError(e);
@@ -117,10 +132,18 @@ public class ConsumerRunner {
             }
             dataFileStream.close();
 
-            LOGGER.info("Kafka message ({} bytes) contained {} Datapoints and {} Tags across {} MetricLists",
-                kafkaRecord.value().length, datapoints, tags, metricLists, kafkaRecord.value().length);
+            LOGGER.info("Kafka record ({} bytes) " +
+                "contained {} Datapoints and {} Tags across {} MetricLists ({} filtered)",
+                kafkaRecord.value().length,
+                recordDatapointCount, recordTagCount, recordMetricListCount, filteredMetricListCount);
+            metricListCount += recordMetricListCount;
+            tagCount += recordTagCount;
+            datapointCount += recordDatapointCount;
           }
-          LOGGER.info("Got {} messages ({} bytes)", messages, bytes);
+          LOGGER.info("Got {} Kafka records ({} bytes) " +
+              "containing {} Datapoints and {} Tags across {} MetricLists",
+              recordCount, byteCount,
+              datapointCount, tagCount, metricListCount);
         } catch (KafkaException e) {
           values.setFatalError(e);
           break;
@@ -128,20 +151,24 @@ public class ConsumerRunner {
           values.registerError(e);
         }
         output.flush(); // always flush, even if consumption fails (in case it failed after several append()s)
-        values.incMessages(messages);
-        values.incBytes(bytes);
+        values.incRecords(recordCount);
+        values.incBytes(byteCount);
+        values.incMetricLists(metricListCount);
+        values.incTags(tagCount);
+        values.incDatapoints(datapointCount);
       }
       kafkaConsumer.close();
     }
 
-    void updateSubscriptions() {
+    private void updateSubscriptions() {
       // note: timeout is configured by kafka's 'request.timeout.ms'
       // try to get list. exit if fails AND no preceding list
       // if matching list is empty (after successful fetch), fail in all cases
       // update subscription if needed. exit if
       Set<String> allTopics;
       try {
-        LOGGER.info(String.format("Fetching topics and searching for matches of pattern '%s'", consumerConfig.topicPattern));
+        LOGGER.info("Fetching topics and searching for matches of pattern '{}'",
+            consumerConfig.topicPattern);
         allTopics = kafkaConsumer.listTopics().keySet();
       } catch (Throwable e) {
         values.registerError(e);
@@ -150,8 +177,8 @@ public class ConsumerRunner {
           return;
         }
         // consumer has nothing subscribed. exit.
-        throw new IllegalStateException(
-            "Unable to proceed: failed to get initial list of topics, and consumer isn't subscribed to any", e);
+        throw new IllegalStateException("Unable to proceed: " +
+            "failed to get initial list of topics, and consumer isn't subscribed to any", e);
       }
 
       List<String> matchingTopics = new ArrayList<>();
@@ -161,21 +188,41 @@ public class ConsumerRunner {
         }
       }
       if (matchingTopics.isEmpty()) {
-        throw new IllegalStateException(
-            String.format("Unable to proceed: no matching topics exist (pattern: '%s', all topics: %s)",
-                consumerConfig.topicPattern.toString(), Arrays.toString(allTopics.toArray())));
+        throw new IllegalStateException(String.format(
+            "Unable to proceed: no matching topics exist (pattern: '%s', all topics: %s)",
+            consumerConfig.topicPattern.toString(), Arrays.toString(allTopics.toArray())));
       }
       if (kafkaConsumer.subscription().equals(new HashSet<>(matchingTopics))) {
-        LOGGER.info(String.format("Current topic subscription is up to date: %s", Arrays.toString(matchingTopics.toArray())));
+        LOGGER.info("Current topic subscription is up to date: {}",
+            Arrays.toString(matchingTopics.toArray()));
       } else {
-        LOGGER.info(String.format("Updating topic subscription to: %s", Arrays.toString(matchingTopics.toArray())));
+        LOGGER.info("Updating topic subscription to: {}",
+            Arrays.toString(matchingTopics.toArray()));
         kafkaConsumer.subscribe(matchingTopics);
       }
     }
+
+    private static boolean isFrameworkMatch(Set<String> frameworkWhitelist, MetricList metricList) {
+      if (frameworkWhitelist.isEmpty()) {
+        return true;
+      }
+      // support any null entry in whitelist (interpreted as 'no framework name'):
+      return frameworkWhitelist.contains(getFrameworkName(metricList));
+    }
+
+    private static String getFrameworkName(MetricList metricList) {
+      for (Tag tag : metricList.getTags()) {
+        if (tag.getKey().equals(FRAMEWORK_NAME_TAG)) {
+          return tag.getValue();
+        }
+      }
+      return null;
+    }
   }
 
-  private static boolean runConsumers(MetricOutputFactory outputFactory, ConfigParser.Config config, Stats.PrintRunner printer) {
-    ClientConfigs.ConsumerConfig consumerConfig = config.getConsumerConfig();
+  private static boolean runConsumers(
+      MetricOutputFactory outputFactory, Stats.PrintRunner printer) {
+    ClientConfigs.ConsumerConfig consumerConfig = ClientConfigs.ConsumerConfig.parseFromEnv();
     if (consumerConfig == null) {
       LOGGER.error("Unable to load consumer config, exiting");
       return false;
@@ -186,7 +233,11 @@ public class ConsumerRunner {
     for (int i = 0; i < consumerConfig.threads; ++i) {
       ConsumerRunnable consumer;
       try {
-        consumer = new ConsumerRunnable(outputFactory, config.getKafkaConfig(), consumerConfig, printer.getValues());
+        consumer = new ConsumerRunnable(
+            outputFactory,
+            ClientConfigs.KafkaConfig.parseFromEnv().kafkaConfig,
+            consumerConfig,
+            printer.getValues());
       } catch (Throwable e) {
         printer.getValues().registerError(e);
         return false;
@@ -199,18 +250,12 @@ public class ConsumerRunner {
   }
 
   public static void run(MetricOutputFactory outputFactory) {
-    ConfigParser.Config config = ConfigParser.getConfig();
-    if (config == null) {
-      LOGGER.error("Unable to load base config, exiting");
-      System.exit(1);
-    }
-
-    ClientConfigs.StatsConfig statsConfig = config.getStatsConfig();
+    ClientConfigs.StatsConfig statsConfig = ClientConfigs.StatsConfig.parseFromEnv();
     if (statsConfig == null) {
       LOGGER.error("Unable to load stats config, exiting");
       System.exit(1);
     }
     Stats.PrintRunner printer = new Stats.PrintRunner(statsConfig);
-    System.exit(runConsumers(outputFactory, config, printer) ? 0 : -1);
+    System.exit(runConsumers(outputFactory, printer) ? 0 : -1);
   }
 }

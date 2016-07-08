@@ -41,11 +41,12 @@ The consumers are configured via environment variables, making it easy to make c
 
 Each consumer implementation shares the following settings from `metrics-consumer-common`:
 
-- **FRAMEWORK_NAME**: The Kafka Framework to consume against. If a manual broker list is desired, it can be provided via `KAFKA_OVERRIDE_BOOTSTRAP_SERVERS`, in which case `FRAMEWORK_NAME` will be ignored.  Default: `kafka`
-- **TOPIC_EXACT**: A specific topic to consume from. If this setting is populated, it overrides `TOPIC_PATTERN` and disables `TOPIC_POLL_PERIOD_MS`. Default: &lt;unset>
-- **TOPIC_PATTERN**: A regular expression for topics to be subscribed to. Default: `metrics-.*`
-- **TOPIC_POLL_PERIOD_MS**: How frequently to refresh the available list of topics and subscribe to topics which match `TOPIC_PATTERN`. Default: `60000` (60s)
-- **STATS_PRINT_PERIOD_MS**: How frequently to print statistics about the amount of records/bytes consumed to stdout. Default: `5000` (5s)
+- **KAFKA_FRAMEWORK_NAME**: The Kafka Framework to consume against. If a manual list of brokers is desired, it can be provided via `KAFKA_OVERRIDE_BOOTSTRAP_SERVERS`, in which case `KAFKA_FRAMEWORK_NAME` will be ignored.  Default: `kafka`
+- **KAFKA_TOPIC_PATTERN**: A regular expression for topics to be subscribed to, ignored if `KAFKA_TOPICS` is set. Default: `metrics-.*`
+- **KAFKA_TOPIC_POLL_PERIOD_MS**: How frequently to refresh the available list of topics and subscribe to topics which match `KAFKA_TOPIC_PATTERN`. Default: `60000` (60s)
+- **KAFKA_TOPICS**: A comma-separated list of specific topics to consume from. If this setting is populated, it disables `KAFKA_TOPIC_PATTERN` and `KAFKA_TOPIC_POLL_PERIOD_MS`. Default: `<unset>`
+- **FRAMEWORK_NAMES**: A comma-separated whitelist of framework names whose metrics should be forwarded. This filtering is in addition to the topic selection provided via the `KAFKA_TOPIC` settings, which effectively provides filtering by framework ID (not framework name). If this setting is populated, only matching data will be forwarded from the selected topics. An entry named `null` is interpreted as matching values which lacks have a framework name, such as system-level data which isn't tied to a container. Default: `<unset>`
+- **STATS_PRINT_PERIOD_MS**: How frequently to print statistics to stdout about the amount of records/bytes consumed. Default: `5000` (5s)
 - **POLL_TIMEOUT_MS**: The timeout value to use when calling Kafka's poll() function. Default: `1000` (1s)
 - **CONSUMER_THREADS**: The number of consumer threads to run in parallel. Default: `1`
 
@@ -83,8 +84,8 @@ Example Marathon app (JSON Mode). Before deployment, `OUTPUT_HOST` **must** be m
     "OUTPUT_PORT": "2004",
     "GRAPHITE_PROTOCOL": "PICKLE",
     "GRAPHITE_PREFIX": "dcos",
-    "FRAMEWORK_NAME": "kafka",
-    "TOPIC_PATTERN": "metrics-.*",
+    "KAFKA_FRAMEWORK_NAME": "kafka",
+    "KAFKA_TOPIC_PATTERN": "metrics-.*",
     "STATS_PRINT_PERIOD_MS": "5000",
     "POLL_TIMEOUT_MS": "1000",
     "CONSUMER_THREADS": "1",
@@ -136,8 +137,8 @@ Example Marathon app (JSON Mode). Before deployment, `OUTPUT_HOST`, `OUTPUT_USER
     "OUTPUT_PASSWORD": "admin",
     "OUTPUT_DATABASE": "sample_db",
     "MEASUREMENT_NAME": "sample_measurement",
-    "FRAMEWORK_NAME": "kafka",
-    "TOPIC_PATTERN": "metrics-.*",
+    "KAFKA_FRAMEWORK_NAME": "kafka",
+    "KAFKA_TOPIC_PATTERN": "metrics-.*",
     "STATS_PRINT_PERIOD_MS": "5000",
     "POLL_TIMEOUT_MS": "1000",
     "CONSUMER_THREADS": "1",
@@ -177,8 +178,8 @@ Example Marathon app (JSON Mode). Before deployment, both `OUTPUT_HOST` and `OUT
   "env": {
     "OUTPUT_HOST": "",
     "OUTPUT_PORT": "",
-    "FRAMEWORK_NAME": "kafka",
-    "TOPIC_PATTERN": "metrics-.*",
+    "KAFKA_FRAMEWORK_NAME": "kafka",
+    "KAFKA_TOPIC_PATTERN": "metrics-.*",
     "STATS_PRINT_PERIOD_MS": "5000",
     "POLL_TIMEOUT_MS": "1000",
     "CONSUMER_THREADS": "1",
@@ -208,8 +209,8 @@ Example Marathon app (JSON Mode):
   "disk": 0,
   "instances": 1,
   "env": {
-    "FRAMEWORK_NAME": "kafka",
-    "TOPIC_PATTERN": "metrics-.*",
+    "KAFKA_FRAMEWORK_NAME": "kafka",
+    "KAFKA_TOPIC_PATTERN": "metrics-.*",
     "STATS_PRINT_PERIOD_MS": "5000",
     "POLL_TIMEOUT_MS": "1000",
     "CONSUMER_THREADS": "1",
@@ -252,8 +253,8 @@ Example Marathon app (JSON Mode). The following has been populated with defaults
     "OUTPUT_PORT": "8125",
     "KEY_PREFIX": "",
     "ENABLE_TAGS": "true",
-    "FRAMEWORK_NAME": "kafka",
-    "TOPIC_PATTERN": "metrics-.*",
+    "KAFKA_FRAMEWORK_NAME": "kafka",
+    "KAFKA_TOPIC_PATTERN": "metrics-.*",
     "STATS_PRINT_PERIOD_MS": "5000",
     "POLL_TIMEOUT_MS": "1000",
     "CONSUMER_THREADS": "1",

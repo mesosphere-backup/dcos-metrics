@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.mesosphere.metrics.consumer.common.ArgUtils;
 import com.mesosphere.metrics.consumer.common.ConsumerRunner;
 import com.mesosphere.metrics.consumer.common.MetricOutput;
 import com.timgroup.statsd.NonBlockingStatsDClient;
@@ -55,46 +56,17 @@ public class StatsdMain {
     }
   }
 
-  private static String parseOptionalStr(String envName, String defaultVal) {
-    String str = System.getenv(envName);
-    if (str == null) {
-      return defaultVal;
-    }
-    return str;
-  }
-
-  private static String parseRequiredStr(String envName) {
-    String str = System.getenv(envName);
-    if (str == null || str.isEmpty()) {
-      throw new IllegalArgumentException(envName + " is required");
-    }
-    return str;
-  }
-
-  private static boolean parseBool(String envName, boolean defaultVal) {
-    String str = System.getenv(envName);
-    if (str == null || str.isEmpty()) {
-      return defaultVal;
-    }
-    switch (str.charAt(0)) {
-    case 't':
-    case 'T':
-    case '1':
-      return true;
-    default:
-      return false;
-    }
-  }
-
   public static void main(String[] args) {
+    ArgUtils.printArgs();
+
     ConsumerRunner.run(new ConsumerRunner.MetricOutputFactory() {
       @Override
       public MetricOutput getOutput() throws Exception {
         return new StatsdOutput(
-            parseRequiredStr("OUTPUT_HOST"),
-            Integer.parseInt(parseOptionalStr("OUTPUT_PORT", "8125")),
-            parseOptionalStr("KEY_PREFIX", ""),
-            parseBool("ENABLE_TAGS", true));
+            ArgUtils.parseRequiredStr("OUTPUT_HOST"),
+            Integer.parseInt(ArgUtils.parseStr("OUTPUT_PORT", "8125")),
+            ArgUtils.parseStr("KEY_PREFIX", ""),
+            ArgUtils.parseBool("ENABLE_TAGS", true));
       }
     });
   }

@@ -3,7 +3,14 @@ package com.mesosphere.metrics.consumer.common;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 
@@ -18,25 +25,22 @@ public class ClientConfigs {
    * POJO containing client bootstrap options.
    */
   public static class StartupConfig {
-    public static final String FRAMEWORK_NAME = "FRAMEWORK_NAME";
-
-    public final String frameworkName;
+    public final String kafkaFrameworkName;
 
     /**
      * Returns {@code null} if parsing fails.
      */
-    public static StartupConfig parseFrom(Map<String, String> testClientConfig) {
+    public static StartupConfig parseFromEnv() {
       try {
-        String frameworkName = get(testClientConfig, FRAMEWORK_NAME, "kafka");
-        return new StartupConfig(frameworkName);
+        return new StartupConfig(ArgUtils.parseStr("KAFKA_FRAMEWORK_NAME", "kafka"));
       } catch (Throwable e) {
         printFlagParseFailure(e);
         return null;
       }
     }
 
-    private StartupConfig(String frameworkName) {
-      this.frameworkName = frameworkName;
+    private StartupConfig(String kafkaFrameworkName) {
+      this.kafkaFrameworkName = kafkaFrameworkName;
     }
   }
 
@@ -49,10 +53,9 @@ public class ClientConfigs {
     /**
      * Returns {@code null} if parsing fails.
      */
-    public static StatsConfig parseFrom(Map<String, String> config) {
+    public static StatsConfig parseFromEnv() {
       try {
-        long printPeriodMs = Long.parseLong(get(config, "STATS_PRINT_PERIOD_MS", "5000"));
-        return new StatsConfig(printPeriodMs);
+        return new StatsConfig(ArgUtils.parseLong("STATS_PRINT_PERIOD_MS", 5000));
       } catch (Throwable e) {
         printFlagParseFailure(e);
         return null;
@@ -70,8 +73,8 @@ public class ClientConfigs {
   public static class ConsumerConfig {
     public final long pollTimeoutMs;
     public final int threads;
-    /** Nullable */
-    public final String topicExact;
+    public final Set<String> frameworkWhitelist;
+    public final List<String> exactTopics;
     /** Nullable */
     public final Pattern topicPattern;
     public final long topicPollPeriodMs;
@@ -79,39 +82,129 @@ public class ClientConfigs {
     /**
      * Returns {@code null} if parsing fails.
      */
-    public static ConsumerConfig parseFrom(Map<String, String> config) {
+    public static ConsumerConfig parseFromEnv() {
       try {
-        long pollTimeoutMs = Long.parseLong(get(config, "POLL_TIMEOUT_MS", "1000"));
-        int threads = Integer.parseInt(get(config, "CONSUMER_THREADS", "1"));
-        String topicExact = get(config, "TOPIC_EXACT", "");
-        if (!topicExact.isEmpty()) {
+        long pollTimeoutMs = ArgUtils.parseLong("POLL_TIMEOUT_MS", 1000);
+        int threads = ArgUtils.parseInt("CONSUMER_THREADS", 1);
+        Set<String> frameworkWhitelist = new HashSet<>();
+        //TODO(nick): How about periodically mapping framework name(s) to topic(s), and then
+        //            automatically updating subscriptions to match those topic(s)?
+        //            (this would be refreshed in the same place as KAFKA_TOPIC_PATTERN)
+        for (String frameworkName : ArgUtils.parseStrList("FRAMEWORK_NAMES")) {
+          if (frameworkName.equals("null")) { // special value for 'metrics without a framework name'
+            frameworkWhitelist.add(null);
+          } else {
+            frameworkWhitelist.add(frameworkName);
+          }
+        }
+        List<String> exactTopics = ArgUtils.parseStrList("KAFKA_TOPICS");
+        if (!exactTopics.isEmpty()) {
           // exact mode
-          return new ConsumerConfig(pollTimeoutMs, threads, topicExact);
+          return new ConsumerConfig(
+              pollTimeoutMs, threads, frameworkWhitelist,
+              exactTopics);
         }
         // regex mode
-        Pattern topicPattern = Pattern.compile(get(config, "TOPIC_PATTERN", "metrics-.*"));
-        long topicPollPeriodMs = Long.parseLong(get(config, "TOPIC_POLL_PERIOD_MS", "60000"));
-        return new ConsumerConfig(pollTimeoutMs, threads, topicPattern, topicPollPeriodMs);
+        return new ConsumerConfig(
+            pollTimeoutMs, threads, frameworkWhitelist,
+            Pattern.compile(ArgUtils.parseStr("KAFKA_TOPIC_PATTERN", "metrics-.*")),
+            ArgUtils.parseLong("KAFKA_TOPIC_POLL_PERIOD_MS", 60000));
       } catch (Throwable e) {
         printFlagParseFailure(e);
         return null;
       }
     }
 
-    private ConsumerConfig(long pollTimeoutMs, int threads, String topicExact) {
+    private ConsumerConfig(
+        long pollTimeoutMs,
+        int threads,
+        Set<String> frameworkWhitelist,
+        List<String> exactTopics) {
       this.pollTimeoutMs = pollTimeoutMs;
       this.threads = threads;
-      this.topicExact = topicExact;
+      this.frameworkWhitelist = frameworkWhitelist;
+      this.exactTopics = exactTopics;
       this.topicPattern = null;
       this.topicPollPeriodMs = 0;
     }
 
-    private ConsumerConfig(long pollTimeoutMs, int threads, Pattern topicPattern, long topicPollPeriodMs) {
+    private ConsumerConfig(
+        long pollTimeoutMs,
+        int threads,
+        Set<String> frameworkWhitelist,
+        Pattern topicPattern, long topicPollPeriodMs) {
       this.pollTimeoutMs = pollTimeoutMs;
       this.threads = threads;
-      this.topicExact = null;
+      this.frameworkWhitelist = frameworkWhitelist;
+      this.exactTopics = new ArrayList<>();
       this.topicPattern = topicPattern;
       this.topicPollPeriodMs = topicPollPeriodMs;
+    }
+  }
+
+  public static class KafkaConfig {
+    public final Map<String, Object> kafkaConfig;
+
+    /**
+     * Starts with "KAFKA_OVERRIDE_..." => must be for Kafka
+     * The key is translated to lowercase, with underscores converted to periods.
+     */
+    private static final String KAFKA_OVERRIDE_STARTS_WITH = "KAFKA_OVERRIDE_";
+
+    private static final String KAFKA_BOOTSTRAP_SERVERS_KEY = "bootstrap.servers";
+    private static final String ENV_KAFKA_BOOTSTRAP_SERVERS_KEY =
+        KAFKA_OVERRIDE_STARTS_WITH + KAFKA_BOOTSTRAP_SERVERS_KEY.toUpperCase().replace('.', '_');
+
+    /**
+     * Returns config variables for passing to the Kafka Client.
+     * Returns {@code null} if parsing fails, eg if a required setting is missing.
+     */
+    public static KafkaConfig parseFromEnv() {
+      // Select all envvars which start with "KAFKA_OVERRIDE_"
+      Map<String, Object> kafkaConfig = new TreeMap<>();
+      for (Entry<String, String> entry : System.getenv().entrySet()) {
+        if (entry.getKey().startsWith(KAFKA_OVERRIDE_STARTS_WITH)) {
+          String kafkaKey = entry.getKey().substring(
+              KAFKA_OVERRIDE_STARTS_WITH.length(), entry.getKey().length());
+          kafkaConfig.put(kafkaKey.replace('_', '.').toLowerCase(), entry.getValue());
+        }
+      }
+
+      // special case: get the bootstrap endpoints from the Kafka framework.
+      // this can be overridden by providing "KAFKA_OVERRIDE_BOOTSTRAP_SERVERS=..." in env.
+      ClientConfigs.StartupConfig startupConfig = ClientConfigs.StartupConfig.parseFromEnv();
+      if (startupConfig == null) {
+        LOGGER.error("Failed to parse startup config, exiting");
+        return null;
+      }
+      if (!kafkaConfig.containsKey(KAFKA_BOOTSTRAP_SERVERS_KEY)) {
+        // Bootstrap servers aren't provided by user. Fetch bootstrap servers from the framework.
+        LOGGER.info("{} not provided in env, querying framework for broker list.",
+            ENV_KAFKA_BOOTSTRAP_SERVERS_KEY);
+        BrokerLookup serverLookup = new BrokerLookup(startupConfig.kafkaFrameworkName);
+
+        List<String> bootstrapServers;
+        try {
+          bootstrapServers = serverLookup.getBootstrapServers();
+        } catch (IOException e) {
+          LOGGER.error("Failed to retrieve brokers from Kafka framework", e);
+          return null;
+        }
+        StringBuilder brokerHostsStrBuilder = new StringBuilder();
+        for (String endpoint : bootstrapServers) {
+          brokerHostsStrBuilder.append(endpoint).append(',');
+        }
+        if (brokerHostsStrBuilder.length() > 0) {
+          brokerHostsStrBuilder.deleteCharAt(brokerHostsStrBuilder.length() - 1);
+          kafkaConfig.put(KAFKA_BOOTSTRAP_SERVERS_KEY, brokerHostsStrBuilder.toString());
+        }
+      }
+
+      return new KafkaConfig(kafkaConfig);
+    }
+
+    private KafkaConfig(Map<String, Object> kafkaConfig) {
+      this.kafkaConfig = kafkaConfig;
     }
   }
 
@@ -124,14 +217,5 @@ public class ClientConfigs {
 
   private static void printFlagParseFailure(Throwable e) {
     LOGGER.error(String.format("Failed to parse value for arg %s=%s", lastGetKey, lastGetValue), e);
-  }
-
-  private static String get(Map<String, String> config, String key, String defaultVal) {
-    lastGetKey = key;
-    String configVal = config.get(key);
-    String val = (configVal != null) ? configVal : defaultVal;
-    lastGetValue = val;
-    LOGGER.info(String.format("%s = %s", key, val));
-    return val;
   }
 }

@@ -10,6 +10,7 @@ import org.influxdb.dto.Pong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.mesosphere.metrics.consumer.common.ArgUtils;
 import com.mesosphere.metrics.consumer.common.ConsumerRunner;
 import com.mesosphere.metrics.consumer.common.MetricOutput;
 
@@ -58,77 +59,35 @@ public class InfluxMain {
     }
   }
 
-  private static boolean parseBool(String envName, boolean defaultVal) {
-    String str = System.getenv(envName);
-    if (str == null || str.isEmpty()) {
-      return defaultVal;
-    }
-    switch (str.charAt(0)) {
-    case 't':
-    case 'T':
-    case '1':
-      return true;
-    default:
-      return false;
-    }
-  }
-
-  private static String parseStr(String envName, String defaultVal) {
-    String str = System.getenv(envName);
-    if (str == null || str.isEmpty()) {
-      return defaultVal;
-    }
-    return str;
-  }
-
-  private static String parseRequiredStr(String envName) {
-    String str = System.getenv(envName);
-    if (str == null || str.isEmpty()) {
-      throw new IllegalArgumentException(envName + " is required");
-    }
-    return str;
-  }
-
-  private static int parseInt(String envName, int defaultVal) {
-    String str = System.getenv(envName);
-    if (str == null || str.isEmpty()) {
-      return defaultVal;
-    }
-    return Integer.valueOf(str);
-  }
-
-  private static InfluxDB.LogLevel parseLogLevel(String envName, InfluxDB.LogLevel defaultVal) {
-    String str = System.getenv(envName);
-    if (str == null || str.isEmpty()) {
-      return defaultVal;
-    }
-    return InfluxDB.LogLevel.valueOf(str);
-  }
-
   public static void main(String[] args) throws IOException {
-    String databaseFlag = parseRequiredStr("OUTPUT_DATABASE");
-    int batchPoints = parseInt("BATCH_POINTS", 2000);
-    int batchMs = parseInt("BATCH_MS", 100);
+    ArgUtils.printArgs("OUTPUT_USERNAME", "OUTPUT_PASSWORD");
+
+    String databaseFlag = ArgUtils.parseRequiredStr("OUTPUT_DATABASE");
+    int batchPoints = ArgUtils.parseInt("BATCH_POINTS", 2000);
+    int batchMs = ArgUtils.parseInt("BATCH_MS", 100);
 
     ConsumerRunner.run(new ConsumerRunner.MetricOutputFactory() {
       @Override
       public MetricOutput getOutput() throws Exception {
         InfluxDB client = InfluxDBFactory.connect(
             String.format("http://%s:%s",
-                parseRequiredStr("OUTPUT_HOST"), parseInt("OUTPUT_PORT", 8086)),
-            parseRequiredStr("OUTPUT_USERNAME"), parseRequiredStr("OUTPUT_PASSWORD"));
+                ArgUtils.parseRequiredStr("OUTPUT_HOST"),
+                ArgUtils.parseInt("OUTPUT_PORT", 8086)),
+            ArgUtils.parseRequiredStr("OUTPUT_USERNAME"),
+            ArgUtils.parseRequiredStr("OUTPUT_PASSWORD"));
         Pong pong = client.ping();
         LOGGER.info("Ping response: " + pong.toString());
-        if (parseBool("CREATE_DB", true)) {
+        if (ArgUtils.parseBool("CREATE_DB", true)) {
           client.createDatabase(databaseFlag);
         }
         if (batchPoints > 0 || batchMs > 0) {
           client.enableBatch(batchPoints, batchMs, TimeUnit.MILLISECONDS);
         }
-        client.setLogLevel(parseLogLevel("LOG_LEVEL", InfluxDB.LogLevel.BASIC));
+        String logLevelStr = ArgUtils.parseStr("LOG_LEVEL", InfluxDB.LogLevel.BASIC.toString());
+        client.setLogLevel(InfluxDB.LogLevel.valueOf(logLevelStr));
         return new InfluxOutput(client, databaseFlag,
-            parseRequiredStr("MEASUREMENT_NAME"),
-            parseStr("RETENTION_POLICY", "default"));
+            ArgUtils.parseRequiredStr("MEASUREMENT_NAME"),
+            ArgUtils.parseStr("RETENTION_POLICY", "default"));
       }
     });
   }
