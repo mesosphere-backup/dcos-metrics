@@ -2,13 +2,13 @@ cmake_minimum_required(VERSION 2.8)
 
 include(ExternalProject)
 
-set(PROTOBUF_VERSION 2.5.0)
 set(PROTOBUF_TGZ_FILENAME protobuf-${PROTOBUF_VERSION}.tar.gz)
 find_file(PROTOBUF_TGZ
     NAMES ${PROTOBUF_TGZ_FILENAME}
     PATHS
       ${process_INCLUDE_DIR}/../3rdparty
-      ${mesos_INCLUDE_DIR}/../3rdparty/libprocess/3rdparty)
+      ${mesos_INCLUDE_DIR}/../3rdparty/libprocess/3rdparty
+      ${mesos_INCLUDE_DIR}/../3rdparty)
 if(NOT PROTOBUF_TGZ)
   # not found locally, fall back to web
   message(STATUS "Didn't find Mesos ${PROTOBUF_TGZ_FILENAME}, will download")

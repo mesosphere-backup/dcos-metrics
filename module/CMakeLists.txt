@@ -7,10 +7,19 @@ option(USE_LOCAL_PROTOBUF "Whether to use Mesos' or a locally downloaded interna
 option(USE_LOCAL_GLOG "Whether to use Mesos' copy of glog (true) or the system copy of glog (false)" TRUE)
 option(USE_LOCAL_AVRO "Whether to download/build a local copy of avrocpp (true) or to use the system copy of avrocpp (false)" TRUE)
 
+if(TARGET_DCOS EQUAL "1.8")
+  #cmake -DCMAKE_BUILD_TYPE=Release -Dboost_system_LIBRARY=/home/nick/code/boost_1_53_0/stage/lib/libboost_system.so.1.53.0 -DUSE_LOCAL_AVRO=False -Davro_LIBRARY=/usr/local/lib/libavrocpp.so.1.8.0.0 -DTARGET_DCOS=1.8 ..
+  set(CMAKE_CXX_COMPILER "/usr/bin/g++-4.8")
+  set(mesos_VERSION "1.0.0")
+  set(PROTOBUF_VERSION 2.6.1)
+  set(TESTS_ENABLED false)
+endif()
+
 if(TARGET_DCOS EQUAL "1.7")
-  #cmake -DCMAKE_BUILD_TYPE=Release -Dboost_system_LIBRARY=/home/nick/code/boost_1_53_0/stage/lib/libboost_system.so.1.53.0 -DUSE_LOCAL_AVRO=False -Davro_LIBRARY=/home/nick/code/dcos-stats/libavrocpp.so.1.8.0.0 -DTARGET_DCOS=1.7 ..
+  #cmake -DCMAKE_BUILD_TYPE=Release -Dboost_system_LIBRARY=/home/nick/code/boost_1_53_0/stage/lib/libboost_system.so.1.53.0 -DUSE_LOCAL_AVRO=False -Davro_LIBRARY=/usr/local/lib/libavrocpp.so.1.8.0.0 -DTARGET_DCOS=1.7 ..
   set(CMAKE_CXX_COMPILER "/usr/bin/g++-4.8")
   set(mesos_VERSION "0.28.1")
+  set(PROTOBUF_VERSION 2.5.0)
   set(TESTS_ENABLED false)
 endif()
 
@@ -89,7 +98,11 @@ endif()
 
 # Search for libprocess and stout, hopefully within Mesos includes but with fallback to system.
 find_path(process_INCLUDE_DIR NAMES process/process.hpp HINTS ${mesos_INCLUDE_DIR}/../3rdparty/libprocess/include ${mesos_INCLUDE_DIR})
-find_path(stout_INCLUDE_DIR NAMES stout/stringify.hpp HINTS ${process_INCLUDE_DIR}/../3rdparty/stout/include ${mesos_INCLUDE_DIR})
+find_path(stout_INCLUDE_DIR NAMES stout/stringify.hpp
+  HINTS
+  ${mesos_INCLUDE_DIR}/../3rdparty/stout/include # >= 1.0
+  ${process_INCLUDE_DIR}/../3rdparty/stout/include # <= 0.28
+  ${mesos_INCLUDE_DIR})
 
 # We don't use this, but it's dragged in via stout's includes, so we're forced to find it so that stout doesn't break the build:
 if(USE_LOCAL_PICOJSON AND NOT picojson_INCLUDE_DIR)
