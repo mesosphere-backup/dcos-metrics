@@ -26,11 +26,6 @@ namespace metrics {
         const mesos::Parameters& module_parameters);
 
     /**
-     * Returns an IORunner and saves the provided params for immediate or eventual use.
-     */
-    static std::shared_ptr<IORunner> get_io_runner(const mesos::Parameters& module_parameters);
-
-    /**
      * Resets the internal state, wiping any locally cached ContainerAssigners which were previously
      * built via get(). Meant for testing only.
      */

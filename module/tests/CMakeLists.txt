@@ -10,47 +10,55 @@ include_directories(${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}) # for metrics schem
 include_directories(SYSTEM ${GMOCK_INCLUDE_DIR} ${GTEST_INCLUDE_DIR})
 
 add_executable(avro_encoder_tests avro_encoder_tests.cpp)
-target_link_libraries(avro_encoder_tests gmock gtest metrics-module)
+target_link_libraries(avro_encoder_tests metrics-module gmock gtest)
 add_test(avro_encoder_tests avro_encoder_tests)
 
 add_executable(container_assigner_tests container_assigner_tests.cpp)
-target_link_libraries(container_assigner_tests gmock gtest metrics-module)
+target_link_libraries(container_assigner_tests metrics-module gmock gtest)
 add_test(container_assigner_tests container_assigner_tests)
 
 add_executable(container_assigner_strategy_tests container_assigner_strategy_tests.cpp)
-target_link_libraries(container_assigner_strategy_tests gmock gtest metrics-module)
+target_link_libraries(container_assigner_strategy_tests metrics-module gmock gtest)
 add_test(container_assigner_strategy_tests container_assigner_strategy_tests)
 
 add_executable(container_reader_impl_tests container_reader_impl_tests.cpp)
-target_link_libraries(container_reader_impl_tests gmock gtest metrics-module)
+target_link_libraries(container_reader_impl_tests metrics-module gmock gtest)
 add_test(container_reader_impl_tests container_reader_impl_tests)
 
 add_executable(container_state_cache_impl_tests container_state_cache_impl_tests.cpp)
-target_link_libraries(container_state_cache_impl_tests gmock gtest metrics-module)
+target_link_libraries(container_state_cache_impl_tests metrics-module gmock gtest)
 add_test(container_state_cache_impl_tests container_state_cache_impl_tests)
 
 add_executable(io_runner_impl_tests io_runner_impl_tests.cpp)
-target_link_libraries(io_runner_impl_tests gmock gtest metrics-module)
+target_link_libraries(io_runner_impl_tests metrics-module gmock gtest)
 add_test(io_runner_impl_tests io_runner_impl_tests)
 
 add_executable(isolator_module_tests isolator_module_tests.cpp)
-target_link_libraries(isolator_module_tests gmock gtest metrics-module)
+target_link_libraries(isolator_module_tests metrics-module gmock gtest)
 add_test(isolator_module_tests isolator_module_tests)
 
 add_executable(memnmem_tests memnmem_tests.cpp)
-target_link_libraries(memnmem_tests gtest metrics-module)
+target_link_libraries(memnmem_tests metrics-module gtest)
 add_test(memnmem_tests memnmem_tests)
 
+add_executable(metrics_tcp_sender_tests metrics_tcp_sender_tests.cpp)
+target_link_libraries(metrics_tcp_sender_tests metrics-module gtest)
+add_test(metrics_tcp_sender_tests metrics_tcp_sender_tests)
+
+add_executable(metrics_udp_sender_tests metrics_udp_sender_tests.cpp)
+target_link_libraries(metrics_udp_sender_tests metrics-module gtest)
+add_test(metrics_udp_sender_tests metrics_udp_sender_tests)
+
 add_executable(module_access_factory_tests module_access_factory_tests.cpp)
-target_link_libraries(module_access_factory_tests gtest metrics-module)
+target_link_libraries(module_access_factory_tests metrics-module gtest)
 add_test(module_access_factory_tests module_access_factory_tests)
 
 add_executable(params_tests params_tests.cpp)
-target_link_libraries(params_tests gtest metrics-module)
+target_link_libraries(params_tests metrics-module gtest)
 add_test(params_tests params_tests)
 
 add_executable(range_pool_tests range_pool_tests.cpp)
-target_link_libraries(range_pool_tests gtest metrics-module)
+target_link_libraries(range_pool_tests metrics-module gtest)
 add_test(range_pool_tests range_pool_tests)
 
 add_executable(standalone_module standalone_module.cpp)
@@ -58,26 +66,18 @@ target_link_libraries(standalone_module metrics-module)
 # not a unit test
 
 add_executable(statsd_tagger_tests statsd_tagger_tests.cpp)
-target_link_libraries(statsd_tagger_tests gtest metrics-module)
+target_link_libraries(statsd_tagger_tests metrics-module gtest)
 add_test(statsd_tagger_tests statsd_tagger_tests)
 
 add_executable(statsd_output_writer_fuzz statsd_output_writer_fuzz.cpp)
-target_link_libraries(statsd_output_writer_fuzz gmock gtest metrics-module)
+target_link_libraries(statsd_output_writer_fuzz metrics-module gmock gtest)
 # disabled by default
 #add_test(statsd_output_writer_fuzz statsd_output_writer_fuzz)
 
 add_executable(statsd_output_writer_tests statsd_output_writer_tests.cpp)
-target_link_libraries(statsd_output_writer_tests gtest metrics-module)
+target_link_libraries(statsd_output_writer_tests metrics-module gtest)
 add_test(statsd_output_writer_tests statsd_output_writer_tests)
 
 add_executable(sync_util_tests sync_util_tests.cpp)
-target_link_libraries(sync_util_tests gtest metrics-module)
+target_link_libraries(sync_util_tests metrics-module gtest)
 add_test(sync_util_tests sync_util_tests)
-
-add_executable(tcp_sender_tests tcp_sender_tests.cpp)
-target_link_libraries(tcp_sender_tests gtest metrics-module)
-add_test(tcp_sender_tests tcp_sender_tests)
-
-add_executable(udp_sender_tests udp_sender_tests.cpp)
-target_link_libraries(udp_sender_tests gtest metrics-module)
-add_test(udp_sender_tests udp_sender_tests)

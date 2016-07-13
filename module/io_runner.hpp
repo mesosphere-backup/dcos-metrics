@@ -27,10 +27,5 @@ namespace metrics {
      * scheduler, and which hasn't been open()ed yet.
      */
     virtual std::shared_ptr<ContainerReader> create_container_reader(size_t port) = 0;
-
-    /**
-     * Submits an update to container resource state to the internal async scheduler.
-     */
-    virtual void update_usage(process::Future<mesos::ResourceUsage> usage) = 0;
   };
 }

@@ -2,7 +2,7 @@
 
 #include <glog/logging.h>
 
-#include "avro_encoder.hpp"
+#include "metrics_udp_sender.hpp"
 #include "statsd_tagger.hpp"
 #include "sync_util.hpp"
 
@@ -29,7 +29,7 @@ namespace {
 metrics::output_writer_ptr_t metrics::StatsdOutputWriter::create(
     std::shared_ptr<boost::asio::io_service> io_service,
     const mesos::Parameters& parameters) {
-  std::shared_ptr<UDPSender> sender(new UDPSender(
+  std::shared_ptr<MetricsUDPSender> sender(new MetricsUDPSender(
           io_service,
           params::get_str(parameters, params::OUTPUT_STATSD_HOST, params::OUTPUT_STATSD_HOST_DEFAULT),
           params::get_uint(parameters, params::OUTPUT_STATSD_PORT, params::OUTPUT_STATSD_PORT_DEFAULT),
@@ -41,7 +41,7 @@ metrics::output_writer_ptr_t metrics::StatsdOutputWriter::create(
 metrics::StatsdOutputWriter::StatsdOutputWriter(
     std::shared_ptr<boost::asio::io_service> io_service,
     const mesos::Parameters& parameters,
-    std::shared_ptr<UDPSender> sender,
+    std::shared_ptr<MetricsUDPSender> sender,
     size_t chunk_timeout_ms_for_tests/*=1000*/)
   : chunking(params::get_bool(parameters, params::OUTPUT_STATSD_CHUNKING, params::OUTPUT_STATSD_CHUNKING_DEFAULT)),
     chunk_capacity(get_chunk_size(parameters)),
@@ -145,30 +145,6 @@ void metrics::StatsdOutputWriter::write_container_statsd(
   } else {
     // still too big for a chunk, tag and send immediately
     sender->send(output_buffer, needed_size);
-  }
-}
-
-void metrics::StatsdOutputWriter::write_resource_usage(
-    const process::Future<mesos::ResourceUsage>& usage) {
-  // Reuse logic in AvroEncoder to get Datapoints, then convert those into statsd
-  const mesos::ResourceUsage& usageb = usage.get();
-  for (int64_t execi = 0; execi < usageb.executors_size(); ++execi) {
-    const mesos::ResourceUsage_Executor& executor = usageb.executors(execi);
-    if (!executor.has_statistics()) {
-      continue;
-    }
-
-    std::vector<metrics_schema::Datapoint> datapoints;
-    AvroEncoder::resources_to_datapoints(executor.statistics(), datapoints);
-    for (const metrics_schema::Datapoint& datapoint : datapoints) {
-      // convert to statsd string
-      std::ostringstream oss;
-      oss << datapoint.name << ":" << datapoint.value << "|g";
-      const std::string& datapoint_statsd = oss.str();
-      // pass to standard output call, which will handle tagging/chunking
-      write_container_statsd(&executor.container_id(), &executor.executor_info(),
-          datapoint_statsd.data(), datapoint_statsd.size());
-    }
   }
 }
 

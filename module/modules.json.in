@@ -4,11 +4,9 @@
         "modules": [ {
             "name": "com_mesosphere_MetricsIsolatorModule",
             "parameters": [
-                { "key": "output_statsd_host", "value": "metrics.marathon.mesos" },
-                { "key": "output_statsd_host_refresh_seconds", "value": "60" }
+                { "key": "output_collector_ip", "value": "127.0.0.1" },
+                { "key": "output_collector_port", "value": "8124" }
             ]
-        }, {
-            "name": "com_mesosphere_MetricsResourceEstimatorModule"
         }]
     } ]
 }

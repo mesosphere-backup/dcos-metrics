@@ -136,18 +136,6 @@ std::shared_ptr<metrics::ContainerReader> metrics::IORunnerImpl::create_containe
           container_limit_period_secs * 1000, container_limit_amount_kbytes * 1024));
 }
 
-void metrics::IORunnerImpl::update_usage(process::Future<mesos::ResourceUsage> usage) {
-  if (!io_service) {
-    LOG(FATAL) << "IORunner::init() wasn't called before update_usage(). "
-               << "Bad mesos agent config?";
-    return;
-  }
-  // Run the resource usage handling within the IO thread.
-  for (output_writer_ptr_t writer : writers) {
-    dispatch(std::bind(&OutputWriter::write_resource_usage, writer.get(), usage));
-  }
-}
-
 void metrics::IORunnerImpl::run_io_service() {
 #if defined(LINUX_PRCTL_AVAILABLE) && defined(PR_SET_NAME)
   // Set the thread name to help with any debugging/tracing (uses Linux-specific API)

@@ -8,7 +8,7 @@
 #include "params.hpp"
 
 namespace metrics {
-  class TCPSender;
+  class MetricsTCPSender;
   class ContainerMetrics;
 
   /**
@@ -35,7 +35,7 @@ namespace metrics {
     CollectorOutputWriter(
         std::shared_ptr<boost::asio::io_service> io_service,
         const mesos::Parameters& parameters,
-        std::shared_ptr<TCPSender> sender,
+        std::shared_ptr<MetricsTCPSender> sender,
         size_t chunk_timeout_ms_for_tests = 0 /* default = use params setting (secs) */);
 
     virtual ~CollectorOutputWriter();
@@ -53,8 +53,6 @@ namespace metrics {
     void write_container_statsd(
         const mesos::ContainerID* container_id, const mesos::ExecutorInfo* executor_info,
         const char* data, size_t size);
-
-    void write_resource_usage(const process::Future<mesos::ResourceUsage>& usage);
 
    private:
     void start_chunk_flush_timer();
@@ -74,7 +72,7 @@ namespace metrics {
     boost::asio::deadline_timer flush_timer;
     std::string output_buffer;
 
-    std::shared_ptr<TCPSender> sender;
+    std::shared_ptr<MetricsTCPSender> sender;
   };
 
 }

@@ -96,7 +96,7 @@ namespace metrics {
 
     // Whether StatsD export is enabled.
     const std::string OUTPUT_STATSD_ENABLED = "output_statsd_enabled";
-    const bool OUTPUT_STATSD_ENABLED_DEFAULT = true;
+    const bool OUTPUT_STATSD_ENABLED_DEFAULT = false;
 
     // The host to send to. Should be the endpoint for tasks in the monitoring framework.
     const std::string OUTPUT_STATSD_HOST = "output_statsd_host";

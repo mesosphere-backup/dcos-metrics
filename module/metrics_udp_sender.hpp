@@ -8,24 +8,24 @@
 namespace metrics {
 
   /**
-   * A UDPSender is the underlying implementation of getting data to a UDP endpoint. It handles
-   * periodically refreshing the destination endpoint for changes, along with passing any data to
-   * the endpoint.
+   * A MetricsUDPSender is the underlying implementation of getting data to a UDP endpoint. It
+   * handles periodically refreshing the destination endpoint for changes, along with passing any
+   * data to the endpoint.
    */
-  class UDPSender {
+  class MetricsUDPSender {
    public:
     /**
-     * Creates a UDPSender which shares the provided io_service for async operations.
+     * Creates a MetricsUDPSender which shares the provided io_service for async operations.
      * Additional arguments are exposed here to allow customization in unit tests.
      *
      * start() must be called before send()ing data, or else that data will be lost.
      */
-    UDPSender(std::shared_ptr<boost::asio::io_service> io_service,
+    MetricsUDPSender(std::shared_ptr<boost::asio::io_service> io_service,
         const std::string& host,
         size_t port,
         size_t resolve_period_ms);
 
-    virtual ~UDPSender();
+    virtual ~MetricsUDPSender();
 
     /**
      * Starts internal timers for refreshing the host.
@@ -48,7 +48,7 @@ namespace metrics {
 
     /**
      * Cancels running timers. Subclasses should call this in their destructor, to avoid the default
-     * resolve() being called in the timespan between ~<Subclass>() and ~UDPSender().
+     * resolve() being called in the timespan between ~<Subclass>() and ~MetricsUDPSender().
      */
     void shutdown();
 

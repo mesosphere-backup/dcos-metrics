@@ -8,7 +8,7 @@
 #define STUB_FRAMEWORK_ID "stub-framework-id"
 #define STUB_EXECUTOR_ID "stub-executor-id"
 #define STUB_CONTAINER_ID "stub-container-id"
-#define USAGE_REFRESH_PERIOD_SECS 15
+#define SLEEP_PERIOD_SECS 15
 #define TMPDIR_TEMPLATE_PREFIX "sample_translator-tmp-"
 
 /**
@@ -40,7 +40,6 @@ int main(int argc, char* argv[]) {
       }
     }
   }
-
 
   Try<std::string> tmpdir =
     os::mkdtemp(path::join(cwd, TMPDIR_TEMPLATE_PREFIX "XXXXXX"));
@@ -108,8 +107,6 @@ int main(int argc, char* argv[]) {
   // start up the processing thread for accepting statsd data on the given port
   std::shared_ptr<metrics::ContainerAssigner> container_assigner =
     metrics::ModuleAccessFactory::get_container_assigner(params);
-  std::shared_ptr<metrics::IORunner> io_runner =
-    metrics::ModuleAccessFactory::get_io_runner(params);
 
   // launch the port reader
   for (;;) {
@@ -121,35 +118,8 @@ int main(int argc, char* argv[]) {
     LOG(ERROR) << "Unable to register endpoint, trying again: " << endpoint.error();
   }
 
-  // on this main thread, loop forever and emit fake usage stats
-  mesos::ResourceUsage sample_usage;
-  mesos::ResourceUsage_Executor* executor = sample_usage.add_executors();
-  *executor->mutable_container_id() = container_id;
-  *executor->mutable_executor_info() = executor_info;
-
-  mesos::ResourceStatistics* statistics = executor->mutable_statistics();
-  // timestamp filled below
-  statistics->set_cpus_user_time_secs(0.03);
-  statistics->set_cpus_system_time_secs(0.01);
-  statistics->set_cpus_limit(1.1);
-  statistics->set_mem_rss_bytes(2584576);
-  statistics->set_mem_limit_bytes(167772160);
-  statistics->set_cpus_nr_periods(916);
-  statistics->set_cpus_nr_throttled(0);
-  statistics->set_cpus_throttled_time_secs(0.009895515);
-  statistics->set_mem_file_bytes(0);
-  statistics->set_mem_anon_bytes(2584576);
-  statistics->set_mem_mapped_file_bytes(0);
-  statistics->set_mem_low_pressure_counter(0);
-  statistics->set_mem_medium_pressure_counter(0);
-  statistics->set_mem_critical_pressure_counter(0);
-  statistics->set_mem_total_bytes(2584576);
-  statistics->set_mem_cache_bytes(0);
-  statistics->set_mem_swap_bytes(0);
-  statistics->set_mem_unevictable_bytes(0);
+  // on this main thread, sleep-loop forever while any container stats come in on the port
   for (;;) {
-    statistics->set_timestamp(time(NULL));
-    io_runner->update_usage(process::Future<mesos::ResourceUsage>(sample_usage));
-    sleep(USAGE_REFRESH_PERIOD_SECS);
+    sleep(SLEEP_PERIOD_SECS);
   }
 }

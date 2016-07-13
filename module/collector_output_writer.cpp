@@ -3,8 +3,8 @@
 #include <glog/logging.h>
 
 #include "avro_encoder.hpp"
+#include "metrics_tcp_sender.hpp"
 #include "sync_util.hpp"
-#include "tcp_sender.hpp"
 
 namespace {
   boost::asio::ip::address get_collector_ip(const mesos::Parameters& parameters) {
@@ -23,7 +23,7 @@ namespace {
 metrics::output_writer_ptr_t metrics::CollectorOutputWriter::create(
     std::shared_ptr<boost::asio::io_service> io_service,
     const mesos::Parameters& parameters) {
-  std::shared_ptr<TCPSender> sender(new TCPSender(
+  std::shared_ptr<MetricsTCPSender> sender(new MetricsTCPSender(
           io_service,
           AvroEncoder::header(),
           get_collector_ip(parameters),
@@ -36,7 +36,7 @@ metrics::output_writer_ptr_t metrics::CollectorOutputWriter::create(
 metrics::CollectorOutputWriter::CollectorOutputWriter(
     std::shared_ptr<boost::asio::io_service> io_service,
     const mesos::Parameters& parameters,
-    std::shared_ptr<TCPSender> sender,
+    std::shared_ptr<MetricsTCPSender> sender,
     size_t chunk_timeout_ms_for_tests/*=0*/)
   : chunking(
         params::get_bool(parameters,
@@ -85,14 +85,6 @@ void metrics::CollectorOutputWriter::write_container_statsd(
   }
 }
 
-void metrics::CollectorOutputWriter::write_resource_usage(
-    const process::Future<mesos::ResourceUsage>& usage) {
-  datapoint_count += AvroEncoder::resources_to_map(usage.get(), container_map);
-  if (!chunking || datapoint_count >= datapoint_capacity) {
-    flush();
-  }
-}
-
 void metrics::CollectorOutputWriter::start_chunk_flush_timer() {
   flush_timer.expires_from_now(boost::posix_time::milliseconds(chunk_timeout_ms));
   flush_timer.async_wait(
@@ -105,7 +97,7 @@ void metrics::CollectorOutputWriter::flush() {
     return; // nothing to flush
   }
 
-  TCPSender::buf_ptr_t buf(new boost::asio::streambuf);
+  MetricsTCPSender::buf_ptr_t buf(new boost::asio::streambuf);
   {
     std::ostream ostream(buf.get());
     AvroEncoder::encode_metrics_block(container_map, ostream);

@@ -3,12 +3,12 @@
 
 #include <gtest/gtest.h>
 
-#include "tcp_sender.hpp"
+#include "metrics_tcp_sender.hpp"
 #include "test_tcp_socket.hpp"
 
 namespace {
-  metrics::TCPSender::buf_ptr_t build_buf(const std::string& str) {
-    metrics::TCPSender::buf_ptr_t buf(new boost::asio::streambuf);
+  metrics::MetricsTCPSender::buf_ptr_t build_buf(const std::string& str) {
+    metrics::MetricsTCPSender::buf_ptr_t buf(new boost::asio::streambuf);
     {
       std::ostream ostream(buf.get());
       ostream << str;
@@ -82,10 +82,10 @@ namespace {
   };
 }
 
-TEST(TCPSenderTests, connect_fails_data_dropped) {
+TEST(MetricsTCPSenderTests, connect_fails_data_dropped) {
   ServiceThread thread;
   {
-    metrics::TCPSender sender(thread.svc(), SESSION_HEADER, DEST_BAD_IP, 12345);
+    metrics::MetricsTCPSender sender(thread.svc(), SESSION_HEADER, DEST_BAD_IP, 12345);
     sender.start();
 
     thread.flush();
@@ -104,13 +104,13 @@ TEST(TCPSenderTests, connect_fails_data_dropped) {
   thread.join();
 }
 
-TEST(TCPSenderTests, small_limit_data_dropped) {
+TEST(MetricsTCPSenderTests, small_limit_data_dropped) {
   TestTCPReadSession test_reader;
   size_t listen_port = test_reader.port();
 
   ServiceThread thread;
   {
-    metrics::TCPSender sender(thread.svc(), SESSION_HEADER, DEST_LOCAL_IP, listen_port, 4);
+    metrics::MetricsTCPSender sender(thread.svc(), SESSION_HEADER, DEST_LOCAL_IP, listen_port, 4);
     sender.start();
 
     thread.flush(); // wait for socket to connect (and automatically send header)
@@ -157,13 +157,13 @@ TEST(TCPSenderTests, small_limit_data_dropped) {
   EXPECT_FALSE(test_reader.available());
 }
 
-TEST(TCPSenderTests, connect_succeeds_data_sent) {
+TEST(MetricsTCPSenderTests, connect_succeeds_data_sent) {
   TestTCPReadSession test_reader;
   size_t listen_port = test_reader.port();
 
   ServiceThread thread;
   {
-    metrics::TCPSender sender(thread.svc(), SESSION_HEADER, DEST_LOCAL_IP, listen_port);
+    metrics::MetricsTCPSender sender(thread.svc(), SESSION_HEADER, DEST_LOCAL_IP, listen_port);
     sender.start();
 
     thread.flush();
@@ -197,14 +197,14 @@ TEST(TCPSenderTests, connect_succeeds_data_sent) {
   EXPECT_FALSE(test_reader.available());
 }
 
-TEST(TCPSenderTests, connect_fails_then_succeeds) {
+TEST(MetricsTCPSenderTests, connect_fails_then_succeeds) {
   std::shared_ptr<TestTCPReadSession> test_reader(new TestTCPReadSession);
   size_t listen_port = test_reader->port();
   test_reader.reset();
 
   ServiceThread thread;
   {
-    metrics::TCPSender sender(thread.svc(), SESSION_HEADER, DEST_LOCAL_IP, listen_port);
+    metrics::MetricsTCPSender sender(thread.svc(), SESSION_HEADER, DEST_LOCAL_IP, listen_port);
     sender.start();
 
     thread.flush();
@@ -235,13 +235,13 @@ TEST(TCPSenderTests, connect_fails_then_succeeds) {
   EXPECT_FALSE(test_reader->available());
 }
 
-TEST(TCPSenderTests, connect_succeeds_then_fails) {
+TEST(MetricsTCPSenderTests, connect_succeeds_then_fails) {
   std::shared_ptr<TestTCPReadSession> test_reader(new TestTCPReadSession);
   size_t listen_port = test_reader->port();
 
   ServiceThread thread;
   {
-    metrics::TCPSender sender(thread.svc(), SESSION_HEADER, DEST_LOCAL_IP, listen_port);
+    metrics::MetricsTCPSender sender(thread.svc(), SESSION_HEADER, DEST_LOCAL_IP, listen_port);
     sender.start();
 
     thread.flush();
@@ -266,13 +266,13 @@ TEST(TCPSenderTests, connect_succeeds_then_fails) {
   thread.join();
 }
 
-TEST(TCPSenderTests, connect_succeeds_then_fails_then_succeeds) {
+TEST(MetricsTCPSenderTests, connect_succeeds_then_fails_then_succeeds) {
   std::shared_ptr<TestTCPReadSession> test_reader(new TestTCPReadSession);
   size_t listen_port = test_reader->port();
 
   ServiceThread thread;
   {
-    metrics::TCPSender sender(thread.svc(), SESSION_HEADER, DEST_LOCAL_IP, listen_port);
+    metrics::MetricsTCPSender sender(thread.svc(), SESSION_HEADER, DEST_LOCAL_IP, listen_port);
     sender.start();
 
     thread.flush();

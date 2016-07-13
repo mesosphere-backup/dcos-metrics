@@ -47,6 +47,10 @@ namespace {
     mesos::Parameters params;
 
     mesos::Parameter* param = params.add_parameter();
+    param->set_key(metrics::params::OUTPUT_STATSD_ENABLED);
+    param->set_value("true");
+
+    param = params.add_parameter();
     param->set_key(metrics::params::OUTPUT_STATSD_HOST);
     param->set_value("127.0.0.1");
 
@@ -453,11 +457,13 @@ TEST_F(IORunnerImplTests, init_fails) {
   EXPECT_DETH(runner.dispatch(std::bind(noop)), ".*init\\(\\) wasn't called before dispatch\\(\\).*");
   EXPECT_DETH(runner.create_container_reader(0),
       ".*init\\(\\) wasn't called before create_container_reader\\(\\)");
-  EXPECT_DETH(runner.update_usage(process::Future<mesos::ResourceUsage>()),
-      ".*init\\(\\) wasn't called before update_usage\\(\\)");
 
   mesos::Parameters params;
   mesos::Parameter* param = params.add_parameter();
+  param->set_key(metrics::params::OUTPUT_STATSD_ENABLED);
+  param->set_value("true");
+
+  param = params.add_parameter();
   param->set_key(metrics::params::OUTPUT_STATSD_ANNOTATION_MODE);
   param->set_value("asdf");
 

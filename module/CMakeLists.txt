@@ -183,15 +183,14 @@ set(SRCS
   io_runner_impl.cpp
   isolator_module.cpp
   memnmem.cpp
+  metrics_tcp_sender.cpp
+  metrics_udp_sender.cpp
   module_access_factory.cpp
   params.cpp
-  resource_estimator_module.cpp
   sync_util.cpp
   statsd_output_writer.cpp
   statsd_tagger.cpp
-  statsd_util.cpp
-  tcp_sender.cpp
-  udp_sender.cpp)
+  statsd_util.cpp)
 configure_file(
   "${PROJECT_SOURCE_DIR}/modules.json.in"
   "${PROJECT_BINARY_DIR}/modules.json")

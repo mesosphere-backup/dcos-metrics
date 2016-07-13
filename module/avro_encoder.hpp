@@ -29,8 +29,7 @@ namespace metrics {
     static const std::string& header();
 
     /**
-     * malloc()'s 'out', fills it with encoded metrics, and returns the size of the encoded metrics
-     * inside of 'out'.
+     * Writes the provided metrics to the provided output stream.
      */
     static void encode_metrics_block(
         const avro_metrics_map_t& metric_map, std::ostream& ostream);
@@ -42,18 +41,6 @@ namespace metrics {
         const mesos::ContainerID* container_id, const mesos::ExecutorInfo* executor_info,
         const char* data, size_t size,
         avro_metrics_map_t& metric_map);
-
-    /**
-     * Returns the number of Datapoints added to the provided MetricList
-     */
-    static void resources_to_datapoints(
-        const mesos::ResourceStatistics& stats, std::vector<metrics_schema::Datapoint>& datapoints);
-
-    /**
-     * Returns the number of Datapoints added to the provided MetricLists
-     */
-    static size_t resources_to_map(
-        const mesos::ResourceUsage& usage, avro_metrics_map_t& metric_map);
 
     /**
      * Returns whether the provided MetricList has nothing in it.

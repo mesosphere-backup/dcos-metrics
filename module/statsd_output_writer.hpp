@@ -4,10 +4,10 @@
 
 #include "output_writer.hpp"
 #include "params.hpp"
-#include "udp_sender.hpp"
 
 namespace metrics {
 
+  class MetricsUDPSender;
   class StatsdTagger;
 
   /**
@@ -40,7 +40,7 @@ namespace metrics {
     StatsdOutputWriter(
         std::shared_ptr<boost::asio::io_service> io_service,
         const mesos::Parameters& parameters,
-        std::shared_ptr<UDPSender> sender,
+        std::shared_ptr<MetricsUDPSender> sender,
         size_t chunk_timeout_ms_for_tests = DEFAULT_CHUNK_TIMEOUT_MS);
 
     virtual ~StatsdOutputWriter();
@@ -76,7 +76,7 @@ namespace metrics {
     char* output_buffer;
     size_t chunk_used;
 
-    std::shared_ptr<UDPSender> sender;
+    std::shared_ptr<MetricsUDPSender> sender;
     std::shared_ptr<StatsdTagger> tagger;
   };
 

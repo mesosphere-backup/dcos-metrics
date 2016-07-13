@@ -8,10 +8,10 @@
 namespace metrics {
 
   /**
-   * A TCPSender is the underlying implementation of getting data to a TCP endpoint. It handles
-   * keeping the connection alive, and sending any passed data when feasible.
+   * A MetricsTCPSender is the underlying implementation of getting data to a TCP endpoint. It
+   * handles keeping the connection alive, and sending any passed data when feasible.
    */
-  class TCPSender {
+  class MetricsTCPSender {
    public:
     typedef std::shared_ptr<boost::asio::streambuf> buf_ptr_t;
 
@@ -23,18 +23,18 @@ namespace metrics {
     static const size_t PENDING_LIMIT = 256 * 1024;
 
     /**
-     * Creates a TCPSender which shares the provided io_service for async operations.
+     * Creates a MetricsTCPSender which shares the provided io_service for async operations.
      * Additional arguments are exposed here to allow customization in unit tests.
      *
      * start() must be called before send()ing data, or else that data will be lost.
      */
-    TCPSender(std::shared_ptr<boost::asio::io_service> io_service,
+    MetricsTCPSender(std::shared_ptr<boost::asio::io_service> io_service,
         const std::string& session_header,
         const boost::asio::ip::address& ip,
         size_t port,
         size_t pending_limit_for_tests = PENDING_LIMIT);
 
-    virtual ~TCPSender();
+    virtual ~MetricsTCPSender();
 
     /**
      * Triggers setting up the TCP session.

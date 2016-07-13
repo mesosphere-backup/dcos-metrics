@@ -1,6 +1,6 @@
-#include "udp_sender.hpp"
+#include "metrics_udp_sender.hpp"
 
-class StubUDPSender : public metrics::UDPSender {
+class StubUDPSender : public metrics::MetricsUDPSender {
  public:
 
   typedef std::shared_ptr<StubUDPSender> ptr_t;
@@ -78,7 +78,7 @@ class StubUDPSender : public metrics::UDPSender {
       size_t port,
       std::vector<boost::asio::ip::udp::endpoint> lookup_result,
       boost::system::error_code lookup_error)
-    : metrics::UDPSender(io_service, "fakehost", port, 1 /* resolve_period_ms */),
+    : metrics::MetricsUDPSender(io_service, "fakehost", port, 1 /* resolve_period_ms */),
       io_service(io_service),
       lookup_result(lookup_result),
       lookup_error(lookup_error),

@@ -1,4 +1,4 @@
-#include "tcp_sender.hpp"
+#include "metrics_tcp_sender.hpp"
 
 #include <glog/logging.h>
 
@@ -9,7 +9,7 @@ namespace sp = std::placeholders;
 #define MAX_RECONNECT_DELAY 60
 #define CONNECT_TIMEOUT_SECS 60
 
-metrics::TCPSender::TCPSender(
+metrics::MetricsTCPSender::MetricsTCPSender(
     std::shared_ptr<boost::asio::io_service> io_service,
     const std::string& session_header,
     const boost::asio::ip::address& ip,
@@ -30,35 +30,35 @@ metrics::TCPSender::TCPSender(
     sent_bytes(0),
     dropped_bytes(0),
     failed_bytes(0) {
-  LOG(INFO) << "TCPSender constructed for " << send_ip << ":" << send_port;
+  LOG(INFO) << "MetricsTCPSender constructed for " << send_ip << ":" << send_port;
 }
 
-metrics::TCPSender::~TCPSender() {
-  LOG(INFO) << "Asynchronously triggering TCPSender shutdown for "
+metrics::MetricsTCPSender::~MetricsTCPSender() {
+  LOG(INFO) << "Asynchronously triggering MetricsTCPSender shutdown for "
             << send_ip << ":" << send_port;
   socket_state = SHUTDOWN;
   // Run the shutdown work itself from within the scheduler:
   if (sync_util::dispatch_run(
-          "~TCPSender", *io_service, std::bind(&TCPSender::shutdown_cb, this))) {
-    LOG(INFO) << "TCPSender shutdown succeeded";
+          "~MetricsTCPSender", *io_service, std::bind(&MetricsTCPSender::shutdown_cb, this))) {
+    LOG(INFO) << "MetricsTCPSender shutdown succeeded";
   } else {
-    LOG(ERROR) << "Failed to complete TCPSender shutdown for " << send_ip << ":" << send_port;
+    LOG(ERROR) << "Failed to complete MetricsTCPSender shutdown for " << send_ip << ":" << send_port;
   }
 }
 
-void metrics::TCPSender::start() {
+void metrics::MetricsTCPSender::start() {
   // Only run the timer callbacks within the io_service thread:
-  LOG(INFO) << "TCPSender starting work";
+  LOG(INFO) << "MetricsTCPSender starting work";
   if (socket_state != NOT_STARTED) {
     LOG(FATAL) << "start() called when already started! current state is: "
                << to_string(socket_state);
   }
   socket_state = DISCONNECTED;
-  io_service->dispatch(std::bind(&TCPSender::start_report_bytes_timer, this));
-  io_service->dispatch(std::bind(&TCPSender::start_connect, this));
+  io_service->dispatch(std::bind(&MetricsTCPSender::start_report_bytes_timer, this));
+  io_service->dispatch(std::bind(&MetricsTCPSender::start_connect, this));
 }
 
-void metrics::TCPSender::send(buf_ptr_t buf) {
+void metrics::MetricsTCPSender::send(buf_ptr_t buf) {
   if (socket_state == SHUTDOWN || !buf || buf->size() == 0) {
     //DLOG(INFO) << "Skipping scheduled send of zero bytes";
     return;
@@ -82,10 +82,10 @@ void metrics::TCPSender::send(buf_ptr_t buf) {
   // Pass buf into send_cb to ensure that it stays in scope until the send has completed:
   boost::asio::async_write(
       socket, *buf,
-      std::bind(&TCPSender::send_cb, this, sp::_1, sp::_2, buf));
+      std::bind(&MetricsTCPSender::send_cb, this, sp::_1, sp::_2, buf));
 }
 
-void metrics::TCPSender::set_state_schedule_connect() {
+void metrics::MetricsTCPSender::set_state_schedule_connect() {
   if (socket_state == CONNECT_PENDING || socket_state == CONNECT_IN_PROGRESS) {
     DLOG(INFO) << "Reconnect already scheduled.";
     return;
@@ -95,14 +95,14 @@ void metrics::TCPSender::set_state_schedule_connect() {
 
   socket_state = CONNECT_PENDING;
   connect_retry_timer.expires_from_now(boost::posix_time::seconds(reconnect_delay));
-  connect_retry_timer.async_wait(std::bind(&TCPSender::start_connect, this));
+  connect_retry_timer.async_wait(std::bind(&MetricsTCPSender::start_connect, this));
   reconnect_delay *= 2; // exponential backoff ..
   if (reconnect_delay > MAX_RECONNECT_DELAY) {
     reconnect_delay = MAX_RECONNECT_DELAY;
   }
 }
 
-void metrics::TCPSender::start_connect() {
+void metrics::MetricsTCPSender::start_connect() {
   if (socket_state == SHUTDOWN) {
     return;
   }
@@ -110,12 +110,12 @@ void metrics::TCPSender::start_connect() {
   socket_state = CONNECT_IN_PROGRESS;
   LOG(INFO) << "Attempting to open connection to " << send_ip << ":" << send_port;
   connect_deadline_timer.expires_from_now(boost::posix_time::seconds(CONNECT_TIMEOUT_SECS));
-  connect_deadline_timer.async_wait(std::bind(&TCPSender::connect_deadline_cb, this));
+  connect_deadline_timer.async_wait(std::bind(&MetricsTCPSender::connect_deadline_cb, this));
   socket.async_connect(boost::asio::ip::tcp::endpoint(send_ip, send_port),
-      std::bind(&TCPSender::connect_outcome_cb, this, sp::_1));
+      std::bind(&MetricsTCPSender::connect_outcome_cb, this, sp::_1));
 }
 
-void metrics::TCPSender::connect_deadline_cb() {
+void metrics::MetricsTCPSender::connect_deadline_cb() {
   if (socket_state == SHUTDOWN
       || socket_state == CONNECTED_DATA_NOT_READY
       || socket_state == CONNECTED_DATA_READY) {
@@ -129,7 +129,7 @@ void metrics::TCPSender::connect_deadline_cb() {
   }
 }
 
-void metrics::TCPSender::connect_outcome_cb(boost::system::error_code ec) {
+void metrics::MetricsTCPSender::connect_outcome_cb(boost::system::error_code ec) {
   if (socket_state == SHUTDOWN) {
     return;
   }
@@ -162,10 +162,10 @@ void metrics::TCPSender::connect_outcome_cb(boost::system::error_code ec) {
   // (Just to keep things a bit simpler)
   boost::asio::async_write(
       socket, *hdr_buf,
-      std::bind(&TCPSender::send_cb, this, sp::_1, sp::_2, hdr_buf));
+      std::bind(&MetricsTCPSender::send_cb, this, sp::_1, sp::_2, hdr_buf));
 }
 
-void metrics::TCPSender::send_cb(
+void metrics::MetricsTCPSender::send_cb(
     boost::system::error_code ec, size_t bytes_transferred, buf_ptr_t keepalive) {
   if (socket_state == SHUTDOWN) {
     return;
@@ -202,7 +202,7 @@ void metrics::TCPSender::send_cb(
   }
 }
 
-void metrics::TCPSender::shutdown_cb() {
+void metrics::MetricsTCPSender::shutdown_cb() {
   boost::system::error_code ec;
 
   connect_deadline_timer.cancel(ec);
@@ -232,15 +232,15 @@ void metrics::TCPSender::shutdown_cb() {
   }
 }
 
-void metrics::TCPSender::start_report_bytes_timer() {
+void metrics::MetricsTCPSender::start_report_bytes_timer() {
   if (socket_state == SHUTDOWN) {
     return;
   }
   report_bytes_timer.expires_from_now(boost::posix_time::seconds(60));
-  report_bytes_timer.async_wait(std::bind(&TCPSender::report_bytes_cb, this));
+  report_bytes_timer.async_wait(std::bind(&MetricsTCPSender::report_bytes_cb, this));
 }
 
-void metrics::TCPSender::report_bytes_cb() {
+void metrics::MetricsTCPSender::report_bytes_cb() {
   if (socket_state == SHUTDOWN) {
     return;
   }

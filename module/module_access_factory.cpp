@@ -15,12 +15,11 @@ namespace {
    * This code goes to a lot of effort to only initialize params AFTER all expected sections have
    * been processed. This prevents the module breaking if params are read "too early" or "too late".
    *
-   * We expect to be called twice:
+   * We expect to be called once:
    * - Isolator module fetches the ContainerAssigner
-   * - Resource estimator module fetches the IORunner
-   * These are both init()ed only after *both* have been fetched, to ensure that we have all params.
+   * This is init()ed only after *one* has been fetched, to ensure that we have all params.
    */
-  const size_t EXPECTED_MODULE_COUNT = 2;
+  const size_t EXPECTED_MODULE_COUNT = 1;
 
   std::mutex global_state_mutex;
   std::shared_ptr<metrics::ContainerAssigner> global_container_assigner;
@@ -103,14 +102,6 @@ std::shared_ptr<metrics::ContainerAssigner> metrics::ModuleAccessFactory::get_co
   init_everything_if_enough_instantiations(module_parameters);
   LOG(INFO) << "Returning ContainerAssigner to module";
   return get_global_container_assigner();
-}
-
-std::shared_ptr<metrics::IORunner> metrics::ModuleAccessFactory::get_io_runner(
-    const mesos::Parameters& module_parameters) {
-  std::unique_lock<std::mutex> lock(global_state_mutex);
-  init_everything_if_enough_instantiations(module_parameters);
-  LOG(INFO) << "Returning IORunner to module";
-  return get_global_io_runner();
 }
 
 void metrics::ModuleAccessFactory::reset_for_test() {

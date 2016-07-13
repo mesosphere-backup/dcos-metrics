@@ -1,10 +1,10 @@
-#include "udp_sender.hpp"
+#include "metrics_udp_sender.hpp"
 
 #include <glog/logging.h>
 
 #include "sync_util.hpp"
 
-metrics::UDPSender::UDPSender(
+metrics::MetricsUDPSender::MetricsUDPSender(
     std::shared_ptr<boost::asio::io_service> io_service,
     const std::string& host,
     size_t port,
@@ -17,23 +17,23 @@ metrics::UDPSender::UDPSender(
     socket(*io_service),
     sent_bytes(0),
     dropped_bytes(0) {
-  LOG(INFO) << "UDPSender constructed for " << send_host << ":" << send_port;
+  LOG(INFO) << "MetricsUDPSender constructed for " << send_host << ":" << send_port;
   if (resolve_period_ms == 0) {
     LOG(FATAL) << "Invalid " << params::OUTPUT_STATSD_HOST_REFRESH_SECONDS << " value: must be non-zero";
   }
 }
 
-metrics::UDPSender::~UDPSender() {
+metrics::MetricsUDPSender::~MetricsUDPSender() {
   shutdown();
 }
 
-void metrics::UDPSender::start() {
+void metrics::MetricsUDPSender::start() {
   // Only run the timer callbacks within the io_service thread:
-  LOG(INFO) << "UDPSender starting work";
-  io_service->dispatch(std::bind(&UDPSender::dest_resolve_cb, this, boost::system::error_code()));
+  LOG(INFO) << "MetricsUDPSender starting work";
+  io_service->dispatch(std::bind(&MetricsUDPSender::dest_resolve_cb, this, boost::system::error_code()));
 }
 
-void metrics::UDPSender::send(const char* bytes, size_t size) {
+void metrics::MetricsUDPSender::send(const char* bytes, size_t size) {
   if (size == 0) {
     //DLOG(INFO) << "Skipping scheduled send of zero bytes";
     return;
@@ -58,30 +58,30 @@ void metrics::UDPSender::send(const char* bytes, size_t size) {
   }
 }
 
-boost::asio::ip::udp::resolver::iterator metrics::UDPSender::resolve(
+boost::asio::ip::udp::resolver::iterator metrics::MetricsUDPSender::resolve(
     boost::system::error_code& ec) {
   boost::asio::ip::udp::resolver resolver(*io_service);
   return resolver.resolve(boost::asio::ip::udp::resolver::query(send_host, ""), ec);
 }
 
-void metrics::UDPSender::shutdown() {
-  LOG(INFO) << "Asynchronously triggering UDPSender shutdown for "
+void metrics::MetricsUDPSender::shutdown() {
+  LOG(INFO) << "Asynchronously triggering MetricsUDPSender shutdown for "
             << send_host << ":" << send_port;
   // Run the shutdown work itself from within the scheduler:
   if (sync_util::dispatch_run(
-          "~UDPSender", *io_service, std::bind(&UDPSender::shutdown_cb, this))) {
-    LOG(INFO) << "UDPSender shutdown succeeded";
+          "~MetricsUDPSender", *io_service, std::bind(&MetricsUDPSender::shutdown_cb, this))) {
+    LOG(INFO) << "MetricsUDPSender shutdown succeeded";
   } else {
-    LOG(ERROR) << "Failed to complete UDPSender shutdown for " << send_host << ":" << send_port;
+    LOG(ERROR) << "Failed to complete MetricsUDPSender shutdown for " << send_host << ":" << send_port;
   }
 }
 
-void metrics::UDPSender::start_dest_resolve_timer() {
+void metrics::MetricsUDPSender::start_dest_resolve_timer() {
   resolve_timer.expires_from_now(boost::posix_time::milliseconds(resolve_period_ms));
-  resolve_timer.async_wait(std::bind(&UDPSender::dest_resolve_cb, this, std::placeholders::_1));
+  resolve_timer.async_wait(std::bind(&MetricsUDPSender::dest_resolve_cb, this, std::placeholders::_1));
 }
 
-void metrics::UDPSender::dest_resolve_cb(boost::system::error_code ec) {
+void metrics::MetricsUDPSender::dest_resolve_cb(boost::system::error_code ec) {
   if (ec) {
     if (boost::asio::error::operation_aborted) {
       // We're being destroyed. Don't look at local state, it may be destroyed already.
@@ -217,7 +217,7 @@ void metrics::UDPSender::dest_resolve_cb(boost::system::error_code ec) {
   start_dest_resolve_timer();
 }
 
-void metrics::UDPSender::shutdown_cb() {
+void metrics::MetricsUDPSender::shutdown_cb() {
   boost::system::error_code ec;
 
   resolve_timer.cancel(ec);
