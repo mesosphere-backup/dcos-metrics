@@ -55,9 +55,8 @@ public class ConsumerRunner {
     public void run() {
       if (!consumerConfig.exactTopics.isEmpty()) {
         // subscribe to specific topics up-front
-        List<String> topics = new ArrayList<>();
-        topics.addAll(consumerConfig.exactTopics);
-        kafkaConsumer.subscribe(topics);
+        LOGGER.info("Subscribing to specified exact topics: {}", consumerConfig.exactTopics);
+        kafkaConsumer.subscribe(consumerConfig.exactTopics);
       }
       DatumReader<MetricList> datumReader = new SpecificDatumReader<MetricList>(MetricList.class);
       MetricList metricList = null;

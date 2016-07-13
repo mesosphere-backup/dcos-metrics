@@ -53,6 +53,8 @@ public class BrokerLookup {
     }
     if (brokerList.isEmpty()) {
       LOGGER.warn("Response from {} contained an empty broker list", url.toString());
+    } else {
+      LOGGER.info("Retrieved brokers: {}", brokerList);
     }
     return brokerList;
   }
@@ -76,9 +78,9 @@ public class BrokerLookup {
         responseBuilder.append(line).append('\n');
       }
       String response = responseBuilder.toString();
-      LOGGER.info("Got response: {}", response.trim());
+      LOGGER.debug("Got response: {}", response.trim());
       JSONObject jsonObject = new JSONObject(response);
-      LOGGER.info("JSON from response: {}", jsonObject.toString());
+      LOGGER.debug("JSON from response: {}", jsonObject.toString());
       return jsonObject;
     } finally {
       IOUtils.closeQuietly(reader);

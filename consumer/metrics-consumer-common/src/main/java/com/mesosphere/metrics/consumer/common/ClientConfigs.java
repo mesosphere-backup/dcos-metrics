@@ -139,6 +139,9 @@ public class ClientConfigs {
       this.exactTopics = new ArrayList<>();
       this.topicPattern = topicPattern;
       this.topicPollPeriodMs = topicPollPeriodMs;
+      if (topicPattern == null) {
+        LOGGER.error("Null topic pattern");
+      }
     }
   }
 

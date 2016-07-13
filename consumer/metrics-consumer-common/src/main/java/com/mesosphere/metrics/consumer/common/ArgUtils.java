@@ -1,5 +1,6 @@
 package com.mesosphere.metrics.consumer.common;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -119,7 +120,11 @@ public class ArgUtils {
    * {@code envName}, or returns an empty list if the environment variable is missing or empty.
    */
   public static List<String> parseStrList(String envName) {
-    return Arrays.asList(parseStr(envName, "").split(","));
+    String arg = parseStr(envName, "");
+    if (arg.isEmpty()) { // avoid returning [""]
+      return new ArrayList<>();
+    }
+    return Arrays.asList(arg.split(","));
   }
 
   /**
