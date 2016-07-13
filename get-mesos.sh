@@ -62,7 +62,7 @@ if [ -f "${CONFIGURE_CHECK_FILE}" ]; then
     echo "Already configured (found ${CONFIGURE_CHECK_FILE})"
 else
     echo "\n\n###\nConfiguring...\n###\n\n"
-    ../configure
+    ../configure --enable-install-module-dependencies
     if [ $? != 0 ]; then
         echo "Failed to configure. ${PREREQ_NAG}"
         exit 1
