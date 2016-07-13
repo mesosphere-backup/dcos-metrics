@@ -8,7 +8,7 @@ Routing of metrics from DC/OS.
 
 First, get a 1.8 EE cluster. Then install the following:
 
-1. **Kafka**: `dcos package install kafka` or install via the Universe UI -- stock is fine to begin with
+1. **Kafka**: `dcos package install kafka` or install via the Universe UI -- stock config is fine to begin with
 2. [**Metrics Collector** on every node](collector/README.md#deployment-to-a-cluster): use provided marathon json
 3. One or more [**Metrics Consumers**](consumer/): see example marathon jsons for each consumer type, edit outputs as needed before launching
 

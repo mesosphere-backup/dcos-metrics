@@ -123,8 +123,9 @@ void metrics::MetricsTCPSender::connect_deadline_cb() {
     return;
   }
   if (connect_deadline_timer.expires_at() <= boost::asio::deadline_timer::traits_type::now()) {
-    LOG(WARNING) << "Timed out when opening metrics connection to " << send_ip << ":" << send_port
-                 << ", giving socket a kick (state " << to_string(socket_state) << ")";
+    LOG(INFO) << "Timed out when opening metrics connection to " << send_ip << ":" << send_port
+              << ". This is expected if no Metrics Collector is running on this agent."
+              << " (state " << to_string(socket_state) << ")";
     socket.close(); // this will fire connect_outcome
   }
 }
@@ -135,12 +136,14 @@ void metrics::MetricsTCPSender::connect_outcome_cb(boost::system::error_code ec)
   }
   if (!socket.is_open() || ec) {
     if (ec) {
-      LOG(WARNING) << "Got error '" << ec.message() << "'(" << ec << ")"
-                   << " when connecting to metrics service at " << send_ip << ":" << send_port
-                   << " (state " << to_string(socket_state) << ")";
+      LOG(INFO) << "Got error '" << ec.message() << "'(" << ec << ")"
+                << " when connecting to metrics service at " << send_ip << ":" << send_port
+                << ". This is expected if no Metrics Collector is running on this agent."
+                << " (state " << to_string(socket_state) << ")";
     } else if (!socket.is_open()) {
-      LOG(WARNING) << "Metrics socket not open after connecting to " << send_ip << ":" << send_port
-                   << " (state " << to_string(socket_state) << ")";
+      LOG(INFO) << "Metrics socket not open after connecting to " << send_ip << ":" << send_port
+                << ". This is expected if no Metrics Collector is running on this agent."
+                << " (state " << to_string(socket_state) << ")";
     }
     socket_state = DISCONNECTED;
     set_state_schedule_connect();
