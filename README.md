@@ -6,10 +6,10 @@ Routing of metrics from DC/OS.
 
 ## Quick Start
 
-First, get a 1.8 EE cluster. Then install the following:
+First, get a 1.8 EE cluster with at least 3 private nodes (minimum for default Kafka), then install the following:
 
-1. [**Kafka**](http://github.com/mesosphere/kafka-private/README.md): `dcos package install kafka` or install via the Universe UI -- stock settings are fine to start with
-2. [**Metrics Collector** on every node](collector/README.md#deployment-to-a-cluster): use provided marathon json
+1. Install [**Kafka**](http://github.com/mesosphere/kafka-private/README.md): `dcos package install kafka` or install via the Universe UI -- stock settings are fine to start with
+2. Run a [**Metrics Collector**](collector/README.md#deployment-to-a-cluster) on every node: use provided marathon jsons.
 3. One or more [**Metrics Consumers**](consumer/): see example marathon jsons for each consumer type, edit output settings as needed before launching
 
 ## Audiences

@@ -81,27 +81,23 @@ cat random.avro | nc 127.0.0.1 8124
 
 1. Configure and deploy a Kafka instance on your DC/OS cluster. By default it will be named `kafka`. If you use a different name, you'll need to customize the `KAFKA_FRAMEWORK` value below.
 2. Run `collector` as a Marathon task by editing and submitting the following JSON config:
-  - Set `instances` to the number of instances to run, or just leave it as-is 100. At most one instance will run on each agent node due to the port requirement. If you have 5 nodes and you launch 6 instances, the 6th instance will stay in an "Unscheduled" state in Marathon. This doesn't hurt anything.
+  - Set `instances` to the number of instances to run, or just leave it as-is at `100`. Due to the port requirement, at most one collector instance will run on each agent node. If you have 5 nodes and you launch 6 instances, the 6th instance will stay in an "Unscheduled" state in Marathon. This doesn't hurt anything.
   - If you named your Kafka cluster something other than the default `kafka`, edit `KAFKA_FRAMEWORK` in the env config to match the name of your deployed Kafka cluster.
   - If you're wanting to use a custom build, upload the `collector` executable you built to somewhere that's visible to your cluster (eg S3), then modify the `uris` value below.
-  - If you want to run the producer on your Public nodes, you must create a separate additional task in Marathon, with a different `id`, which also includes `acceptedResourceRoles": [ "slave_public" ]` in its config.
 
 ```json
 {
-  "id": "metrics-collector",
   "instances": 100,
+  "id": "metrics-collector",
   "env": {
     "KAFKA_FRAMEWORK": "kafka",
     "KAFKA_TOPIC_PREFIX": "metrics-"
   },
-
   "cmd": "env && chmod +x ./collector && ./collector",
   "cpus": 1,
   "mem": 128,
   "disk": 0,
-  "uris": [
-    "https://s3-us-west-2.amazonaws.com/nick-dev/collector.tgz"
-  ],
+  "uris": ["https://s3-us-west-2.amazonaws.com/nick-dev/collector.tgz"],
   "portDefinitions": [
     {
       "port": 8124,
@@ -110,7 +106,35 @@ cat random.avro | nc 127.0.0.1 8124
       "labels": null
     }
   ],
-  "requirePorts" : true
+  "requirePorts": true
+}
+```
+
+To launch instances on your public nodes, you will need to launch a separate Marathon task which specifies the public resource role:
+
+```json
+{
+  "instances": 100,
+  "id": "metrics-collector-public",
+  "env": {
+    "KAFKA_FRAMEWORK": "kafka",
+    "KAFKA_TOPIC_PREFIX": "metrics-"
+  },
+  "cmd": "env && chmod +x ./collector && ./collector",
+  "cpus": 1,
+  "mem": 128,
+  "disk": 0,
+  "uris": ["https://s3-us-west-2.amazonaws.com/nick-dev/collector.tgz"],
+  "portDefinitions": [
+    {
+      "port": 8124,
+      "protocol": "tcp",
+      "name": null,
+      "labels": null
+    }
+  ],
+  "requirePorts": true,
+  "acceptedResourceRoles": ["slave_public"]
 }
 ```
 
