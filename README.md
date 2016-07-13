@@ -4,12 +4,20 @@ Routing of metrics from DC/OS.
 
 ![architecture diagram](architecture.png)
 
+## Quick Start
+
+First, get a 1.8 EE cluster. Then install the following:
+
+1. **Kafka**: `dcos package install kafka` or install via the Universe UI -- stock is fine to begin with
+2. [**Metrics Collector** on every node](collector/README.md#deployment-to-a-cluster): use provided marathon json
+3. One or more [**Metrics Consumers**](consumer/): see example marathon jsons for each consumer type, edit outputs as needed before launching
+
 ## Audiences
 
 **I want to...**
 - **emit metrics from a Mesos container**: You should check for `STATSD_UDP_HOST` and `STATSD_UDP_PORT` in your application environment, then send statsd-formatted metrics to that endpoint when it's available. You may emit your own tags using the [dogstatsd tag format](http://docs.datadoghq.com/guides/dogstatsd/#datagram-format), and they'll automatically be translated into avro-formatted tags! (see also: [example code](examples/statsd-emitter/))
 - **emit metrics from a system process on the agents**: You should send avro-formatted metrics to the Collector process at `127.0.0.1:8124`. (see also: [avro schema](schema/), [example code](examples/collector-emitter/))
-- **collect and process emitted metrics**: Take a look at the available [Kafka Consumers](consumer/), and see if your format already exists. If it doesn't, a new Consumer is *very* easy. (see also: [avro schema](schema/))
+- **collect and process emitted metrics**: See Quick Start above. Take a look at the available [Kafka Consumers](consumer/), and see if your format already exists. If it doesn't, a new Consumer is *very* easy. (see also: [avro schema](schema/))
 - **develop parts of the metrics stack**: You can run the whole stack on your local system, no Mesos Agent required! To get started, take a look at the [local stack launcher scripts](examples/local-stack).
 
 ## Repo contents
