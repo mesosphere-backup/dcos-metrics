@@ -27,7 +27,13 @@ First, get a 1.8 EE cluster with at least 3 private nodes (minimum for default K
   - Output formats:
     - Avro metrics sent to a local Collector process on TCP port `8124` (EE 1.8+)
     - StatsD to `metrics.marathon.mesos` with tags added via key prefixes or datadog tags (EE 1.7 only, disabled in EE 1.8),
-- **[collector](collector/)**: A Marathon process which runs on every agent node. Listens on TCP port `8124` for Avro-formatted metrics from the mesos-agent module as well as other processes on the system. Data is collated and forwarded to a Kafka instance, and/or exposed to local partner agents (TBD).
+- **[collector](collector/)**: A Marathon process which runs on every agent node.
+  - Inputs:
+    - Listens on TCP port `8124` for Avro-formatted metrics from the mesos-agent module, as well as any other processes on the system.
+    - Polls the local Mesos agent for additional information:
+      - `/containers` is polled to retrieve per-container resource usage stats (this was briefly done in the Mesos module via the Oversubscription module interface). Similarly `/metrics/snapshot` is also polled for system-level information.
+      - `/state` is polled to determine the local `agent_id` and to get a mapping of `framework_id` to `framework_name`. These are then used to populate `agent_id` on all outgoing metrics, and `framework_name` for metrics that have a `framework_id` (i.e. all metrics emitted by containers).
+  - Output: Data is collated and forwarded to a Kafka instance, and/or exposed to local partner agents (TBD).
 - **[consumer](consumer/)**: Kafka Consumer implementations which fetch Avro-formatted metrics and do something with them (print to `stdout`, write to a database, etc).
 - **examples**: Reference implementations of programs which integrate with the metrics stack:
   - **[collector-emitter](examples/collector-emitter/)**: A reference for DC/OS system processes which emit metrics. Sends some Avro metrics data to a local Collector process.
