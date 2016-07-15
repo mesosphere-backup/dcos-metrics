@@ -33,8 +33,8 @@ First, get a 1.8 EE cluster with at least 3 private nodes (minimum for default K
     - Polls the local Mesos agent for additional information:
       - `/containers` is polled to retrieve per-container resource usage stats (this was briefly done in the Mesos module via the Oversubscription module interface). Similarly `/metrics/snapshot` is also polled for system-level information.
       - `/state` is polled to determine the local `agent_id` and to get a mapping of `framework_id` to `framework_name`. These are then used to populate `agent_id` on all outgoing metrics, and `framework_name` for metrics that have a `framework_id` (i.e. all metrics emitted by containers).
-  - Output: Data is collated and forwarded to a Kafka instance, and/or exposed to local partner agents (TBD).
-- **[consumer](consumer/)**: Kafka Consumer implementations which fetch Avro-formatted metrics and do something with them (print to `stdout`, write to a database, etc).
+  - Output: Data is collated into topics and forwarded to a configured Kafka instance (default `kafka`).
+- **[consumer](consumer/)**: Kafka Consumer implementations which fetch Avro-formatted metrics and do something with them (print to `stdout`, write to a database, etc). By default the Consumers will consume from all topics which match the regex pattern `metrics-.*`. This expression can be customized, or alternately a single specific topic can be specified for consumption.
 - **examples**: Reference implementations of programs which integrate with the metrics stack:
   - **[collector-emitter](examples/collector-emitter/)**: A reference for DC/OS system processes which emit metrics. Sends some Avro metrics data to a local Collector process.
   - **[local-stack](examples/local-stack/)**: Helper scripts for running a full metrics stack on a dev machine. Feeds stats into itself and prints them at the end. Requires a running copy of Zookeeper (reqd by Kafka).
