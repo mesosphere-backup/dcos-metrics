@@ -16,10 +16,6 @@ namespace {
     cid.set_value(id);
     return cid;
   }
-
-  void noop() {
-    LOG(INFO) << "noop";
-  }
 }
 
 class ModuleAccessFactoryTests  : public ::testing::Test {
