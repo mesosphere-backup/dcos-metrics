@@ -34,9 +34,9 @@ var (
 )
 
 const (
-	AgentIdTag       = "agent_id"
-	FrameworkIdTag   = "framework_id"
-	FrameworkNameTag = "framework_name"
+	agentIdTag       = "agent_id"
+	frameworkIdTag   = "framework_id"
+	frameworkNameTag = "framework_name"
 )
 
 type AvroData struct {
@@ -197,13 +197,13 @@ func processRecs(agentState *AgentState, recs []interface{}, stats chan<- StatsE
 
 		if agentState == nil {
 			// haven't gotten agent state yet (skip framework_name; it's irrelevant to many stats)
-			tags = addTag(tags, AgentIdTag, "UNKNOWN_AGENT_STATE")
+			tags = addTag(tags, agentIdTag, "UNKNOWN_AGENT_STATE")
 		} else {
 			frameworkName := findFrameworkName(tags, agentState, stats)
 			if len(frameworkName) != 0 {
-				tags = addTag(tags, FrameworkNameTag, frameworkName)
+				tags = addTag(tags, frameworkNameTag, frameworkName)
 			}
-			tags = addTag(tags, AgentIdTag, agentState.agentId)
+			tags = addTag(tags, agentIdTag, agentState.agentId)
 		}
 
 		// Update tags in record
@@ -224,7 +224,7 @@ func findFrameworkName(tags []interface{}, agentState *AgentState, stats chan<- 
 			stats <- MakeEvent(RecordBadTags)
 			return "ERROR_BAD_RECORD"
 		}
-		if tagKey == FrameworkIdTag {
+		if tagKey == frameworkIdTag {
 			frameworkIdObj, err := tag.Get("value")
 			if err != nil {
 				stats <- MakeEvent(RecordBadTags)

@@ -47,8 +47,7 @@ const (
 	AgentIpLookupFailed
 	AgentIpLookupEmpty
 	AgentQuery
-	AgentQueryBadMetrics
-	AgentQueryBadState
+	AgentQueryBadData
 	AgentQueryFailed
 	AgentMetricsValue
 	AgentMetricsValueUnsupported
@@ -152,10 +151,8 @@ func toStatsdLabel(event StatsEvent) string {
 		statsdKey = "agent_poll.ip_lookup_empties"
 	case AgentQuery:
 		statsdKey = "agent_poll.queries"
-	case AgentQueryBadMetrics:
-		statsdKey = "agent_poll.query_bad_metrics"
-	case AgentQueryBadState:
-		statsdKey = "agent_poll.query_bad_state"
+	case AgentQueryBadData:
+		statsdKey = "agent_poll.query_bad_data"
 	case AgentQueryFailed:
 		statsdKey = "agent_poll.query_failures"
 	case AgentMetricsValue:
