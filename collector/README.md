@@ -1,14 +1,14 @@
 # Metrics Collector
 
-Lightweight standalone process which runs on mesos-agent nodes.
+Lightweight standalone process which runs on each DC/OS agent nodes via a Marathon deployment.
 
 Inputs metrics [sent over TCP](../schema/) from local sources:
-- The [mesos-agent module](../module/), for metrics relating to containers
+- The [mesos-agent module](../module/), for metrics emitted by containers
+- Polling the agent's own HTTP endpoints to retrieve metrics about resource utilization/system activity.
 - Other DCOS processes on the system
 
 Outputs metrics to the following destinations:
 - Kafka cluster
-- Local partner processes, if any
 
 ## Build
 
