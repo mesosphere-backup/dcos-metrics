@@ -60,21 +60,7 @@ type AgentState struct {
 // Runs an Agent Poller which periodically produces data retrieved from a local Mesos Agent.
 // This function should be run as a gofunc.
 func RunAgentPoller(recordsChan chan<- *AvroData, agentStateChan chan<- *AgentState, stats chan<- StatsEvent) {
-	// do one poll immediately upon starting, to ensure that agent metadata is populated early:
-	pollAgent(recordsChan, agentStateChan, stats)
-	ticker := time.NewTicker(time.Second * time.Duration(*agentPollPeriodFlag))
-	for {
-		select {
-		case _ = <-ticker.C:
-			pollAgent(recordsChan, agentStateChan, stats)
-		}
-	}
-}
-
-// ---
-
-func pollAgent(recordsChan chan<- *AvroData, agentStateChan chan<- *AgentState, stats chan<- StatsEvent) {
-	// refresh agent ip (probably don't need to refresh constantly, but just in case..)
+	// fetch agent ip once. per DC/OS docs, changing a node IP is unsupported
 	var agentIp string = ""
 	if len(*agentTestStateFileFlag) == 0 ||
 		len(*agentTestSystemFileFlag) == 0 ||
@@ -82,13 +68,29 @@ func pollAgent(recordsChan chan<- *AvroData, agentStateChan chan<- *AgentState, 
 		// only get the ip if actually needed
 		agentIp = getAgentIp(stats)
 	}
-	// fetch/emit agent state first: downstream can use it when handling agent metrics
+
+	// do one poll immediately upon starting, to ensure that agent metadata is populated early:
+	pollAgent(agentIp, recordsChan, agentStateChan, stats)
+	ticker := time.NewTicker(time.Second * time.Duration(*agentPollPeriodFlag))
+	for {
+		select {
+		case _ = <-ticker.C:
+			pollAgent(agentIp, recordsChan, agentStateChan, stats)
+		}
+	}
+}
+
+// ---
+
+func pollAgent(agentIp string, recordsChan chan<- *AvroData, agentStateChan chan<- *AgentState, stats chan<- StatsEvent) {
+	// always fetch/emit agent state first: downstream will use it for tagging metrics
 	agentState, err := getAgentState(agentIp, stats)
 	if err == nil {
 		agentStateChan <- agentState
 	} else {
 		log.Printf("Failed to retrieve state from agent at %s: %s", agentIp, err)
 	}
+
 	systemMetricsList, err := getSystemMetrics(agentIp, agentState, stats)
 	if err == nil {
 		if systemMetricsList != nil {
@@ -97,6 +99,7 @@ func pollAgent(recordsChan chan<- *AvroData, agentStateChan chan<- *AgentState, 
 	} else {
 		log.Printf("Failed to retrieve system metrics from agent at %s: %s", agentIp, err)
 	}
+
 	containerMetricsLists, err := getContainerMetrics(agentIp, agentState, stats)
 	if err == nil {
 		for _, metricList := range containerMetricsLists {
