@@ -9,6 +9,7 @@ A set of Kafka metrics consumer implementations which grab Avro-formatted metric
 - **[influx](metrics-consumer-influx/)**: Outputs data to an InfluxDB service.
 - **[kairos](metrics-consumer-kairos/)**: Outputs data to a KairosDB service.
 - **[print](metrics-consumer-print/)**: Outputs consumed data to `stdout`.
+- **[statsd](metrics-consumer-statsd/)**: Outputs consumed data to a statsd or dogstatsd service.
 
 ## Build
 
