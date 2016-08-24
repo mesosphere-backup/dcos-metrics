@@ -7,6 +7,10 @@ import org.json.JSONTokener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.spotify.dns.DnsSrvResolver;
+import com.spotify.dns.DnsSrvResolvers;
+import com.spotify.dns.LookupResult;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -17,8 +21,8 @@ import java.util.List;
 
 public class BrokerLookup {
   private static final Logger LOGGER = LoggerFactory.getLogger(BrokerLookup.class);
-  private static final String MARATHON_LOOKUP_TEMPLATE = "http://master.mesos:8080/v2/apps/%s";
-  private static final String SCHEDULER_CONNECTION_TEMPLATE = "http://%s.mesos:%d/v1/connection";
+  private static final String SRV_LOOKUP_HOST_TEMPLATE = "_%s._tcp.marathon.mesos";
+  private static final String SCHEDULER_CONNECTION_TEMPLATE = "http://%s:%d/v1/connection";
 
   private final String frameworkName;
 
@@ -27,24 +31,20 @@ public class BrokerLookup {
   }
 
   public List<String> getBootstrapServers() throws IOException {
+    // First, get the scheduler's ip:port using an SRV lookup
+    DnsSrvResolver resolver = DnsSrvResolvers.newBuilder().build();
+    String hostName = String.format(SRV_LOOKUP_HOST_TEMPLATE, frameworkName);
+    List<LookupResult> results = resolver.resolve(hostName);
+    if (results.isEmpty()) {
+      throw new IOException(String.format(
+          "Didn't find any SRV results for %s. Is a Kafka service named '%s' currently running?",
+          hostName, frameworkName));
+    }
+    LookupResult result = results.get(0);
 
-    // First, query marathon to get the scheduler's port
-    // (too lazy to figure out SRV record lookup in Java)
-    URL url = new URL(String.format(MARATHON_LOOKUP_TEMPLATE, frameworkName));
-    LOGGER.info("Connecting to {} for scheduler port lookup", url.toString());
-    JSONObject responseObj = getAndLogResponse(url);
-
-    // response["app"]["tasks"][0]["ports"][0] = portnum
-    int schedulerPort = responseObj
-        .getJSONObject("app")
-        .getJSONArray("tasks")
-        .getJSONObject(0)
-        .getJSONArray("ports")
-        .getInt(0);
-
-    url = new URL(String.format(SCHEDULER_CONNECTION_TEMPLATE, frameworkName, schedulerPort));
+    URL url = new URL(String.format(SCHEDULER_CONNECTION_TEMPLATE, result.host(), result.port()));
     LOGGER.info("Connecting to {} for broker lookup", url.toString());
-    responseObj = getAndLogResponse(url);
+    JSONObject responseObj = getAndLogResponse(url);
 
     JSONArray responseBrokerList = responseObj.getJSONArray("dns");
     List<String> brokerList = new ArrayList<>();
