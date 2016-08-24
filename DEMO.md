@@ -2,7 +2,7 @@
 
 This module is included in DCOS EE (only), starting with 1.7.
 
-In DCOS 1.7 EE, the module supports forwarding metrics in `statsd` format to `metrics.marathon.mesos`. Support for additional export destinations is planned for DCOS 1.8 EE.
+In DCOS 1.7 EE, the module supports forwarding metrics in `statsd` format to `metrics.marathon.mesos`. In 1.8 EE, this has been replaced with a more reliable/flexible Kafka-based system for getting metrics off of the nodes. See [the main README](README.md).
 
 Here are some examples for trying out metrics support on a 1.7+ EE cluster:
 
@@ -50,7 +50,7 @@ As Kafka brokers start, they will automatically be configured for metrics export
 [2016-04-07 18:15:18,782] INFO Started Reporter with host=127.0.0.1, port=35542, polling_period_secs=10, prefix= (com.airbnb.metrics.StatsDReporter)
 ```
 
-## Receiving Metrics via Kafka (Current)
+## Receiving Metrics via Kafka (1.8 EE)
 
 All agents running the metrics module periodically attempt to connect to a local TCP port at `127.0.0.1:8124`. The avro output format is disabled until the endpoint is resolved, but containers are still given `STATSD_UDP_HOST`/`STATSD_UDP_PORT` endpoints, so forwarding can begin immediately once `127.0.0.1:8124` has successfully connected.
 
@@ -68,7 +68,7 @@ The Consumers retrieve data which has been published to the Kafka cluster. One o
 
 See the [Consumer docs](consumer/) for more information on starting Consumerss.
 
-## Receiving Metrics via StatsD (OLD/DEPRECATED)
+## Receiving Metrics via StatsD (1.7 EE)
 
 Before we get started, it's worth noting that direct statsd output from the agent is meant for demo/testing purposes and is **not suitable for real everyday use**. Here are some reasons:
 - Effectively zero protections against silently losing data if there's a hiccup, compared to Kafka
@@ -83,7 +83,7 @@ Once `metrics.marathon.mesos` resolves to one or more A Records, the module pick
 
 If `metrics.marathon.mesos` no longer resolves after sending is begun (ie the `metrics` Marathon job is stopped), the module will continue to send metrics to its current destination, rather than dropping data. This is intended to avoid any issues/bugs with DNS itself causing metrics to stop flowing. This behavior may be revisited later.
 
-### Launching a test receiver
+### Launching a test StatsD receiver
 
 This is just a script which runs `nc -ul 8125`. A minute or two after the job comes up, `metrics.marathon.mesos` will be resolved by the mesos agents, at which point `nc` will start printing anything it receives to stdout.
 
