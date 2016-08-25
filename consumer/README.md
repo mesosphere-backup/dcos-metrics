@@ -78,7 +78,7 @@ Example Marathon app (JSON Mode). Before deployment, `OUTPUT_HOST` **must** be m
   "id": "metrics-consumer-graphite",
   "cmd": "env && JAVA_HOME=./jre* ./jre*/bin/java -jar *.jar",
   "cpus": 1,
-  "mem": 512,
+  "mem": 1024,
   "disk": 0,
   "instances": 1,
   "env": {
@@ -129,7 +129,7 @@ Example Marathon app (JSON Mode). Before deployment, `OUTPUT_HOST`, `OUTPUT_USER
   "id": "metrics-consumer-influx",
   "cmd": "env && JAVA_HOME=./jre* ./jre*/bin/java -jar *.jar",
   "cpus": 1,
-  "mem": 512,
+  "mem": 1024,
   "disk": 0,
   "instances": 1,
   "env": {
@@ -175,7 +175,7 @@ Example Marathon app (JSON Mode). Before deployment, both `OUTPUT_HOST` and `OUT
   "id": "metrics-consumer-kairos",
   "cmd": "env && JAVA_HOME=./jre* ./jre*/bin/java -jar *.jar",
   "cpus": 1,
-  "mem": 512,
+  "mem": 1024,
   "disk": 0,
   "instances": 1,
   "env": {
@@ -248,7 +248,7 @@ Example Marathon app (JSON Mode). The following has been populated with defaults
   "id": "metrics-consumer-statsd",
   "cmd": "env && JAVA_HOME=./jre* ./jre*/bin/java -jar *.jar",
   "cpus": 1,
-  "mem": 512,
+  "mem": 1024,
   "disk": 0,
   "instances": 1,
   "env": {
