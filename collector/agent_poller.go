@@ -29,6 +29,9 @@ var (
 	agentTestContainersFileFlag = StringEnvFlag("agent-test-containers-file", "",
 		"JSON file containing the container usage metrics to be used, for debugging")
 
+	authCredentialFlag = StringEnvFlag("auth-credential", "",
+		"Authentication credential token for use with querying the Mesos Agent")
+
 	datapointNamespace = goavro.RecordEnclosingNamespace(metrics_schema.DatapointNamespace)
 	datapointSchema    = goavro.RecordSchema(metrics_schema.DatapointSchema)
 
@@ -59,7 +62,7 @@ type AgentState struct {
 
 // Runs an Agent Poller which periodically produces data retrieved from a local Mesos Agent.
 // This function should be run as a gofunc.
-func RunAgentPoller(recordsChan chan<- *AvroData, agentStateChan chan<- *AgentState, stats chan<- StatsEvent) {
+func RunAgentPoller(recordsChan chan<- *AvroDatum, agentStateChan chan<- *AgentState, stats chan<- StatsEvent) {
 	// fetch agent ip once. per DC/OS docs, changing a node IP is unsupported
 	var agentIp string = ""
 	if len(*agentTestStateFileFlag) == 0 ||
@@ -82,7 +85,7 @@ func RunAgentPoller(recordsChan chan<- *AvroData, agentStateChan chan<- *AgentSt
 
 // ---
 
-func pollAgent(agentIp string, recordsChan chan<- *AvroData, agentStateChan chan<- *AgentState, stats chan<- StatsEvent) {
+func pollAgent(agentIp string, recordsChan chan<- *AvroDatum, agentStateChan chan<- *AgentState, stats chan<- StatsEvent) {
 	// always fetch/emit agent state first: downstream will use it for tagging metrics
 	agentState, err := getAgentState(agentIp, stats)
 	if err == nil {
@@ -129,7 +132,7 @@ func getAgentIp(stats chan<- StatsEvent) string {
 }
 
 // fetches container-level resource metrics from the agent (via /containers)
-func getContainerMetrics(agentIp string, agentState *AgentState, stats chan<- StatsEvent) ([]*AvroData, error) {
+func getContainerMetrics(agentIp string, agentState *AgentState, stats chan<- StatsEvent) ([]*AvroDatum, error) {
 	rootJson, err := getJsonFromAgent(agentIp, "/containers", agentTestContainersFileFlag, stats)
 	if err != nil {
 		return nil, err
@@ -141,7 +144,7 @@ func getContainerMetrics(agentIp string, agentState *AgentState, stats chan<- St
 		return nil, err
 	}
 
-	metricLists := make([]*AvroData, 0)
+	metricLists := make([]*AvroDatum, 0)
 	// collect datapoints. expecting a list of dicts, where each dict has:
 	// - tags: 'container_id'/'executor_id'/'framework_id' strings
 	// - datapoints/timestamp: 'statistics' dict of string=>int/dbl (incl a dbl 'timestamp')
@@ -222,13 +225,14 @@ func getContainerMetrics(agentIp string, agentState *AgentState, stats chan<- St
 		metricListRec.Set("topic", *agentMetricsTopicFlag)
 		metricListRec.Set("datapoints", datapoints)
 		metricListRec.Set("tags", tags)
-		metricLists = append(metricLists, &AvroData{metricListRec, *agentMetricsTopicFlag})
+		// just use a size of zero, relative to limits it'll be insignificant anyway:
+		metricLists = append(metricLists, &AvroDatum{metricListRec, *agentMetricsTopicFlag, 0})
 	}
 	return metricLists, nil
 }
 
 // fetches system-level metrics from the agent (via /metrics/snapshot)
-func getSystemMetrics(agentIp string, agentState *AgentState, stats chan<- StatsEvent) (*AvroData, error) {
+func getSystemMetrics(agentIp string, agentState *AgentState, stats chan<- StatsEvent) (*AvroDatum, error) {
 	rootJson, err := getJsonFromAgent(agentIp, "/metrics/snapshot", agentTestSystemFileFlag, stats)
 	if err != nil {
 		return nil, err
@@ -275,7 +279,8 @@ func getSystemMetrics(agentIp string, agentState *AgentState, stats chan<- Stats
 	metricListRec.Set("datapoints", datapoints)
 	// note: agent_id tag is automatically added downstream
 	metricListRec.Set("tags", make([]interface{}, 0))
-	return &AvroData{metricListRec, *agentMetricsTopicFlag}, nil
+	// just use a size of zero, relative to limits it'll be insignificant anyway:
+	return &AvroDatum{metricListRec, *agentMetricsTopicFlag, 0}, nil
 }
 
 func getAgentState(agentIp string, stats chan<- StatsEvent) (*AgentState, error) {
@@ -326,7 +331,20 @@ func getJsonFromAgent(agentIp string, urlPath string, testFileFlag *string, stat
 	var rawJson []byte = nil
 	var err error = nil
 	if len(*testFileFlag) == 0 {
-		rawJson, err = HttpGet(fmt.Sprintf("http://%s:%d%s", agentIp, *agentPortFlag, urlPath))
+		endpoint := fmt.Sprintf("http://%s:%d%s", agentIp, *agentPortFlag, urlPath)
+		if len(*authCredentialFlag) == 0 {
+			rawJson, err = HttpGet(endpoint)
+		} else {
+			rawJson, err = AuthedHttpGet(endpoint, *authCredentialFlag)
+		}
+		// Special case: on HTTP 401 Unauthorized, exit immediately rather than failing forever
+		if httpErr, ok := err.(HttpCodeError); ok {
+			if httpErr.Code == 401 {
+				stats <- MakeEvent(AgentQueryFailed)
+				log.Fatalf("Got 401 Unauthorized when querying agent. "+
+					"Please provide a suitable auth token using the AUTH_CREDENTIAL env var: %s", err)
+			}
+		}
 	} else {
 		rawJson, err = ioutil.ReadFile(*testFileFlag)
 	}

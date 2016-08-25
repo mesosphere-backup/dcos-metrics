@@ -28,7 +28,7 @@ var (
 // Runs a TCP socket listener which produces Avro records sent to that socket.
 // Expects input which has been formatted in the Avro ODF standard.
 // This function should be run as a gofunc.
-func RunAvroTCPReader(recordsChan chan<- *AvroData, stats chan<- StatsEvent) {
+func RunAvroTCPReader(recordsChan chan<- *AvroDatum, stats chan<- StatsEvent) {
 	addr, err := net.ResolveTCPAddr("tcp", *listenEndpointFlag)
 	if err != nil {
 		stats <- MakeEvent(TCPResolveFailed)
@@ -58,7 +58,7 @@ func RunAvroTCPReader(recordsChan chan<- *AvroData, stats chan<- StatsEvent) {
 
 // Function which reads records from a TCP session.
 // This function should be run as a gofunc.
-func handleConnection(conn *net.TCPConn, recordsChan chan<- *AvroData, stats chan<- StatsEvent) {
+func handleConnection(conn *net.TCPConn, recordsChan chan<- *AvroDatum, stats chan<- StatsEvent) {
 	conn.SetKeepAlive(true)
 	defer func() {
 		stats <- MakeEvent(TCPSessionClosed)
@@ -81,6 +81,7 @@ func handleConnection(conn *net.TCPConn, recordsChan chan<- *AvroData, stats cha
 
 	nextInputResetTime := time.Now().Add(time.Second * time.Duration(*inputLimitPeriodFlag))
 	var lastBytesCount int64
+	var recordCount int64
 	for {
 		lastBytesCount = reader.inputBytes
 		// Wait for records to be available:
@@ -99,6 +100,7 @@ func handleConnection(conn *net.TCPConn, recordsChan chan<- *AvroData, stats cha
 		}
 		// increment counters before reader.inputBytes is modified too much
 		// NOTE: inputBytes is effectively being modified by a gofunc in avroReader, so it's not a perfect measurement
+		recordCount++
 		approxBytesRead := reader.inputBytes - lastBytesCount
 		stats <- MakeEventSuff(AvroRecordIn, topic)
 		stats <- MakeEventSuffCount(AvroBytesIn, topic, int(approxBytesRead))
@@ -109,16 +111,18 @@ func handleConnection(conn *net.TCPConn, recordsChan chan<- *AvroData, stats cha
 		if now.After(nextInputResetTime) {
 			// Limit period has transpired, reset limit count before continuing
 			if reader.inputBytes > *inputLimitAmountKBytesFlag*1024 {
-				log.Printf("SUMMARY: Received %d KB from %s in the last ~%ds. "+
+				log.Printf("INPUT SUMMARY: Received %d MetricLists (%d KB) from %s in the last ~%ds. "+
 					"Of this, ~%d KB was dropped due to throttling.\n",
+					recordCount,
 					reader.inputBytes/1024,
 					conn.RemoteAddr(),
 					*inputLimitPeriodFlag,
 					reader.inputBytes/1024-*inputLimitAmountKBytesFlag)
 			} else {
-				log.Printf("SUMMARY: Received %d KB from %s in the last ~%ds\n",
-					reader.inputBytes/1024, conn.RemoteAddr(), *inputLimitPeriodFlag)
+				log.Printf("INPUT SUMMARY: Received %d MetricLists (%d KB) from %s in the last ~%ds\n",
+					recordCount, reader.inputBytes/1024, conn.RemoteAddr(), *inputLimitPeriodFlag)
 			}
+			recordCount = 0
 			reader.inputBytes = 0
 			nextInputResetTime = now.Add(time.Second * time.Duration(*inputLimitPeriodFlag))
 		}
@@ -132,7 +136,7 @@ func handleConnection(conn *net.TCPConn, recordsChan chan<- *AvroData, stats cha
 		if *recordInputLogFlag {
 			log.Println("RECORD IN:", datum)
 		}
-		recordsChan <- &AvroData{datum, topic}
+		recordsChan <- &AvroDatum{datum, topic, approxBytesRead}
 	}
 }
 

@@ -13,6 +13,8 @@ import (
 var (
 	kafkaProduceCountFlag = IntEnvFlag("kafka-produce-count", 1024,
 		"The number of Avro records to accumulate in a Kafka record before passing to the Kafka Producer.")
+	kafkaProduceKBytesFlag = IntEnvFlag("kafka-produce-kbytes", 512,
+		"The approximate number of KB to accumulate in a single Kafka record before passing to the Kafka Producer. Should be well under 1024KB.")
 	kafkaProducePeriodMsFlag = IntEnvFlag("kafka-produce-period-ms", 15000,
 		"Interval period between calls to the Kafka Producer.")
 	kafkaTopicPrefixFlag = StringEnvFlag("kafka-topic-prefix", "metrics-",
@@ -39,48 +41,83 @@ const (
 	frameworkNameTag = "framework_name"
 )
 
-type AvroData struct {
+// A single Avro record with some metadata about it
+type AvroDatum struct {
 	// the goavro.Record itself
 	rec interface{}
 	// the topic that the Record requested
 	topic string
+	// the approximate byte size of the original Record, if known
+	approxBytes int64
+}
+
+// A collection of Avro records along with their approximate total byte size
+type avroData struct {
+	// goavro.Records
+	recs []interface{}
+	// the approximate sum byte size of the records
+	approxBytes int64
+}
+
+func newAvroData() avroData {
+	return avroData{make([]interface{}, 0), 0}
+}
+func (d *avroData) append(datum *AvroDatum) {
+	d.recs = append(d.recs, datum.rec)
+	d.approxBytes += datum.approxBytes
 }
 
 // Sorts incoming Avro records into Kafka topics
-func RunTopicSorter(avroInput <-chan *AvroData, agentStateInput <-chan *AgentState, kafkaOutput chan<- KafkaMessage, stats chan<- StatsEvent) {
+func RunTopicSorter(avroInput <-chan *AvroDatum, agentStateInput <-chan *AgentState, kafkaOutput chan<- KafkaMessage, stats chan<- StatsEvent) {
 	codec, err := goavro.NewCodec(metrics_schema.MetricListSchema)
 	if err != nil {
 		log.Fatal("Failed to initialize avro codec: ", err)
 	}
 
-	topics := make(map[string][]interface{})
+	topics := make(map[string]avroData)
 	produceTicker := time.NewTicker(time.Millisecond * time.Duration(*kafkaProducePeriodMsFlag))
 	resetLimitTicker := time.NewTicker(time.Second * time.Duration(*globalLimitPeriodFlag))
 	var agentState *AgentState = nil
+	var totalRecordCount int64
 	var totalByteCount int64
 	var droppedByteCount int64
 	for {
 		select {
-		case avroData := <-avroInput:
+		case avroDatum := <-avroInput:
 			// sort into correct topic (and flush if topic has reached size limit)
 			var topic string
 			if len(*kafkaSingleTopicFlag) != 0 {
 				topic = *kafkaSingleTopicFlag
 			} else {
-				topic = *kafkaTopicPrefixFlag + avroData.topic
+				topic = *kafkaTopicPrefixFlag + avroDatum.topic
 			}
-			topicRecs := append(topics[topic], avroData.rec)
-			if len(topicRecs) >= int(*kafkaProduceCountFlag) {
-				// topic has hit size limit, flush now
-				processRecs(agentState, topicRecs, stats)
-				flushTopic(topic, topicRecs, codec,
-					fmt.Sprintf("%d recs", *kafkaProduceCountFlag),
+			topicData, ok := topics[topic]
+			if !ok {
+				topicData = newAvroData()
+			}
+			topicData.append(avroDatum)
+			var flushReason string
+			if len(topicData.recs) >= int(*kafkaProduceCountFlag) {
+				// topic has hit record limit, flush now
+				flushReason = fmt.Sprintf("%d recs", *kafkaProduceCountFlag)
+			} else if topicData.approxBytes >= 1024**kafkaProduceKBytesFlag {
+				// topic has hit byte limit, flush now
+				flushReason = fmt.Sprintf("%d KB", *kafkaProduceKBytesFlag)
+			} else {
+				flushReason = ""
+			}
+			if len(flushReason) != 0 {
+				// topic has hit a flush threshould, flush now
+				processRecs(agentState, topicData.recs, stats)
+				flushTopic(topic, topicData.recs, codec,
+					flushReason,
 					kafkaOutput, stats,
-					&totalByteCount, &droppedByteCount)
+					&totalRecordCount, &totalByteCount, &droppedByteCount)
 				// wipe this map entry after it's been flushed
 				delete(topics, topic)
 			} else {
-				topics[topic] = topicRecs
+				// ensure map is up to date
+				topics[topic] = topicData
 			}
 		case state := <-agentStateInput:
 			// got updated agent state, use for future record flushes
@@ -96,24 +133,25 @@ func RunTopicSorter(avroInput <-chan *AvroData, agentStateInput <-chan *AgentSta
 			if len(topics) == 0 {
 				log.Printf("No Kafka topics to flush after %s\n", flushReason)
 			}
-			for topic, topicRecs := range topics {
-				processRecs(agentState, topicRecs, stats)
-				flushTopic(topic, topicRecs, codec,
+			for topic, topicData := range topics {
+				processRecs(agentState, topicData.recs, stats)
+				flushTopic(topic, topicData.recs, codec,
 					flushReason,
 					kafkaOutput, stats,
-					&totalByteCount, &droppedByteCount)
+					&totalRecordCount, &totalByteCount, &droppedByteCount)
 			}
 			// wipe the whole map after all entries are flushed
-			topics = make(map[string][]interface{})
+			topics = make(map[string]avroData)
 		case _ = <-resetLimitTicker.C:
 			// timeout reached: reset output counter (for global throttling)
 			if droppedByteCount != 0 {
-				log.Printf("SUMMARY: Processed %d KB for sending in the last %ds. Of this, %d KB was dropped due to throttling.\n",
-					totalByteCount/1024, *globalLimitPeriodFlag, droppedByteCount/1024)
+				log.Printf("OUTPUT SUMMARY: Processed %d MetricLists (%d KB) for sending in the last %ds. Of this, %d KB was dropped due to throttling.\n",
+					totalRecordCount, totalByteCount/1024, *globalLimitPeriodFlag, droppedByteCount/1024)
 			} else {
-				log.Printf("SUMMARY: Processed %d KB for sending in the last %ds\n",
-					totalByteCount, *globalLimitPeriodFlag)
+				log.Printf("OUTPUT SUMMARY: Processed %d MetricLists (%d KB) for sending in the last %ds\n",
+					totalRecordCount, totalByteCount/1024, *globalLimitPeriodFlag)
 			}
+			totalRecordCount = 0
 			totalByteCount = 0
 			droppedByteCount = 0
 		}
@@ -142,8 +180,9 @@ func GetTopic(obj interface{}) (string, bool) {
 func flushTopic(topic string, topicRecs []interface{}, codec goavro.Codec,
 	logReason string,
 	kafkaOutput chan<- KafkaMessage, stats chan<- StatsEvent,
-	totalByteCount *int64, droppedByteCount *int64) {
+	totalRecordCount, totalByteCount, droppedByteCount *int64) {
 	stats <- MakeEventSuffCount(AvroRecordOut, topic, len(topicRecs))
+	*totalRecordCount += int64(len(topicRecs))
 
 	buf, err := serializeRecs(topicRecs, codec)
 	if err != nil {
@@ -152,8 +191,8 @@ func flushTopic(topic string, topicRecs []interface{}, codec goavro.Codec,
 		stats <- MakeEvent(AvroWriterFailed)
 		return
 	}
-	stats <- MakeEventSuffCount(AvroBytesOut, topic, buf.Len())
 
+	stats <- MakeEventSuffCount(AvroBytesOut, topic, buf.Len())
 	// enforce AFTER add: always let some data get through
 	if *totalByteCount > *globalLimitAmountKBytesFlag*1024 {
 		log.Printf("Dropping %d MetricLists (%d bytes) for Kafka topic '%s' (trigger: %s)\n",
