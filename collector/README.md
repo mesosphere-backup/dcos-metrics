@@ -112,7 +112,7 @@ cat random.avro | nc 127.0.0.1 8124
 }
 ```
 
-To launch instances on your public nodes, you will need to launch a separate Marathon task which specifies the public resource role:
+To launch instances on your public nodes, you will need to launch a separate Marathon task which specifies the `slave_public` resource role:
 
 ```json
 {
@@ -141,12 +141,12 @@ To launch instances on your public nodes, you will need to launch a separate Mar
 }
 ```
 
-See `collector -h` for the many additional options which may be configured via the system environment or via commandline flags. Each option is associated with both a system environment variable and a commandline argument.
+Run `collector -h` to see the many additional options which may be configured via environment variables or via commandline flags. All options in the Collector are exposed as both a system environment variable (most convenient in Marathon) and a commandline argument (most convenient in manual runs).
 
-As `collector` is deployed on every node, each instance should automatically start forwarding stats from `http://<local-agent-ip>:5051/monitor/statistics.json` to the brokers it got from querying the Kafka Scheduler. Once all nodes have been filled, the Marathon task will enter a `Waiting` state, but all nodes will have a running copy at this point.
+As the Collector is deployed on every node, each instance should automatically start forwarding metrics to the selected Kafka service. Once all nodes have been occupied with a Collector, the Marathon task will enter a `Waiting` state, but all nodes will have a running copy at this point.
 
-If the Kafka framework isn't reachable (not deployed yet? wrong name passed to `KAFKA_FRAMEWORK` envvar?), then `collector` will loop until it comes up (complaining to `stderr` every few seconds).
+If the Kafka service isn't reachable (not deployed yet? wrong name passed to `KAFKA_FRAMEWORK` envvar?), then the Collector process will loop until the Kafka service is reachable (complaining to `stderr` every few seconds). Meanwhile, if the Collector is unable to authenticate with the Mesos Agent due to an invalid or missing `AUTH_CREDENTIAL`, then the Collector will restart to make the failure more obvious to the administrator.
 
 ### Consuming collected data
 
-Once `collector` is up and running, the raw binary data that it's passing to Kafka may be viewed by running one or more [Kafka metrics consumers](../consumer/).
+Once the Collector is up and running, the metrics that it's forwarding to Kafka may be viewed by running one or more [Kafka metrics consumers](../consumer/).
