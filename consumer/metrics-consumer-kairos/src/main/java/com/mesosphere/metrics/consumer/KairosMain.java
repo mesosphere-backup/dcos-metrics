@@ -20,12 +20,14 @@ public class KairosMain {
     private static final Logger LOGGER = LoggerFactory.getLogger(KairosOutput.class);
 
     private final HttpClient client;
+    private final int flushThreshold;
     private final boolean exitOnConnectFailure;
     private MetricBuilder metricBuilder;
 
-    public KairosOutput(String host, int port, boolean exitOnConnectFailure)
+    public KairosOutput(String host, int port, int flushThreshold, boolean exitOnConnectFailure)
         throws IllegalStateException, IOException {
       client = new HttpClient(String.format("http://%s:%s", host, port));
+      this.flushThreshold = flushThreshold;
       this.exitOnConnectFailure = exitOnConnectFailure;
       metricBuilder = MetricBuilder.getInstance();
     }
@@ -37,12 +39,15 @@ public class KairosMain {
       // and in practice I suspect we won't see a ton of duplicate metric names between flush()es anyway
       for (Datapoint d : list.getDatapoints()) {
         if (Double.isNaN(d.getValue())) {
-          LOGGER.warn("Skipping value {} = NaN, it won't encode for Kairos anyway.", d.getName());
+          LOGGER.debug("Skipping value {} = NaN, it won't encode for Kairos anyway.", d.getName());
           continue;
         }
         Metric metric = metricBuilder.addMetric(d.getName()).addDataPoint(d.getValue());
         for (Tag t : list.getTags()) {
           metric.addTag(t.getKey(), t.getValue());
+        }
+        if (flushThreshold != 0 && metricBuilder.getMetrics().size() >= flushThreshold) {
+          flush();
         }
       }
     }
@@ -56,12 +61,21 @@ public class KairosMain {
         LOGGER.info("Writing {} metrics to KairosDB", metricBuilder.getMetrics().size());
         client.pushMetrics(metricBuilder);
       } catch (Throwable e) { // may throw runtime exception
-        e.printStackTrace();
-        if (exitOnConnectFailure) {
-          System.exit(1);
-        }
+        logThrowable(e);
       }
       metricBuilder = MetricBuilder.getInstance();
+    }
+
+    private void logThrowable(Throwable e) {
+      e.printStackTrace(System.err);
+      System.err.flush();
+      if (exitOnConnectFailure) {
+        e.printStackTrace(System.out);
+        System.out.flush();
+        LOGGER.error("Exiting due to write error. "
+            + "Set EXIT_ON_CONNECT_FAILURE=false to disable this.");
+        System.exit(1);
+      }
     }
   }
 
@@ -74,6 +88,7 @@ public class KairosMain {
         return new KairosOutput(
             ArgUtils.parseRequiredStr("OUTPUT_HOST"),
             ArgUtils.parseRequiredInt("OUTPUT_PORT"),
+            ArgUtils.parseInt("FLUSH_THRESHOLD", 1000),
             ArgUtils.parseBool("EXIT_ON_CONNECT_FAILURE", true));
       }
     });

@@ -72,6 +72,7 @@ public class ClientConfigs {
    */
   public static class ConsumerConfig {
     public final long pollTimeoutMs;
+    public final boolean printRecords;
     public final int threads;
     public final Set<String> frameworkWhitelist;
     public final List<String> exactTopics;
@@ -85,6 +86,7 @@ public class ClientConfigs {
     public static ConsumerConfig parseFromEnv() {
       try {
         long pollTimeoutMs = ArgUtils.parseLong("POLL_TIMEOUT_MS", 1000);
+        boolean printRecords = ArgUtils.parseBool("PRINT_RECORDS", false);
         int threads = ArgUtils.parseInt("CONSUMER_THREADS", 1);
         Set<String> frameworkWhitelist = new HashSet<>();
         //TODO(nick): How about periodically mapping framework name(s) to topic(s), and then
@@ -101,12 +103,12 @@ public class ClientConfigs {
         if (!exactTopics.isEmpty()) {
           // exact mode
           return new ConsumerConfig(
-              pollTimeoutMs, threads, frameworkWhitelist,
+              pollTimeoutMs, printRecords, threads, frameworkWhitelist,
               exactTopics);
         }
         // regex mode
         return new ConsumerConfig(
-            pollTimeoutMs, threads, frameworkWhitelist,
+            pollTimeoutMs, printRecords, threads, frameworkWhitelist,
             Pattern.compile(ArgUtils.parseStr("KAFKA_TOPIC_PATTERN", "metrics-.*")),
             ArgUtils.parseLong("KAFKA_TOPIC_POLL_PERIOD_MS", 60000));
       } catch (Throwable e) {
@@ -117,10 +119,12 @@ public class ClientConfigs {
 
     private ConsumerConfig(
         long pollTimeoutMs,
+        boolean printRecords,
         int threads,
         Set<String> frameworkWhitelist,
         List<String> exactTopics) {
       this.pollTimeoutMs = pollTimeoutMs;
+      this.printRecords = printRecords;
       this.threads = threads;
       this.frameworkWhitelist = frameworkWhitelist;
       this.exactTopics = exactTopics;
@@ -130,10 +134,12 @@ public class ClientConfigs {
 
     private ConsumerConfig(
         long pollTimeoutMs,
+        boolean printRecords,
         int threads,
         Set<String> frameworkWhitelist,
         Pattern topicPattern, long topicPollPeriodMs) {
       this.pollTimeoutMs = pollTimeoutMs;
+      this.printRecords = printRecords;
       this.threads = threads;
       this.frameworkWhitelist = frameworkWhitelist;
       this.exactTopics = new ArrayList<>();

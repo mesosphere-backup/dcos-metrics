@@ -110,6 +110,9 @@ public class ConsumerRunner {
                 metricList = dataFileStream.next(metricList);
 
                 if (isFrameworkMatch(consumerConfig.frameworkWhitelist, metricList)) {
+                  if (consumerConfig.printRecords) {
+                    LOGGER.info("Record: {}", metricList);
+                  }
                   output.append(metricList);
                 } else {
                   filteredMetricListCount++;

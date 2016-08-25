@@ -2,6 +2,9 @@ package com.mesosphere.metrics.consumer;
 
 import java.io.IOException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.codahale.metrics.graphite.Graphite;
 import com.codahale.metrics.graphite.GraphiteRabbitMQ;
 import com.codahale.metrics.graphite.GraphiteSender;
@@ -17,6 +20,8 @@ import dcos.metrics.Tag;
 
 public class GraphiteMain {
   private static class GraphiteOutput implements MetricOutput {
+    private static final Logger LOGGER = LoggerFactory.getLogger(GraphiteOutput.class);
+
     private static final char DELIM = '.';
     private static final String FRAMEWORK_ID = "framework_id", EXECUTOR_ID = "executor_id", CONTAINER_ID = "container_id";
 
@@ -71,11 +76,8 @@ public class GraphiteMain {
           // automatically connects if not connected
           client.send(prefixBuilder.toString() + d.getName(), d.getValue().toString(), d.getTimeMs());
         }
-      } catch (IOException e) {
-        e.printStackTrace();
-        if (exitOnConnectFailure) {
-          System.exit(1);
-        }
+      } catch (Throwable e) {
+        logThrowable(e);
       }
     }
 
@@ -83,11 +85,20 @@ public class GraphiteMain {
     public void flush() {
       try {
         client.flush();
-      } catch (IOException e) {
-        e.printStackTrace();
-        if (exitOnConnectFailure) {
-          System.exit(1);
-        }
+      } catch (Throwable e) {
+        logThrowable(e);
+      }
+    }
+
+    private void logThrowable(Throwable e) {
+      e.printStackTrace(System.err);
+      System.err.flush();
+      if (exitOnConnectFailure) {
+        e.printStackTrace(System.out);
+        System.out.flush();
+        LOGGER.error("Exiting due to write error. "
+            + "Set EXIT_ON_CONNECT_FAILURE=false to disable this.");
+        System.exit(1);
       }
     }
   }

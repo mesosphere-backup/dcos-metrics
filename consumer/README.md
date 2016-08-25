@@ -48,6 +48,7 @@ Each consumer implementation shares the following settings from `metrics-consume
 - **KAFKA_TOPICS**: A comma-separated list of specific topics to consume from. If this setting is populated, it disables `KAFKA_TOPIC_PATTERN` and `KAFKA_TOPIC_POLL_PERIOD_MS`. Default: `<unset>`
 - **FRAMEWORK_NAMES**: A comma-separated whitelist of framework names whose metrics should be forwarded. This filtering is in addition to the topic selection provided via the `KAFKA_TOPIC` settings, which effectively provides filtering by framework ID (not framework name). If this setting is populated, only matching data will be forwarded from the selected topics. An entry named `null` is interpreted as matching values which lacks have a framework name, such as system-level data which isn't tied to a container. Default: `<unset>`
 - **STATS_PRINT_PERIOD_MS**: How frequently to print statistics to stdout about the amount of records/bytes consumed. Default: `5000` (5s)
+- **PRINT_RECORDS**: Enables printing the filtered records as they're received. Default: `false`
 - **POLL_TIMEOUT_MS**: The timeout value to use when calling Kafka's poll() function. Default: `1000` (1s)
 - **CONSUMER_THREADS**: The number of consumer threads to run in parallel. Default: `1`
 
@@ -161,6 +162,7 @@ Sends data to a KairosDB server, using the REST API.
 - **OUTPUT_HOST**: The hostname or IP of the server. **Required, no default**.
 - **OUTPUT_PORT**: The port of the server. **Required, no default**.
 - **EXIT_ON_CONNECT_FAILURE**: Whether to exit the consumer process if it fails to connect to `OUTPUT_HOST`/`OUTPUT_PORT`. Default: `true`
+- **FLUSH_THRESHOLD**: Rough limit on the batch size when sending metrics to KairosDB. Default: `1000`
 
 #### Deployment
 
