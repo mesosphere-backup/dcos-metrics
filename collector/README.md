@@ -1,6 +1,6 @@
 # Metrics Collector
 
-Lightweight standalone process which runs on each DC/OS agent nodes via a Marathon deployment.
+Lightweight standalone process which is deployed to each DC/OS node via a Marathon deployment.
 
 Inputs metrics [sent over TCP](../schema/) from local sources:
 - The [mesos-agent module](../module/), for metrics emitted by containers
