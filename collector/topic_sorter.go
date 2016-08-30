@@ -3,6 +3,7 @@ package collector
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/linkedin/goavro"
 	"github.com/mesosphere/dcos-stats/collector/metrics-schema"
@@ -36,9 +37,11 @@ var (
 )
 
 const (
-	agentIdTag       = "agent_id"
-	frameworkIdTag   = "framework_id"
-	frameworkNameTag = "framework_name"
+	agentIdTag         = "agent_id"
+	frameworkIdTag     = "framework_id"
+	frameworkNameTag   = "framework_name"
+	executorIdTag      = "executor_id"
+	applicationNameTag = "application_name"
 )
 
 // A single Avro record with some metadata about it
@@ -122,11 +125,8 @@ func RunTopicSorter(avroInput <-chan *AvroDatum, agentStateInput <-chan *AgentSt
 		case state := <-agentStateInput:
 			// got updated agent state, use for future record flushes
 			agentState = state
-			log.Printf("Agent state updated: id=%s, frameworks(%d):",
-				agentState.agentId, len(agentState.frameworkNames))
-			for id, name := range agentState.frameworkNames {
-				log.Printf("- %s = %s\n", id, name)
-			}
+			log.Printf("Agent state updated: id=%s, frameworks(%d), applications(%d)",
+				agentState.agentId, len(agentState.frameworkNames), len(agentState.executorAppNames))
 		case _ = <-produceTicker.C:
 			// timeout reached: flush any pending data
 			flushReason := fmt.Sprintf("%d ms", *kafkaProducePeriodMsFlag)
@@ -231,8 +231,10 @@ func processRecs(agentState *AgentState, recs []interface{}, stats chan<- StatsE
 			continue
 		}
 
-		// Update tags to contain matching framework_name for the included framework_id
-		// (or a stub value if framework_id is missing or unknown)
+		// Append to tags:
+		// - matching framework_name for the included framework_id
+		// - matching application_name for the included marathon info (if applicable)
+		// (or error values if applicable)
 
 		if agentState == nil {
 			// haven't gotten agent state yet (skip framework_name; it's irrelevant to many stats)
@@ -242,6 +244,10 @@ func processRecs(agentState *AgentState, recs []interface{}, stats chan<- StatsE
 			if len(frameworkName) != 0 {
 				tags = addTag(tags, frameworkNameTag, frameworkName)
 			}
+			applicationName := findApplicationName(tags, agentState, stats)
+			if len(applicationName) != 0 {
+				tags = addTag(tags, applicationNameTag, applicationName)
+			}
 			tags = addTag(tags, agentIdTag, agentState.agentId)
 		}
 
@@ -250,45 +256,74 @@ func processRecs(agentState *AgentState, recs []interface{}, stats chan<- StatsE
 	}
 }
 
-func findFrameworkName(tags []interface{}, agentState *AgentState, stats chan<- StatsEvent) string {
-	frameworkId := ""
+func findTagValue(tags []interface{}, key string, stats chan<- StatsEvent) (string, error) {
+	value := ""
 	for _, tagObj := range tags {
 		tag, ok := tagObj.(*goavro.Record)
 		if !ok {
 			stats <- MakeEvent(RecordBadTags)
-			return "ERROR_BAD_RECORD"
+			return "", errors.New("Unable to convert tags object to avro Record")
 		}
 		tagKey, err := tag.Get("key")
 		if err != nil {
 			stats <- MakeEvent(RecordBadTags)
-			return "ERROR_BAD_RECORD"
+			return "", errors.New("Unable to get key object")
 		}
-		if tagKey == frameworkIdTag {
-			frameworkIdObj, err := tag.Get("value")
+		if tagKey == key {
+			valueObj, err := tag.Get("value")
 			if err != nil {
 				stats <- MakeEvent(RecordBadTags)
-				return "ERROR_BAD_RECORD"
+				return "", errors.New("Unable to get value object")
 			}
-			frameworkId, ok = frameworkIdObj.(string)
+			value, ok = valueObj.(string)
 			if !ok {
 				stats <- MakeEvent(RecordBadTags)
-				return "ERROR_BAD_RECORD"
+				return "", errors.New("Unable to convert value object to string")
 			}
 			break
 		}
+	}
+	return value, nil
+}
+
+func findFrameworkName(tags []interface{}, agentState *AgentState, stats chan<- StatsEvent) string {
+	frameworkId, err := findTagValue(tags, frameworkIdTag, stats)
+	if err != nil {
+		// Failed to access tags at all
+		return "ERROR_BAD_RECORD"
 	}
 	if len(frameworkId) == 0 {
 		// Data lacks a framework id. This means the data isn't tied to a specific framework.
 		// Don't include a "framework_name" tag.
 		return ""
 	}
-	for stateFrameworkId, stateFrameworkName := range agentState.frameworkNames {
-		if stateFrameworkId == frameworkId {
-			return stateFrameworkName
-		}
+	frameworkName, ok := agentState.frameworkNames[frameworkId]
+	if ok {
+		return frameworkName
 	}
-	// didn't find this framework id in agent state
+	// didn't find this framework id in agent state. this is expected to always be present,
+	// so a missing value implies some kind of problems with state.json.
 	return "UNKNOWN_FRAMEWORK_ID"
+}
+
+func findApplicationName(tags []interface{}, agentState *AgentState, stats chan<- StatsEvent) string {
+	executorId, err := findTagValue(tags, executorIdTag, stats)
+	if err != nil {
+		// Failed to access tags at all
+		return "ERROR_BAD_RECORD"
+	}
+	if len(executorId) == 0 {
+		// Data lacks an executor id. This means the data isn't tied to a specific framework.
+		// Don't include an "application_name" tag.
+		return ""
+	}
+	applicationName, ok := agentState.executorAppNames[executorId]
+	if ok {
+		return applicationName
+	}
+	// didn't find this executor id in agent state. unlike with framework_id, a missing executor_id
+	// is expected for marathon, so just exclude the tag when this happens.
+	return ""
 }
 
 func addTag(tags []interface{}, key string, value string) []interface{} {

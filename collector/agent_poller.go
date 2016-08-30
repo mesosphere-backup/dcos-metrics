@@ -51,6 +51,8 @@ const (
 	containerIdKey = "container_id"
 	executorIdKey  = "executor_id"
 	frameworkIdKey = "framework_id"
+
+	marathonAppIdLabelKey = "MARATHON_APP_ID"
 )
 
 type AgentState struct {
@@ -58,6 +60,8 @@ type AgentState struct {
 	agentId string
 	// framework_id => framework_name
 	frameworkNames map[string]string
+	// executor_id => application_name
+	executorAppNames map[string]string
 }
 
 // Runs an Agent Poller which periodically produces data retrieved from a local Mesos Agent.
@@ -302,13 +306,20 @@ func getAgentState(agentIp string, stats chan<- StatsEvent) (*AgentState, error)
 		return nil, err
 	}
 
-	// state["frameworks"][0]["id"] (framework_id) => state["frameworks"][0]["name"] (framework_name)
 	frameworks, err := json.GetObjectArray("frameworks")
 	if err != nil {
 		stats <- MakeEvent(AgentQueryBadData)
 		return nil, err
 	}
+
+	// state["frameworks"][N]["id"] (framework_id)
+	// => state["frameworks"][N]["name"] (framework_name)
 	frameworkNames := make(map[string]string, len(frameworks))
+
+	// state["frameworks"][N]["executors"][M]["id"] (executor_id)
+	// => state["frameworks"][N]["executors"][M]["labels"][L(MARATHON_APP_ID)]["value"] (application_name)
+	executorAppNames := make(map[string]string, 0)
+
 	for _, framework := range frameworks {
 		frameworkId, err := framework.GetString("id")
 		if err != nil {
@@ -321,9 +332,46 @@ func getAgentState(agentIp string, stats chan<- StatsEvent) (*AgentState, error)
 			return nil, err
 		}
 		frameworkNames[frameworkId] = frameworkName
+
+		executors, err := framework.GetObjectArray("executors")
+		if err != nil {
+			stats <- MakeEvent(AgentQueryBadData)
+			return nil, err
+		}
+		for _, executor := range executors {
+			executorId, err := executor.GetString("id")
+			if err != nil {
+				stats <- MakeEvent(AgentQueryBadData)
+				return nil, err
+			}
+			labels, err := executor.GetObjectArray("labels")
+			if err != nil {
+				stats <- MakeEvent(AgentQueryBadData)
+				return nil, err
+			}
+			// check for marathon app id. if present, store as application name:
+			for _, label := range labels {
+				labelKey, err := label.GetString("key")
+				if err != nil {
+					stats <- MakeEvent(AgentQueryBadData)
+					return nil, err
+				}
+				if labelKey == marathonAppIdLabelKey {
+					labelValue, err := label.GetString("value")
+					if err != nil {
+						stats <- MakeEvent(AgentQueryBadData)
+						return nil, err
+					}
+					executorAppNames[executorId] = strings.TrimLeft(labelValue, "/")
+				}
+			}
+		}
 	}
 
-	return &AgentState{agentId, frameworkNames}, nil
+	return &AgentState{
+		agentId:          agentId,
+		frameworkNames:   frameworkNames,
+		executorAppNames: executorAppNames}, nil
 }
 
 func getJsonFromAgent(agentIp string, urlPath string, testFileFlag *string, stats chan<- StatsEvent) (*jason.Value, error) {
