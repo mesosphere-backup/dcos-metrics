@@ -39,7 +39,8 @@ public class InfluxMain {
 
     @Override
     public void append(MetricList list) {
-      // tried using BatchPoints, and it only did lots of this: {"error":"write failed: field overflow"}
+      // tried using BatchPoints, and it only did lots of this:
+      // {"error":"write failed: field overflow"}
       for (Datapoint d : list.getDatapoints()) {
         Point.Builder pointBuilder = Point.measurement(measurementName);
         for (Tag t : list.getTags()) {
