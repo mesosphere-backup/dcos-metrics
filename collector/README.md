@@ -96,7 +96,7 @@ cat random.avro | nc 127.0.0.1 8124
     "AUTH_CREDENTIAL": ""
   },
   "cmd": "env && chmod +x ./collector && ./collector",
-  "cpus": 1,
+  "cpus": 0.1,
   "mem": 128,
   "disk": 0,
   "uris": ["https://s3-us-west-2.amazonaws.com/nick-dev/collector.tgz"],
