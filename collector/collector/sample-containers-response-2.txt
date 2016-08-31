@@ -1,0 +1,91 @@
+[{
+	"container_id": "0e98aff8-32e9-4aac-b613-1d08f2a33ca6",
+	"executor_id": "broker-2__14e944ef-760b-4675-8557-52eede2acf19",
+	"executor_name": "broker-2",
+	"framework_id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0002",
+	"source": "",
+	"statistics": {
+		"cpus_limit": 1.5,
+		"cpus_nr_periods": 5170,
+		"cpus_nr_throttled": 253,
+		"cpus_system_time_secs": 1.91,
+		"cpus_throttled_time_secs": 36.295284247,
+		"cpus_user_time_secs": 22.35,
+		"mem_anon_bytes": 612605952,
+		"mem_cache_bytes": 937984,
+		"mem_critical_pressure_counter": 0,
+		"mem_file_bytes": 937984,
+		"mem_limit_bytes": 2684354560,
+		"mem_low_pressure_counter": 0,
+		"mem_mapped_file_bytes": 290816,
+		"mem_medium_pressure_counter": 0,
+		"mem_rss_bytes": 612605952,
+		"mem_swap_bytes": 0,
+		"mem_total_bytes": 618737664,
+		"mem_unevictable_bytes": 0,
+		"timestamp": 1472647303.04742
+	},
+	"status": {
+		"executor_pid": 5725
+	}
+}, {
+	"container_id": "4b387500-38c3-4877-9383-7331bb81da75",
+	"executor_id": "metrics-collector.eb3127e0-6f76-11e6-92e2-ee20dd7354ad",
+	"executor_name": "Command Executor (Task: metrics-collector.eb3127e0-6f76-11e6-92e2-ee20dd7354ad) (Command: sh -c 'env && chmod...')",
+	"framework_id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0001",
+	"source": "metrics-collector.eb3127e0-6f76-11e6-92e2-ee20dd7354ad",
+	"statistics": {
+		"cpus_limit": 1.1,
+		"cpus_nr_periods": 2675,
+		"cpus_nr_throttled": 92,
+		"cpus_system_time_secs": 0.23,
+		"cpus_throttled_time_secs": 11.389447843,
+		"cpus_user_time_secs": 5.41,
+		"mem_anon_bytes": 31653888,
+		"mem_cache_bytes": 0,
+		"mem_critical_pressure_counter": 0,
+		"mem_file_bytes": 0,
+		"mem_limit_bytes": 167772160,
+		"mem_low_pressure_counter": 0,
+		"mem_mapped_file_bytes": 0,
+		"mem_medium_pressure_counter": 0,
+		"mem_rss_bytes": 31653888,
+		"mem_swap_bytes": 0,
+		"mem_total_bytes": 32796672,
+		"mem_unevictable_bytes": 0,
+		"timestamp": 1472647303.0474
+	},
+	"status": {
+		"executor_pid": 9828
+	}
+}, {
+	"container_id": "906eaae0-1ded-4091-ba3e-2f7294e56ba5",
+	"executor_id": "kafka.cb1693dc-6f75-11e6-92e2-ee20dd7354ad",
+	"executor_name": "Command Executor (Task: kafka.cb1693dc-6f75-11e6-92e2-ee20dd7354ad) (Command: sh -c 'export PATH=...')",
+	"framework_id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0001",
+	"source": "kafka.cb1693dc-6f75-11e6-92e2-ee20dd7354ad",
+	"statistics": {
+		"cpus_limit": 1.1,
+		"cpus_nr_periods": 5957,
+		"cpus_nr_throttled": 502,
+		"cpus_system_time_secs": 1.09,
+		"cpus_throttled_time_secs": 59.703613651,
+		"cpus_user_time_secs": 16.93,
+		"mem_anon_bytes": 460709888,
+		"mem_cache_bytes": 110592,
+		"mem_critical_pressure_counter": 0,
+		"mem_file_bytes": 110592,
+		"mem_limit_bytes": 1323302912,
+		"mem_low_pressure_counter": 0,
+		"mem_mapped_file_bytes": 32768,
+		"mem_medium_pressure_counter": 0,
+		"mem_rss_bytes": 460709888,
+		"mem_swap_bytes": 0,
+		"mem_total_bytes": 463474688,
+		"mem_unevictable_bytes": 0,
+		"timestamp": 1472647303.0474
+	},
+	"status": {
+		"executor_pid": 5279
+	}
+}]

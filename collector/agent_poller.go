@@ -51,9 +51,13 @@ const (
 	containerIdKey = "container_id"
 	executorIdKey  = "executor_id"
 	frameworkIdKey = "framework_id"
-
-	marathonAppIdLabelKey = "MARATHON_APP_ID"
 )
+
+// can't be const:
+var marathonAppIdLabelKeys = map[string]bool{
+	"MARATHON_APP_ID": true,
+	"DCOS_SPACE":      true,
+}
 
 type AgentState struct {
 	// agent_id
@@ -135,7 +139,7 @@ func getAgentIp(stats chan<- StatsEvent) string {
 	return ip
 }
 
-// fetches container-level resource metrics from the agent (via /containers)
+// fetches container-level resource metrics from the agent (via /containers), emits to the framework topics (default 'metrics-<framework_id>')
 func getContainerMetrics(agentIp string, agentState *AgentState, stats chan<- StatsEvent) ([]*AvroDatum, error) {
 	rootJson, err := getJsonFromAgent(agentIp, "/containers", agentTestContainersFileFlag, stats)
 	if err != nil {
@@ -153,6 +157,13 @@ func getContainerMetrics(agentIp string, agentState *AgentState, stats chan<- St
 	// - tags: 'container_id'/'executor_id'/'framework_id' strings
 	// - datapoints/timestamp: 'statistics' dict of string=>int/dbl (incl a dbl 'timestamp')
 	for _, containerObj := range containersArray {
+
+		// get framework id for topic
+		frameworkId, err := containerObj.GetString(frameworkIdKey)
+		if err != nil {
+			stats <- MakeEvent(AgentQueryBadData)
+			return nil, err
+		}
 
 		statisticsObj, err := containerObj.GetObject("statistics")
 		if err != nil {
@@ -183,7 +194,7 @@ func getContainerMetrics(agentIp string, agentState *AgentState, stats chan<- St
 			datapoint, err := goavro.NewRecord(datapointNamespace, datapointSchema)
 			if err != nil {
 				log.Fatalf("Failed to create Datapoint record for topic %s (agent %s): %s",
-					*agentMetricsTopicFlag, agentState.agentId, err)
+					frameworkId, agentState.agentId, err)
 			}
 			datapoint.Set("name", containerMetricPrefix+key)
 			datapoint.Set("time_ms", timestampMillis)
@@ -197,6 +208,7 @@ func getContainerMetrics(agentIp string, agentState *AgentState, stats chan<- St
 		}
 
 		// create tags
+		// note: agent_id/framework_name tags are automatically added downstream
 		tags := make([]interface{}, 0)
 		// container_id
 		tagVal, err := containerObj.GetString(containerIdKey)
@@ -213,29 +225,23 @@ func getContainerMetrics(agentIp string, agentState *AgentState, stats chan<- St
 		}
 		tags = addTag(tags, executorIdKey, tagVal)
 		// framework_id
-		tagVal, err = containerObj.GetString(frameworkIdKey)
-		if err != nil {
-			stats <- MakeEvent(AgentQueryBadData)
-			return nil, err
-		}
-		tags = addTag(tags, frameworkIdKey, tagVal)
+		tags = addTag(tags, frameworkIdKey, frameworkId)
 
-		// note: agent_id/framework_name tags are automatically added downstream
 		metricListRec, err := goavro.NewRecord(metricListNamespace, metricListSchema)
 		if err != nil {
 			log.Fatalf("Failed to create MetricList record for topic %s (agent %s): %s",
-				*agentMetricsTopicFlag, agentState.agentId, err)
+				frameworkId, agentState.agentId, err)
 		}
-		metricListRec.Set("topic", *agentMetricsTopicFlag)
+		metricListRec.Set("topic", frameworkId)
 		metricListRec.Set("datapoints", datapoints)
 		metricListRec.Set("tags", tags)
 		// just use a size of zero, relative to limits it'll be insignificant anyway:
-		metricLists = append(metricLists, &AvroDatum{metricListRec, *agentMetricsTopicFlag, 0})
+		metricLists = append(metricLists, &AvroDatum{metricListRec, frameworkId, 0})
 	}
 	return metricLists, nil
 }
 
-// fetches system-level metrics from the agent (via /metrics/snapshot)
+// fetches system-level metrics from the agent (via /metrics/snapshot), emits to the agent topic (default 'metrics-agent')
 func getSystemMetrics(agentIp string, agentState *AgentState, stats chan<- StatsEvent) (*AvroDatum, error) {
 	rootJson, err := getJsonFromAgent(agentIp, "/metrics/snapshot", agentTestSystemFileFlag, stats)
 	if err != nil {
@@ -287,6 +293,7 @@ func getSystemMetrics(agentIp string, agentState *AgentState, stats chan<- Stats
 	return &AvroDatum{metricListRec, *agentMetricsTopicFlag, 0}, nil
 }
 
+// fetches container state from the agent (via /state) to populate AgentState
 func getAgentState(agentIp string, stats chan<- StatsEvent) (*AgentState, error) {
 	rootJson, err := getJsonFromAgent(agentIp, "/state", agentTestStateFileFlag, stats)
 	if err != nil {
@@ -346,8 +353,8 @@ func getAgentState(agentIp string, stats chan<- StatsEvent) (*AgentState, error)
 			}
 			labels, err := executor.GetObjectArray("labels")
 			if err != nil {
-				stats <- MakeEvent(AgentQueryBadData)
-				return nil, err
+				// ignore this failure: labels are often missing when it's not a marathon app.
+				continue
 			}
 			// check for marathon app id. if present, store as application name:
 			for _, label := range labels {
@@ -356,7 +363,8 @@ func getAgentState(agentIp string, stats chan<- StatsEvent) (*AgentState, error)
 					stats <- MakeEvent(AgentQueryBadData)
 					return nil, err
 				}
-				if labelKey == marathonAppIdLabelKey {
+				_, ok := marathonAppIdLabelKeys[labelKey]
+				if ok {
 					labelValue, err := label.GetString("value")
 					if err != nil {
 						stats <- MakeEvent(AgentQueryBadData)

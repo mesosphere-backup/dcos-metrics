@@ -1,0 +1,728 @@
+{
+	"version": "1.0.1",
+	"git_sha": "e444edd6e7d45eb842fe223ac484a4bc4c1a327a",
+	"build_date": "2016-08-24 21:44:17",
+	"build_time": 1472075057.0,
+	"build_user": "",
+	"start_time": 1472645948.7101,
+	"id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-S5",
+	"pid": "slave(1)@10.0.3.79:5051",
+	"hostname": "10.0.3.79",
+	"resources": {
+		"disk": 35577.0,
+		"mem": 14018.0,
+		"gpus": 0.0,
+		"cpus": 4.0,
+		"ports": "[1025-2180, 2182-3887, 3889-5049, 5052-8079, 8082-8180, 8182-32000]"
+	},
+	"attributes": {},
+	"master_hostname": "ip-10-0-5-150.us-west-2.compute.internal",
+	"log_dir": "\/var\/log\/mesos",
+	"flags": {
+		"slave_subsystems": "cpu,memory",
+		"appc_simple_discovery_uri_prefix": "http:\/\/",
+		"appc_store_dir": "\/tmp\/mesos\/store\/appc",
+		"authenticate_http_readonly": "true",
+		"authenticate_http_readwrite": "true",
+		"authenticatee": "com_mesosphere_dcos_ClassicRPCAuthenticatee",
+		"authentication_backoff_factor": "1secs",
+		"authorizer": "local",
+		"cgroups_cpu_enable_pids_and_tids_count": "false",
+		"cgroups_enable_cfs": "true",
+		"cgroups_hierarchy": "\/sys\/fs\/cgroup",
+		"cgroups_limit_swap": "false",
+		"cgroups_root": "mesos",
+		"container_disk_watch_interval": "15secs",
+		"container_logger": "org_apache_mesos_LogrotateContainerLogger",
+		"containerizers": "docker,mesos",
+		"credential": "\/opt\/mesosphere\/etc\/mesos\/slave_principal.json",
+		"default_role": "*",
+		"disk_watch_interval": "1mins",
+		"docker": "docker",
+		"docker_kill_orphans": "true",
+		"docker_registry": "https:\/\/registry-1.docker.io",
+		"docker_remove_delay": "1hrs",
+		"docker_socket": "\/var\/run\/docker.sock",
+		"docker_stop_timeout": "20secs",
+		"docker_store_dir": "\/var\/lib\/mesos\/slave\/store\/docker",
+		"docker_volume_checkpoint_dir": "\/var\/lib\/mesos\/isolators\/docker\/volume",
+		"enforce_container_disk_quota": "false",
+		"executor_environment_variables": "{\"LD_LIBRARY_PATH\":\"\\\/opt\\\/mesosphere\\\/lib\",\"LIBPROCESS_NUM_WORKER_THREADS\":\"8\",\"PATH\":\"\\\/usr\\\/bin:\\\/bin\",\"SASL_PATH\":\"\\\/opt\\\/mesosphere\\\/lib\\\/sasl2\",\"SHELL\":\"\\\/usr\\\/bin\\\/bash\"}",
+		"executor_registration_timeout": "10mins",
+		"executor_shutdown_grace_period": "5secs",
+		"fetcher_cache_dir": "\/tmp\/mesos\/fetch",
+		"fetcher_cache_size": "2GB",
+		"frameworks_home": "",
+		"gc_delay": "2days",
+		"gc_disk_headroom": "0.1",
+		"hadoop_home": "",
+		"help": "false",
+		"hooks": "com_mesosphere_dcos_SecretsHook",
+		"hostname_lookup": "false",
+		"http_authenticators": "com_mesosphere_dcos_http_Authenticator",
+		"http_command_executor": "false",
+		"image_providers": "docker",
+		"image_provisioner_backend": "copy",
+		"initialize_driver_logging": "true",
+		"ip_discovery_command": "\/opt\/mesosphere\/bin\/detect_ip",
+		"isolation": "cgroups\/cpu,cgroups\/mem,disk\/du,network\/cni,filesystem\/linux,docker\/runtime,docker\/volume,com_mesosphere_MetricsIsolatorModule,com_mesosphere_dcos_SecretsIsolator",
+		"launcher_dir": "\/opt\/mesosphere\/packages\/mesos--706ed7de184c662ca909c7f55479427b9e0a338e\/libexec\/mesos",
+		"log_dir": "\/var\/log\/mesos",
+		"logbufsecs": "0",
+		"logging_level": "INFO",
+		"master": "zk:\/\/zk-1.zk:2181,zk-2.zk:2181,zk-3.zk:2181,zk-4.zk:2181,zk-5.zk:2181\/mesos",
+		"modules_dir": "\/opt\/mesosphere\/etc\/mesos-slave-modules",
+		"network_cni_config_dir": "\/opt\/mesosphere\/etc\/dcos\/network\/cni",
+		"network_cni_plugins_dir": "\/opt\/mesosphere\/active\/cni\/",
+		"oversubscribed_resources_interval": "15secs",
+		"perf_duration": "10secs",
+		"perf_interval": "1mins",
+		"port": "5051",
+		"qos_correction_interval_min": "0ns",
+		"quiet": "false",
+		"recover": "reconnect",
+		"recovery_timeout": "15mins",
+		"registration_backoff_factor": "1secs",
+		"resources": "[{\"name\": \"ports\", \"ranges\": {\"range\": [{\"end\": 2180, \"begin\": 1025}, {\"end\": 3887, \"begin\": 2182}, {\"end\": 5049, \"begin\": 3889}, {\"end\": 8079, \"begin\": 5052}, {\"end\": 8180, \"begin\": 8082}, {\"end\": 32000, \"begin\": 8182}]}, \"type\": \"RANGES\"}, {\"name\": \"disk\", \"type\": \"SCALAR\", \"role\": \"*\", \"scalar\": {\"value\": 35577}}]",
+		"revocable_cpu_low_priority": "true",
+		"sandbox_directory": "\/mnt\/mesos\/sandbox",
+		"strict": "true",
+		"switch_user": "true",
+		"systemd_enable_support": "true",
+		"systemd_runtime_directory": "\/run\/systemd\/system",
+		"version": "false",
+		"work_dir": "\/var\/lib\/mesos\/slave"
+	},
+	"frameworks": [{
+		"id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0002",
+		"name": "kafka",
+		"user": "root",
+		"failover_timeout": 1209600.0,
+		"checkpoint": true,
+		"role": "kafka-role",
+		"hostname": "ip-10-0-3-79.us-west-2.compute.internal",
+		"executors": [{
+			"id": "broker-2__14e944ef-760b-4675-8557-52eede2acf19",
+			"name": "broker-2",
+			"source": "",
+			"container": "0e98aff8-32e9-4aac-b613-1d08f2a33ca6",
+			"directory": "\/var\/lib\/mesos\/slave\/slaves\/8b4e6d80-0271-4be0-9f08-0aeff7f0d751-S5\/frameworks\/8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0002\/executors\/broker-2__14e944ef-760b-4675-8557-52eede2acf19\/runs\/0e98aff8-32e9-4aac-b613-1d08f2a33ca6",
+			"resources": {
+				"disk": 5000.0,
+				"mem": 2560.0,
+				"gpus": 0.0,
+				"cpus": 1.5,
+				"ports": "[9632-9632, 9718-9718]"
+			},
+			"tasks": [{
+				"id": "broker-2__840d4174-2f70-4d1d-b625-1256af098689",
+				"name": "broker-2",
+				"framework_id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0002",
+				"executor_id": "broker-2__14e944ef-760b-4675-8557-52eede2acf19",
+				"slave_id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-S5",
+				"state": "TASK_RUNNING",
+				"resources": {
+					"disk": 5000.0,
+					"mem": 2304.0,
+					"gpus": 0.0,
+					"cpus": 1.0,
+					"ports": "[9718-9718]"
+				},
+				"statuses": [{
+					"state": "TASK_RUNNING",
+					"timestamp": 1472646289.31742,
+					"container_status": {
+						"network_infos": [{
+							"ip_addresses": [{
+								"ip_address": "10.0.3.79"
+							}]
+						}]
+					}
+				}],
+				"labels": [{
+					"key": "config_target",
+					"value": "33a1ee8b-f1f3-475c-8093-6ec914d8544e"
+				}],
+				"discovery": {
+					"visibility": "EXTERNAL",
+					"name": "broker-2",
+					"ports": {
+						"ports": [{
+							"number": 9718,
+							"protocol": "tcp",
+							"labels": {
+								"labels": [{
+									"key": "VIP_55afe0e6-862a-4d3e-87d3-a24ecce25f14",
+									"value": "broker:9092"
+								}]
+							}
+						}]
+					}
+				}
+			}],
+			"queued_tasks": [],
+			"completed_tasks": []
+		}],
+		"completed_executors": []
+	}, {
+		"id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0001",
+		"name": "marathon",
+		"user": "root",
+		"failover_timeout": 604800.0,
+		"checkpoint": true,
+		"role": "slave_public",
+		"hostname": "10.0.5.150",
+		"executors": [{
+			"id": "metrics-collector.eb3127e0-6f76-11e6-92e2-ee20dd7354ad",
+			"name": "Command Executor (Task: metrics-collector.eb3127e0-6f76-11e6-92e2-ee20dd7354ad) (Command: sh -c 'env && chmod...')",
+			"source": "metrics-collector.eb3127e0-6f76-11e6-92e2-ee20dd7354ad",
+			"container": "4b387500-38c3-4877-9383-7331bb81da75",
+			"directory": "\/var\/lib\/mesos\/slave\/slaves\/8b4e6d80-0271-4be0-9f08-0aeff7f0d751-S5\/frameworks\/8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0001\/executors\/metrics-collector.eb3127e0-6f76-11e6-92e2-ee20dd7354ad\/runs\/4b387500-38c3-4877-9383-7331bb81da75",
+			"resources": {
+				"disk": 0.0,
+				"mem": 160.0,
+				"gpus": 0.0,
+				"cpus": 1.1,
+				"ports": "[8124-8124]"
+			},
+			"labels": [{
+				"key": "DCOS_SPACE",
+				"value": "\/metrics-collector"
+			}],
+			"tasks": [{
+				"id": "metrics-collector.eb3127e0-6f76-11e6-92e2-ee20dd7354ad",
+				"name": "metrics-collector",
+				"framework_id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0001",
+				"executor_id": "",
+				"slave_id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-S5",
+				"state": "TASK_RUNNING",
+				"resources": {
+					"disk": 0.0,
+					"mem": 128.0,
+					"gpus": 0.0,
+					"cpus": 1.0,
+					"ports": "[8124-8124]"
+				},
+				"statuses": [{
+					"state": "TASK_RUNNING",
+					"timestamp": 1472646722.83822,
+					"container_status": {
+						"network_infos": [{
+							"ip_addresses": [{
+								"ip_address": "10.0.3.79"
+							}]
+						}]
+					}
+				}],
+				"labels": [{
+					"key": "DCOS_SPACE",
+					"value": "\/metrics-collector"
+				}],
+				"discovery": {
+					"visibility": "FRAMEWORK",
+					"name": "metrics-collector",
+					"ports": {
+						"ports": [{
+							"number": 8124,
+							"protocol": "tcp"
+						}]
+					}
+				}
+			}],
+			"queued_tasks": [],
+			"completed_tasks": []
+		}, {
+			"id": "kafka.cb1693dc-6f75-11e6-92e2-ee20dd7354ad",
+			"name": "Command Executor (Task: kafka.cb1693dc-6f75-11e6-92e2-ee20dd7354ad) (Command: sh -c 'export PATH=...')",
+			"source": "kafka.cb1693dc-6f75-11e6-92e2-ee20dd7354ad",
+			"container": "906eaae0-1ded-4091-ba3e-2f7294e56ba5",
+			"directory": "\/var\/lib\/mesos\/slave\/slaves\/8b4e6d80-0271-4be0-9f08-0aeff7f0d751-S5\/frameworks\/8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0001\/executors\/kafka.cb1693dc-6f75-11e6-92e2-ee20dd7354ad\/runs\/906eaae0-1ded-4091-ba3e-2f7294e56ba5",
+			"resources": {
+				"disk": 0.0,
+				"mem": 1262.0,
+				"gpus": 0.0,
+				"cpus": 1.1,
+				"ports": "[16448-16448]"
+			},
+			"labels": [{
+				"key": "DCOS_PACKAGE_RELEASE",
+				"value": "30"
+			}, {
+				"key": "DCOS_SERVICE_SCHEME",
+				"value": "http"
+			}, {
+				"key": "DCOS_PACKAGE_SOURCE",
+				"value": "https:\/\/universe.mesosphere.com\/repo"
+			}, {
+				"key": "DCOS_PACKAGE_COMMAND",
+				"value": "eyJwaXAiOlsiaHR0cHM6Ly9kb3dubG9hZHMubWVzb3NwaGVyZS5jb20va2Fma2EvYXNzZXRzLzEuMS4xMS0wLjEwLjAuMC9iaW5fd3JhcHBlci0wLjAuMS1weTIucHkzLW5vbmUtYW55LndobCJdfQ=="
+			}, {
+				"key": "DCOS_PACKAGE_METADATA",
+				"value": "eyJwYWNrYWdpbmdWZXJzaW9uIjoiMy4wIiwibmFtZSI6ImthZmthIiwidmVyc2lvbiI6IjEuMS4xMS0wLjEwLjAuMCIsIm1haW50YWluZXIiOiJzdXBwb3J0QG1lc29zcGhlcmUuaW8iLCJkZXNjcmlwdGlvbiI6IkFwYWNoZSBLYWZrYSBydW5uaW5nIG9uIERDL09TIiwidGFncyI6WyJtZXNzYWdlIiwiYnJva2VyIiwicHVic3ViIl0sInNlbGVjdGVkIjpmYWxzZSwiZnJhbWV3b3JrIjp0cnVlLCJwb3N0SW5zdGFsbE5vdGVzIjoiREMvT1MgS2Fma2EgU2VydmljZSBpcyBiZWluZyBpbnN0YWxsZWQuXG5cblx0RG9jdW1lbnRhdGlvbjogaHR0cHM6Ly9kb2NzLm1lc29zcGhlcmUuY29tL3VzYWdlL3NlcnZpY2VzL2thZmthL1xuXHRJc3N1ZXM6IGh0dHBzOi8vZG9jcy5tZXNvc3BoZXJlLmNvbS9zdXBwb3J0LyIsInBvc3RVbmluc3RhbGxOb3RlcyI6IkRDL09TIEthZmthIFNlcnZpY2UgaGFzIGJlZW4gdW5pbnN0YWxsZWQuXG5QbGVhc2UgZm9sbG93IHRoZSBpbnN0cnVjdGlvbnMgYXQgaHR0cHM6Ly9kb2NzLm1lc29zcGhlcmUuY29tL3VzYWdlL3NlcnZpY2VzL2thZmthL3VuaW5zdGFsbCB0byByZW1vdmUgYW55IHBlcnNpc3RlbnQgc3RhdGUgaWYgcmVxdWlyZWQuIiwiaW1hZ2VzIjp7Imljb24tc21hbGwiOiJodHRwczovL2Rvd25sb2Fkcy5tZXNvc3BoZXJlLmNvbS91bml2ZXJzZS9hc3NldHMvaWNvbi1zZXJ2aWNlLWthZmthLXNtYWxsLnBuZyIsImljb24tbWVkaXVtIjoiaHR0cHM6Ly9kb3dubG9hZHMubWVzb3NwaGVyZS5jb20vdW5pdmVyc2UvYXNzZXRzL2ljb24tc2VydmljZS1rYWZrYS1tZWRpdW0ucG5nIiwiaWNvbi1sYXJnZSI6Imh0dHBzOi8vZG93bmxvYWRzLm1lc29zcGhlcmUuY29tL3VuaXZlcnNlL2Fzc2V0cy9pY29uLXNlcnZpY2Uta2Fma2EtbGFyZ2UucG5nIn19"
+			}, {
+				"key": "DCOS_PACKAGE_REGISTRY_VERSION",
+				"value": "3.0"
+			}, {
+				"key": "DCOS_SERVICE_NAME",
+				"value": "kafka"
+			}, {
+				"key": "DCOS_PACKAGE_FRAMEWORK_NAME",
+				"value": "kafka"
+			}, {
+				"key": "DCOS_SERVICE_PORT_INDEX",
+				"value": "0"
+			}, {
+				"key": "DCOS_PACKAGE_VERSION",
+				"value": "1.1.11-0.10.0.0"
+			}, {
+				"key": "DCOS_MIGRATION_API_PATH",
+				"value": "\/v1\/plan"
+			}, {
+				"key": "DCOS_PACKAGE_NAME",
+				"value": "kafka"
+			}, {
+				"key": "MARATHON_SINGLE_INSTANCE_APP",
+				"value": "true"
+			}, {
+				"key": "DCOS_PACKAGE_IS_FRAMEWORK",
+				"value": "true"
+			}, {
+				"key": "DCOS_MIGRATION_API_VERSION",
+				"value": "v1"
+			}, {
+				"key": "DCOS_SPACE",
+				"value": "\/kafka"
+			}],
+			"tasks": [{
+				"id": "kafka.cb1693dc-6f75-11e6-92e2-ee20dd7354ad",
+				"name": "kafka",
+				"framework_id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0001",
+				"executor_id": "",
+				"slave_id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-S5",
+				"state": "TASK_RUNNING",
+				"resources": {
+					"disk": 0.0,
+					"mem": 1230.0,
+					"gpus": 0.0,
+					"cpus": 1.0,
+					"ports": "[16448-16448]"
+				},
+				"statuses": [{
+					"state": "TASK_RUNNING",
+					"timestamp": 1472646244.94567,
+					"container_status": {
+						"network_infos": [{
+							"ip_addresses": [{
+								"ip_address": "10.0.3.79"
+							}]
+						}]
+					}
+				}],
+				"labels": [{
+					"key": "DCOS_PACKAGE_RELEASE",
+					"value": "30"
+				}, {
+					"key": "DCOS_SERVICE_SCHEME",
+					"value": "http"
+				}, {
+					"key": "DCOS_PACKAGE_SOURCE",
+					"value": "https:\/\/universe.mesosphere.com\/repo"
+				}, {
+					"key": "DCOS_PACKAGE_COMMAND",
+					"value": "eyJwaXAiOlsiaHR0cHM6Ly9kb3dubG9hZHMubWVzb3NwaGVyZS5jb20va2Fma2EvYXNzZXRzLzEuMS4xMS0wLjEwLjAuMC9iaW5fd3JhcHBlci0wLjAuMS1weTIucHkzLW5vbmUtYW55LndobCJdfQ=="
+				}, {
+					"key": "DCOS_PACKAGE_METADATA",
+					"value": "eyJwYWNrYWdpbmdWZXJzaW9uIjoiMy4wIiwibmFtZSI6ImthZmthIiwidmVyc2lvbiI6IjEuMS4xMS0wLjEwLjAuMCIsIm1haW50YWluZXIiOiJzdXBwb3J0QG1lc29zcGhlcmUuaW8iLCJkZXNjcmlwdGlvbiI6IkFwYWNoZSBLYWZrYSBydW5uaW5nIG9uIERDL09TIiwidGFncyI6WyJtZXNzYWdlIiwiYnJva2VyIiwicHVic3ViIl0sInNlbGVjdGVkIjpmYWxzZSwiZnJhbWV3b3JrIjp0cnVlLCJwb3N0SW5zdGFsbE5vdGVzIjoiREMvT1MgS2Fma2EgU2VydmljZSBpcyBiZWluZyBpbnN0YWxsZWQuXG5cblx0RG9jdW1lbnRhdGlvbjogaHR0cHM6Ly9kb2NzLm1lc29zcGhlcmUuY29tL3VzYWdlL3NlcnZpY2VzL2thZmthL1xuXHRJc3N1ZXM6IGh0dHBzOi8vZG9jcy5tZXNvc3BoZXJlLmNvbS9zdXBwb3J0LyIsInBvc3RVbmluc3RhbGxOb3RlcyI6IkRDL09TIEthZmthIFNlcnZpY2UgaGFzIGJlZW4gdW5pbnN0YWxsZWQuXG5QbGVhc2UgZm9sbG93IHRoZSBpbnN0cnVjdGlvbnMgYXQgaHR0cHM6Ly9kb2NzLm1lc29zcGhlcmUuY29tL3VzYWdlL3NlcnZpY2VzL2thZmthL3VuaW5zdGFsbCB0byByZW1vdmUgYW55IHBlcnNpc3RlbnQgc3RhdGUgaWYgcmVxdWlyZWQuIiwiaW1hZ2VzIjp7Imljb24tc21hbGwiOiJodHRwczovL2Rvd25sb2Fkcy5tZXNvc3BoZXJlLmNvbS91bml2ZXJzZS9hc3NldHMvaWNvbi1zZXJ2aWNlLWthZmthLXNtYWxsLnBuZyIsImljb24tbWVkaXVtIjoiaHR0cHM6Ly9kb3dubG9hZHMubWVzb3NwaGVyZS5jb20vdW5pdmVyc2UvYXNzZXRzL2ljb24tc2VydmljZS1rYWZrYS1tZWRpdW0ucG5nIiwiaWNvbi1sYXJnZSI6Imh0dHBzOi8vZG93bmxvYWRzLm1lc29zcGhlcmUuY29tL3VuaXZlcnNlL2Fzc2V0cy9pY29uLXNlcnZpY2Uta2Fma2EtbGFyZ2UucG5nIn19"
+				}, {
+					"key": "DCOS_PACKAGE_REGISTRY_VERSION",
+					"value": "3.0"
+				}, {
+					"key": "DCOS_SERVICE_NAME",
+					"value": "kafka"
+				}, {
+					"key": "DCOS_PACKAGE_FRAMEWORK_NAME",
+					"value": "kafka"
+				}, {
+					"key": "DCOS_SERVICE_PORT_INDEX",
+					"value": "0"
+				}, {
+					"key": "DCOS_PACKAGE_VERSION",
+					"value": "1.1.11-0.10.0.0"
+				}, {
+					"key": "DCOS_MIGRATION_API_PATH",
+					"value": "\/v1\/plan"
+				}, {
+					"key": "DCOS_PACKAGE_NAME",
+					"value": "kafka"
+				}, {
+					"key": "MARATHON_SINGLE_INSTANCE_APP",
+					"value": "true"
+				}, {
+					"key": "DCOS_PACKAGE_IS_FRAMEWORK",
+					"value": "true"
+				}, {
+					"key": "DCOS_MIGRATION_API_VERSION",
+					"value": "v1"
+				}, {
+					"key": "DCOS_SPACE",
+					"value": "\/kafka"
+				}],
+				"discovery": {
+					"visibility": "FRAMEWORK",
+					"name": "kafka",
+					"ports": {
+						"ports": [{
+							"number": 16448,
+							"name": "api",
+							"protocol": "tcp"
+						}]
+					}
+				}
+			}],
+			"queued_tasks": [],
+			"completed_tasks": []
+		}],
+		"completed_executors": [{
+			"id": "metrics-collector.9f83fc7f-6f76-11e6-92e2-ee20dd7354ad",
+			"name": "Command Executor (Task: metrics-collector.9f83fc7f-6f76-11e6-92e2-ee20dd7354ad) (Command: sh -c 'env && chmod...')",
+			"source": "metrics-collector.9f83fc7f-6f76-11e6-92e2-ee20dd7354ad",
+			"container": "ecb4d026-c54f-4c4c-a8d4-4a88a21a7f44",
+			"directory": "\/var\/lib\/mesos\/slave\/slaves\/8b4e6d80-0271-4be0-9f08-0aeff7f0d751-S5\/frameworks\/8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0001\/executors\/metrics-collector.9f83fc7f-6f76-11e6-92e2-ee20dd7354ad\/runs\/ecb4d026-c54f-4c4c-a8d4-4a88a21a7f44",
+			"resources": {
+				"disk": 0.0,
+				"mem": 32.0,
+				"gpus": 0.0,
+				"cpus": 0.1
+			},
+			"labels": [{
+				"key": "DCOS_SPACE",
+				"value": "\/metrics-collector"
+			}],
+			"tasks": [],
+			"queued_tasks": [],
+			"completed_tasks": [{
+				"id": "metrics-collector.9f83fc7f-6f76-11e6-92e2-ee20dd7354ad",
+				"name": "metrics-collector",
+				"framework_id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0001",
+				"executor_id": "",
+				"slave_id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-S5",
+				"state": "TASK_FAILED",
+				"resources": {
+					"disk": 0.0,
+					"mem": 128.0,
+					"gpus": 0.0,
+					"cpus": 1.0,
+					"ports": "[8124-8124]"
+				},
+				"statuses": [{
+					"state": "TASK_RUNNING",
+					"timestamp": 1472646595.9438,
+					"container_status": {
+						"network_infos": [{
+							"ip_addresses": [{
+								"ip_address": "10.0.3.79"
+							}]
+						}]
+					}
+				}, {
+					"state": "TASK_FAILED",
+					"timestamp": 1472646596.14494,
+					"container_status": {
+						"network_infos": [{
+							"ip_addresses": [{
+								"ip_address": "10.0.3.79"
+							}]
+						}]
+					}
+				}],
+				"labels": [{
+					"key": "DCOS_SPACE",
+					"value": "\/metrics-collector"
+				}],
+				"discovery": {
+					"visibility": "FRAMEWORK",
+					"name": "metrics-collector",
+					"ports": {
+						"ports": [{
+							"number": 8124,
+							"protocol": "tcp"
+						}]
+					}
+				}
+			}]
+		}, {
+			"id": "metrics-collector.a2c5ba0a-6f76-11e6-92e2-ee20dd7354ad",
+			"name": "Command Executor (Task: metrics-collector.a2c5ba0a-6f76-11e6-92e2-ee20dd7354ad) (Command: sh -c 'env && chmod...')",
+			"source": "metrics-collector.a2c5ba0a-6f76-11e6-92e2-ee20dd7354ad",
+			"container": "4f301bb1-ecce-49aa-9776-11e2c2b1772e",
+			"directory": "\/var\/lib\/mesos\/slave\/slaves\/8b4e6d80-0271-4be0-9f08-0aeff7f0d751-S5\/frameworks\/8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0001\/executors\/metrics-collector.a2c5ba0a-6f76-11e6-92e2-ee20dd7354ad\/runs\/4f301bb1-ecce-49aa-9776-11e2c2b1772e",
+			"resources": {
+				"disk": 0.0,
+				"mem": 32.0,
+				"gpus": 0.0,
+				"cpus": 0.1
+			},
+			"labels": [{
+				"key": "DCOS_SPACE",
+				"value": "\/metrics-collector"
+			}],
+			"tasks": [],
+			"queued_tasks": [],
+			"completed_tasks": [{
+				"id": "metrics-collector.a2c5ba0a-6f76-11e6-92e2-ee20dd7354ad",
+				"name": "metrics-collector",
+				"framework_id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0001",
+				"executor_id": "",
+				"slave_id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-S5",
+				"state": "TASK_FAILED",
+				"resources": {
+					"disk": 0.0,
+					"mem": 128.0,
+					"gpus": 0.0,
+					"cpus": 1.0,
+					"ports": "[8124-8124]"
+				},
+				"statuses": [{
+					"state": "TASK_RUNNING",
+					"timestamp": 1472646601.63649,
+					"container_status": {
+						"network_infos": [{
+							"ip_addresses": [{
+								"ip_address": "10.0.3.79"
+							}]
+						}]
+					}
+				}, {
+					"state": "TASK_FAILED",
+					"timestamp": 1472646601.73778,
+					"container_status": {
+						"network_infos": [{
+							"ip_addresses": [{
+								"ip_address": "10.0.3.79"
+							}]
+						}]
+					}
+				}],
+				"labels": [{
+					"key": "DCOS_SPACE",
+					"value": "\/metrics-collector"
+				}],
+				"discovery": {
+					"visibility": "FRAMEWORK",
+					"name": "metrics-collector",
+					"ports": {
+						"ports": [{
+							"number": 8124,
+							"protocol": "tcp"
+						}]
+					}
+				}
+			}]
+		}, {
+			"id": "metrics-collector.a842c18e-6f76-11e6-92e2-ee20dd7354ad",
+			"name": "Command Executor (Task: metrics-collector.a842c18e-6f76-11e6-92e2-ee20dd7354ad) (Command: sh -c 'env && chmod...')",
+			"source": "metrics-collector.a842c18e-6f76-11e6-92e2-ee20dd7354ad",
+			"container": "34d0f2f4-9957-4b33-8141-30a580b62861",
+			"directory": "\/var\/lib\/mesos\/slave\/slaves\/8b4e6d80-0271-4be0-9f08-0aeff7f0d751-S5\/frameworks\/8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0001\/executors\/metrics-collector.a842c18e-6f76-11e6-92e2-ee20dd7354ad\/runs\/34d0f2f4-9957-4b33-8141-30a580b62861",
+			"resources": {
+				"disk": 0.0,
+				"mem": 32.0,
+				"gpus": 0.0,
+				"cpus": 0.1
+			},
+			"labels": [{
+				"key": "DCOS_SPACE",
+				"value": "\/metrics-collector"
+			}],
+			"tasks": [],
+			"queued_tasks": [],
+			"completed_tasks": [{
+				"id": "metrics-collector.a842c18e-6f76-11e6-92e2-ee20dd7354ad",
+				"name": "metrics-collector",
+				"framework_id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0001",
+				"executor_id": "",
+				"slave_id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-S5",
+				"state": "TASK_FAILED",
+				"resources": {
+					"disk": 0.0,
+					"mem": 128.0,
+					"gpus": 0.0,
+					"cpus": 1.0,
+					"ports": "[8124-8124]"
+				},
+				"statuses": [{
+					"state": "TASK_RUNNING",
+					"timestamp": 1472646610.43694,
+					"container_status": {
+						"network_infos": [{
+							"ip_addresses": [{
+								"ip_address": "10.0.3.79"
+							}]
+						}]
+					}
+				}, {
+					"state": "TASK_FAILED",
+					"timestamp": 1472646610.53793,
+					"container_status": {
+						"network_infos": [{
+							"ip_addresses": [{
+								"ip_address": "10.0.3.79"
+							}]
+						}]
+					}
+				}],
+				"labels": [{
+					"key": "DCOS_SPACE",
+					"value": "\/metrics-collector"
+				}],
+				"discovery": {
+					"visibility": "FRAMEWORK",
+					"name": "metrics-collector",
+					"ports": {
+						"ports": [{
+							"number": 8124,
+							"protocol": "tcp"
+						}]
+					}
+				}
+			}]
+		}, {
+			"id": "metrics-collector.b26e8414-6f76-11e6-92e2-ee20dd7354ad",
+			"name": "Command Executor (Task: metrics-collector.b26e8414-6f76-11e6-92e2-ee20dd7354ad) (Command: sh -c 'env && chmod...')",
+			"source": "metrics-collector.b26e8414-6f76-11e6-92e2-ee20dd7354ad",
+			"container": "88dd593d-cf7e-4afc-b191-0d3414507b30",
+			"directory": "\/var\/lib\/mesos\/slave\/slaves\/8b4e6d80-0271-4be0-9f08-0aeff7f0d751-S5\/frameworks\/8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0001\/executors\/metrics-collector.b26e8414-6f76-11e6-92e2-ee20dd7354ad\/runs\/88dd593d-cf7e-4afc-b191-0d3414507b30",
+			"resources": {
+				"disk": 0.0,
+				"mem": 32.0,
+				"gpus": 0.0,
+				"cpus": 0.1
+			},
+			"labels": [{
+				"key": "DCOS_SPACE",
+				"value": "\/metrics-collector"
+			}],
+			"tasks": [],
+			"queued_tasks": [],
+			"completed_tasks": [{
+				"id": "metrics-collector.b26e8414-6f76-11e6-92e2-ee20dd7354ad",
+				"name": "metrics-collector",
+				"framework_id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0001",
+				"executor_id": "",
+				"slave_id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-S5",
+				"state": "TASK_FAILED",
+				"resources": {
+					"disk": 0.0,
+					"mem": 128.0,
+					"gpus": 0.0,
+					"cpus": 1.0,
+					"ports": "[8124-8124]"
+				},
+				"statuses": [{
+					"state": "TASK_RUNNING",
+					"timestamp": 1472646627.53994,
+					"container_status": {
+						"network_infos": [{
+							"ip_addresses": [{
+								"ip_address": "10.0.3.79"
+							}]
+						}]
+					}
+				}, {
+					"state": "TASK_FAILED",
+					"timestamp": 1472646627.64052,
+					"container_status": {
+						"network_infos": [{
+							"ip_addresses": [{
+								"ip_address": "10.0.3.79"
+							}]
+						}]
+					}
+				}],
+				"labels": [{
+					"key": "DCOS_SPACE",
+					"value": "\/metrics-collector"
+				}],
+				"discovery": {
+					"visibility": "FRAMEWORK",
+					"name": "metrics-collector",
+					"ports": {
+						"ports": [{
+							"number": 8124,
+							"protocol": "tcp"
+						}]
+					}
+				}
+			}]
+		}, {
+			"id": "metrics-collector.c67e9fdb-6f76-11e6-92e2-ee20dd7354ad",
+			"name": "Command Executor (Task: metrics-collector.c67e9fdb-6f76-11e6-92e2-ee20dd7354ad) (Command: sh -c 'env && chmod...')",
+			"source": "metrics-collector.c67e9fdb-6f76-11e6-92e2-ee20dd7354ad",
+			"container": "d782aa91-af04-4760-94fa-ac2bdd1821b7",
+			"directory": "\/var\/lib\/mesos\/slave\/slaves\/8b4e6d80-0271-4be0-9f08-0aeff7f0d751-S5\/frameworks\/8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0001\/executors\/metrics-collector.c67e9fdb-6f76-11e6-92e2-ee20dd7354ad\/runs\/d782aa91-af04-4760-94fa-ac2bdd1821b7",
+			"resources": {
+				"disk": 0.0,
+				"mem": 32.0,
+				"gpus": 0.0,
+				"cpus": 0.1
+			},
+			"labels": [{
+				"key": "DCOS_SPACE",
+				"value": "\/metrics-collector"
+			}],
+			"tasks": [],
+			"queued_tasks": [],
+			"completed_tasks": [{
+				"id": "metrics-collector.c67e9fdb-6f76-11e6-92e2-ee20dd7354ad",
+				"name": "metrics-collector",
+				"framework_id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-0001",
+				"executor_id": "",
+				"slave_id": "8b4e6d80-0271-4be0-9f08-0aeff7f0d751-S5",
+				"state": "TASK_FAILED",
+				"resources": {
+					"disk": 0.0,
+					"mem": 128.0,
+					"gpus": 0.0,
+					"cpus": 1.0,
+					"ports": "[8124-8124]"
+				},
+				"statuses": [{
+					"state": "TASK_RUNNING",
+					"timestamp": 1472646661.40977,
+					"container_status": {
+						"network_infos": [{
+							"ip_addresses": [{
+								"ip_address": "10.0.3.79"
+							}]
+						}]
+					}
+				}, {
+					"state": "TASK_FAILED",
+					"timestamp": 1472646661.51019,
+					"container_status": {
+						"network_infos": [{
+							"ip_addresses": [{
+								"ip_address": "10.0.3.79"
+							}]
+						}]
+					}
+				}],
+				"labels": [{
+					"key": "DCOS_SPACE",
+					"value": "\/metrics-collector"
+				}],
+				"discovery": {
+					"visibility": "FRAMEWORK",
+					"name": "metrics-collector",
+					"ports": {
+						"ports": [{
+							"number": 8124,
+							"protocol": "tcp"
+						}]
+					}
+				}
+			}]
+		}]
+	}],
+	"completed_frameworks": []
+}
