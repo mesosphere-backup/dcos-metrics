@@ -4,12 +4,12 @@ A set of Kafka metrics consumer implementations which grab Avro-formatted metric
 
 ## Project contents
 
-- **[common](metrics-consumer-common/)**: Shared code across the following implementations. Handles everything except the output itself.
-- **[graphite](metrics-consumer-graphite/)**: Outputs data to a Graphite service.
-- **[influx](metrics-consumer-influx/)**: Outputs data to an InfluxDB service.
-- **[kairos](metrics-consumer-kairos/)**: Outputs data to a KairosDB service.
-- **[print](metrics-consumer-print/)**: Outputs consumed data to `stdout`.
-- **[statsd](metrics-consumer-statsd/)**: Outputs consumed data to a statsd or dogstatsd service.
+- **[common](#common)**: Shared code across the following implementations. Handles everything except the output itself.
+- **[graphite](#graphite-consumer)**: Outputs data to a Graphite service.
+- **[influx](#influxdb-consumer)**: Outputs data to an InfluxDB service.
+- **[kairos](#kairosdb-consumer)**: Outputs data to a KairosDB service.
+- **[print](#print-consumer)**: Outputs consumed data to `stdout`.
+- **[statsd](#dogstatsd-consumer)**: Outputs consumed data to a statsd or dogstatsd service.
 
 ## Build
 
