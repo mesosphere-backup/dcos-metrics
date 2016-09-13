@@ -133,7 +133,7 @@ void metrics::ContainerReaderImpl::limit_reset_cb(boost::system::error_code ec) 
   if (ec) {
     if (boost::asio::error::operation_aborted) {
       // We're being destroyed. Don't look at local state, it may be destroyed already.
-      LOG(WARNING) << "Limit timer aborted: Exiting loop immediately";
+      LOG(INFO) << "Input ratelimit timer cancelled due to container teardown: Exiting timer loop immediately";
       return;
     } else {
       LOG(ERROR) << "Limit timer returned error. "
@@ -177,7 +177,7 @@ void metrics::ContainerReaderImpl::recv_cb(
     // FIXME handle certain errors here, eg boost::asio::error::message_size.
     if (boost::asio::error::operation_aborted) {
       // We're being destroyed. Don't look at local state, it may be destroyed already.
-      LOG(WARNING) << "Aborted: Exiting read loop immediately";
+      LOG(INFO) << "Input receive call cancelled due to container teardown: Exiting read loop immediately";
     } else {
       if (actual_endpoint) {
         LOG(WARNING) << "Error when receiving data from reader socket at "

@@ -86,7 +86,7 @@ void metrics::MetricsUDPSender::dest_resolve_cb(boost::system::error_code ec) {
   if (ec) {
     if (boost::asio::error::operation_aborted) {
       // We're being destroyed. Don't look at local state, it may be destroyed already.
-      LOG(WARNING) << "Resolve timer aborted: Exiting loop immediately";
+      LOG(INFO) << "Output resolve timer cancelled due to teardown: Exiting timer loop immediately";
       return;
     } else {
       LOG(ERROR) << "Resolve timer returned error. "
