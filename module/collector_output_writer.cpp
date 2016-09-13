@@ -113,7 +113,7 @@ void metrics::CollectorOutputWriter::chunk_flush_cb(boost::system::error_code ec
   if (ec) {
     if (boost::asio::error::operation_aborted) {
       // We're being destroyed. Don't look at local state, it may be destroyed already.
-      LOG(WARNING) << "Flush timer aborted: Exiting loop immediately";
+      LOG(INFO) << "Output flush timer cancelled due to teardown: Exiting timer loop immediately";
       return;
     } else {
       LOG(ERROR) << "Flush timer returned error. "

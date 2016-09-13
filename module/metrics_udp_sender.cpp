@@ -2,6 +2,7 @@
 
 #include <glog/logging.h>
 
+#include "socket_util.hpp"
 #include "sync_util.hpp"
 
 metrics::MetricsUDPSender::MetricsUDPSender(
@@ -85,7 +86,7 @@ void metrics::MetricsUDPSender::dest_resolve_cb(boost::system::error_code ec) {
   if (ec) {
     if (boost::asio::error::operation_aborted) {
       // We're being destroyed. Don't look at local state, it may be destroyed already.
-      LOG(WARNING) << "Resolve timer aborted: Exiting loop immediately";
+      LOG(INFO) << "Output resolve timer cancelled due to teardown: Exiting timer loop immediately";
       return;
     } else {
       LOG(ERROR) << "Resolve timer returned error. "
@@ -213,6 +214,7 @@ void metrics::MetricsUDPSender::dest_resolve_cb(boost::system::error_code ec) {
   } else {
     LOG(INFO) << "Updated dest endpoint[" << current_endpoint << "] to endpoint[" << new_endpoint << "]";
     current_endpoint = new_endpoint;
+    set_cloexec(socket, send_host, send_port);
   }
   start_dest_resolve_timer();
 }

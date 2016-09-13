@@ -2,6 +2,7 @@
 
 #include <glog/logging.h>
 
+#include "socket_util.hpp"
 #include "sync_util.hpp"
 
 namespace sp = std::placeholders;
@@ -154,6 +155,7 @@ void metrics::MetricsTCPSender::connect_outcome_cb(boost::system::error_code ec)
 
   boost::asio::socket_base::keep_alive option(true);
   socket.set_option(option);
+  set_cloexec(socket, send_ip, send_port);
 
   socket_state = CONNECTED_DATA_NOT_READY;
   DLOG(INFO) << "Connected to metrics service at " << send_ip << ":" << send_port << ". "
