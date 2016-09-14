@@ -12,13 +12,11 @@ namespace metrics {
     int socket_flags = fcntl(socket.native_handle(), F_GETFD, 0);
     if (socket_flags < 0) {
       int errnum = errno;
-      // TODO mark this ERROR (only FATAL for testing):
-      LOG(FATAL) << "Unable to read socket flags for "
+      LOG(ERROR) << "Unable to read socket flags for "
                  << host << ":" << port << ": errno=" << errnum << " => " << strerror(errnum);
     } else if (fcntl(socket.native_handle(), F_SETFD, socket_flags | FD_CLOEXEC) < 0) {
       int errnum = errno;
-      // TODO mark this ERROR (only FATAL for testing):
-      LOG(FATAL) << "Failed to set CLOEXEC on socket file descriptor for "
+      LOG(ERROR) << "Failed to set CLOEXEC on socket file descriptor for "
                  << host << ":" << port << ": errno=" << errnum << " => " << strerror(errnum);
     }
   }
