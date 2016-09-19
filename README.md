@@ -2,7 +2,7 @@
 
 Routing of metrics from DC/OS.
 
-![architecture diagram](architecture.png)
+![architecture diagram](https://www.lucidchart.com/publicSegments/view/830f4c23-b2f9-4db3-9954-a947f395eae5/image.png)
 
 ## Quick Start
 
