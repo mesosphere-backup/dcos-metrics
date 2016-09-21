@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -9,30 +8,18 @@ import (
 	"github.com/mesosphere/dcos-stats/collector"
 )
 
-var (
-	agentPollingFlag = collector.BoolEnvFlag("agent-polling", true,
-		"Polls the local Mesos Agent for system information")
-	httpProfileFlag = collector.BoolEnvFlag("http-profile", false,
-		"Allows access to profile data on a random HTTP port at /debug/pprof")
-	kafkaFlag = collector.BoolEnvFlag("kafka", true,
-		"Sends output data to Kafka")
-)
-
 func main() {
-	flag.Usage = func() {
-		fmt.Fprint(os.Stderr,
-			"Collects and forwards data in Metrics Avro format to the provided Kafka service\n")
-		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
-		flag.PrintDefaults()
+	collectorConfig, err := parseArgsReturnConfig(os.Args)
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
 	}
-	flag.Parse()
-	flag.VisitAll(collector.PrintFlagEnv)
 
 	stats := make(chan collector.StatsEvent)
 	go collector.RunStatsEmitter(stats)
 
 	kafkaOutputChan := make(chan collector.KafkaMessage)
-	if *kafkaFlag {
+	if collectorConfig.KafkaFlagEnabled {
 		go collector.RunKafkaProducer(kafkaOutputChan, stats)
 	} else {
 		go printReceivedMessages(kafkaOutputChan)
@@ -40,12 +27,12 @@ func main() {
 
 	recordInputChan := make(chan *collector.AvroDatum)
 	agentStateChan := make(chan *collector.AgentState)
-	if *agentPollingFlag {
+	if collectorConfig.PollAgentEnabled {
 		go collector.RunAgentPoller(recordInputChan, agentStateChan, stats)
 	}
 	go collector.RunAvroTCPReader(recordInputChan, stats)
 
-	if *httpProfileFlag {
+	if collectorConfig.HttpProfilerEnabled {
 		go collector.RunHTTPProfAccess()
 	}
 
