@@ -1,0 +1,3 @@
+poll_agent: true
+http_profiler_enabled: false
+kafka_flag_enabled: false

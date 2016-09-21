@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 
 	yaml "gopkg.in/yaml.v2"
@@ -19,6 +20,7 @@ func (c *ConfigFile) setFlags(fs *flag.FlagSet) {
 }
 
 func (c *ConfigFile) loadConfig() error {
+	fmt.Printf("Loading config file from %s\n", c.ConfigPath)
 	fileByte, err := ioutil.ReadFile(c.ConfigPath)
 	if err != nil {
 		return err
@@ -30,7 +32,7 @@ func (c *ConfigFile) loadConfig() error {
 	return nil
 }
 
-func defaultConfig() configFile {
+func defaultConfig() ConfigFile {
 	return ConfigFile{
 		PollAgentEnabled:    true,
 		HttpProfilerEnabled: true,
@@ -41,10 +43,11 @@ func defaultConfig() configFile {
 
 func parseArgsReturnConfig(args []string) (ConfigFile, error) {
 	c := defaultConfig()
-	thisFlagSet := flag.NewFlagSet("", flag.ContinueOnError)
+	thisFlagSet := flag.NewFlagSet("", flag.PanicOnError)
 	c.setFlags(thisFlagSet)
 	// Override default config with CLI flags if any
 	if err := thisFlagSet.Parse(args); err != nil {
+		fmt.Println("Errors encountered parsing flags.")
 		return c, err
 	}
 	if err := c.loadConfig(); err != nil {
