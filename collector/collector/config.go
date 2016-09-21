@@ -9,9 +9,9 @@ import (
 )
 
 type ConfigFile struct {
-	PollAgentEnabled    bool `json:"poll_agent"`
-	HttpProfilerEnabled bool `json:"http_profiler_enabled"`
-	KafkaFlagEnabled    bool `json:"kafka_flag_enabled"`
+	PollAgentEnabled    bool `yaml:"poll_agent"`
+	HttpProfilerEnabled bool `yaml:"http_profiler_enabled"`
+	KafkaFlagEnabled    bool `yaml:"kafka_flag_enabled"`
 	ConfigPath          string
 }
 

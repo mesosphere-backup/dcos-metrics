@@ -20,6 +20,7 @@ func main() {
 
 	kafkaOutputChan := make(chan collector.KafkaMessage)
 	if collectorConfig.KafkaFlagEnabled {
+		log.Printf("Kafkfa producer enabled")
 		go collector.RunKafkaProducer(kafkaOutputChan, stats)
 	} else {
 		go printReceivedMessages(kafkaOutputChan)
@@ -28,11 +29,13 @@ func main() {
 	recordInputChan := make(chan *collector.AvroDatum)
 	agentStateChan := make(chan *collector.AgentState)
 	if collectorConfig.PollAgentEnabled {
+		log.Printf("Agent polling enabled")
 		go collector.RunAgentPoller(recordInputChan, agentStateChan, stats)
 	}
 	go collector.RunAvroTCPReader(recordInputChan, stats)
 
 	if collectorConfig.HttpProfilerEnabled {
+		log.Printf("HTTP Profiling Enabled")
 		go collector.RunHTTPProfAccess()
 	}
 
