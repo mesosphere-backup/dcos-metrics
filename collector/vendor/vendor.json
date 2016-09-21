@@ -51,5 +51,5 @@
 			"revisionTime": "2016-04-14T09:54:25Z"
 		}
 	],
-	"rootPath": "github.com/mesosphere/dcos-stats/collector"
+	"rootPath": "github.com/mesosphere/dcos-metrics/collector"
 }
