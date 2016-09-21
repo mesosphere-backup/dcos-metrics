@@ -3,9 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/mesosphere/dcos-stats/collector"
 	"log"
 	"os"
+
+	"github.com/mesosphere/dcos-stats/collector"
 )
 
 var (
