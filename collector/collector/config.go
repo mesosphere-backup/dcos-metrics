@@ -9,10 +9,10 @@ import (
 )
 
 type ConfigFile struct {
-	PollAgentEnabled    bool `yaml:"poll_agent"`
-	HttpProfilerEnabled bool `yaml:"http_profiler_enabled"`
-	KafkaFlagEnabled    bool `yaml:"kafka_flag_enabled"`
-	ConfigPath          string
+	PollAgent     bool `yaml:"poll_agent"`
+	HttpProfiler  bool `yaml:"http_profiler"`
+	KafkaProducer bool `yaml:"kafka_producer"`
+	ConfigPath    string
 }
 
 func (c *ConfigFile) setFlags(fs *flag.FlagSet) {
@@ -34,10 +34,10 @@ func (c *ConfigFile) loadConfig() error {
 
 func defaultConfig() ConfigFile {
 	return ConfigFile{
-		PollAgentEnabled:    true,
-		HttpProfilerEnabled: true,
-		KafkaFlagEnabled:    true,
-		ConfigPath:          "dcos-metrics-config.yaml",
+		PollAgent:     true,
+		HttpProfiler:  true,
+		KafkaProducer: true,
+		ConfigPath:    "dcos-metrics-config.yaml",
 	}
 }
 

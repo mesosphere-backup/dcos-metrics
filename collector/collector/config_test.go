@@ -16,15 +16,15 @@ func TestDefaultConfig(t *testing.T) {
 		t.Error("defaultConfig() should return ConfigFile type, got", testFileType.Name())
 	}
 
-	if !testConfig.PollAgentEnabled {
+	if !testConfig.PollAgent {
 		t.Error("Expected agent polling to be enabled by default")
 	}
 
-	if !testConfig.HttpProfilerEnabled {
+	if !testConfig.HttpProfiler {
 		t.Error("Expected HTTP profiler to be enabled by default")
 	}
 
-	if !testConfig.KafkaFlagEnabled {
+	if !testConfig.KafkaProducer {
 		t.Error("Expected Kafka flag to be enabled by default")
 	}
 }
@@ -45,8 +45,8 @@ func TestSetFlags(t *testing.T) {
 func TestLoadConfig(t *testing.T) {
 	configContents := []byte(`
 poll_agent: false
-http_profiler_enabled: false
-kafka_flag_enabled: false`)
+http_profiler: false
+kafka_producer: false`)
 
 	tmpConfig, err := ioutil.TempFile("", "testConfig")
 	if err != nil {
@@ -69,15 +69,15 @@ kafka_flag_enabled: false`)
 		t.Error("Expected no errors loading config, got", loadErr.Error())
 	}
 
-	if testConfig.PollAgentEnabled {
-		t.Error("Expected all false config, got", testConfig.PollAgentEnabled)
+	if testConfig.PollAgent {
+		t.Error("Expected all false config, got", testConfig.PollAgent)
 	}
 
-	if testConfig.HttpProfilerEnabled {
-		t.Error("Expected all false config, got", testConfig.HttpProfilerEnabled)
+	if testConfig.HttpProfiler {
+		t.Error("Expected all false config, got", testConfig.HttpProfiler)
 	}
 
-	if testConfig.KafkaFlagEnabled {
-		t.Error("Expected all false config, got", testConfig.KafkaFlagEnabled)
+	if testConfig.KafkaProducer {
+		t.Error("Expected all false config, got", testConfig.KafkaProducer)
 	}
 }
