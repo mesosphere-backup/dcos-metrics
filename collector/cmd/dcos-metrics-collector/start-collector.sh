@@ -13,4 +13,4 @@ cd $(dirname $0)
 if [ "$1" != "-nobuild" ]; then
     go build || exit 1
 fi
-./collector
+./dcos-metrics-collector
