@@ -23,4 +23,4 @@ linux:
 
 install:
 	@echo "+$@"
-	go install -v -o '$(BINARY_NAME)_$(REVISION)' -ldflags '$(LDFLAGS)' $(FILES)
+	go install -v -ldflags '$(LDFLAGS)' $(FILES)

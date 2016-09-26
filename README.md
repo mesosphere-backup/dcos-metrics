@@ -1,5 +1,8 @@
-# dcos-stats
+# dcos-metrics
+## Caveats
+This project is WIP. Aiming to ship a completed service, with integration hooks in DC/OS 1.10
 
+## ---
 Routing of metrics from DC/OS.
 
 ![architecture diagram](https://www.lucidchart.com/publicSegments/view/830f4c23-b2f9-4db3-9954-a947f395eae5/image.png)
