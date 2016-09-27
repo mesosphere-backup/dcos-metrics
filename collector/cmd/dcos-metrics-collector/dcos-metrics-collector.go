@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/mesosphere/dcos-metrics/collector"
+	"github.com/dcos/dcos-metrics/collector"
 )
 
 func main() {
