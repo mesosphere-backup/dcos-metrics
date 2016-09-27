@@ -5,10 +5,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/linkedin/goavro"
-	"github.com/mesosphere/dcos-stats/collector/metrics-schema"
 	"log"
 	"time"
+
+	"github.com/dcos/dcos-metrics/collector/metrics-schema"
+	"github.com/linkedin/goavro"
 )
 
 var (

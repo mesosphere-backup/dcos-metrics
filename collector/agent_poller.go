@@ -3,14 +3,15 @@ package collector
 import (
 	"errors"
 	"fmt"
-	"github.com/antonholmquist/jason"
-	"github.com/linkedin/goavro"
-	"github.com/mesosphere/dcos-stats/collector/metrics-schema"
 	"io/ioutil"
 	"log"
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/antonholmquist/jason"
+	"github.com/dcos/dcos-metrics/collector/metrics-schema"
+	"github.com/linkedin/goavro"
 )
 
 var (
