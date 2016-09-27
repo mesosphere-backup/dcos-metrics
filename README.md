@@ -52,5 +52,3 @@ First, get a 1.8 EE cluster with at least 3 private nodes (minimum for default K
 - **[Launching Consumers](consumer/README.md)**
 - [Installing custom module builds (for module dev)](module/README.md)
 - [Slides from MesosCon EU (Aug 2016)](http://schd.ws/hosted_files/mesosconeu2016/e7/Metrics%20on%20DC-OS%20Enterprise%20%28Mesoscon%29.pdf)
-- [Design doc: Agent module](https://docs.google.com/document/d/11XZF8600Fqfw_yY9YeSh-rX2jJVN4rjw_oQuJFkvlwM/edit#)
-- [Design doc: Collector and forwarding via Kafka](https://docs.google.com/document/d/1aJifYTMrmuHnh_zpt8eLbsaU1WP_Fw3M8OvqRf0B6nE/edit#)
