@@ -45,16 +45,16 @@ First, get a 1.8 EE cluster with at least 3 private nodes (minimum for default K
 
   1. Install [**Kafka**](http://github.com/mesosphere/kafka-private/README.md): `dcos package install kafka` or install via the Universe UI
     - Note: stock settings are plenty to start with, but for production use consider increasing the default number of partitions (`num.partitions`) and replication factor (`default.replication.factor`).
-  2. Run a [**Metrics Collector**](collector/README.md#deployment-to-a-cluster) on every node: use provided marathon jsons.
+  2. Run a [**Metrics Collector**](docs/COLLECTOR.md#deployment-to-a-cluster) on every node: use provided marathon jsons.
   3. One or more [**Metrics Consumers**](consumer/): see example marathon jsons for each consumer type, edit output settings as needed before launching
 
 ## Documentation
 ![architecture diagram](https://www.lucidchart.com/publicSegments/view/830f4c23-b2f9-4db3-9954-a947f395eae5/image.png)
 
-  - **[Launching demo processes](DEMO.md)**
-  - **[Launching the Collector](collector/README.md)**
-  - **[Launching Consumers](consumer/README.md)**
-  - [Installing custom module builds (for module dev)](module/README.md)
+  - **[Launching demo processes](docs/DEMO.md)**
+  - **[Launching the Collector](docs/COLLECTOR.md)**
+  - **[Launching Consumers](docs/CONSUMERS.md)**
+  - [Installing custom module builds (for module dev)](docs/MESOS_MODULE.md)
   - [Slides from MesosCon EU (Aug 2016)](http://schd.ws/hosted_files/mesosconeu2016/e7/Metrics%20on%20DC-OS%20Enterprise%20%28Mesoscon%29.pdf)
 
 ## Community
