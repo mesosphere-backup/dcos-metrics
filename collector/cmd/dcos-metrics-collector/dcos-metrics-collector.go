@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	collectorConfig, err := parseArgsReturnConfig(os.Args[1:])
+	collectorConfig, err := getNewConfig(os.Args[1:])
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
@@ -28,7 +28,7 @@ func main() {
 
 	recordInputChan := make(chan *collector.AvroDatum)
 	agentStateChan := make(chan *collector.AgentState)
-	if collectorConfig.PollAgent {
+	if collectorConfig.DCOSRole == "agent" {
 		log.Printf("Agent polling enabled")
 		go collector.RunAgentPoller(recordInputChan, agentStateChan, stats)
 	}

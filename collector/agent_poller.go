@@ -15,8 +15,6 @@ import (
 )
 
 var (
-	agentIpCommandFlag = StringEnvFlag("agent-ip-command", "/opt/mesosphere/bin/detect_ip",
-		"A command to execute which writes the local Mesos Agent's IP to stdout")
 	agentPortFlag = IntEnvFlag("agent-port", 5051,
 		"HTTP port to use when querying the local Mesos Agent")
 	agentPollPeriodFlag = IntEnvFlag("agent-poll-period", 15,
@@ -69,75 +67,115 @@ type AgentState struct {
 	executorAppNames map[string]string
 }
 
+type Agent struct {
+	AgentIP        string
+	IPCommand      string
+	Port           int
+	PollPeriod     int
+	Topic          string
+	AgentStateChan chan<- *AgentState
+}
+
+func NewAgent(
+	ipCommand string,
+	port int,
+	pollPeriod int,
+	topic string) (Agent, error) {
+	a := Agent{}
+	if len(ipCommand) < 0 {
+		return a, errors.New("Must pass ipAddress to NewAgent()")
+	}
+	if port < 1024 {
+		return a, errors.New("Must pass port to NewAgent()")
+	}
+	if pollPeriod == 0 {
+		return a, errors.New("Must pass pollPeriod to NewAgent()")
+	}
+	if len(topic) < 1 {
+		return a, errors.New("Must pass topic to NewAgent()")
+	}
+
+	a.IPCommand = ipCommand
+	a.Port = port
+	a.PollPeriod = pollPeriod
+	a.Topic = topic
+	a.AgentStateChan = make(chan *AgentState)
+
+	return a, nil
+}
+
 // Runs an Agent Poller which periodically produces data retrieved from a local Mesos Agent.
 // This function should be run as a gofunc.
-func RunAgentPoller(recordsChan chan<- *AvroDatum, agentStateChan chan<- *AgentState, stats chan<- StatsEvent) {
+func (a *Agent) Run(recordsChan chan<- *AvroDatum, stats chan<- StatsEvent) {
 	// fetch agent ip once. per DC/OS docs, changing a node IP is unsupported
-	var agentIp string = ""
+	a.AgentIP = ""
 	if len(*agentTestStateFileFlag) == 0 ||
 		len(*agentTestSystemFileFlag) == 0 ||
 		len(*agentTestContainersFileFlag) == 0 {
 		// only get the ip if actually needed
-		agentIp = getAgentIp(stats)
+		//TODO needs err
+		a.getIP(stats)
 	}
 
 	// do one poll immediately upon starting, to ensure that agent metadata is populated early:
-	pollAgent(agentIp, recordsChan, agentStateChan, stats)
-	ticker := time.NewTicker(time.Second * time.Duration(*agentPollPeriodFlag))
+	a.pollAgent(recordsChan, stats)
+	ticker := time.NewTicker(time.Second * time.Duration(a.PollPeriod))
 	for {
 		select {
 		case _ = <-ticker.C:
-			pollAgent(agentIp, recordsChan, agentStateChan, stats)
+			a.pollAgent(recordsChan, stats)
 		}
 	}
 }
 
 // ---
 
-func pollAgent(agentIp string, recordsChan chan<- *AvroDatum, agentStateChan chan<- *AgentState, stats chan<- StatsEvent) {
+func (a *Agent) pollAgent(recordsChan chan<- *AvroDatum, stats chan<- StatsEvent) {
 	// always fetch/emit agent state first: downstream will use it for tagging metrics
-	agentState, err := getAgentState(agentIp, stats)
+	agentState, err := getAgentState(a.AgentIP, stats)
 	if err == nil {
-		agentStateChan <- agentState
+		a.AgentStateChan <- agentState
 	} else {
-		log.Printf("Failed to retrieve state from agent at %s: %s", agentIp, err)
+		log.Printf("Failed to retrieve state from agent at %s: %s", a.AgentIP, err)
 	}
 
-	systemMetricsList, err := getSystemMetrics(agentIp, agentState, stats)
+	systemMetricsList, err := getSystemMetrics(a.AgentIP, agentState, stats)
 	if err == nil {
 		if systemMetricsList != nil {
 			recordsChan <- systemMetricsList
 		}
 	} else {
-		log.Printf("Failed to retrieve system metrics from agent at %s: %s", agentIp, err)
+		log.Printf("Failed to retrieve system metrics from agent at %s: %s", a.AgentIP, err)
 	}
 
-	containerMetricsLists, err := getContainerMetrics(agentIp, agentState, stats)
+	containerMetricsLists, err := getContainerMetrics(a.AgentIP, agentState, stats)
 	if err == nil {
 		for _, metricList := range containerMetricsLists {
 			recordsChan <- metricList
 		}
 	} else {
-		log.Printf("Failed to retrieve container metrics from agent at %s: %s", agentIp, err)
+		log.Printf("Failed to retrieve container metrics from agent at %s: %s", a.AgentIP, err)
 	}
 }
 
 // runs detect_ip => "10.0.3.26\n"
-func getAgentIp(stats chan<- StatsEvent) string {
+func (a *Agent) getIP(stats chan<- StatsEvent) error {
 	stats <- MakeEvent(AgentIpLookup)
-	cmdWithArgs := strings.Split(*agentIpCommandFlag, " ")
+	cmdWithArgs := strings.Split(a.IPCommand, " ")
 	ipBytes, err := exec.Command(cmdWithArgs[0], cmdWithArgs[1:]...).Output()
 	if err != nil {
 		stats <- MakeEvent(AgentIpLookupFailed)
-		log.Fatalf("Fetching Agent IP with -agent-ip-command='%s' failed: %s", *agentIpCommandFlag, err)
+		return err
 	}
 	ip := strings.TrimSpace(string(ipBytes))
 	if len(ip) == 0 {
 		stats <- MakeEvent(AgentIpLookupEmpty)
-		log.Fatalf("Agent IP fetched with -agent-ip-command='%s' is empty", *agentIpCommandFlag)
+		return err
 	}
-	//log.Printf("Agent IP obtained with -agent-ip-command='%s': %s\n", *agentIpCommandFlag, ip)
-	return ip
+
+	a.AgentIP = ip
+
+	return nil
 }
 
 // fetches container-level resource metrics from the agent (via /containers), emits to the framework topics (default 'metrics-<framework_id>')

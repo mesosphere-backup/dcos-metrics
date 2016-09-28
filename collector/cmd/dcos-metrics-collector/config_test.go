@@ -9,15 +9,15 @@ import (
 )
 
 func TestDefaultConfig(t *testing.T) {
-	testConfig := defaultConfig()
+	testConfig := newConfig()
 
 	testFileType := reflect.TypeOf(testConfig)
-	if testFileType.Name() != "ConfigFile" {
+	if testFileType.Name() != "CollectorConfig" {
 		t.Error("defaultConfig() should return ConfigFile type, got", testFileType.Name())
 	}
 
-	if !testConfig.PollAgent {
-		t.Error("Expected agent polling to be enabled by default")
+	if testConfig.PollingPeriod != 15 {
+		t.Error("Expected polling period to be 15 by default")
 	}
 
 	if !testConfig.HttpProfiler {
@@ -30,7 +30,7 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestSetFlags(t *testing.T) {
-	testConfig := ConfigFile{
+	testConfig := CollectorConfig{
 		ConfigPath: "/some/default/path",
 	}
 	testFS := flag.NewFlagSet("", flag.PanicOnError)
@@ -44,7 +44,11 @@ func TestSetFlags(t *testing.T) {
 
 func TestLoadConfig(t *testing.T) {
 	configContents := []byte(`
-poll_agent: false
+---
+agent_config:
+  port: 5051
+  metric_topic: agent-metrics
+polling_period: 5 
 http_profiler: false
 kafka_producer: false`)
 
@@ -59,7 +63,7 @@ kafka_producer: false`)
 		panic(err)
 	}
 
-	testConfig := ConfigFile{
+	testConfig := CollectorConfig{
 		ConfigPath: tmpConfig.Name(),
 	}
 
@@ -69,8 +73,16 @@ kafka_producer: false`)
 		t.Error("Expected no errors loading config, got", loadErr.Error())
 	}
 
-	if testConfig.PollAgent {
-		t.Error("Expected all false config, got", testConfig.PollAgent)
+	if testConfig.AgentConfig.Port != 5051 {
+		t.Error("Expected 5051, got", testConfig.AgentConfig.Port)
+	}
+
+	if testConfig.AgentConfig.Topic != "agent-metrics" {
+		t.Error("Expected agent-metrics, got", testConfig.AgentConfig.Topic)
+	}
+
+	if testConfig.PollingPeriod != 5 {
+		t.Error("Expected 15, got", testConfig.PollingPeriod)
 	}
 
 	if testConfig.HttpProfiler {
