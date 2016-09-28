@@ -30,7 +30,10 @@ or topic branch. Please, use your best judgement here.
 ### Style guidelines
 Before submitting your pull request, please consider the following:
   * Check for unnecessary whitespace by running `git diff --check`.
-  * Check for syntax and style issues by running `go fmt`.
+  * Check for syntax and style issues:
+    * For Go code — by running `go fmt` and using our preferred linter [Golint][golint-github].
+    * For C++ code — see the [Google C++ Style Guide][google-cpp-style].
+    * For Java code — see the [Google Java Style Guide][google-java-style].
   * Include comments and examples where appropriate.
   * No additional copyright statements or licenses.
 
@@ -61,3 +64,6 @@ If you're new to Go, you might also find the [Effective Go][effective-go] docume
 [dcos-metrics-readme]: README.md
 [effective-go]: https://golang.org/doc/effective_go.html
 [github-join]: https://github.com/join
+[golint-github]: https://github.com/golang/lint
+[google-cpp-style]: https://google.github.io/styleguide/cppguide.html
+[google-java-style]: https://google.github.io/styleguide/javaguide.html
