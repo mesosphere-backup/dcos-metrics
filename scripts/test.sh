@@ -25,7 +25,7 @@ function test_collector {
     if [[ $test_suite == "unit" ]]; then
         _gofmt
         _goimports
-        _golint "$package_dirs"
+        _golint "$test_dirs"
         _govet "$package_dirs"
         _go_unit_test_with_coverage $test_suite "$package_dirs" "$ignore_packages"
     else
@@ -52,7 +52,7 @@ function _goimports {
 
 
 function _golint {
-    local package_dirs="$1"
+    local test_dirs="$1"
     logmsg "Running 'go lint' ..."
     go get -u github.com/golang/lint/golint
     golint -set_exit_status $test_dirs
