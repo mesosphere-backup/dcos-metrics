@@ -1,6 +1,61 @@
+# Compiled Object files, Static and Dynamic libs (Shared Objects)
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.slo
+*.lo
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Directories
+.gradle/
+.settings/
+_obj
+_test
+avro/
+build/
+mesos-*/
 metrics-schema/
+tmp/
+
+# Architecture specific extensions/prefixes
+*.[568vq]
+[568vq].out
+
+*.cgo1.go
+*.cgo2.c
+_cgo_defun.c
+_cgo_gotypes.go
+_cgo_export.*
+
+_testmain.go
+
+*.exe
+*.out
+*.test
+*.prof
+
+*.class
+
+.project
+
+# Package Files
+*.jar
+*.war
+*.ear
+
+# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+hs_err_pid*
+
+# Misc
+.DS_Store
+profile.cov
+*.swp
 *.crc
 *.avro
-
-mesos-*/
 mesos-*.tar.gz

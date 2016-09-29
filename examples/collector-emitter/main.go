@@ -6,14 +6,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/linkedin/goavro"
-	"github.com/mesosphere/dcos-stats/examples/collector-emitter/metrics-schema"
 	"log"
 	"net"
 	"os"
 	"runtime"
 	"strconv"
 	"time"
+
+	"github.com/linkedin/goavro"
 )
 
 var (

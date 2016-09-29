@@ -5,12 +5,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/Shopify/sarama"
 	"log"
 	"net"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/Shopify/sarama"
 )
 
 var (
