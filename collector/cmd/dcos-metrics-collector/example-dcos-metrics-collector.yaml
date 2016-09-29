@@ -3,4 +3,4 @@ kafka_producer: false
 polling_period: 5
 agent_config:
   port: 1234
-  topic: foo-topic
+  metric_topic: foo-topic
