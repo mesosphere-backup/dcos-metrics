@@ -11,7 +11,7 @@
 # with test results in JUnit format and test coverage in Cobertura format.
 # The reports are saved to build/component/{test-reports,coverage-reports}/*.xml 
 #
-set -e
+set -e -x
 SOURCE_DIR=$(git rev-parse --show-toplevel)
 BUILD_DIR="${SOURCE_DIR}/build/${COMPONENT}"
 
