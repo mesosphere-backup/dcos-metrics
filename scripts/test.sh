@@ -12,6 +12,8 @@
 # The reports are saved to build/component/{test-reports,coverage-reports}/*.xml 
 #
 set -e
+export PATH="${GOPATH}/bin:${PATH}"
+
 SOURCE_DIR=$(git rev-parse --show-toplevel)
 BUILD_DIR="${SOURCE_DIR}/build/${COMPONENT}"
 
@@ -41,6 +43,7 @@ function logmsg {
 function _gofmt {
     logmsg "Running 'gofmt' ..."
     gofmt -l -d $(find . -type f -name '*.go' -not -path "./vendor/**") | tee /dev/stderr
+    [[ $? -eq 0 ]] && echo "OK."
 }
 
 
@@ -48,6 +51,7 @@ function _goimports {
     logmsg "Running 'goimports' ..."
     go get -u golang.org/x/tools/cmd/goimports
     goimports -l -d $(find . -type f -name '*.go' -not -path "./vendor/**") | tee /dev/stderr
+    [[ $? -eq 0 ]] && echo "OK."
 }
 
 
@@ -56,6 +60,7 @@ function _golint {
     logmsg "Running 'go lint' ..."
     go get -u github.com/golang/lint/golint
     golint -set_exit_status $test_dirs
+    [[ $? -eq 0 ]] && echo "OK."
 }
 
 
@@ -63,6 +68,7 @@ function _govet {
     local package_dirs="$1"
     logmsg "Running 'go vet' ..."
     go vet $package_dirs
+    [[ $? -eq 0 ]] && echo "OK."
 }
 
 
