@@ -1,9 +1,9 @@
-all: clean build-collector test-collector
+all: clean build test
 
-build-collector:
+build:
 	bash -c "./scripts/build.sh collector"
 
-test-collector:
+test:
 	bash -c "./scripts/test.sh collector unit"
 
 clean:
