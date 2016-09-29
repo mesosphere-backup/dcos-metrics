@@ -2,11 +2,12 @@ package collector
 
 import (
 	"encoding/hex"
-	"github.com/linkedin/goavro"
 	"io"
 	"log"
 	"net"
 	"time"
+
+	"github.com/linkedin/goavro"
 )
 
 var (

@@ -7,7 +7,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/antonholmquist/jason"
 	"io/ioutil"
 	"log"
 	"os"
@@ -15,6 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/antonholmquist/jason"
 )
 
 var (
@@ -66,7 +67,7 @@ func writeNestedRecords(outfile *os.File, record *jason.Object) {
 		if err != nil {
 			log.Fatalf("Expected %s['fields'][%d]['type']['items'] == object", name, i)
 		}
-		fmt.Fprint(outfile, "\n") // only add additional newline if more vars will be printed
+		fmt.Fprint(outfile, "\n")                   // only add additional newline if more vars will be printed
 		writeNestedRecords(outfile, fieldTypeItems) // recurse
 	}
 }
