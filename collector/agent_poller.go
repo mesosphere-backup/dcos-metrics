@@ -102,7 +102,6 @@ func NewAgent(
 // This function should be run as a gofunc.
 func (a *Agent) Run(recordsChan chan<- *AvroDatum, stats chan<- StatsEvent) {
 	// fetch agent ip once. per DC/OS docs, changing a node IP is unsupported
-	a.AgentIP = ""
 	if len(*agentTestStateFileFlag) == 0 ||
 		len(*agentTestSystemFileFlag) == 0 ||
 		len(*agentTestContainersFileFlag) == 0 {
