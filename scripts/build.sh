@@ -19,4 +19,4 @@ go generate
 
 # build binary
 cd cmd/dcos-metrics-collector
-go build -a -ldflags "-w" -o ${BUILD_DIR}/dcos-metrics-collector-${GIT_REF} *.go
+go build -a -o ${BUILD_DIR}/dcos-metrics-collector-${GIT_REF} *.go
