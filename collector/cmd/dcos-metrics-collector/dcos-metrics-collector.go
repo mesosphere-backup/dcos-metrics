@@ -30,7 +30,16 @@ func main() {
 	agentStateChan := make(chan *collector.AgentState)
 	if collectorConfig.DCOSRole == "agent" {
 		log.Printf("Agent polling enabled")
-		go collector.RunAgentPoller(recordInputChan, agentStateChan, stats)
+		agent, err := collector.NewAgent(
+			collectorConfig.IpCommand,
+			collectorConfig.AgentConfig.Port,
+			collectorConfig.PollingPeriod,
+			collectorConfig.AgentConfig.Topic)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+
+		go agent.Run(recordInputChan, stats)
 	}
 	go collector.RunAvroTCPReader(recordInputChan, stats)
 

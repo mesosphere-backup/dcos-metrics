@@ -1,3 +1,6 @@
-poll_agent: true
-http_profiler_enabled: false
-kafka_flag_enabled: false
+http_profiler: false
+kafka_producer: false
+polling_period: 5
+agent_config:
+  port: 1234
+  topic: foo-topic

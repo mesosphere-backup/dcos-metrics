@@ -72,6 +72,7 @@ func getNewConfig(args []string) (CollectorConfig, error) {
 	if err := c.loadConfig(); err != nil {
 		return c, err
 	}
+	fmt.Printf("%+v", c)
 
 	return c, nil
 }
