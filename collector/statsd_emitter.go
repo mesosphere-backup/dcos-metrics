@@ -18,8 +18,10 @@ var (
 		"Period between statsd metrics flushes, in seconds")
 )
 
+// StatsEventType ...
 type StatsEventType int
 
+//StatsD constants
 const (
 	statsdPrefix = "dcos.metrics.collector"
 	udpFrameSize = 512
@@ -46,6 +48,7 @@ const (
 	AgentIPLookup
 	AgentIPLookupFailed
 	AgentIPLookupEmpty
+
 	AgentQuery
 	AgentQueryBadData
 	AgentQueryFailed
@@ -62,21 +65,29 @@ const (
 	AvroBytesOutThrottled
 )
 
+// StatsEvent ...
 type StatsEvent struct {
 	evttype StatsEventType
 	suffix  string
 	count   int
 }
 
+// MakeEventSuffCount ...
 func MakeEventSuffCount(evttype StatsEventType, suffix string, count int) StatsEvent {
 	return StatsEvent{evttype, suffix, count}
 }
+
+// MakeEventCount ...
 func MakeEventCount(evttype StatsEventType, count int) StatsEvent {
 	return StatsEvent{evttype, "", count}
 }
+
+// MakeEventSuff ...
 func MakeEventSuff(evttype StatsEventType, suffix string) StatsEvent {
 	return StatsEvent{evttype, suffix, 1}
 }
+
+// MakeEvent ...
 func MakeEvent(evttype StatsEventType) StatsEvent {
 	return StatsEvent{evttype, "", 1}
 }

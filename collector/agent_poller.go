@@ -52,6 +52,7 @@ var marathonAppIDLabelKeys = map[string]bool{
 	"DCOS_SPACE":      true,
 }
 
+// AgentState ...
 type AgentState struct {
 	// agent_id
 	agentID string
@@ -61,6 +62,7 @@ type AgentState struct {
 	executorAppNames map[string]string
 }
 
+// Agent ...
 type Agent struct {
 	AgentIP        string
 	IPCommand      string
@@ -70,6 +72,7 @@ type Agent struct {
 	AgentStateChan chan<- *AgentState
 }
 
+// NewAgent ...
 func NewAgent(
 	ipCommand string,
 	port int,

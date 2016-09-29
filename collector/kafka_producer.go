@@ -29,6 +29,7 @@ var (
 		"Enable extra logging in the underlying Kafka client.")
 )
 
+// KafkaMessage ...
 type KafkaMessage struct {
 	Topic string
 	Data  []byte

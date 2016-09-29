@@ -10,6 +10,7 @@ const (
 	userAgent = "metrics-collector/1.0"
 )
 
+// HTTPCodeError ...
 type HTTPCodeError struct {
 	Code int
 	URI  string
@@ -23,6 +24,7 @@ func newHTTPCodeError(code int, uri string) HTTPCodeError {
 	return HTTPCodeError{Code: code, URI: uri}
 }
 
+// AuthedHTTPGet ...
 func AuthedHTTPGet(endpoint string, authToken string) ([]byte, error) {
 	request, err := createAuthedHTTPGetRequest(endpoint, authToken)
 	if err != nil {
@@ -31,6 +33,7 @@ func AuthedHTTPGet(endpoint string, authToken string) ([]byte, error) {
 	return httpGet(request)
 }
 
+// HTTPGet ...
 func HTTPGet(endpoint string) ([]byte, error) {
 	request, err := createHTTPGetRequest(endpoint)
 	if err != nil {
