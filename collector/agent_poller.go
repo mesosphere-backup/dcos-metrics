@@ -76,7 +76,7 @@ func NewAgent(
 	pollPeriod int,
 	topic string) (Agent, error) {
 	a := Agent{}
-	if len(ipCommand) < 0 {
+	if len(ipCommand) == 0 {
 		return a, errors.New("Must pass ipAddress to NewAgent()")
 	}
 	if port < 1024 {
@@ -85,7 +85,7 @@ func NewAgent(
 	if pollPeriod == 0 {
 		return a, errors.New("Must pass pollPeriod to NewAgent()")
 	}
-	if len(topic) < 1 {
+	if len(topic) == 0 {
 		return a, errors.New("Must pass topic to NewAgent()")
 	}
 
