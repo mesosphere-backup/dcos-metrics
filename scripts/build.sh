@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+export PATH="${GOPATH}/bin:${PATH}"
 export CGO_ENABLED=0
 
 COMPONENT="$1"
