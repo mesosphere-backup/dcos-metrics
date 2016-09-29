@@ -15,14 +15,6 @@ import (
 )
 
 var (
-	agentIpCommandFlag = StringEnvFlag("agent-ip-command", "/opt/mesosphere/bin/detect_ip",
-		"A command to execute which writes the local Mesos Agent's IP to stdout")
-	agentPortFlag = IntEnvFlag("agent-port", 5051,
-		"HTTP port to use when querying the local Mesos Agent")
-	agentPollPeriodFlag = IntEnvFlag("agent-poll-period", 15,
-		"Period between retrievals of data from the local Mesos Agent, in seconds")
-	agentMetricsTopicFlag = StringEnvFlag("agent-metrics-topic", "agent",
-		"Topic to use for local Mesos Agent statistics. Will be prefixed with -kafka-topic-prefix")
 	agentTestStateFileFlag = StringEnvFlag("agent-test-state-file", "",
 		"JSON file containing the agent state to be used, for debugging")
 	agentTestSystemFileFlag = StringEnvFlag("agent-test-system-file", "",
@@ -69,80 +61,119 @@ type AgentState struct {
 	executorAppNames map[string]string
 }
 
+type Agent struct {
+	AgentIP        string
+	IPCommand      string
+	Port           int
+	PollPeriod     int
+	Topic          string
+	AgentStateChan chan<- *AgentState
+}
+
+func NewAgent(
+	ipCommand string,
+	port int,
+	pollPeriod int,
+	topic string) (Agent, error) {
+	a := Agent{}
+	if len(ipCommand) == 0 {
+		return a, errors.New("Must pass ipAddress to NewAgent()")
+	}
+	if port < 1024 {
+		return a, errors.New("Must pass port to NewAgent()")
+	}
+	if pollPeriod == 0 {
+		return a, errors.New("Must pass pollPeriod to NewAgent()")
+	}
+	if len(topic) == 0 {
+		return a, errors.New("Must pass topic to NewAgent()")
+	}
+
+	a.IPCommand = ipCommand
+	a.Port = port
+	a.PollPeriod = pollPeriod
+	a.Topic = topic
+	a.AgentStateChan = make(chan *AgentState)
+
+	return a, nil
+}
+
 // Runs an Agent Poller which periodically produces data retrieved from a local Mesos Agent.
 // This function should be run as a gofunc.
-func RunAgentPoller(recordsChan chan<- *AvroDatum, agentStateChan chan<- *AgentState, stats chan<- StatsEvent) {
+func (a *Agent) Run(recordsChan chan<- *AvroDatum, stats chan<- StatsEvent) {
 	// fetch agent ip once. per DC/OS docs, changing a node IP is unsupported
-	var agentIp string = ""
 	if len(*agentTestStateFileFlag) == 0 ||
 		len(*agentTestSystemFileFlag) == 0 ||
 		len(*agentTestContainersFileFlag) == 0 {
 		// only get the ip if actually needed
-		agentIp = getAgentIp(stats)
+		//TODO needs err
+		a.getIP(stats)
 	}
 
 	// do one poll immediately upon starting, to ensure that agent metadata is populated early:
-	pollAgent(agentIp, recordsChan, agentStateChan, stats)
-	ticker := time.NewTicker(time.Second * time.Duration(*agentPollPeriodFlag))
+	a.pollAgent(recordsChan, stats)
+	ticker := time.NewTicker(time.Second * time.Duration(a.PollPeriod))
 	for {
 		select {
 		case _ = <-ticker.C:
-			pollAgent(agentIp, recordsChan, agentStateChan, stats)
+			a.pollAgent(recordsChan, stats)
 		}
 	}
 }
 
 // ---
 
-func pollAgent(agentIp string, recordsChan chan<- *AvroDatum, agentStateChan chan<- *AgentState, stats chan<- StatsEvent) {
+func (a *Agent) pollAgent(recordsChan chan<- *AvroDatum, stats chan<- StatsEvent) {
 	// always fetch/emit agent state first: downstream will use it for tagging metrics
-	agentState, err := getAgentState(agentIp, stats)
+	agentState, err := a.getAgentState(stats)
 	if err == nil {
-		agentStateChan <- agentState
+		a.AgentStateChan <- agentState
 	} else {
-		log.Printf("Failed to retrieve state from agent at %s: %s", agentIp, err)
+		log.Printf("Failed to retrieve state from agent at %s: %s", a.AgentIP, err)
 	}
 
-	systemMetricsList, err := getSystemMetrics(agentIp, agentState, stats)
+	systemMetricsList, err := a.getSystemMetrics(agentState, stats)
 	if err == nil {
 		if systemMetricsList != nil {
 			recordsChan <- systemMetricsList
 		}
 	} else {
-		log.Printf("Failed to retrieve system metrics from agent at %s: %s", agentIp, err)
+		log.Printf("Failed to retrieve system metrics from agent at %s: %s", a.AgentIP, err)
 	}
 
-	containerMetricsLists, err := getContainerMetrics(agentIp, agentState, stats)
+	containerMetricsLists, err := a.getContainerMetrics(agentState, stats)
 	if err == nil {
 		for _, metricList := range containerMetricsLists {
 			recordsChan <- metricList
 		}
 	} else {
-		log.Printf("Failed to retrieve container metrics from agent at %s: %s", agentIp, err)
+		log.Printf("Failed to retrieve container metrics from agent at %s: %s", a.AgentIP, err)
 	}
 }
 
 // runs detect_ip => "10.0.3.26\n"
-func getAgentIp(stats chan<- StatsEvent) string {
+func (a *Agent) getIP(stats chan<- StatsEvent) error {
 	stats <- MakeEvent(AgentIpLookup)
-	cmdWithArgs := strings.Split(*agentIpCommandFlag, " ")
+	cmdWithArgs := strings.Split(a.IPCommand, " ")
 	ipBytes, err := exec.Command(cmdWithArgs[0], cmdWithArgs[1:]...).Output()
 	if err != nil {
 		stats <- MakeEvent(AgentIpLookupFailed)
-		log.Fatalf("Fetching Agent IP with -agent-ip-command='%s' failed: %s", *agentIpCommandFlag, err)
+		return err
 	}
 	ip := strings.TrimSpace(string(ipBytes))
 	if len(ip) == 0 {
 		stats <- MakeEvent(AgentIpLookupEmpty)
-		log.Fatalf("Agent IP fetched with -agent-ip-command='%s' is empty", *agentIpCommandFlag)
+		return err
 	}
-	//log.Printf("Agent IP obtained with -agent-ip-command='%s': %s\n", *agentIpCommandFlag, ip)
-	return ip
+
+	a.AgentIP = ip
+
+	return nil
 }
 
 // fetches container-level resource metrics from the agent (via /containers), emits to the framework topics (default 'metrics-<framework_id>')
-func getContainerMetrics(agentIp string, agentState *AgentState, stats chan<- StatsEvent) ([]*AvroDatum, error) {
-	rootJson, err := getJsonFromAgent(agentIp, "/containers", agentTestContainersFileFlag, stats)
+func (a *Agent) getContainerMetrics(agentState *AgentState, stats chan<- StatsEvent) ([]*AvroDatum, error) {
+	rootJson, err := a.getJsonFromAgent("/containers", agentTestContainersFileFlag, stats)
 	if err != nil {
 		return nil, err
 	}
@@ -243,8 +274,8 @@ func getContainerMetrics(agentIp string, agentState *AgentState, stats chan<- St
 }
 
 // fetches system-level metrics from the agent (via /metrics/snapshot), emits to the agent topic (default 'metrics-agent')
-func getSystemMetrics(agentIp string, agentState *AgentState, stats chan<- StatsEvent) (*AvroDatum, error) {
-	rootJson, err := getJsonFromAgent(agentIp, "/metrics/snapshot", agentTestSystemFileFlag, stats)
+func (a *Agent) getSystemMetrics(agentState *AgentState, stats chan<- StatsEvent) (*AvroDatum, error) {
+	rootJson, err := a.getJsonFromAgent("/metrics/snapshot", agentTestSystemFileFlag, stats)
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +300,7 @@ func getSystemMetrics(agentIp string, agentState *AgentState, stats chan<- Stats
 		datapoint, err := goavro.NewRecord(datapointNamespace, datapointSchema)
 		if err != nil {
 			log.Fatalf("Failed to create Datapoint record for topic %s (agent %s): %s",
-				*agentMetricsTopicFlag, agentState.agentId, err)
+				a.Topic, agentState.agentId, err)
 		}
 		datapoint.Set("name", systemMetricPrefix+strings.Replace(key, "/", ".", -1)) // "key/path" => "key.path"
 		datapoint.Set("time_ms", nowMillis)
@@ -284,19 +315,19 @@ func getSystemMetrics(agentIp string, agentState *AgentState, stats chan<- Stats
 	metricListRec, err := goavro.NewRecord(metricListNamespace, metricListSchema)
 	if err != nil {
 		log.Fatalf("Failed to create MetricList record for topic %s (agent %s): %s",
-			*agentMetricsTopicFlag, agentState.agentId, err)
+			a.Topic, agentState.agentId, err)
 	}
-	metricListRec.Set("topic", *agentMetricsTopicFlag)
+	metricListRec.Set("topic", a.Topic)
 	metricListRec.Set("datapoints", datapoints)
 	// note: agent_id tag is automatically added downstream
 	metricListRec.Set("tags", make([]interface{}, 0))
 	// just use a size of zero, relative to limits it'll be insignificant anyway:
-	return &AvroDatum{metricListRec, *agentMetricsTopicFlag, 0}, nil
+	return &AvroDatum{metricListRec, a.Topic, 0}, nil
 }
 
 // fetches container state from the agent (via /state) to populate AgentState
-func getAgentState(agentIp string, stats chan<- StatsEvent) (*AgentState, error) {
-	rootJson, err := getJsonFromAgent(agentIp, "/state", agentTestStateFileFlag, stats)
+func (a *Agent) getAgentState(stats chan<- StatsEvent) (*AgentState, error) {
+	rootJson, err := a.getJsonFromAgent("/state", agentTestStateFileFlag, stats)
 	if err != nil {
 		return nil, err
 	}
@@ -383,12 +414,12 @@ func getAgentState(agentIp string, stats chan<- StatsEvent) (*AgentState, error)
 		executorAppNames: executorAppNames}, nil
 }
 
-func getJsonFromAgent(agentIp string, urlPath string, testFileFlag *string, stats chan<- StatsEvent) (*jason.Value, error) {
+func (a *Agent) getJsonFromAgent(urlPath string, testFileFlag *string, stats chan<- StatsEvent) (*jason.Value, error) {
 	stats <- MakeEvent(AgentQuery)
 	var rawJson []byte = nil
 	var err error = nil
 	if len(*testFileFlag) == 0 {
-		endpoint := fmt.Sprintf("http://%s:%d%s", agentIp, *agentPortFlag, urlPath)
+		endpoint := fmt.Sprintf("http://%s:%d%s", a.AgentIP, a.Port, urlPath)
 		if len(*authCredentialFlag) == 0 {
 			rawJson, err = HttpGet(endpoint)
 		} else {
