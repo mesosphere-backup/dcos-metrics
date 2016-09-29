@@ -4,17 +4,11 @@ import (
 	"flag"
 	"io/ioutil"
 	"os"
-	"reflect"
 	"testing"
 )
 
 func TestDefaultConfig(t *testing.T) {
 	testConfig := newConfig()
-
-	testFileType := reflect.TypeOf(testConfig)
-	if testFileType.Name() != "CollectorConfig" {
-		t.Error("defaultConfig() should return ConfigFile type, got", testFileType.Name())
-	}
 
 	if testConfig.PollingPeriod != 15 {
 		t.Error("Expected polling period to be 15 by default")
