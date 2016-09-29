@@ -18,8 +18,10 @@ var (
 		"Period between statsd metrics flushes, in seconds")
 )
 
+// StatsEventType ...
 type StatsEventType int
 
+//StatsD constants
 const (
 	statsdPrefix = "dcos.metrics.collector"
 	udpFrameSize = 512
@@ -43,9 +45,10 @@ const (
 	KafkaMessageSent
 	KafkaBytesSent
 
-	AgentIpLookup
-	AgentIpLookupFailed
-	AgentIpLookupEmpty
+	AgentIPLookup
+	AgentIPLookupFailed
+	AgentIPLookupEmpty
+
 	AgentQuery
 	AgentQueryBadData
 	AgentQueryFailed
@@ -62,26 +65,34 @@ const (
 	AvroBytesOutThrottled
 )
 
+// StatsEvent ...
 type StatsEvent struct {
 	evttype StatsEventType
 	suffix  string
 	count   int
 }
 
+// MakeEventSuffCount ...
 func MakeEventSuffCount(evttype StatsEventType, suffix string, count int) StatsEvent {
 	return StatsEvent{evttype, suffix, count}
 }
+
+// MakeEventCount ...
 func MakeEventCount(evttype StatsEventType, count int) StatsEvent {
 	return StatsEvent{evttype, "", count}
 }
+
+// MakeEventSuff ...
 func MakeEventSuff(evttype StatsEventType, suffix string) StatsEvent {
 	return StatsEvent{evttype, suffix, 1}
 }
+
+// MakeEvent ...
 func MakeEvent(evttype StatsEventType) StatsEvent {
 	return StatsEvent{evttype, "", 1}
 }
 
-// Creates and runs a Stats Emitter which sends counts to a UDP endpoint,
+// RunStatsEmitter creates and runs a Stats Emitter which sends counts to a UDP endpoint,
 // or which just emits to logs if the endpoint isn't available.
 // This function should be run as a gofunc.
 func RunStatsEmitter(events <-chan StatsEvent) {
@@ -143,11 +154,11 @@ func toStatsdLabel(event StatsEvent) string {
 	case KafkaBytesSent:
 		statsdKey = "kafka_output.bytes_sent"
 
-	case AgentIpLookup:
+	case AgentIPLookup:
 		statsdKey = "agent_poll.ip_lookups"
-	case AgentIpLookupFailed:
+	case AgentIPLookupFailed:
 		statsdKey = "agent_poll.ip_lookup_failures"
-	case AgentIpLookupEmpty:
+	case AgentIPLookupEmpty:
 		statsdKey = "agent_poll.ip_lookup_empties"
 	case AgentQuery:
 		statsdKey = "agent_poll.queries"
@@ -179,9 +190,8 @@ func toStatsdLabel(event StatsEvent) string {
 	}
 	if len(event.suffix) == 0 {
 		return fmt.Sprintf("%s.%s", statsdPrefix, statsdKey)
-	} else {
-		return fmt.Sprintf("%s.%s.%s", statsdPrefix, statsdKey, event.suffix)
 	}
+	return fmt.Sprintf("%s.%s.%s", statsdPrefix, statsdKey, event.suffix)
 }
 
 func getStatsdConn() *net.UDPConn {

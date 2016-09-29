@@ -38,14 +38,14 @@ var (
 )
 
 const (
-	agentIdTag         = "agent_id"
-	frameworkIdTag     = "framework_id"
+	agentIDTag         = "agent_id"
+	frameworkIDTag     = "framework_id"
 	frameworkNameTag   = "framework_name"
-	executorIdTag      = "executor_id"
+	executorIDTag      = "executor_id"
 	applicationNameTag = "application_name"
 )
 
-// A single Avro record with some metadata about it
+// AvroDatum is a single Avro record with some metadata about it
 type AvroDatum struct {
 	// the goavro.Record itself
 	rec interface{}
@@ -55,7 +55,7 @@ type AvroDatum struct {
 	approxBytes int64
 }
 
-// A collection of Avro records along with their approximate total byte size
+// avroData is a collection of Avro records along with their approximate total byte size
 type avroData struct {
 	// goavro.Records
 	recs []interface{}
@@ -71,7 +71,7 @@ func (d *avroData) append(datum *AvroDatum) {
 	d.approxBytes += datum.approxBytes
 }
 
-// Sorts incoming Avro records into Kafka topics
+// RunTopicSorter sorts incoming Avro records into Kafka topics
 func RunTopicSorter(avroInput <-chan *AvroDatum, agentStateInput <-chan *AgentState, kafkaOutput chan<- KafkaMessage, stats chan<- StatsEvent) {
 	codec, err := goavro.NewCodec(metrics_schema.MetricListSchema)
 	if err != nil {
@@ -81,7 +81,7 @@ func RunTopicSorter(avroInput <-chan *AvroDatum, agentStateInput <-chan *AgentSt
 	topics := make(map[string]avroData)
 	produceTicker := time.NewTicker(time.Millisecond * time.Duration(*kafkaProducePeriodMsFlag))
 	resetLimitTicker := time.NewTicker(time.Second * time.Duration(*globalLimitPeriodFlag))
-	var agentState *AgentState = nil
+	var agentState *AgentState
 	var totalRecordCount int64
 	var totalByteCount int64
 	var droppedByteCount int64
@@ -127,7 +127,7 @@ func RunTopicSorter(avroInput <-chan *AvroDatum, agentStateInput <-chan *AgentSt
 			// got updated agent state, use for future record flushes
 			agentState = state
 			log.Printf("Agent state updated: id=%s, frameworks(%d), applications(%d)",
-				agentState.agentId, len(agentState.frameworkNames), len(agentState.executorAppNames))
+				agentState.agentID, len(agentState.frameworkNames), len(agentState.executorAppNames))
 		case _ = <-produceTicker.C:
 			// timeout reached: flush any pending data
 			flushReason := fmt.Sprintf("%d ms", *kafkaProducePeriodMsFlag)
@@ -159,7 +159,8 @@ func RunTopicSorter(avroInput <-chan *AvroDatum, agentStateInput <-chan *AgentSt
 	}
 }
 
-// Extracts the topic value from the provided Avro record object, or a stub value with "false" if the topic wasn't retrievable.
+// GetTopic extracts the topic value from the provided Avro record object,
+// or a stub value with "false" if the topic wasn't retrievable.
 func GetTopic(obj interface{}) (string, bool) {
 	record, ok := obj.(*goavro.Record)
 	if !ok {
@@ -239,7 +240,7 @@ func processRecs(agentState *AgentState, recs []interface{}, stats chan<- StatsE
 
 		if agentState == nil {
 			// haven't gotten agent state yet (skip framework_name; it's irrelevant to many stats)
-			tags = addTag(tags, agentIdTag, "UNKNOWN_AGENT_STATE")
+			tags = addTag(tags, agentIDTag, "UNKNOWN_AGENT_STATE")
 		} else {
 			frameworkName := findFrameworkName(tags, agentState, stats)
 			if len(frameworkName) != 0 {
@@ -249,7 +250,7 @@ func processRecs(agentState *AgentState, recs []interface{}, stats chan<- StatsE
 			if len(applicationName) != 0 {
 				tags = addTag(tags, applicationNameTag, applicationName)
 			}
-			tags = addTag(tags, agentIdTag, agentState.agentId)
+			tags = addTag(tags, agentIDTag, agentState.agentID)
 		}
 
 		// Update tags in record
@@ -288,17 +289,17 @@ func findTagValue(tags []interface{}, key string, stats chan<- StatsEvent) (stri
 }
 
 func findFrameworkName(tags []interface{}, agentState *AgentState, stats chan<- StatsEvent) string {
-	frameworkId, err := findTagValue(tags, frameworkIdTag, stats)
+	frameworkID, err := findTagValue(tags, frameworkIDTag, stats)
 	if err != nil {
 		// Failed to access tags at all
 		return "ERROR_BAD_RECORD"
 	}
-	if len(frameworkId) == 0 {
+	if len(frameworkID) == 0 {
 		// Data lacks a framework id. This means the data isn't tied to a specific framework.
 		// Don't include a "framework_name" tag.
 		return ""
 	}
-	frameworkName, ok := agentState.frameworkNames[frameworkId]
+	frameworkName, ok := agentState.frameworkNames[frameworkID]
 	if ok {
 		return frameworkName
 	}
@@ -308,17 +309,17 @@ func findFrameworkName(tags []interface{}, agentState *AgentState, stats chan<- 
 }
 
 func findApplicationName(tags []interface{}, agentState *AgentState, stats chan<- StatsEvent) string {
-	executorId, err := findTagValue(tags, executorIdTag, stats)
+	executorID, err := findTagValue(tags, executorIDTag, stats)
 	if err != nil {
 		// Failed to access tags at all
 		return "ERROR_BAD_RECORD"
 	}
-	if len(executorId) == 0 {
+	if len(executorID) == 0 {
 		// Data lacks an executor id. This means the data isn't tied to a specific framework.
 		// Don't include an "application_name" tag.
 		return ""
 	}
-	applicationName, ok := agentState.executorAppNames[executorId]
+	applicationName, ok := agentState.executorAppNames[executorID]
 	if ok {
 		return applicationName
 	}

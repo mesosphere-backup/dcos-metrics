@@ -26,7 +26,7 @@ var (
 		"Number of seconds over which to enforce -input-limit-amount-kbytes")
 )
 
-// Runs a TCP socket listener which produces Avro records sent to that socket.
+// RunAvroTCPReader runs a TCP socket listener which produces Avro records sent to that socket.
 // Expects input which has been formatted in the Avro ODF standard.
 // This function should be run as a gofunc.
 func RunAvroTCPReader(recordsChan chan<- *AvroDatum, stats chan<- StatsEvent) {

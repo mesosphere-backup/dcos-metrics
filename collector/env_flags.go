@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// BoolEnvFlag ...
 func BoolEnvFlag(flagName string, defaultVal bool, usage string) *bool {
 	envName := toEnvName(flagName)
 	defaultValToUse, err := strconv.ParseBool(os.Getenv(envName))
@@ -17,6 +18,7 @@ func BoolEnvFlag(flagName string, defaultVal bool, usage string) *bool {
 	return flag.Bool(flagName, defaultValToUse, formatUsage(envName, usage))
 }
 
+// IntEnvFlag ...
 func IntEnvFlag(flagName string, defaultVal int64, usage string) *int64 {
 	envName := toEnvName(flagName)
 	defaultValToUse, err := strconv.ParseInt(os.Getenv(envName), 10, 32)
@@ -26,6 +28,7 @@ func IntEnvFlag(flagName string, defaultVal int64, usage string) *int64 {
 	return flag.Int64(flagName, defaultValToUse, formatUsage(envName, usage))
 }
 
+// StringEnvFlag ...
 func StringEnvFlag(flagName string, defaultVal string, usage string) *string {
 	envName := toEnvName(flagName)
 	defaultValToUse := os.Getenv(envName)
@@ -35,6 +38,7 @@ func StringEnvFlag(flagName string, defaultVal string, usage string) *string {
 	return flag.String(flagName, defaultValToUse, formatUsage(envName, usage))
 }
 
+// PrintFlagEnv ...
 func PrintFlagEnv(flag *flag.Flag) {
 	if len(flag.Value.String()) == 0 {
 		fmt.Fprintf(os.Stderr, "%s=%s\n", toEnvName(flag.Name), flag.DefValue)
