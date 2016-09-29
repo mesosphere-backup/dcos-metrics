@@ -10,29 +10,29 @@ const (
 	userAgent = "metrics-collector/1.0"
 )
 
-type HTTPCodeError struct {
+type HttpCodeError struct {
 	Code int
 	URI  string
 }
 
-func (e HTTPCodeError) Error() string {
+func (e HttpCodeError) Error() string {
 	return fmt.Sprintf(
 		"Got response code when querying %s: %d", e.URI, e.Code)
 }
-func newHTTPCodeError(code int, uri string) HTTPCodeError {
-	return HTTPCodeError{Code: code, URI: uri}
+func newHttpCodeError(code int, uri string) HttpCodeError {
+	return HttpCodeError{Code: code, URI: uri}
 }
 
-func AuthedHTTPGet(endpoint string, authToken string) ([]byte, error) {
-	request, err := createAuthedHTTPGetRequest(endpoint, authToken)
+func AuthedHttpGet(endpoint string, authToken string) ([]byte, error) {
+	request, err := createAuthedHttpGetRequest(endpoint, authToken)
 	if err != nil {
 		return nil, err
 	}
 	return httpGet(request)
 }
 
-func HTTPGet(endpoint string) ([]byte, error) {
-	request, err := createHTTPGetRequest(endpoint)
+func HttpGet(endpoint string) ([]byte, error) {
+	request, err := createHttpGetRequest(endpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -46,13 +46,13 @@ func httpGet(request *http.Request) ([]byte, error) {
 		return nil, err
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nil, newHTTPCodeError(response.StatusCode, request.RequestURI)
+		return nil, newHttpCodeError(response.StatusCode, request.RequestURI)
 	}
 	return ioutil.ReadAll(response.Body)
 }
 
-func createAuthedHTTPGetRequest(endpoint string, authToken string) (*http.Request, error) {
-	request, err := createHTTPGetRequest(endpoint)
+func createAuthedHttpGetRequest(endpoint string, authToken string) (*http.Request, error) {
+	request, err := createHttpGetRequest(endpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func createAuthedHTTPGetRequest(endpoint string, authToken string) (*http.Reques
 	return request, nil
 }
 
-func createHTTPGetRequest(endpoint string) (*http.Request, error) {
+func createHttpGetRequest(endpoint string) (*http.Request, error) {
 	request, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, err
