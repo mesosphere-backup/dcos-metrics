@@ -14,27 +14,12 @@
 set -e
 export PATH="${GOPATH}/bin:${PATH}"
 
+COMPONENT="$1"; shift
+TEST_SUITE="$1"; shift
+
 SOURCE_DIR=$(git rev-parse --show-toplevel)
 BUILD_DIR="${SOURCE_DIR}/build/${COMPONENT}"
 
-
-function test_collector {
-    local test_suite="$1"
-    local test_dirs="collector/"
-    local package_dirs="./collector/..."
-    local ignore_packages=""
-
-    if [[ $test_suite == "unit" ]]; then
-        _gofmt
-        _goimports
-        _golint "$test_dirs"
-        _govet "$package_dirs"
-        _go_unit_test_with_coverage $test_suite "$package_dirs" "$ignore_packages"
-    else
-        echo "Unsupported test suite '${test_suite}'"
-        exit 1
-    fi
-}
 
 function logmsg {
     echo -e "\n\n*** $1 ***\n"
@@ -67,25 +52,27 @@ function _golint {
 function _govet {
     local package_dirs="$1"
     logmsg "Running 'go vet' ..."
-    go vet $package_dirs
+    go vet $(go list $package_dirs | grep -v vendor/)
     [[ $? -eq 0 ]] && echo "OK."
 }
 
 
-function _go_test_with_coverage {
-    local test_suite="$1"
-    local package_dirs="$2"
-    local ignore_packages="$3"
+function _unittest_with_coverage {
+    local package_dirs="$1"
+    local ignore_packages="$2"
     local covermode="count"
     logmsg "Running unit tests ..."
 
     go get -u github.com/jstemmer/go-junit-report
     go get -u github.com/smartystreets/goconvey/convey
     go get -u golang.org/x/tools/cmd/cover
+    go get github.com/axw/gocov/...
+    go get github.com/AlekSi/gocov-xml
 
     # We can't' use the test profile flag with multiple packages. Therefore,
     # run 'go test' for each package, and concatenate the results into
     # 'profile.cov'.
+    mkdir -p ${BUILD_DIR}/{test-reports,coverage-reports}
     echo "mode: ${covermode}" > ${BUILD_DIR}/coverage-reports/profile.cov
 
     for import_path in $(go list -f={{.ImportPath}} ${package_dirs} | grep -v vendor); do
@@ -94,8 +81,8 @@ function _go_test_with_coverage {
         go test                                                                  \
             -v                                                                   \
             -race                                                                \
-            --tags="$test_suite"                                                 \
-            -covermode=$covermode
+            --tags="$TEST_SUITE"                                                 \
+            -covermode=$covermode                                                \
             -coverprofile="${BUILD_DIR}/coverage-reports/profile_${package}.cov" \
             $import_path                                                         \
             | go-junit-report > "${BUILD_DIR}/test-reports/${package}-report.xml"
@@ -107,7 +94,7 @@ function _go_test_with_coverage {
         rm $f
     done
 
-    go tool cover -func profile.cov
+    go tool cover -func ${BUILD_DIR}/coverage-reports/profile.cov
     gocov convert ${BUILD_DIR}/coverage-reports/profile.cov \
         | gocov-xml > "${BUILD_DIR}/coverage-reports/coverage.xml"
 }
@@ -115,21 +102,20 @@ function _go_test_with_coverage {
 
 # Main. Example usage: ./test.sh collector unit
 function main {
-    component="$1"
-    test_suite="$2"
+    local test_dirs="${COMPONENT}/"
+    local package_dirs="./${COMPONENT}/..."
+    local ignore_packages=""
 
-    if [[ $test_suite != "unit" ]]; then
-        echo "Error: only 'unit' is currently supported."
+    if [[ $TEST_SUITE == "unit" ]]; then
+        _gofmt
+        _goimports
+        _golint "$test_dirs"
+        _govet "$package_dirs"
+        _unittest_with_coverage "$package_dirs" "$ignore_packages"
+    else
+        echo "Unsupported test suite '${TEST_SUITE}'"
         exit 1
     fi
-
-    if [[ $component != "collector" ]]; then
-        echo "Error: only 'collector' is currently supported."
-        exit 1
-    fi
-
-    test_${component} $test_suite
 }
 
-
-main "$@"
+main
