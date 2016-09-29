@@ -41,20 +41,20 @@ const (
 
 	// same name in both agent json and metrics tags:
 	timestampKey   = "timestamp"
-	containerIdKey = "container_id"
-	executorIdKey  = "executor_id"
-	frameworkIdKey = "framework_id"
+	containerIDKey = "container_id"
+	executorIDKey  = "executor_id"
+	frameworkIDKey = "framework_id"
 )
 
 // can't be const:
-var marathonAppIdLabelKeys = map[string]bool{
+var marathonAppIDLabelKeys = map[string]bool{
 	"MARATHON_APP_ID": true,
 	"DCOS_SPACE":      true,
 }
 
 type AgentState struct {
 	// agent_id
-	agentId string
+	agentID string
 	// framework_id => framework_name
 	frameworkNames map[string]string
 	// executor_id => application_name
@@ -98,7 +98,7 @@ func NewAgent(
 	return a, nil
 }
 
-// Runs an Agent Poller which periodically produces data retrieved from a local Mesos Agent.
+// Run runs an Agent Poller which periodically produces data retrieved from a local Mesos Agent.
 // This function should be run as a gofunc.
 func (a *Agent) Run(recordsChan chan<- *AvroDatum, stats chan<- StatsEvent) {
 	// fetch agent ip once. per DC/OS docs, changing a node IP is unsupported
@@ -153,16 +153,16 @@ func (a *Agent) pollAgent(recordsChan chan<- *AvroDatum, stats chan<- StatsEvent
 
 // runs detect_ip => "10.0.3.26\n"
 func (a *Agent) getIP(stats chan<- StatsEvent) error {
-	stats <- MakeEvent(AgentIpLookup)
+	stats <- MakeEvent(AgentIPLookup)
 	cmdWithArgs := strings.Split(a.IPCommand, " ")
 	ipBytes, err := exec.Command(cmdWithArgs[0], cmdWithArgs[1:]...).Output()
 	if err != nil {
-		stats <- MakeEvent(AgentIpLookupFailed)
+		stats <- MakeEvent(AgentIPLookupFailed)
 		return err
 	}
 	ip := strings.TrimSpace(string(ipBytes))
 	if len(ip) == 0 {
-		stats <- MakeEvent(AgentIpLookupEmpty)
+		stats <- MakeEvent(AgentIPLookupEmpty)
 		return err
 	}
 
@@ -173,25 +173,25 @@ func (a *Agent) getIP(stats chan<- StatsEvent) error {
 
 // fetches container-level resource metrics from the agent (via /containers), emits to the framework topics (default 'metrics-<framework_id>')
 func (a *Agent) getContainerMetrics(agentState *AgentState, stats chan<- StatsEvent) ([]*AvroDatum, error) {
-	rootJson, err := a.getJsonFromAgent("/containers", agentTestContainersFileFlag, stats)
+	rootJSON, err := a.getJSONFromAgent("/containers", agentTestContainersFileFlag, stats)
 	if err != nil {
 		return nil, err
 	}
 
-	containersArray, err := rootJson.ObjectArray()
+	containersArray, err := rootJSON.ObjectArray()
 	if err != nil {
 		stats <- MakeEvent(AgentQueryBadData)
 		return nil, err
 	}
 
-	metricLists := make([]*AvroDatum, 0)
+	var metricLists []*AvroDatum
 	// collect datapoints. expecting a list of dicts, where each dict has:
 	// - tags: 'container_id'/'executor_id'/'framework_id' strings
 	// - datapoints/timestamp: 'statistics' dict of string=>int/dbl (incl a dbl 'timestamp')
 	for _, containerObj := range containersArray {
 
 		// get framework id for topic
-		frameworkId, err := containerObj.GetString(frameworkIdKey)
+		frameworkID, err := containerObj.GetString(frameworkIDKey)
 		if err != nil {
 			stats <- MakeEvent(AgentQueryBadData)
 			return nil, err
@@ -212,7 +212,7 @@ func (a *Agent) getContainerMetrics(agentState *AgentState, stats chan<- StatsEv
 		timestampMillis := int64(timestampRaw * 1000)
 
 		// create datapoints from statistics (excluding timestamp itself)
-		datapoints := make([]interface{}, 0)
+		var datapoints []interface{}
 		for key, valRaw := range statisticsObj.Map() {
 			if key == timestampKey {
 				continue
@@ -226,7 +226,7 @@ func (a *Agent) getContainerMetrics(agentState *AgentState, stats chan<- StatsEv
 			datapoint, err := goavro.NewRecord(datapointNamespace, datapointSchema)
 			if err != nil {
 				log.Fatalf("Failed to create Datapoint record for topic %s (agent %s): %s",
-					frameworkId, agentState.agentId, err)
+					frameworkID, agentState.agentID, err)
 			}
 			datapoint.Set("name", containerMetricPrefix+key)
 			datapoint.Set("time_ms", timestampMillis)
@@ -241,46 +241,46 @@ func (a *Agent) getContainerMetrics(agentState *AgentState, stats chan<- StatsEv
 
 		// create tags
 		// note: agent_id/framework_name tags are automatically added downstream
-		tags := make([]interface{}, 0)
+		var tags []interface{}
 		// container_id
-		tagVal, err := containerObj.GetString(containerIdKey)
+		tagVal, err := containerObj.GetString(containerIDKey)
 		if err != nil {
 			stats <- MakeEvent(AgentQueryBadData)
 			return nil, err
 		}
-		tags = addTag(tags, containerIdKey, tagVal)
+		tags = addTag(tags, containerIDKey, tagVal)
 		// executor_id
-		tagVal, err = containerObj.GetString(executorIdKey)
+		tagVal, err = containerObj.GetString(executorIDKey)
 		if err != nil {
 			stats <- MakeEvent(AgentQueryBadData)
 			return nil, err
 		}
-		tags = addTag(tags, executorIdKey, tagVal)
+		tags = addTag(tags, executorIDKey, tagVal)
 		// framework_id
-		tags = addTag(tags, frameworkIdKey, frameworkId)
+		tags = addTag(tags, frameworkIDKey, frameworkID)
 
 		metricListRec, err := goavro.NewRecord(metricListNamespace, metricListSchema)
 		if err != nil {
 			log.Fatalf("Failed to create MetricList record for topic %s (agent %s): %s",
-				frameworkId, agentState.agentId, err)
+				frameworkID, agentState.agentID, err)
 		}
-		metricListRec.Set("topic", frameworkId)
+		metricListRec.Set("topic", frameworkID)
 		metricListRec.Set("datapoints", datapoints)
 		metricListRec.Set("tags", tags)
 		// just use a size of zero, relative to limits it'll be insignificant anyway:
-		metricLists = append(metricLists, &AvroDatum{metricListRec, frameworkId, 0})
+		metricLists = append(metricLists, &AvroDatum{metricListRec, frameworkID, 0})
 	}
 	return metricLists, nil
 }
 
 // fetches system-level metrics from the agent (via /metrics/snapshot), emits to the agent topic (default 'metrics-agent')
 func (a *Agent) getSystemMetrics(agentState *AgentState, stats chan<- StatsEvent) (*AvroDatum, error) {
-	rootJson, err := a.getJsonFromAgent("/metrics/snapshot", agentTestSystemFileFlag, stats)
+	rootJSON, err := a.getJSONFromAgent("/metrics/snapshot", agentTestSystemFileFlag, stats)
 	if err != nil {
 		return nil, err
 	}
 
-	json, err := rootJson.Object()
+	json, err := rootJSON.Object()
 	if err != nil {
 		stats <- MakeEvent(AgentQueryBadData)
 		return nil, err
@@ -289,7 +289,7 @@ func (a *Agent) getSystemMetrics(agentState *AgentState, stats chan<- StatsEvent
 	nowMillis := time.Now().UnixNano() / 1000000
 	// collect datapoints
 	// expecting a single dict containing 'string => floatval' entries
-	datapoints := make([]interface{}, 0)
+	var datapoints []interface{}
 	for key, valRaw := range json.Map() {
 		valFloat, err := valRaw.Float64()
 		if err != nil {
@@ -300,7 +300,7 @@ func (a *Agent) getSystemMetrics(agentState *AgentState, stats chan<- StatsEvent
 		datapoint, err := goavro.NewRecord(datapointNamespace, datapointSchema)
 		if err != nil {
 			log.Fatalf("Failed to create Datapoint record for topic %s (agent %s): %s",
-				a.Topic, agentState.agentId, err)
+				a.Topic, agentState.agentID, err)
 		}
 		datapoint.Set("name", systemMetricPrefix+strings.Replace(key, "/", ".", -1)) // "key/path" => "key.path"
 		datapoint.Set("time_ms", nowMillis)
@@ -315,7 +315,7 @@ func (a *Agent) getSystemMetrics(agentState *AgentState, stats chan<- StatsEvent
 	metricListRec, err := goavro.NewRecord(metricListNamespace, metricListSchema)
 	if err != nil {
 		log.Fatalf("Failed to create MetricList record for topic %s (agent %s): %s",
-			a.Topic, agentState.agentId, err)
+			a.Topic, agentState.agentID, err)
 	}
 	metricListRec.Set("topic", a.Topic)
 	metricListRec.Set("datapoints", datapoints)
@@ -327,19 +327,19 @@ func (a *Agent) getSystemMetrics(agentState *AgentState, stats chan<- StatsEvent
 
 // fetches container state from the agent (via /state) to populate AgentState
 func (a *Agent) getAgentState(stats chan<- StatsEvent) (*AgentState, error) {
-	rootJson, err := a.getJsonFromAgent("/state", agentTestStateFileFlag, stats)
+	rootJSON, err := a.getJSONFromAgent("/state", agentTestStateFileFlag, stats)
 	if err != nil {
 		return nil, err
 	}
 
-	json, err := rootJson.Object()
+	json, err := rootJSON.Object()
 	if err != nil {
 		stats <- MakeEvent(AgentQueryBadData)
 		return nil, err
 	}
 
 	// state["id"] (agent_id)
-	agentId, err := json.GetString("id")
+	agentID, err := json.GetString("id")
 	if err != nil {
 		stats <- MakeEvent(AgentQueryBadData)
 		return nil, err
@@ -360,7 +360,7 @@ func (a *Agent) getAgentState(stats chan<- StatsEvent) (*AgentState, error) {
 	executorAppNames := make(map[string]string, 0)
 
 	for _, framework := range frameworks {
-		frameworkId, err := framework.GetString("id")
+		frameworkID, err := framework.GetString("id")
 		if err != nil {
 			stats <- MakeEvent(AgentQueryBadData)
 			return nil, err
@@ -370,7 +370,7 @@ func (a *Agent) getAgentState(stats chan<- StatsEvent) (*AgentState, error) {
 			stats <- MakeEvent(AgentQueryBadData)
 			return nil, err
 		}
-		frameworkNames[frameworkId] = frameworkName
+		frameworkNames[frameworkID] = frameworkName
 
 		executors, err := framework.GetObjectArray("executors")
 		if err != nil {
@@ -378,7 +378,7 @@ func (a *Agent) getAgentState(stats chan<- StatsEvent) (*AgentState, error) {
 			return nil, err
 		}
 		for _, executor := range executors {
-			executorId, err := executor.GetString("id")
+			executorID, err := executor.GetString("id")
 			if err != nil {
 				stats <- MakeEvent(AgentQueryBadData)
 				return nil, err
@@ -395,38 +395,38 @@ func (a *Agent) getAgentState(stats chan<- StatsEvent) (*AgentState, error) {
 					stats <- MakeEvent(AgentQueryBadData)
 					return nil, err
 				}
-				_, ok := marathonAppIdLabelKeys[labelKey]
+				_, ok := marathonAppIDLabelKeys[labelKey]
 				if ok {
 					labelValue, err := label.GetString("value")
 					if err != nil {
 						stats <- MakeEvent(AgentQueryBadData)
 						return nil, err
 					}
-					executorAppNames[executorId] = strings.TrimLeft(labelValue, "/")
+					executorAppNames[executorID] = strings.TrimLeft(labelValue, "/")
 				}
 			}
 		}
 	}
 
 	return &AgentState{
-		agentId:          agentId,
+		agentID:          agentID,
 		frameworkNames:   frameworkNames,
 		executorAppNames: executorAppNames}, nil
 }
 
-func (a *Agent) getJsonFromAgent(urlPath string, testFileFlag *string, stats chan<- StatsEvent) (*jason.Value, error) {
+func (a *Agent) getJSONFromAgent(urlPath string, testFileFlag *string, stats chan<- StatsEvent) (*jason.Value, error) {
 	stats <- MakeEvent(AgentQuery)
-	var rawJson []byte = nil
-	var err error = nil
+	var rawJSON []byte
+	var err error
 	if len(*testFileFlag) == 0 {
 		endpoint := fmt.Sprintf("http://%s:%d%s", a.AgentIP, a.Port, urlPath)
 		if len(*authCredentialFlag) == 0 {
-			rawJson, err = HttpGet(endpoint)
+			rawJSON, err = HTTPGet(endpoint)
 		} else {
-			rawJson, err = AuthedHttpGet(endpoint, *authCredentialFlag)
+			rawJSON, err = AuthedHTTPGet(endpoint, *authCredentialFlag)
 		}
 		// Special case: on HTTP 401 Unauthorized, exit immediately rather than failing forever
-		if httpErr, ok := err.(HttpCodeError); ok {
+		if httpErr, ok := err.(HTTPCodeError); ok {
 			if httpErr.Code == 401 {
 				stats <- MakeEvent(AgentQueryFailed)
 				log.Fatalf("Got 401 Unauthorized when querying agent. "+
@@ -434,14 +434,14 @@ func (a *Agent) getJsonFromAgent(urlPath string, testFileFlag *string, stats cha
 			}
 		}
 	} else {
-		rawJson, err = ioutil.ReadFile(*testFileFlag)
+		rawJSON, err = ioutil.ReadFile(*testFileFlag)
 	}
 	if err != nil {
 		stats <- MakeEvent(AgentQueryFailed)
 		return nil, err
 	}
 
-	json, err := jason.NewValueFromBytes(rawJson)
+	json, err := jason.NewValueFromBytes(rawJSON)
 	if err != nil {
 		stats <- MakeEvent(AgentQueryBadData)
 		return nil, err
