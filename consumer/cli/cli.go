@@ -42,6 +42,48 @@ func kafkaFlags(conf *config.ConsumerConfig) []cli.Flag {
 	}
 }
 
+func influxClientFlags(conf *config.ConsumerConfig) []cli.Flag {
+	return []cli.Flag{
+		cli.StringFlag{
+			Name:        "host",
+			Usage:       "InfluxDB hostname (i.e., localhost)",
+			Value:       "localhost",
+			Destination: &conf.Influx.Host,
+		},
+		cli.IntFlag{
+			Name:        "port",
+			Usage:       "InfluxDB port (i.e., 8086)",
+			Value:       8086,
+			Destination: &conf.Influx.Port,
+		},
+		cli.StringFlag{
+			Name:        "user",
+			Usage:       "InfluxDB user",
+			Destination: &conf.Influx.User,
+		},
+		cli.StringFlag{
+			Name:        "password",
+			Usage:       "InfluxDB user password",
+			Destination: &conf.Influx.Password,
+		},
+		cli.StringFlag{
+			Name:        "database",
+			Usage:       "InfluxDB database to use",
+			Destination: &conf.Influx.Database,
+		},
+	}
+}
+
+func kairosClientFlags(conf *config.ConsumerConfig) []cli.Flag {
+	return []cli.Flag{
+		cli.StringFlag{
+			Name:        "blah",
+			Usage:       "Kairos client flag example",
+			Destination: &conf.Kairos.Blah,
+		},
+	}
+}
+
 func globalFlags(conf *config.ConsumerConfig) []cli.Flag {
 	return []cli.Flag{
 		cli.BoolFlag{
@@ -64,9 +106,38 @@ func Execute() {
 	conf := &config.ConsumerConfig{}
 
 	app.Version = fmt.Sprintf("%s @ revision %s", config.Version, config.Revision)
-	app.Name = "DC/OS Metrics Consumer: Consumer Metrics From Anywhere!"
+	app.Name = "DC/OS Metrics Consumer: Do actions with metrics from Kafka!"
 	app.Flags = globalFlags(conf)
 	app.Commands = []cli.Command{
+		{
+			Name:    "send-to",
+			Aliases: []string{"st"},
+			Subcommands: []cli.Command{
+				{
+					Name:  "influx",
+					Usage: "Send kafka metrics to influxDB",
+					Flags: influxClientFlags(conf),
+					Action: func(c *cli.Context) error {
+						setLogger(conf)
+						// 	im, _ := metric.NewInfluxClient(conf)
+						// 	km, _ := metric.NewKafkaMetric(conf)
+						//  actions.SendToInflux(kc, km)
+						return nil
+					},
+				},
+				{
+					Name:  "kairos",
+					Usage: "Send kafka metrics to kairosDB",
+					Flags: kairosClientFlags(conf),
+					Action: func(c *cli.Context) error {
+						// 	kc, _ := metric.NewKairosClient(conf)
+						// 	km, _ := metric.NewKafkaMetric(conf)
+						//  actions.SendToInflux(kc, km)
+						return nil
+					},
+				},
+			},
+		},
 		{
 			Name:    "print",
 			Aliases: []string{"k"},
@@ -74,7 +145,7 @@ func Execute() {
 			Subcommands: []cli.Command{
 				{
 					Name:  "kafka",
-					Usage: "Use the kafka consumer",
+					Usage: "Print Kafka metrics to STDOUT",
 					Flags: kafkaFlags(conf),
 					Action: func(c *cli.Context) error {
 						// setLogger() must be ran for every action.

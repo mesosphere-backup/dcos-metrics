@@ -12,8 +12,23 @@ type KafkaConfig struct {
 	Offset    int64
 }
 
+type InfluxConfig struct {
+	User     string
+	Password string
+	Port     int
+	Host     string
+	Database string
+}
+
+type KairosConfig struct {
+	Blah string
+}
+
 type ConsumerConfig struct {
-	Kafka   KafkaConfig
-	Verbose bool
-	//Influx InfluxConfig
+	Kafka          KafkaConfig
+	Verbose        bool
+	ConsumerSource string
+	Destination    string
+	Influx         InfluxConfig
+	Kairos         KairosConfig
 }
