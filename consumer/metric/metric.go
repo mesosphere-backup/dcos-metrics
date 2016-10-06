@@ -13,7 +13,7 @@ type Metric struct {
 	IO chan Message
 }
 
-type Metricer interface {
+type MetricConsumer interface {
 	GetMessageChan() chan Message
 	SetupMessageChan() error
 }

@@ -30,7 +30,7 @@ func printMessage(msg metric.Message) {
 		"Timestamp": msg.Timestamp}).Info("RECEIVED")
 }
 
-func PrintLastMessage(m metric.Metricer) error {
+func PrintLastMessage(m metric.MetricConsumer) error {
 	m.SetupMessageChan()
 	msgs := m.GetMessageChan()
 
@@ -43,7 +43,7 @@ func PrintLastMessage(m metric.Metricer) error {
 	return nil
 }
 
-func PrintForever(m metric.Metricer) error {
+func PrintForever(m metric.MetricConsumer) error {
 	m.SetupMessageChan()
 	msgs := m.GetMessageChan()
 	for {

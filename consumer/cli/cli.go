@@ -84,7 +84,7 @@ func Execute() {
 						if err != nil {
 							return err
 						}
-						// Pass KafkaMetric{} which implements a Metricer interface{} to
+						// Pass KafkaMetric{} which implements a MetricConsumer interface{} to
 						// the PrintForever() action.
 						actions.PrintForever(km)
 						return nil
