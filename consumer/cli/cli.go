@@ -7,6 +7,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"github.com/dcos/dcos-metrics/consumer/actions"
+	"github.com/dcos/dcos-metrics/consumer/client"
 	"github.com/dcos/dcos-metrics/consumer/config"
 	"github.com/dcos/dcos-metrics/consumer/metric"
 
@@ -112,6 +113,7 @@ func Execute() {
 		{
 			Name:    "send-to",
 			Aliases: []string{"st"},
+			Flags:   kafkaFlags(conf),
 			Subcommands: []cli.Command{
 				{
 					Name:  "influx",
@@ -119,9 +121,19 @@ func Execute() {
 					Flags: influxClientFlags(conf),
 					Action: func(c *cli.Context) error {
 						setLogger(conf)
-						// 	im, _ := metric.NewInfluxClient(conf)
-						// 	km, _ := metric.NewKafkaMetric(conf)
-						//  actions.SendToInflux(kc, km)
+						km, err := metric.NewKafkaMetric(conf)
+						if err != nil {
+							return err
+						}
+
+						ic, err := client.GetInfluxClient(conf)
+						if err != nil {
+							return err
+						}
+
+						if err := actions.SendToInflux(ic, km); err != nil {
+							return err
+						}
 						return nil
 					},
 				},

@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"net/url"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-metrics/consumer/config"
 	influxClient "github.com/influxdata/influxdb/client"
 )
 
-func newInfluxConfig(consumerConf config.ConsumerConfig) (influxClient.Config, error) {
+func newInfluxConfig(consumerConf *config.ConsumerConfig) (influxClient.Config, error) {
 	ic := influxClient.Config{}
 
 	if len(consumerConf.Influx.Host) == 0 {
@@ -37,7 +38,7 @@ func newInfluxConfig(consumerConf config.ConsumerConfig) (influxClient.Config, e
 	return ic, nil
 }
 
-func GetInfluxClient(consumerConf config.ConsumerConfig) (*influxClient.Client, error) {
+func GetInfluxClient(consumerConf *config.ConsumerConfig) (*influxClient.Client, error) {
 	nullClient := &influxClient.Client{}
 	influxConfig, err := newInfluxConfig(consumerConf)
 	if err != nil {
@@ -48,5 +49,11 @@ func GetInfluxClient(consumerConf config.ConsumerConfig) (*influxClient.Client, 
 	if err != nil {
 		return nullClient, errors.New(err.Error())
 	}
+
+	if dur, ver, err := ic.Ping(); err != nil {
+		log.Errorf("Unable to connect to influxDB: %s - %v, %s", err.Error(), dur, ver)
+		return ic, err
+	}
+
 	return ic, nil
 }
