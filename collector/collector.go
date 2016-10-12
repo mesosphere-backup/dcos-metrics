@@ -36,8 +36,8 @@ type AgentConfig struct {
 	Topic string `yaml:"metric_topic,omitempty"`
 }
 
-// CollectorConfig ...
-type CollectorConfig struct {
+// Config ...
+type Config struct {
 	HTTPProfiler  bool   `yaml:"http_profiler"`
 	KafkaProducer bool   `yaml:"kafka_producer"`
 	IPCommand     string `yaml:"ip_command"`
@@ -102,12 +102,12 @@ func printReceivedMessages(msgChan <-chan KafkaMessage) {
 	}
 }
 
-func (c *CollectorConfig) setFlags(fs *flag.FlagSet) {
+func (c *Config) setFlags(fs *flag.FlagSet) {
 	fs.StringVar(&c.ConfigPath, "config", c.ConfigPath, "The path to the config file.")
 	fs.StringVar(&c.DCOSRole, "role", c.DCOSRole, "The DC/OS role this instance runs on.")
 }
 
-func (c *CollectorConfig) loadConfig() error {
+func (c *Config) loadConfig() error {
 	fmt.Printf("Loading config file from %s\n", c.ConfigPath)
 	fileByte, err := ioutil.ReadFile(c.ConfigPath)
 	if err != nil {
@@ -120,8 +120,8 @@ func (c *CollectorConfig) loadConfig() error {
 	return nil
 }
 
-func newConfig() CollectorConfig {
-	return CollectorConfig{
+func newConfig() Config {
+	return Config{
 		HTTPProfiler:  true,
 		KafkaProducer: true,
 		PollingPeriod: 15,
@@ -130,7 +130,7 @@ func newConfig() CollectorConfig {
 	}
 }
 
-func getNewConfig(args []string) (CollectorConfig, error) {
+func getNewConfig(args []string) (Config, error) {
 	c := newConfig()
 	thisFlagSet := flag.NewFlagSet("", flag.PanicOnError)
 	c.setFlags(thisFlagSet)

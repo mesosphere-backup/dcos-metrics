@@ -51,7 +51,7 @@ func TestDefaultConfig(t *testing.T) {
 
 func TestSetFlags(t *testing.T) {
 	Convey("Ensure command line flags are applied", t, func() {
-		testConfig := CollectorConfig{
+		testConfig := Config{
 			ConfigPath: "/some/default/path",
 		}
 		testFS := flag.NewFlagSet("", flag.PanicOnError)
@@ -85,7 +85,7 @@ kafka_producer: false`)
 	}
 
 	Convey("Ensure config can be loaded from a file on disk", t, func() {
-		testConfig := CollectorConfig{
+		testConfig := Config{
 			ConfigPath: tmpConfig.Name(),
 		}
 
