@@ -87,11 +87,7 @@ type Agent struct {
 }
 
 // NewAgent ...
-func NewAgent(
-	ipCommand string,
-	port int,
-	pollPeriod int,
-	topic string) (Agent, error) {
+func NewAgent(ipCommand string, port int, pollPeriod int, topic string) (Agent, error) {
 	a := Agent{}
 	if len(ipCommand) == 0 {
 		return a, errors.New("Must pass ipAddress to NewAgent()")
