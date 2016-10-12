@@ -9,7 +9,7 @@ GIT_REF=$(git describe --always)
 SOURCE_DIR=$(git rev-parse --show-toplevel)
 BUILD_DIR="${SOURCE_DIR}/build/${COMPONENT}"
 
-# Bring in dependencies required by schema/go/generator.go
+# Bring in dependencies required by schema/generator.go
 go get -u github.com/antonholmquist/jason
 
 rm -rf $BUILD_DIR && mkdir -p $BUILD_DIR

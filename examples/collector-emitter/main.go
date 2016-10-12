@@ -1,7 +1,7 @@
 package main
 
 // 'go generate' must be run for the 'metrics-schema' package to be present:
-//go:generate go run ../../schema/go/generator.go -infile ../../schema/metrics.avsc -outfile metrics-schema/schema.go
+//go:generate go run ../../schema/generator.go -infile ../../schema/metrics.avsc -outfile metrics-schema/schema.go
 
 import (
 	"flag"
