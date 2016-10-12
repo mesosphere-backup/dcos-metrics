@@ -17,19 +17,18 @@
 package main
 
 import (
-    "flag"
+	"flag"
 	"io/ioutil"
-    "os"
-    "testing"
+	"os"
+	"testing"
 
-    . "github.com/smartystreets/goconvey/convey"
-	"github.com/dcos/dcos-metrics/collector/collector"
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestMain(t *testing.T) {
-    Convey("Ensure collector loads and responds", t, func() {
-        So(func() { main() }, ShouldNotPanic)
-    }
+	Convey("Ensure collector loads and responds", t, func() {
+		So(func() { main() }, ShouldNotPanic)
+	})
 }
 
 func TestDefaultConfig(t *testing.T) {
@@ -102,5 +101,5 @@ kafka_producer: false`)
 			So(testConfig.HttpProfiler, ShouldBeFalse)
 			So(testConfig.KafkaProducer, ShouldBeFalse)
 		})
-	}
+	})
 }
