@@ -22,6 +22,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
+	"github.com/dcos/dcos-metrics/collector/collector"
 )
 
 type MasterConfig struct {

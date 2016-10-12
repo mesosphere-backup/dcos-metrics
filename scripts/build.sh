@@ -19,5 +19,5 @@ cd "${SOURCE_DIR}/${COMPONENT}"
 go generate
 
 # build binary
-cd cmd/dcos-metrics-collector
+cd collector
 go build -a -o ${BUILD_DIR}/dcos-metrics-collector-${GIT_REF} *.go

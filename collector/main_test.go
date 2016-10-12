@@ -23,6 +23,7 @@ import (
     "testing"
 
     . "github.com/smartystreets/goconvey/convey"
+	"github.com/dcos/dcos-metrics/collector/collector"
 )
 
 func TestMain(t *testing.T) {
