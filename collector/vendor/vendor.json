@@ -9,6 +9,12 @@
 			"revisionTime": "2016-05-05T14:38:49Z"
 		},
 		{
+			"checksumSHA1": "2avCvSn0XonfApKKuTMyiQmk7s0=",
+			"path": "github.com/Sirupsen/logrus",
+			"revision": "3ec0642a7fb6488f65b06f9040adc67e3990296a",
+			"revisionTime": "2016-08-29T20:23:21Z"
+		},
+		{
 			"checksumSHA1": "azOYNy3r6+bHDNcMnsa5G1eP52Y=",
 			"path": "github.com/antonholmquist/jason",
 			"revision": "423803175a265e07c3f35cd8faf009eac345efb8",
@@ -103,6 +109,12 @@
 			"path": "github.com/smartystreets/goconvey/convey/reporting",
 			"revision": "7befa7fd6e2e8ca28d2b94f2d39111929904b08d",
 			"revisionTime": "2016-09-28T20:55:23Z"
+		},
+		{
+			"checksumSHA1": "Xz3hUrPvOYGWTuHrEryoYAj9zwg=",
+			"path": "golang.org/x/sys/unix",
+			"revision": "9bb9f0998d48b31547d975974935ae9b48c7a03c",
+			"revisionTime": "2016-10-11T23:07:22Z"
 		},
 		{
 			"checksumSHA1": "SPMXWeoFQa5z0pLPmqpcFzyHqQQ=",
