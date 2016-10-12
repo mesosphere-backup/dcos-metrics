@@ -40,7 +40,7 @@ func TestDefaultConfig(t *testing.T) {
 		})
 
 		Convey("HTTP profiler should be enabled by default", func() {
-			So(testConfig.HttpProfiler, ShouldBeTrue)
+			So(testConfig.HTTPProfiler, ShouldBeTrue)
 		})
 
 		Convey("Kafka flag should be enabled by default", func() {
@@ -98,7 +98,7 @@ kafka_producer: false`)
 			So(testConfig.AgentConfig.Port, ShouldEqual, 5051)
 			So(testConfig.AgentConfig.Topic, ShouldEqual, "agent-metrics")
 			So(testConfig.PollingPeriod, ShouldEqual, 5)
-			So(testConfig.HttpProfiler, ShouldBeFalse)
+			So(testConfig.HTTPProfiler, ShouldBeFalse)
 			So(testConfig.KafkaProducer, ShouldBeFalse)
 		})
 	})

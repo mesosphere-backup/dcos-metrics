@@ -25,20 +25,23 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+// MasterConfig ...
 type MasterConfig struct {
 	Port  int    `yaml:"port,omitempty"`
 	Topic string `yaml:"metric_topic,omitempty"`
 }
 
+// AgentConfig ...
 type AgentConfig struct {
 	Port  int    `yaml:"port,omitempty"`
 	Topic string `yaml:"metric_topic,omitempty"`
 }
 
+// CollectorConfig ...
 type CollectorConfig struct {
-	HttpProfiler  bool   `yaml:"http_profiler"`
+	HTTPProfiler  bool   `yaml:"http_profiler"`
 	KafkaProducer bool   `yaml:"kafka_producer"`
-	IpCommand     string `yaml:"ip_command"`
+	IPCommand     string `yaml:"ip_command"`
 	PollingPeriod int    `yaml:"polling_period"`
 
 	AgentConfig  AgentConfig  `yaml:"agent_config,omitempty"`
@@ -71,7 +74,7 @@ func main() {
 	if collectorConfig.DCOSRole == "agent" {
 		log.Printf("Agent polling enabled")
 		agent, err := collector.NewAgent(
-			collectorConfig.IpCommand,
+			collectorConfig.IPCommand,
 			collectorConfig.AgentConfig.Port,
 			collectorConfig.PollingPeriod,
 			collectorConfig.AgentConfig.Topic)
@@ -83,7 +86,7 @@ func main() {
 	}
 	go collector.RunAvroTCPReader(recordInputChan, stats)
 
-	if collectorConfig.HttpProfiler {
+	if collectorConfig.HTTPProfiler {
 		log.Printf("HTTP Profiling Enabled")
 		go collector.RunHTTPProfAccess()
 	}
@@ -120,10 +123,10 @@ func (c *CollectorConfig) loadConfig() error {
 
 func newConfig() CollectorConfig {
 	return CollectorConfig{
-		HttpProfiler:  true,
+		HTTPProfiler:  true,
 		KafkaProducer: true,
 		PollingPeriod: 15,
-		IpCommand:     "/opt/mesosphere/bin/detect_ip",
+		IPCommand:     "/opt/mesosphere/bin/detect_ip",
 		ConfigPath:    "dcos-metrics-config.yaml",
 	}
 }
