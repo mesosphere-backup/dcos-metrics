@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package collector
 
 import (
 	"flag"
@@ -21,7 +21,6 @@ import (
 	"os"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/dcos/dcos-metrics/collector/collector"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -58,22 +57,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	stats := make(chan collector.StatsEvent)
-	go collector.RunStatsEmitter(stats)
+	stats := make(chan StatsEvent)
+	go RunStatsEmitter(stats)
 
-	kafkaOutputChan := make(chan collector.KafkaMessage)
+	kafkaOutputChan := make(chan KafkaMessage)
 	if collectorConfig.KafkaProducer {
 		log.Printf("Kafkfa producer enabled")
-		go collector.RunKafkaProducer(kafkaOutputChan, stats)
+		go RunKafkaProducer(kafkaOutputChan, stats)
 	} else {
 		go printReceivedMessages(kafkaOutputChan)
 	}
 
-	recordInputChan := make(chan *collector.AvroDatum)
-	agentStateChan := make(chan *collector.AgentState)
+	recordInputChan := make(chan *AvroDatum)
+	agentStateChan := make(chan *AgentState)
 	if collectorConfig.DCOSRole == "agent" {
 		log.Printf("Agent polling enabled")
-		agent, err := collector.NewAgent(
+		agent, err := NewAgent(
 			collectorConfig.IPCommand,
 			collectorConfig.AgentConfig.Port,
 			collectorConfig.PollingPeriod,
@@ -84,18 +83,18 @@ func main() {
 
 		go agent.Run(recordInputChan, stats)
 	}
-	go collector.RunAvroTCPReader(recordInputChan, stats)
+	go RunAvroTCPReader(recordInputChan, stats)
 
 	if collectorConfig.HTTPProfiler {
 		log.Printf("HTTP Profiling Enabled")
-		go collector.RunHTTPProfAccess()
+		go RunHTTPProfAccess()
 	}
 
 	// Run the sorter on the main thread (exit process if Kafka stops accepting data)
-	collector.RunTopicSorter(recordInputChan, agentStateChan, kafkaOutputChan, stats)
+	RunTopicSorter(recordInputChan, agentStateChan, kafkaOutputChan, stats)
 }
 
-func printReceivedMessages(msgChan <-chan collector.KafkaMessage) {
+func printReceivedMessages(msgChan <-chan KafkaMessage) {
 	for {
 		msg := <-msgChan
 		log.Printf("Topic '%s': %d bytes would've been written (-kafka=false)\n",
