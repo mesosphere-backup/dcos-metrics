@@ -18,7 +18,9 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
 
+	log "github.com/Sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -43,6 +45,58 @@ type CollectorConfig struct {
 
 	ConfigPath string
 	DCOSRole   string
+}
+
+func main() {
+	collectorConfig, err := getNewConfig(os.Args[1:])
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+
+	stats := make(chan collector.StatsEvent)
+	go collector.RunStatsEmitter(stats)
+
+	kafkaOutputChan := make(chan collector.KafkaMessage)
+	if collectorConfig.KafkaProducer {
+		log.Printf("Kafkfa producer enabled")
+		go collector.RunKafkaProducer(kafkaOutputChan, stats)
+	} else {
+		go printReceivedMessages(kafkaOutputChan)
+	}
+
+	recordInputChan := make(chan *collector.AvroDatum)
+	agentStateChan := make(chan *collector.AgentState)
+	if collectorConfig.DCOSRole == "agent" {
+		log.Printf("Agent polling enabled")
+		agent, err := collector.NewAgent(
+			collectorConfig.IpCommand,
+			collectorConfig.AgentConfig.Port,
+			collectorConfig.PollingPeriod,
+			collectorConfig.AgentConfig.Topic)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+
+		go agent.Run(recordInputChan, stats)
+	}
+	go collector.RunAvroTCPReader(recordInputChan, stats)
+
+	if collectorConfig.HttpProfiler {
+		log.Printf("HTTP Profiling Enabled")
+		go collector.RunHTTPProfAccess()
+	}
+
+	// Run the sorter on the main thread (exit process if Kafka stops accepting data)
+	collector.RunTopicSorter(recordInputChan, agentStateChan, kafkaOutputChan, stats)
+}
+
+func printReceivedMessages(msgChan <-chan collector.KafkaMessage) {
+	for {
+		msg := <-msgChan
+		log.Printf("Topic '%s': %d bytes would've been written (-kafka=false)\n",
+			msg.Topic, len(msg.Data))
+	}
 }
 
 func (c *CollectorConfig) setFlags(fs *flag.FlagSet) {
