@@ -15,6 +15,7 @@
 # Directories
 .gradle/
 .settings/
+.vagrant/
 _obj
 _test
 avro/
