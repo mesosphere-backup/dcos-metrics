@@ -28,14 +28,14 @@ function logmsg {
 
 function _gofmt {
     logmsg "Running 'gofmt' ..."
-    test -z "$(gofmt -l -d $(find . -type f -name '*.go' -not -path './vendor/**') | tee /dev/stderr)"
+    test -z "$(gofmt -l -d $(find . -type f -name '*.go' -not -path './vendor/**') | tee /dev/stderr)" && echo "OK."
 }
 
 
 function _goimports {
     logmsg "Running 'goimports' ..."
     go get -u golang.org/x/tools/cmd/goimports
-    test -z "$(goimports -l -d $(find . -type f -name '*.go' -not -path "./vendor/**") | tee /dev/stderr)"
+    test -z "$(goimports -l -d $(find . -type f -name '*.go' -not -path "./vendor/**") | tee /dev/stderr)" && echo "OK."
 }
 
 
@@ -43,14 +43,14 @@ function _golint {
     local test_dirs="$1"
     logmsg "Running 'go lint' ..."
     go get -u github.com/golang/lint/golint
-    test -z "$(golint -set_exit_status $test_dirs | tee /dev/stderr)"
+    test -z "$(golint -set_exit_status $test_dirs | tee /dev/stderr)" && echo "OK."
 }
 
 
 function _govet {
     local package_dirs="$1"
     logmsg "Running 'go vet' ..."
-    test -z "$(go vet $(go list $package_dirs | grep -v vendor/) | tee /dev/stderr)"
+    test -z "$(go vet $(go list $package_dirs | grep -v vendor/) | tee /dev/stderr)" && echo "OK."
 }
 
 
