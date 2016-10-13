@@ -79,7 +79,6 @@ function _unittest_with_coverage {
         package=$(basename ${import_path})
         [[ "$ignore_packages" =~ $package ]] && continue
         go test                                                                  \
-            -v                                                                   \
             -race                                                                \
             --tags="$TEST_SUITE"                                                 \
             -covermode=$covermode                                                \
