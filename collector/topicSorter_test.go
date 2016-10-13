@@ -15,3 +15,63 @@
 // limitations under the License.
 
 package collector
+
+import (
+	"testing"
+
+	"github.com/linkedin/goavro"
+	. "github.com/smartystreets/goconvey/convey"
+)
+
+func TestNewAvroData(t *testing.T) {
+	Convey("Should return a new avroData type", t, func() {
+		ad := newAvroData()
+		So(ad, ShouldResemble, avroData{recs: []interface{}{}, approxBytes: 0})
+	})
+}
+
+func TestCollector_GetTopic(t *testing.T) {
+	Convey("When extracting the topic value from the provided Avro record", t, func() {
+		Convey("Should return UNKNOWN_RECORD_TYPE if the record wasn't valid", func() {
+			ts, ok := GetTopic([]string{"foo"})
+			So(ts, ShouldEqual, "UNKNOWN_RECORD_TYPE")
+			So(ok, ShouldBeFalse)
+		})
+
+		Convey("Should return UNKNOWN_TOPIC_VAL if the field 'topic' doesn't exist", func() {
+			r, err := goavro.NewRecord(
+				metricListNamespace,
+				goavro.RecordSchema(`{"name": "some-schema", "fields": [{"name": "foo", "type": "string"}]}`))
+
+			if err != nil {
+				panic(err)
+			}
+			ts, ok := GetTopic(r)
+			So(ts, ShouldEqual, "UNKNOWN_TOPIC_VAL")
+			So(ok, ShouldBeFalse)
+		})
+
+		Convey("Should return UNKNOWN_TOPIC_TYPE if the topic string wasn't retrievable", func() {
+			r, err := goavro.NewRecord(metricListNamespace, metricListSchema)
+			r.Set("topic", nil)
+
+			if err != nil {
+				panic(err)
+			}
+			ts, ok := GetTopic(r)
+			So(ts, ShouldEqual, "UNKNOWN_TOPIC_TYPE")
+			So(ok, ShouldBeFalse)
+		})
+
+		Convey("Should return the topic string with no errors", func() {
+			r, err := goavro.NewRecord(metricListNamespace, metricListSchema)
+			r.Set("topic", "some-topic")
+			if err != nil {
+				panic(err)
+			}
+			ts, ok := GetTopic(r)
+			So(ts, ShouldEqual, "some-topic")
+			So(ok, ShouldBeTrue)
+		})
+	})
+}

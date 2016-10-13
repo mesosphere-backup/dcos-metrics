@@ -58,18 +58,10 @@ func TestNewAgent(t *testing.T) {
 
 		Convey("When given proper inputs, should return an agent", func() {
 			a, err := NewAgent("1.2.3.4", 10000, 60, "some-metrics")
-			So(a, ShouldHaveSameTypeAs, &Agent{})
-			So(err, ShouldNotBeNil)
+			So(a, ShouldHaveSameTypeAs, Agent{})
+			So(err, ShouldBeNil)
 		})
 	})
-}
-
-func TestRun(t *testing.T) {
-
-}
-
-func TestPollAgent(t *testing.T) {
-
 }
 
 func TestGetIP(t *testing.T) {

@@ -15,3 +15,46 @@
 // limitations under the License.
 
 package collector
+
+import (
+	"fmt"
+	"testing"
+
+	. "github.com/smartystreets/goconvey/convey"
+)
+
+func TestToStatsdLabel(t *testing.T) {
+	Convey("When converting a StatsEvent to a StatsD label", t, func() {
+
+		// Spot check a few event types
+		Convey("Known events should produce valid labels", func() {
+			So(toStatsdLabel(
+				StatsEvent{evttype: 2}), // 2 => TCPResolveFailed
+				ShouldEqual, fmt.Sprintf("%s.%s", statsdPrefix, "tcp_input.tcp_resolve_failures"))
+			So(toStatsdLabel(
+				StatsEvent{evttype: 13}), // 13 => KafkaLookupFailed
+				ShouldEqual, fmt.Sprintf("%s.%s", statsdPrefix, "kafka_output.framework_lookup_failures"))
+			So(toStatsdLabel(
+				StatsEvent{evttype: 19}), // 19 => AgentIPLookup
+				ShouldEqual, fmt.Sprintf("%s.%s", statsdPrefix, "agent_poll.ip_lookups"))
+			So(toStatsdLabel(
+				StatsEvent{evttype: 27}), // 27 => RecordNoAgentStateAvailable
+				ShouldEqual, fmt.Sprintf("%s.%s", statsdPrefix, "topic_sorter.no_agent_state_available"))
+		})
+
+		Convey("Unknown events should produce UNKNOWN label", func() {
+			So(toStatsdLabel(StatsEvent{evttype: 9000}),
+				ShouldEqual, fmt.Sprintf("%s.%s", statsdPrefix, "UNKNOWN"))
+		})
+
+		Convey("Events with a suffix should contain the suffix", func() {
+			So(toStatsdLabel(StatsEvent{evttype: 9000, suffix: "bar"}),
+				ShouldEqual, fmt.Sprintf("%s.%s.%s", statsdPrefix, "UNKNOWN", "bar"))
+		})
+
+		Convey("Events without a suffix should output the bare key", func() {
+			So(toStatsdLabel(StatsEvent{evttype: 9000}),
+				ShouldEqual, fmt.Sprintf("%s.%s", statsdPrefix, "UNKNOWN"))
+		})
+	})
+}

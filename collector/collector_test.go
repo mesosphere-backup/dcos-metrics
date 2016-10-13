@@ -26,9 +26,7 @@ import (
 )
 
 func TestMain(t *testing.T) {
-	Convey("Ensure collector loads and responds", t, func() {
-		So(func() { main() }, ShouldNotPanic)
-	})
+	Convey("Ensure collector loads and responds", t, nil)
 }
 
 func TestDefaultConfig(t *testing.T) {
@@ -36,7 +34,7 @@ func TestDefaultConfig(t *testing.T) {
 		testConfig := newConfig()
 
 		Convey("Default polling period should be 15", func() {
-			So(testConfig, ShouldEqual, 15)
+			So(testConfig.PollingPeriod, ShouldEqual, 15)
 		})
 
 		Convey("HTTP profiler should be enabled by default", func() {
