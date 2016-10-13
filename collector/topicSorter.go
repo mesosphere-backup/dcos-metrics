@@ -22,7 +22,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/dcos/dcos-metrics/collector/metrics-schema"
+	"github.com/dcos/dcos-metrics/collector/metrics_schema"
 	"github.com/linkedin/goavro"
 )
 

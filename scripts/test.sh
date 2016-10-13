@@ -103,7 +103,7 @@ function _unittest_with_coverage {
 function main {
     local test_dirs="${COMPONENT}/"
     local package_dirs="./${COMPONENT}/..."
-    local ignore_packages=""
+    local ignore_packages="metrics_schema"
 
     if [[ $TEST_SUITE == "unit" ]]; then
         _gofmt

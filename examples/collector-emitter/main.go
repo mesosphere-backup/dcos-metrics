@@ -1,7 +1,7 @@
 package main
 
-// 'go generate' must be run for the 'metrics-schema' package to be present:
-//go:generate go run ../../schema/generator.go -infile ../../schema/metrics.avsc -outfile metrics-schema/schema.go
+// 'go generate' must be run for the 'metrics_schema' package to be present:
+//go:generate go run ../../schema/generator.go -infile ../../schema/metrics.avsc -outfile metrics_schema/schema.go
 
 import (
 	"flag"
@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/dcos/dcos-metrics/collector/metrics_schema"
 	"github.com/linkedin/goavro"
 )
 

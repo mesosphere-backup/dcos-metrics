@@ -21,7 +21,7 @@ _test
 avro/
 build/
 mesos-*/
-metrics-schema/
+metrics[-_]schema/
 tmp/
 
 # Architecture specific extensions/prefixes

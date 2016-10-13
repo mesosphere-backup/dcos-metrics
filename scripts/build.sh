@@ -15,7 +15,7 @@ go get -u github.com/antonholmquist/jason
 rm -rf $BUILD_DIR && mkdir -p $BUILD_DIR
 cd "${SOURCE_DIR}/${COMPONENT}"
 
-# build metrics-schema package
+# build metrics_schema package
 go generate
 
 # build binary

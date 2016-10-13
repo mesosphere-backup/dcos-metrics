@@ -35,14 +35,14 @@ Then preprocess the Avro schema and build the code:
 
 ```bash
 cd $GOPATH/src/github.com/mesosphere/dcos-stats/collector
-go generate # creates 'metrics-schema' package
+go generate # creates 'metrics_schema' package
 
 cd collector/
 go build
 ./collector -h
 ```
 
-If you see errors about `cannot find package "github.com/.../metrics-schema"`, you forgot to perform `go generate` in the `dcos-stats/collector/` directory.
+If you see errors about `cannot find package "github.com/.../metrics_schema"`, you forgot to perform `go generate` in the `dcos-stats/collector/` directory.
 
 ### Updating vendor dependencies
 

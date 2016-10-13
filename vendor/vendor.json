@@ -70,7 +70,7 @@
 		},
 		{
 			"checksumSHA1": "KwrLGj5+XEMFtRTPSBuOQG4g+Ec=",
-			"path": "github.com/mesosphere/dcos-stats/collector/metrics-schema",
+			"path": "github.com/dcos/dcos-metrics/collector/metrics_schema",
 			"revision": "411cc900f0006573382fd7968b7390d72b63f5cc",
 			"revisionTime": "2016-09-20T21:17:45Z"
 		},
