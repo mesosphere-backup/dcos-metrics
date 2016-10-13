@@ -76,7 +76,7 @@ function _unittest_with_coverage {
         package=$(basename ${import_path})
         [[ "$ignore_packages" =~ $package ]] && continue
 
-        go test -v -tags="$TEST_SUITE" -covermode=$covermode                     \
+        go test -v -race -tags="$TEST_SUITE" -covermode=$covermode               \
             -coverprofile="${BUILD_DIR}/coverage-reports/profile_${package}.cov" \
             $import_path | tee /dev/stderr                                       \
             | go-junit-report > "${BUILD_DIR}/test-reports/${package}-report.xml"
