@@ -87,12 +87,10 @@ kafka_producer: false`)
 			ConfigPath: tmpConfig.Name(),
 		}
 
-		Convey("Loading config should not return any errors", func() {
+		Convey("testConfig should match mocked config file", func() {
 			loadErr := testConfig.loadConfig()
 			So(loadErr, ShouldBeNil)
-		})
 
-		Convey("testConfig should match mocked config file", func() {
 			So(testConfig.AgentConfig.Port, ShouldEqual, 5051)
 			So(testConfig.AgentConfig.Topic, ShouldEqual, "agent-metrics")
 			So(testConfig.PollingPeriod, ShouldEqual, 5)

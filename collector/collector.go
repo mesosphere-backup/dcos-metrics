@@ -117,6 +117,7 @@ func (c *Config) loadConfig() error {
 	if err = yaml.Unmarshal(fileByte, &c); err != nil {
 		return err
 	}
+
 	return nil
 }
 
