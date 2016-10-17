@@ -14,11 +14,11 @@ apt-get install golang-go
 ## Build
 
 ```bash
-go generate # creates 'metrics-schema' package
+go generate # creates 'metrics_schema' package
 go build
 ```
 
-If you see errors about `cannot find package "github.com/.../metrics-schema"`, you forgot to perform `go generate`.
+If you see errors about `cannot find package "github.com/.../metrics_schema"`, you forgot to perform `go generate`.
 
 ## Run locally or on a DC/OS node
 

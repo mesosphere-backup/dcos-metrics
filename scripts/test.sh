@@ -12,6 +12,7 @@
 # The reports are saved to build/component/{test-reports,coverage-reports}/*.xml 
 #
 set -e
+set -o pipefail
 export PATH="${GOPATH}/bin:${PATH}"
 
 COMPONENT="$1"; shift
@@ -27,16 +28,14 @@ function logmsg {
 
 function _gofmt {
     logmsg "Running 'gofmt' ..."
-    gofmt -l -d $(find . -type f -name '*.go' -not -path "./vendor/**") | tee /dev/stderr
-    [[ $? -eq 0 ]] && echo "OK."
+    test -z "$(gofmt -l -d $(find . -type f -name '*.go' -not -path './vendor/**') | tee /dev/stderr)" && echo "OK."
 }
 
 
 function _goimports {
     logmsg "Running 'goimports' ..."
     go get -u golang.org/x/tools/cmd/goimports
-    goimports -l -d $(find . -type f -name '*.go' -not -path "./vendor/**") | tee /dev/stderr
-    [[ $? -eq 0 ]] && echo "OK."
+    test -z "$(goimports -l -d $(find . -type f -name '*.go' -not -path "./vendor/**") | tee /dev/stderr)" && echo "OK."
 }
 
 
@@ -44,16 +43,14 @@ function _golint {
     local test_dirs="$1"
     logmsg "Running 'go lint' ..."
     go get -u github.com/golang/lint/golint
-    golint -set_exit_status $test_dirs
-    [[ $? -eq 0 ]] && echo "OK."
+    test -z "$(golint -set_exit_status $test_dirs | tee /dev/stderr)" && echo "OK."
 }
 
 
 function _govet {
     local package_dirs="$1"
     logmsg "Running 'go vet' ..."
-    go vet $(go list $package_dirs | grep -v vendor/)
-    [[ $? -eq 0 ]] && echo "OK."
+    test -z "$(go vet $(go list $package_dirs | grep -v vendor/) | tee /dev/stderr)" && echo "OK."
 }
 
 
@@ -64,7 +61,7 @@ function _unittest_with_coverage {
     logmsg "Running unit tests ..."
 
     go get -u github.com/jstemmer/go-junit-report
-    go get -u github.com/smartystreets/goconvey/convey
+    go get -u github.com/smartystreets/goconvey
     go get -u golang.org/x/tools/cmd/cover
     go get github.com/axw/gocov/...
     go get github.com/AlekSi/gocov-xml
@@ -78,14 +75,12 @@ function _unittest_with_coverage {
     for import_path in $(go list -f={{.ImportPath}} ${package_dirs} | grep -v vendor); do
         package=$(basename ${import_path})
         [[ "$ignore_packages" =~ $package ]] && continue
-        go test                                                                  \
-            -v                                                                   \
-            -race                                                                \
-            --tags="$TEST_SUITE"                                                 \
-            -covermode=$covermode                                                \
+
+        go test -v -race -tags="$TEST_SUITE" -covermode=$covermode               \
             -coverprofile="${BUILD_DIR}/coverage-reports/profile_${package}.cov" \
-            $import_path                                                         \
+            $import_path | tee /dev/stderr                                       \
             | go-junit-report > "${BUILD_DIR}/test-reports/${package}-report.xml"
+
     done
 
     # Concatenate per-package coverage reports into a single file.
@@ -104,7 +99,7 @@ function _unittest_with_coverage {
 function main {
     local test_dirs="${COMPONENT}/"
     local package_dirs="./${COMPONENT}/..."
-    local ignore_packages=""
+    local ignore_packages="metrics_schema"
 
     if [[ $TEST_SUITE == "unit" ]]; then
         _gofmt

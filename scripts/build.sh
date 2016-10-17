@@ -9,15 +9,14 @@ GIT_REF=$(git describe --always)
 SOURCE_DIR=$(git rev-parse --show-toplevel)
 BUILD_DIR="${SOURCE_DIR}/build/${COMPONENT}"
 
-# Bring in dependencies required by schema/go/generator.go
+# Bring in dependencies required by schema/generator.go
 go get -u github.com/antonholmquist/jason
 
 rm -rf $BUILD_DIR && mkdir -p $BUILD_DIR
 cd "${SOURCE_DIR}/${COMPONENT}"
 
-# build metrics-schema package
+# build metrics_schema package
 go generate
 
 # build binary
-cd cmd/dcos-metrics-collector
-go build -a -o ${BUILD_DIR}/dcos-metrics-collector-${GIT_REF} *.go
+go build -a -o ${BUILD_DIR}/dcos-metrics-${COMPONENT}-${GIT_REF} *.go
