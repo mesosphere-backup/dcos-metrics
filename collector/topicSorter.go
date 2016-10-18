@@ -23,8 +23,8 @@ import (
 	"time"
 
 	"github.com/dcos/dcos-metrics/collector/metrics_schema"
-	"github.com/dcos/dcos-metrics/events"
 	"github.com/dcos/dcos-metrics/producers/kafka"
+	"github.com/dcos/dcos-metrics/producers/statsd"
 	"github.com/linkedin/goavro"
 )
 
@@ -88,7 +88,7 @@ func (d *avroData) append(datum *AvroDatum) {
 }
 
 // RunTopicSorter sorts incoming Avro records into Kafka topics
-func RunTopicSorter(avroInput <-chan *AvroDatum, agentStateInput <-chan *AgentState, kafkaOutput chan<- kafka.KafkaMessage, stats chan<- events.StatsEvent) {
+func RunTopicSorter(avroInput <-chan *AvroDatum, agentStateInput <-chan *AgentState, kafkaOutput chan<- kafka.KafkaMessage, stats chan<- statsd.StatsEvent) {
 	codec, err := goavro.NewCodec(metrics_schema.MetricListSchema)
 	if err != nil {
 		log.Fatal("Failed to initialize avro codec: ", err)
@@ -197,26 +197,26 @@ func GetTopic(obj interface{}) (string, bool) {
 
 func flushTopic(topic string, topicRecs []interface{}, codec goavro.Codec,
 	logReason string,
-	kafkaOutput chan<- kafka.KafkaMessage, stats chan<- events.StatsEvent,
+	kafkaOutput chan<- kafka.KafkaMessage, stats chan<- statsd.StatsEvent,
 	totalRecordCount, totalByteCount, droppedByteCount *int64) {
-	stats <- events.MakeEventSuffCount(events.AvroRecordOut, topic, len(topicRecs))
+	stats <- statsd.MakeEventSuffCount(statsd.AvroRecordOut, topic, len(topicRecs))
 	*totalRecordCount += int64(len(topicRecs))
 
 	buf, err := serializeRecs(topicRecs, codec)
 	if err != nil {
 		log.Printf("Failed to serialize %d records for Kafka topic %s: %s\n",
 			len(topicRecs), topic, err)
-		stats <- events.MakeEvent(events.AvroWriterFailed)
+		stats <- statsd.MakeEvent(statsd.AvroWriterFailed)
 		return
 	}
 
-	stats <- events.MakeEventSuffCount(events.AvroBytesOut, topic, buf.Len())
+	stats <- statsd.MakeEventSuffCount(statsd.AvroBytesOut, topic, buf.Len())
 	// enforce AFTER add: always let some data get through
 	if *totalByteCount > *globalLimitAmountKBytesFlag*1024 {
 		log.Printf("Dropping %d MetricLists (%d bytes) for Kafka topic '%s' (trigger: %s)\n",
 			len(topicRecs), buf.Len(), topic, logReason)
-		stats <- events.MakeEventSuffCount(events.AvroRecordOutThrottled, topic, len(topicRecs))
-		stats <- events.MakeEventSuffCount(events.AvroBytesOutThrottled, topic, buf.Len())
+		stats <- statsd.MakeEventSuffCount(statsd.AvroRecordOutThrottled, topic, len(topicRecs))
+		stats <- statsd.MakeEventSuffCount(statsd.AvroBytesOutThrottled, topic, buf.Len())
 		*droppedByteCount += int64(buf.Len())
 	} else {
 		log.Printf("Producing %d MetricLists (%d bytes) for Kafka topic '%s' (trigger: %s)\n",
@@ -230,22 +230,22 @@ func flushTopic(topic string, topicRecs []interface{}, codec goavro.Codec,
 }
 
 // Adds additional agent info to the provided records
-func processRecs(agentState *AgentState, recs []interface{}, stats chan<- events.StatsEvent) {
+func processRecs(agentState *AgentState, recs []interface{}, stats chan<- statsd.StatsEvent) {
 	for _, rec := range recs {
 		// Fetch current tags
 		record, ok := rec.(*goavro.Record)
 		if !ok {
-			stats <- events.MakeEvent(events.RecordBadTags)
+			stats <- statsd.MakeEvent(statsd.RecordBadTags)
 			continue
 		}
 		tagsObj, err := record.Get("tags")
 		if err != nil {
-			stats <- events.MakeEvent(events.RecordBadTags)
+			stats <- statsd.MakeEvent(statsd.RecordBadTags)
 			continue
 		}
 		tags, ok := tagsObj.([]interface{})
 		if !ok {
-			stats <- events.MakeEvent(events.RecordBadTags)
+			stats <- statsd.MakeEvent(statsd.RecordBadTags)
 			continue
 		}
 
@@ -274,28 +274,28 @@ func processRecs(agentState *AgentState, recs []interface{}, stats chan<- events
 	}
 }
 
-func findTagValue(tags []interface{}, key string, stats chan<- events.StatsEvent) (string, error) {
+func findTagValue(tags []interface{}, key string, stats chan<- statsd.StatsEvent) (string, error) {
 	value := ""
 	for _, tagObj := range tags {
 		tag, ok := tagObj.(*goavro.Record)
 		if !ok {
-			stats <- events.MakeEvent(events.RecordBadTags)
+			stats <- statsd.MakeEvent(statsd.RecordBadTags)
 			return "", errors.New("Unable to convert tags object to avro Record")
 		}
 		tagKey, err := tag.Get("key")
 		if err != nil {
-			stats <- events.MakeEvent(events.RecordBadTags)
+			stats <- statsd.MakeEvent(statsd.RecordBadTags)
 			return "", errors.New("Unable to get key object")
 		}
 		if tagKey == key {
 			valueObj, err := tag.Get("value")
 			if err != nil {
-				stats <- events.MakeEvent(events.RecordBadTags)
+				stats <- statsd.MakeEvent(statsd.RecordBadTags)
 				return "", errors.New("Unable to get value object")
 			}
 			value, ok = valueObj.(string)
 			if !ok {
-				stats <- events.MakeEvent(events.RecordBadTags)
+				stats <- statsd.MakeEvent(statsd.RecordBadTags)
 				return "", errors.New("Unable to convert value object to string")
 			}
 			break
@@ -304,7 +304,7 @@ func findTagValue(tags []interface{}, key string, stats chan<- events.StatsEvent
 	return value, nil
 }
 
-func findFrameworkName(tags []interface{}, agentState *AgentState, stats chan<- events.StatsEvent) string {
+func findFrameworkName(tags []interface{}, agentState *AgentState, stats chan<- statsd.StatsEvent) string {
 	frameworkID, err := findTagValue(tags, frameworkIDTag, stats)
 	if err != nil {
 		// Failed to access tags at all
@@ -324,7 +324,7 @@ func findFrameworkName(tags []interface{}, agentState *AgentState, stats chan<- 
 	return "UNKNOWN_FRAMEWORK_ID"
 }
 
-func findApplicationName(tags []interface{}, agentState *AgentState, stats chan<- events.StatsEvent) string {
+func findApplicationName(tags []interface{}, agentState *AgentState, stats chan<- statsd.StatsEvent) string {
 	executorID, err := findTagValue(tags, executorIDTag, stats)
 	if err != nil {
 		// Failed to access tags at all

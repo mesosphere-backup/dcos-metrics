@@ -24,8 +24,8 @@ import (
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/dcos/dcos-metrics/collector"
-	"github.com/dcos/dcos-metrics/events"
 	"github.com/dcos/dcos-metrics/producers/kafka"
+	"github.com/dcos/dcos-metrics/statsd"
 )
 
 // MasterConfig ...
@@ -59,7 +59,7 @@ type Config struct {
 
 	// Optionally, add the configuration to run the
 	// statsd "exhaust"
-	StatsdProducerConfig events.StatsdConfig `yaml:"statsd_producer_config,omitempty"`
+	StatsdProducerConfig statsd.StatsdConfig `yaml:"statsd_producer_config,omitempty"`
 }
 
 func main() {
@@ -69,8 +69,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	stats := make(chan events.StatsEvent)
-	go events.RunStatsEmitter(stats, collectorConfig.StatsdProducerConfig)
+	stats := make(chan statsd.StatsEvent)
+	go statsd.RunStatsEmitter(stats, collectorConfig.StatsdProducerConfig)
 
 	kafkaOutputChan := make(chan kafka.KafkaMessage)
 	if collectorConfig.KafkaProducer {

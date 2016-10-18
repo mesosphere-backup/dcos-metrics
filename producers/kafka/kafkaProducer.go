@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	"github.com/dcos/dcos-metrics/events"
+	"github.com/dcos/dcos-metrics/producers/statsd"
 	util "github.com/dcos/dcos-metrics/util"
 )
 
@@ -51,7 +51,7 @@ type KafkaMessage struct {
 
 // RunKafkaProducer creates and runs a Kafka Producer which sends records passed to the provided channel.
 // This function should be run as a gofunc.
-func RunKafkaProducer(messages <-chan KafkaMessage, stats chan<- events.StatsEvent, kc KafkaConfig) error {
+func RunKafkaProducer(messages <-chan KafkaMessage, stats chan<- statsd.StatsEvent, kc KafkaConfig) error {
 	if kc.Verbose {
 		sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 	}
@@ -59,16 +59,16 @@ func RunKafkaProducer(messages <-chan KafkaMessage, stats chan<- events.StatsEve
 	for {
 		producer, err := kafkaProducer(stats, kc)
 		if err != nil {
-			stats <- events.MakeEvent(events.KafkaConnectionFailed)
+			stats <- statsd.MakeEvent(statsd.KafkaConnectionFailed)
 			log.Println("Failed to open Kafka producer:", err)
 			// reuse flush period as the retry delay:
 			log.Printf("Waiting for %dms\n", kc.FlushPeriod)
 			time.Sleep(time.Duration(kc.FlushPeriod) * time.Millisecond)
 			continue
 		}
-		stats <- events.MakeEvent(events.KafkaSessionOpened)
+		stats <- statsd.MakeEvent(statsd.KafkaSessionOpened)
 		defer func() {
-			stats <- events.MakeEvent(events.KafkaSessionClosed)
+			stats <- statsd.MakeEvent(statsd.KafkaSessionClosed)
 			if err := producer.Close(); err != nil {
 				log.Println("Failed to shut down producer cleanly:", err)
 			}
@@ -79,14 +79,14 @@ func RunKafkaProducer(messages <-chan KafkaMessage, stats chan<- events.StatsEve
 				Topic: message.Topic,
 				Value: sarama.ByteEncoder(message.Data),
 			}
-			stats <- events.MakeEventSuff(events.KafkaMessageSent, message.Topic)
+			stats <- statsd.MakeEventSuff(statsd.KafkaMessageSent, message.Topic)
 		}
 	}
 }
 
 // ---
 
-func kafkaProducer(stats chan<- events.StatsEvent, kc KafkaConfig) (kafkaProducer sarama.AsyncProducer, err error) {
+func kafkaProducer(stats chan<- statsd.StatsEvent, kc KafkaConfig) (kafkaProducer sarama.AsyncProducer, err error) {
 	var brokers []string
 	if len(kc.Brokers) != 0 {
 		brokers = strings.Split(kc.Brokers, ",")
@@ -96,7 +96,7 @@ func kafkaProducer(stats chan<- events.StatsEvent, kc KafkaConfig) (kafkaProduce
 	} else if len(kc.KafkaFramework) != 0 {
 		foundBrokers, err := lookupBrokers(kc.KafkaFramework)
 		if err != nil {
-			stats <- events.MakeEventSuff(events.KafkaLookupFailed, kc.KafkaFramework)
+			stats <- statsd.MakeEventSuff(statsd.KafkaLookupFailed, kc.KafkaFramework)
 			return nil, fmt.Errorf("Broker lookup against framework %s failed: %s", kc.KafkaFramework, err)
 		}
 		brokers = append(brokers, foundBrokers...)
