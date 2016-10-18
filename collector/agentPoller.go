@@ -24,8 +24,8 @@ import (
 	"time"
 
 	"github.com/antonholmquist/jason"
-	"github.com/dcos/dcos-metrics/collector/metrics_schema"
 	"github.com/dcos/dcos-metrics/producers/statsd"
+	"github.com/dcos/dcos-metrics/schema/metrics_schema"
 	"github.com/dcos/dcos-metrics/util"
 	"github.com/linkedin/goavro"
 )

@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/dcos/dcos-metrics/collector/metrics_schema"
+	"github.com/dcos/dcos-metrics/schema/metrics_schema"
 	"github.com/linkedin/goavro"
 )
 

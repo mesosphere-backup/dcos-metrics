@@ -8,5 +8,4 @@ test:
 
 clean:
 	rm -rf ./build
-	rm -rf ./collector/metrics-schema
-	rm -rf ./collector/metrics_schema
+	rm -rf ./schema/metrics_schema
