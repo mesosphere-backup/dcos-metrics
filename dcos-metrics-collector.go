@@ -26,6 +26,7 @@ import (
 	"github.com/dcos/dcos-metrics/collector"
 	"github.com/dcos/dcos-metrics/producers/kafka"
 	"github.com/dcos/dcos-metrics/producers/statsd"
+	"github.com/dcos/dcos-metrics/util"
 )
 
 // MasterConfig ...
@@ -99,7 +100,7 @@ func main() {
 
 	if collectorConfig.HTTPProfiler {
 		log.Printf("HTTP Profiling Enabled")
-		go collector.RunHTTPProfAccess()
+		go util.RunHTTPProfAccess()
 	}
 
 	// Run the sorter on the main thread (exit process if Kafka stops accepting data)
