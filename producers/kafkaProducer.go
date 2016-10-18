@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package collector
+package producers
 
 import (
 	"encoding/json"
@@ -25,23 +25,39 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
+	"github.com/dcos/dcos-metrics/events"
+	util "github.com/dcos/dcos-metrics/util"
 )
 
-var (
-	brokersFlag = StringEnvFlag("kafka-brokers", "",
-		"The Kafka brokers to connect to, as a comma separated list. (overrides -kafka-framework)")
-	frameworkFlag = StringEnvFlag("kafka-framework", "kafka",
-		"The Kafka framework to query for brokers.")
-	flushPeriodFlag = IntEnvFlag("kafka-flush-ms", 5000,
-		"Number of milliseconds to wait between output flushes")
-	snappyCompressionFlag = BoolEnvFlag("kafka-compress-snappy", true,
-		"Enables Snappy compression on outgoing Kafka data")
-	requireAllAcksFlag = BoolEnvFlag("kafka-require-all-acks", false,
-		"Requires that outgoing data be committed by all Kafka replicas (true) "+
-			"rather than committed by just one replica (false)")
-	kafkaVerboseFlag = BoolEnvFlag("kafka-verbose", false,
-		"Enable extra logging in the underlying Kafka client.")
-)
+//var (
+//	brokersFlag = StringEnvFlag("kafka-brokers", "",
+//		"The Kafka brokers to connect to, as a comma separated list. (overrides -kafka-framework)")
+//	frameworkFlag = StringEnvFlag("kafka-framework", "kafka",
+//		"The Kafka framework to query for brokers.")
+//	flushPeriodFlag = IntEnvFlag("kafka-flush-ms", 5000,
+//		"Number of milliseconds to wait between output flushes")
+//	snappyCompressionFlag = BoolEnvFlag("kafka-compress-snappy", true,
+//		"Enables Snappy compression on outgoing Kafka data")
+//	requireAllAcksFlag = BoolEnvFlag("kafka-require-all-acks", false,
+//		"Requires that outgoing data be committed by all Kafka replicas (true) "+
+//			"rather than committed by just one replica (false)")
+//	kafkaVerboseFlag = BoolEnvFlag("kafka-verbose", false,
+//		"Enable extra logging in the underlying Kafka client.")
+//)
+
+// KafkaConfig{} is a set of configurations for Kafka Producer
+// NOTE:
+// 	KafkaFramework overrides Brokers. This is an artifact from the migration
+// 	process, in the future we'll only have a broker enabled here instead of passing
+// 	framework.
+type KafkaConfig struct {
+	Brokers            string `yaml:"brokers"`
+	KafkaFramework     string `yaml:"kafka_framework"`
+	FlushPeriod        int    `yaml:"flush_period"`
+	CompressionEnabled bool   `yaml:"snappy_compression_enabled"`
+	AllAcksEnabled     bool   `yaml:"all_acks_enabled"`
+	Verbose            bool   `yaml:"verbose_kafka"`
+}
 
 // KafkaMessage ...
 type KafkaMessage struct {
@@ -51,24 +67,24 @@ type KafkaMessage struct {
 
 // RunKafkaProducer creates and runs a Kafka Producer which sends records passed to the provided channel.
 // This function should be run as a gofunc.
-func RunKafkaProducer(messages <-chan KafkaMessage, stats chan<- StatsEvent) {
-	if *kafkaVerboseFlag {
+func RunKafkaProducer(messages <-chan KafkaMessage, stats chan<- events.StatsEvent, kc KafkaConfig) error {
+	if kc.Verbose {
 		sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 	}
 
 	for {
-		producer, err := kafkaProducer(stats)
+		producer, err := kafkaProducer(stats, kc)
 		if err != nil {
-			stats <- MakeEvent(KafkaConnectionFailed)
+			stats <- events.MakeEvent(events.KafkaConnectionFailed)
 			log.Println("Failed to open Kafka producer:", err)
 			// reuse flush period as the retry delay:
-			log.Printf("Waiting for %dms\n", *flushPeriodFlag)
-			time.Sleep(time.Duration(*flushPeriodFlag) * time.Millisecond)
+			log.Printf("Waiting for %dms\n", kc.FlushPeriod)
+			time.Sleep(time.Duration(kc.FlushPeriod) * time.Millisecond)
 			continue
 		}
-		stats <- MakeEvent(KafkaSessionOpened)
+		stats <- events.MakeEvent(events.KafkaSessionOpened)
 		defer func() {
-			stats <- MakeEvent(KafkaSessionClosed)
+			stats <- events.MakeEvent(events.KafkaSessionClosed)
 			if err := producer.Close(); err != nil {
 				log.Println("Failed to shut down producer cleanly:", err)
 			}
@@ -79,25 +95,25 @@ func RunKafkaProducer(messages <-chan KafkaMessage, stats chan<- StatsEvent) {
 				Topic: message.Topic,
 				Value: sarama.ByteEncoder(message.Data),
 			}
-			stats <- MakeEventSuff(KafkaMessageSent, message.Topic)
+			stats <- events.MakeEventSuff(events.KafkaMessageSent, message.Topic)
 		}
 	}
 }
 
 // ---
 
-func kafkaProducer(stats chan<- StatsEvent) (kafkaProducer sarama.AsyncProducer, err error) {
+func kafkaProducer(stats chan<- events.StatsEvent, kc KafkaConfig) (kafkaProducer sarama.AsyncProducer, err error) {
 	var brokers []string
-	if len(*brokersFlag) != 0 {
-		brokers = strings.Split(*brokersFlag, ",")
+	if len(kc.Brokers) != 0 {
+		brokers = strings.Split(kc.Brokers, ",")
 		if len(brokers) == 0 {
 			log.Fatal("-kafka-brokers must be non-empty.")
 		}
-	} else if len(*frameworkFlag) != 0 {
-		foundBrokers, err := lookupBrokers(*frameworkFlag)
+	} else if len(kc.KafkaFramework) != 0 {
+		foundBrokers, err := lookupBrokers(kc.KafkaFramework)
 		if err != nil {
-			stats <- MakeEventSuff(KafkaLookupFailed, *frameworkFlag)
-			return nil, fmt.Errorf("Broker lookup against framework %s failed: %s", *frameworkFlag, err)
+			stats <- events.MakeEventSuff(events.KafkaLookupFailed, kc.KafkaFramework)
+			return nil, fmt.Errorf("Broker lookup against framework %s failed: %s", kc.KafkaFramework, err)
 		}
 		brokers = append(brokers, foundBrokers...)
 	} else {
@@ -106,28 +122,28 @@ func kafkaProducer(stats chan<- StatsEvent) (kafkaProducer sarama.AsyncProducer,
 	}
 	log.Println("Kafka brokers:", strings.Join(brokers, ", "))
 
-	kafkaProducer, err = newAsyncProducer(brokers)
+	kafkaProducer, err = newAsyncProducer(brokers, kc)
 	if err != nil {
 		return nil, fmt.Errorf("Producer creation against brokers %+v failed: %s", brokers, err)
 	}
 	return kafkaProducer, nil
 }
 
-func newAsyncProducer(brokerList []string) (producer sarama.AsyncProducer, err error) {
+func newAsyncProducer(brokerList []string, kc KafkaConfig) (producer sarama.AsyncProducer, err error) {
 	// For the access log, we are looking for AP semantics, with high throughput.
 	// By creating batches of compressed messages, we reduce network I/O at a cost of more latency.
 	config := sarama.NewConfig()
-	if *requireAllAcksFlag {
+	if kc.AllAcksEnabled {
 		config.Producer.RequiredAcks = sarama.WaitForAll
 	} else {
 		config.Producer.RequiredAcks = sarama.WaitForLocal
 	}
-	if *snappyCompressionFlag {
+	if kc.CompressionEnabled {
 		config.Producer.Compression = sarama.CompressionSnappy
 	} else {
 		config.Producer.Compression = sarama.CompressionNone
 	}
-	config.Producer.Flush.Frequency = time.Duration(*flushPeriodFlag) * time.Millisecond
+	config.Producer.Flush.Frequency = time.Duration(kc.FlushPeriod) * time.Millisecond
 
 	producer, err = sarama.NewAsyncProducer(brokerList, config)
 	if err != nil {
@@ -149,7 +165,7 @@ func lookupBrokers(framework string) (brokers []string, err error) {
 	if err != nil {
 		return nil, err
 	}
-	body, err := HTTPGet(schedulerEndpoint)
+	body, err := util.HTTPGet(schedulerEndpoint)
 	if err != nil {
 		return nil, err
 	}

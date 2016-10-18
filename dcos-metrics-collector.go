@@ -22,6 +22,8 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
+
+	producers "github.com/dcos/dcos-metrics/producers"
 )
 
 // MasterConfig ...
@@ -39,7 +41,7 @@ type AgentConfig struct {
 // Config ...
 type Config struct {
 	HTTPProfiler  bool   `yaml:"http_profiler"`
-	KafkaProducer bool   `yaml:"kafka_producer"`
+	KafkaProducer bool   `yaml:"kafka_producer_enabled"`
 	IPCommand     string `yaml:"ip_command"`
 	PollingPeriod int    `yaml:"polling_period"`
 
@@ -48,6 +50,10 @@ type Config struct {
 
 	ConfigPath string
 	DCOSRole   string
+
+	// Optionally add the Kafka configuration to this config if
+	// you're using that producer.
+	producers.KafkaConfig `yaml:"kafka_producer_config,omitempty"`
 }
 
 func main() {
@@ -60,10 +66,10 @@ func main() {
 	stats := make(chan StatsEvent)
 	go RunStatsEmitter(stats)
 
-	kafkaOutputChan := make(chan KafkaMessage)
+	kafkaOutputChan := make(chan producers.KafkaMessage)
 	if collectorConfig.KafkaProducer {
 		log.Printf("Kafkfa producer enabled")
-		go RunKafkaProducer(kafkaOutputChan, stats)
+		go producers.RunKafkaProducer(kafkaOutputChan, stats)
 	} else {
 		go printReceivedMessages(kafkaOutputChan)
 	}
