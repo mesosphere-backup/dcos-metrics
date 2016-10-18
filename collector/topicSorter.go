@@ -19,9 +19,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-metrics/producers/kafka"
 	"github.com/dcos/dcos-metrics/producers/statsd"
 	"github.com/dcos/dcos-metrics/schema/metrics_schema"

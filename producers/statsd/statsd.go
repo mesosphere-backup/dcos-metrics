@@ -16,11 +16,12 @@ package statsd
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"sort"
 	"strconv"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 // StatsEventType ...

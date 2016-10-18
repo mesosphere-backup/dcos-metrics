@@ -18,11 +18,11 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os/exec"
 	"strings"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/antonholmquist/jason"
 	"github.com/dcos/dcos-metrics/producers/statsd"
 	"github.com/dcos/dcos-metrics/schema/metrics_schema"

@@ -15,9 +15,10 @@
 package http
 
 import (
-	"log"
 	"net/http"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 func logger(inner http.Handler, name string) http.Handler {

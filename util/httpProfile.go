@@ -15,10 +15,11 @@
 package util
 
 import (
-	"log"
 	"net"
 	"net/http"
 	_ "net/http/pprof" // register all pprof HTTP handlers
+
+	log "github.com/Sirupsen/logrus"
 )
 
 // RunHTTPProfAccess runs an HTTP listener on a random ephemeral port which allows pprof access.

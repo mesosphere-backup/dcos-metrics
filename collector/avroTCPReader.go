@@ -17,10 +17,10 @@ package collector
 import (
 	"encoding/hex"
 	"io"
-	"log"
 	"net"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-metrics/producers/statsd"
 	"github.com/linkedin/goavro"
 )

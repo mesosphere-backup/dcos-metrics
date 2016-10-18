@@ -6,12 +6,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"runtime"
 	"strconv"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
 
 	"github.com/dcos/dcos-metrics/schema/metrics_schema"
 	"github.com/linkedin/goavro"
