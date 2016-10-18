@@ -23,6 +23,8 @@ import (
 	log "github.com/Sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
 
+	"github.com/dcos/dcos-metrics/collector"
+	"github.com/dcos/dcos-metrics/events"
 	producers "github.com/dcos/dcos-metrics/producers"
 )
 
@@ -53,7 +55,11 @@ type Config struct {
 
 	// Optionally add the Kafka configuration to this config if
 	// you're using that producer.
-	producers.KafkaConfig `yaml:"kafka_producer_config,omitempty"`
+	KafkaProducerConfig producers.KafkaConfig `yaml:"kafka_producer_config,omitempty"`
+
+	// Optionally, add the configuration to run the
+	// statsd "exhaust"
+	StatsdProducerConfig events.StatsdConfig `yaml:"statsd_producer_config,omitempty"`
 }
 
 func main() {
@@ -63,22 +69,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	stats := make(chan StatsEvent)
-	go RunStatsEmitter(stats)
+	stats := make(chan events.StatsEvent)
+	go events.RunStatsEmitter(stats, collectorConfig.StatsdProducerConfig)
 
 	kafkaOutputChan := make(chan producers.KafkaMessage)
 	if collectorConfig.KafkaProducer {
 		log.Printf("Kafkfa producer enabled")
-		go producers.RunKafkaProducer(kafkaOutputChan, stats)
+		go producers.RunKafkaProducer(kafkaOutputChan, stats, collectorConfig.KafkaProducerConfig)
 	} else {
 		go printReceivedMessages(kafkaOutputChan)
 	}
 
-	recordInputChan := make(chan *AvroDatum)
-	agentStateChan := make(chan *AgentState)
+	recordInputChan := make(chan *collector.AvroDatum)
+	agentStateChan := make(chan *collector.AgentState)
 	if collectorConfig.DCOSRole == "agent" {
 		log.Printf("Agent polling enabled")
-		agent, err := NewAgent(
+		agent, err := collector.NewAgent(
 			collectorConfig.IPCommand,
 			collectorConfig.AgentConfig.Port,
 			collectorConfig.PollingPeriod,
@@ -89,18 +95,18 @@ func main() {
 
 		go agent.Run(recordInputChan, stats)
 	}
-	go RunAvroTCPReader(recordInputChan, stats)
+	go collector.RunAvroTCPReader(recordInputChan, stats)
 
 	if collectorConfig.HTTPProfiler {
 		log.Printf("HTTP Profiling Enabled")
-		go RunHTTPProfAccess()
+		go collector.RunHTTPProfAccess()
 	}
 
 	// Run the sorter on the main thread (exit process if Kafka stops accepting data)
-	RunTopicSorter(recordInputChan, agentStateChan, kafkaOutputChan, stats)
+	collector.RunTopicSorter(recordInputChan, agentStateChan, kafkaOutputChan, stats)
 }
 
-func printReceivedMessages(msgChan <-chan KafkaMessage) {
+func printReceivedMessages(msgChan <-chan producers.KafkaMessage) {
 	for {
 		msg := <-msgChan
 		log.Printf("Topic '%s': %d bytes would've been written (-kafka=false)\n",
