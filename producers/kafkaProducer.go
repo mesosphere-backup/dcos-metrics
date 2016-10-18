@@ -29,22 +29,6 @@ import (
 	util "github.com/dcos/dcos-metrics/util"
 )
 
-//var (
-//	brokersFlag = StringEnvFlag("kafka-brokers", "",
-//		"The Kafka brokers to connect to, as a comma separated list. (overrides -kafka-framework)")
-//	frameworkFlag = StringEnvFlag("kafka-framework", "kafka",
-//		"The Kafka framework to query for brokers.")
-//	flushPeriodFlag = IntEnvFlag("kafka-flush-ms", 5000,
-//		"Number of milliseconds to wait between output flushes")
-//	snappyCompressionFlag = BoolEnvFlag("kafka-compress-snappy", true,
-//		"Enables Snappy compression on outgoing Kafka data")
-//	requireAllAcksFlag = BoolEnvFlag("kafka-require-all-acks", false,
-//		"Requires that outgoing data be committed by all Kafka replicas (true) "+
-//			"rather than committed by just one replica (false)")
-//	kafkaVerboseFlag = BoolEnvFlag("kafka-verbose", false,
-//		"Enable extra logging in the underlying Kafka client.")
-//)
-
 // KafkaConfig{} is a set of configurations for Kafka Producer
 // NOTE:
 // 	KafkaFramework overrides Brokers. This is an artifact from the migration

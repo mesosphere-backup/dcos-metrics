@@ -23,15 +23,6 @@ import (
 	"time"
 )
 
-//var (
-//	statsdHostFlag = StringEnvFlag("statsd-udp-host", "",
-//		"Outgoing host for sending statsd metrics")
-//	statsdPortFlag = IntEnvFlag("statsd-udp-port", 0,
-//		"Outgoing UDP port for sending statsd metrics")
-//	statsdPeriodFlag = IntEnvFlag("statsd-period", 15,
-//		"Period between statsd metrics flushes, in seconds")
-//)
-
 // StatsEventType ...
 type StatsEventType int
 
