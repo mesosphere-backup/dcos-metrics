@@ -50,7 +50,7 @@ function _golint {
 function _govet {
     local package_dirs="$1"
     logmsg "Running 'go vet' ..."
-    test -z "$(go vet $(go list $package_dirs | grep -v vendor/) | tee /dev/stderr)"
+    go vet $(go list $package_dirs | grep -v vendor/)
 }
 
 
