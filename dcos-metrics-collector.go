@@ -24,6 +24,7 @@ import (
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/dcos/dcos-metrics/collector"
+	httpAPI "github.com/dcos/dcos-metrics/producers/http"
 	"github.com/dcos/dcos-metrics/producers/kafka"
 	"github.com/dcos/dcos-metrics/producers/statsd"
 	"github.com/dcos/dcos-metrics/util"
@@ -61,6 +62,9 @@ type Config struct {
 	// Optionally, add the configuration to run the
 	// statsd "exhaust"
 	StatsdProducerConfig statsd.StatsdConfig `yaml:"statsd_producer_config,omitempty"`
+
+	// HTTP producer config
+	HTTPProducerConfig httpAPI.Config `yaml:"http_producer_config,omitempty"`
 }
 
 func main() {
@@ -70,8 +74,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if collectorConfig.HTTPProducerConfig.Port != 0 {
+		go httpAPI.Start(collectorConfig.HTTPProducerConfig)
+	}
+
 	stats := make(chan statsd.StatsEvent)
-	go statsd.RunStatsEmitter(stats, collectorConfig.StatsdProducerConfig)
+	if collectorConfig.StatsdProducerConfig.StatsdPort != 0 {
+		go statsd.RunStatsEmitter(stats, collectorConfig.StatsdProducerConfig)
+	}
 
 	kafkaOutputChan := make(chan kafka.KafkaMessage)
 	if collectorConfig.KafkaProducer {
@@ -141,6 +151,9 @@ func newConfig() Config {
 		PollingPeriod: 15,
 		IPCommand:     "/opt/mesosphere/bin/detect_ip",
 		ConfigPath:    "dcos-metrics-config.yaml",
+		HTTPProducerConfig: httpAPI.Config{
+			Port: 8000,
+		},
 	}
 }
 
