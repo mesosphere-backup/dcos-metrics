@@ -29,16 +29,16 @@ func TestToStatsdLabel(t *testing.T) {
 		// Spot check a few event types
 		Convey("Known events should produce valid labels", func() {
 			So(toStatsdLabel(
-				StatsEvent{evttype: 2}), // 2 => TCPResolveFailed
+				StatsEvent{evttype: TCPResolveFailed}),
 				ShouldEqual, fmt.Sprintf("%s.%s", statsdPrefix, "tcp_input.tcp_resolve_failures"))
 			So(toStatsdLabel(
-				StatsEvent{evttype: 13}), // 13 => KafkaLookupFailed
+				StatsEvent{evttype: KafkaLookupFailed}),
 				ShouldEqual, fmt.Sprintf("%s.%s", statsdPrefix, "kafka_output.framework_lookup_failures"))
 			So(toStatsdLabel(
-				StatsEvent{evttype: 19}), // 19 => AgentIPLookup
+				StatsEvent{evttype: AgentIPLookup}),
 				ShouldEqual, fmt.Sprintf("%s.%s", statsdPrefix, "agent_poll.ip_lookups"))
 			So(toStatsdLabel(
-				StatsEvent{evttype: 27}), // 27 => RecordNoAgentStateAvailable
+				StatsEvent{evttype: RecordNoAgentStateAvailable}),
 				ShouldEqual, fmt.Sprintf("%s.%s", statsdPrefix, "topic_sorter.no_agent_state_available"))
 		})
 

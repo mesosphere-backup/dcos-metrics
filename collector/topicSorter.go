@@ -24,7 +24,7 @@ import (
 
 	"github.com/dcos/dcos-metrics/collector/metrics_schema"
 	"github.com/dcos/dcos-metrics/events"
-	"github.com/dcos/dcos-metrics/producers"
+	"github.com/dcos/dcos-metrics/producers/kafka"
 	"github.com/linkedin/goavro"
 )
 
@@ -88,7 +88,7 @@ func (d *avroData) append(datum *AvroDatum) {
 }
 
 // RunTopicSorter sorts incoming Avro records into Kafka topics
-func RunTopicSorter(avroInput <-chan *AvroDatum, agentStateInput <-chan *AgentState, kafkaOutput chan<- producers.KafkaMessage, stats chan<- events.StatsEvent) {
+func RunTopicSorter(avroInput <-chan *AvroDatum, agentStateInput <-chan *AgentState, kafkaOutput chan<- kafka.KafkaMessage, stats chan<- events.StatsEvent) {
 	codec, err := goavro.NewCodec(metrics_schema.MetricListSchema)
 	if err != nil {
 		log.Fatal("Failed to initialize avro codec: ", err)
@@ -197,7 +197,7 @@ func GetTopic(obj interface{}) (string, bool) {
 
 func flushTopic(topic string, topicRecs []interface{}, codec goavro.Codec,
 	logReason string,
-	kafkaOutput chan<- producers.KafkaMessage, stats chan<- events.StatsEvent,
+	kafkaOutput chan<- kafka.KafkaMessage, stats chan<- events.StatsEvent,
 	totalRecordCount, totalByteCount, droppedByteCount *int64) {
 	stats <- events.MakeEventSuffCount(events.AvroRecordOut, topic, len(topicRecs))
 	*totalRecordCount += int64(len(topicRecs))
@@ -221,7 +221,7 @@ func flushTopic(topic string, topicRecs []interface{}, codec goavro.Codec,
 	} else {
 		log.Printf("Producing %d MetricLists (%d bytes) for Kafka topic '%s' (trigger: %s)\n",
 			len(topicRecs), buf.Len(), topic, logReason)
-		kafkaOutput <- producers.KafkaMessage{
+		kafkaOutput <- kafka.KafkaMessage{
 			Topic: topic,
 			Data:  buf.Bytes(),
 		}

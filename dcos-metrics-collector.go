@@ -25,7 +25,7 @@ import (
 
 	"github.com/dcos/dcos-metrics/collector"
 	"github.com/dcos/dcos-metrics/events"
-	producers "github.com/dcos/dcos-metrics/producers"
+	"github.com/dcos/dcos-metrics/producers/kafka"
 )
 
 // MasterConfig ...
@@ -55,7 +55,7 @@ type Config struct {
 
 	// Optionally add the Kafka configuration to this config if
 	// you're using that producer.
-	KafkaProducerConfig producers.KafkaConfig `yaml:"kafka_producer_config,omitempty"`
+	KafkaProducerConfig kafka.KafkaConfig `yaml:"kafka_producer_config,omitempty"`
 
 	// Optionally, add the configuration to run the
 	// statsd "exhaust"
@@ -72,10 +72,10 @@ func main() {
 	stats := make(chan events.StatsEvent)
 	go events.RunStatsEmitter(stats, collectorConfig.StatsdProducerConfig)
 
-	kafkaOutputChan := make(chan producers.KafkaMessage)
+	kafkaOutputChan := make(chan kafka.KafkaMessage)
 	if collectorConfig.KafkaProducer {
 		log.Printf("Kafkfa producer enabled")
-		go producers.RunKafkaProducer(kafkaOutputChan, stats, collectorConfig.KafkaProducerConfig)
+		go kafka.RunKafkaProducer(kafkaOutputChan, stats, collectorConfig.KafkaProducerConfig)
 	} else {
 		go printReceivedMessages(kafkaOutputChan)
 	}
@@ -106,7 +106,7 @@ func main() {
 	collector.RunTopicSorter(recordInputChan, agentStateChan, kafkaOutputChan, stats)
 }
 
-func printReceivedMessages(msgChan <-chan producers.KafkaMessage) {
+func printReceivedMessages(msgChan <-chan kafka.KafkaMessage) {
 	for {
 		msg := <-msgChan
 		log.Printf("Topic '%s': %d bytes would've been written (-kafka=false)\n",

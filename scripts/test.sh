@@ -28,14 +28,14 @@ function logmsg {
 
 function _gofmt {
     logmsg "Running 'gofmt' ..."
-    test -z "$(gofmt -l -d $(find . -type f -name '*.go' -not -path './vendor/**') | tee /dev/stderr)" && echo "OK."
+    test -z "$(gofmt -l -d $(find . -type f -name '*.go' -not -path './vendor/**') | tee /dev/stderr)"
 }
 
 
 function _goimports {
     logmsg "Running 'goimports' ..."
     go get -u golang.org/x/tools/cmd/goimports
-    test -z "$(goimports -l -d $(find . -type f -name '*.go' -not -path "./vendor/**") | tee /dev/stderr)" && echo "OK."
+    test -z "$(goimports -l -d $(find . -type f -name '*.go' -not -path "./vendor/**") | tee /dev/stderr)"
 }
 
 
@@ -43,14 +43,14 @@ function _golint {
     local test_dirs="$1"
     logmsg "Running 'go lint' ..."
     go get -u github.com/golang/lint/golint
-    test -z "$(golint -set_exit_status $test_dirs | tee /dev/stderr)" && echo "OK."
+    test -z "$(golint -set_exit_status $test_dirs | tee /dev/stderr)"
 }
 
 
 function _govet {
     local package_dirs="$1"
     logmsg "Running 'go vet' ..."
-    test -z "$(go vet $(go list $package_dirs | grep -v vendor/) | tee /dev/stderr)" && echo "OK."
+    test -z "$(go vet $(go list $package_dirs | grep -v vendor/) | tee /dev/stderr)"
 }
 
 
@@ -63,8 +63,8 @@ function _unittest_with_coverage {
     go get -u github.com/jstemmer/go-junit-report
     go get -u github.com/smartystreets/goconvey
     go get -u golang.org/x/tools/cmd/cover
-    go get github.com/axw/gocov/...
-    go get github.com/AlekSi/gocov-xml
+    go get -u github.com/axw/gocov/...
+    go get -u github.com/AlekSi/gocov-xml
 
     # We can't' use the test profile flag with multiple packages. Therefore,
     # run 'go test' for each package, and concatenate the results into
@@ -97,8 +97,8 @@ function _unittest_with_coverage {
 
 # Main. Example usage: ./test.sh collector unit
 function main {
-    local test_dirs="${COMPONENT}/"
-    local package_dirs="./${COMPONENT}/..."
+    local test_dirs="./"
+    local package_dirs="./..."
     local ignore_packages="metrics_schema"
 
     if [[ $TEST_SUITE == "unit" ]]; then

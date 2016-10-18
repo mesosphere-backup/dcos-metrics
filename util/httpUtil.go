@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package http
+package util
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	userAgent = "metrics-collector/1.0"
+	userAgent = "dcos-metrics-collector/1.0"
 )
 
 // HTTPCodeError ...
