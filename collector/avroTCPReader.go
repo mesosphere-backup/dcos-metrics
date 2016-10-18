@@ -21,6 +21,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/dcos/dcos-metrics/producers/statsd"
 	"github.com/linkedin/goavro"
 )
 
@@ -43,27 +44,27 @@ var (
 // RunAvroTCPReader runs a TCP socket listener which produces Avro records sent to that socket.
 // Expects input which has been formatted in the Avro ODF standard.
 // This function should be run as a gofunc.
-func RunAvroTCPReader(recordsChan chan<- *AvroDatum, stats chan<- StatsEvent) {
+func RunAvroTCPReader(recordsChan chan<- *AvroDatum, stats chan<- statsd.StatsEvent) {
 	addr, err := net.ResolveTCPAddr("tcp", *listenEndpointFlag)
 	if err != nil {
-		stats <- MakeEvent(TCPResolveFailed)
+		stats <- statsd.MakeEvent(statsd.TCPResolveFailed)
 		log.Fatalf("Failed to parse TCP endpoint '%s': %s", *listenEndpointFlag, err)
 	}
 	sock, err := net.ListenTCP("tcp", addr)
 	if err != nil {
-		stats <- MakeEvent(TCPListenFailed)
+		stats <- statsd.MakeEvent(statsd.TCPListenFailed)
 		log.Fatalf("Failed to listen on TCP endpoint '%s': %s", *listenEndpointFlag, err)
 	}
 
 	for {
 		conn, err := sock.AcceptTCP()
 		if err != nil {
-			stats <- MakeEvent(TCPAcceptFailed)
+			stats <- statsd.MakeEvent(statsd.TCPAcceptFailed)
 			log.Printf("Failed to accept connection on TCP endpoint '%s': %s\n",
 				*listenEndpointFlag, err)
 			continue
 		}
-		stats <- MakeEvent(TCPSessionOpened)
+		stats <- statsd.MakeEvent(statsd.TCPSessionOpened)
 		log.Println("Launching handler for TCP connection from:", conn.RemoteAddr())
 		go handleConnection(conn, recordsChan, stats)
 	}
@@ -73,23 +74,23 @@ func RunAvroTCPReader(recordsChan chan<- *AvroDatum, stats chan<- StatsEvent) {
 
 // Function which reads records from a TCP session.
 // This function should be run as a gofunc.
-func handleConnection(conn *net.TCPConn, recordsChan chan<- *AvroDatum, stats chan<- StatsEvent) {
+func handleConnection(conn *net.TCPConn, recordsChan chan<- *AvroDatum, stats chan<- statsd.StatsEvent) {
 	conn.SetKeepAlive(true)
 	defer func() {
-		stats <- MakeEvent(TCPSessionClosed)
+		stats <- statsd.MakeEvent(statsd.TCPSessionClosed)
 		conn.Close()
 	}()
 
 	reader := &countingReader{conn, 0}
 	avroReader, err := goavro.NewReader(goavro.FromReader(reader))
 	if err != nil {
-		stats <- MakeEvent(AvroReaderOpenFailed)
+		stats <- statsd.MakeEvent(statsd.AvroReaderOpenFailed)
 		log.Println("Failed to create avro reader:", err)
 		return // close connection
 	}
 	defer func() {
 		if err := avroReader.Close(); err != nil {
-			stats <- MakeEvent(AvroReaderCloseFailed)
+			stats <- statsd.MakeEvent(statsd.AvroReaderCloseFailed)
 			log.Println("Failed to close avro reader:", err)
 		}
 	}()
@@ -111,14 +112,14 @@ func handleConnection(conn *net.TCPConn, recordsChan chan<- *AvroDatum, stats ch
 		}
 		topic, ok := GetTopic(datum)
 		if !ok {
-			stats <- MakeEvent(RecordBadTopic)
+			stats <- statsd.MakeEvent(statsd.RecordBadTopic)
 		}
 		// increment counters before reader.inputBytes is modified too much
 		// NOTE: inputBytes is effectively being modified by a gofunc in avroReader, so it's not a perfect measurement
 		recordCount++
 		approxBytesRead := reader.inputBytes - lastBytesCount
-		stats <- MakeEventSuff(AvroRecordIn, topic)
-		stats <- MakeEventSuffCount(AvroBytesIn, topic, int(approxBytesRead))
+		stats <- statsd.MakeEventSuff(statsd.AvroRecordIn, topic)
+		stats <- statsd.MakeEventSuffCount(statsd.AvroBytesIn, topic, int(approxBytesRead))
 
 		// reset throttle counter if needed, before enforcing it below
 		// ideally we'd use a ticker for this, but the goavro api already requires we use manual polling
@@ -144,8 +145,8 @@ func handleConnection(conn *net.TCPConn, recordsChan chan<- *AvroDatum, stats ch
 
 		if reader.inputBytes > *inputLimitAmountKBytesFlag*1024 {
 			// input limit reached, skip
-			stats <- MakeEventSuff(AvroRecordInThrottled, topic)
-			stats <- MakeEventSuffCount(AvroBytesInThrottled, topic, int(approxBytesRead))
+			stats <- statsd.MakeEventSuff(statsd.AvroRecordInThrottled, topic)
+			stats <- statsd.MakeEventSuffCount(statsd.AvroBytesInThrottled, topic, int(approxBytesRead))
 			continue
 		}
 		if *recordInputLogFlag {

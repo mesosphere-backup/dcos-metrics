@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package collector
+package statsd
 
 import (
 	"fmt"
@@ -23,17 +23,14 @@ import (
 	"time"
 )
 
-var (
-	statsdHostFlag = StringEnvFlag("statsd-udp-host", "",
-		"Outgoing host for sending statsd metrics")
-	statsdPortFlag = IntEnvFlag("statsd-udp-port", 0,
-		"Outgoing UDP port for sending statsd metrics")
-	statsdPeriodFlag = IntEnvFlag("statsd-period", 15,
-		"Period between statsd metrics flushes, in seconds")
-)
-
 // StatsEventType ...
 type StatsEventType int
+
+type StatsdConfig struct {
+	StatsdHost   string `yaml:"statsd_host"`
+	StatsdPort   int    `yaml:"statsd_port"`
+	StatsdPeriod int    `yaml:"statsd_period"`
+}
 
 //StatsD constants
 const (
@@ -109,10 +106,10 @@ func MakeEvent(evttype StatsEventType) StatsEvent {
 // RunStatsEmitter creates and runs a Stats Emitter which sends counts to a UDP endpoint,
 // or which just emits to logs if the endpoint isn't available.
 // This function should be run as a gofunc.
-func RunStatsEmitter(events <-chan StatsEvent) {
+func RunStatsEmitter(events <-chan StatsEvent, c StatsdConfig) {
 	gauges := make(map[string]int64)
-	statsdConn := getStatsdConn()
-	ticker := time.NewTicker(time.Second * time.Duration(*statsdPeriodFlag))
+	statsdConn := getStatsdConn(c)
+	ticker := time.NewTicker(time.Second * time.Duration(c.StatsdPeriod))
 	for {
 		select {
 		case event := <-events:
@@ -208,14 +205,13 @@ func toStatsdLabel(event StatsEvent) string {
 	return fmt.Sprintf("%s.%s.%s", statsdPrefix, statsdKey, event.suffix)
 }
 
-func getStatsdConn() *net.UDPConn {
-	if statsdHostFlag == nil || len(*statsdHostFlag) == 0 ||
-		statsdPortFlag == nil || *statsdPortFlag == 0 {
+func getStatsdConn(c StatsdConfig) *net.UDPConn {
+	if c.StatsdHost == "" || c.StatsdPort == 0 {
 		log.Println("STATSD_UDP_HOST and/or STATSD_UDP_PORT not present in environment. " +
 			"Internal collector metrics over StatsD is disabled.")
 		return nil
 	}
-	address := fmt.Sprintf("%s:%s", *statsdHostFlag, strconv.Itoa(int(*statsdPortFlag)))
+	address := fmt.Sprintf("%s:%s", c.StatsdHost, strconv.Itoa(int(c.StatsdPort)))
 	// send the current time (gauge) and the count of packets sent (gauge)
 	dest, err := net.ResolveUDPAddr("udp", address)
 	if err != nil {

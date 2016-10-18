@@ -1,3 +1,5 @@
+// +build unit
+
 // Copyright 2016 Mesosphere, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,8 +14,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package collector
-
-// This file contains all work to be done in response to 'go generate':
-
-//go:generate go run ../schema/generator.go -infile ../schema/metrics.avsc -outfile metrics_schema/schema.go
+package util

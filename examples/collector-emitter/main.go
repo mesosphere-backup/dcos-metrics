@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/dcos/dcos-metrics/collector/metrics_schema"
+	"github.com/dcos/dcos-metrics/schema/metrics_schema"
 	"github.com/linkedin/goavro"
 )
 
@@ -110,7 +110,7 @@ func generateStats(recordsChan chan<- []interface{}) {
 func buildMetricList(topic string, tags, datapoints []interface{}) interface{} {
 	metricList, err := goavro.NewRecord(metricListNamespace, metricListSchema)
 	if err != nil {
-		log.Fatal("Failed to create MetricList record for topic %s: %s", topic, err)
+		log.Fatal(fmt.Errorf("Failed to create MetricList record for topic %s: %s", topic, err))
 	}
 	metricList.Set("topic", topic)
 	metricList.Set("tags", tags)
@@ -174,7 +174,7 @@ func runTCPSerializerSender(recordsChan <-chan []interface{}) {
 			// ... or when this much time has passed:
 			goavro.BlockTick(time.Duration(*blockTickMsFlag)*time.Millisecond))
 		if err != nil {
-			log.Fatalf("Failed to create Avro writer: ", err)
+			log.Fatal("Failed to create Avro writer: ", err)
 		}
 
 		// Send data until the connection is lost (detected via TCPWriterProxy)
