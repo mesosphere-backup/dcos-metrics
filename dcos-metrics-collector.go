@@ -25,7 +25,7 @@ import (
 
 	"github.com/dcos/dcos-metrics/collector"
 	"github.com/dcos/dcos-metrics/producers/kafka"
-	"github.com/dcos/dcos-metrics/statsd"
+	"github.com/dcos/dcos-metrics/producers/statsd"
 )
 
 // MasterConfig ...
