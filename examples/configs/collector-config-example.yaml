@@ -1,6 +1,0 @@
-http_profiler: false
-kafka_producer: false
-polling_period: 5
-agent_config:
-  port: 1234
-  metric_topic: foo-topic

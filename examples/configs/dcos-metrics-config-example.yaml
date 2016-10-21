@@ -1,0 +1,41 @@
+##############################################
+# Example configuration file for dcos-metrics.
+##############################################
+
+# Collector configuration
+collector:
+  http_profiler: false
+  ip_command: '/bin/false'
+  polling_period: 5
+
+  # DC/OS (Mesos) master configuration
+  master_config:
+    port: 5050
+    kafka_topic: 'master-topic'
+
+  # DC/OS (Mesos) agent configuration
+  agent_config:
+    port: 5051
+    kafka_topic: 'agent-topic'
+
+
+# Producers configuration
+producers:
+  # HTTP producer
+  http:
+    port: 1234
+
+  # Kafka producer
+  kafka:
+    brokers: 'foo'
+    kafka_framework: 'foo'
+    flush_period: 30
+    snappy_compression_enabled: true
+    all_acks_enabled: true
+    verbose_kafka: true
+
+  # StatsD (more specifically: DogStatsD) producer
+  statsd:
+    statsd_host: 'foo'
+    statsd_port: 1234
+    statsd_period: 1

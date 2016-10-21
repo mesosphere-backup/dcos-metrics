@@ -22,6 +22,8 @@ import (
 	"os"
 	"testing"
 
+	yaml "gopkg.in/yaml.v2"
+
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -34,15 +36,11 @@ func TestDefaultConfig(t *testing.T) {
 		testConfig := newConfig()
 
 		Convey("Default polling period should be 15", func() {
-			So(testConfig.PollingPeriod, ShouldEqual, 15)
+			So(testConfig.Collector.PollingPeriod, ShouldEqual, 15)
 		})
 
 		Convey("HTTP profiler should be enabled by default", func() {
-			So(testConfig.HTTPProfiler, ShouldBeTrue)
-		})
-
-		Convey("Kafka flag should be enabled by default", func() {
-			So(testConfig.KafkaProducer, ShouldBeTrue)
+			So(testConfig.Collector.HTTPProfiler, ShouldBeTrue)
 		})
 	})
 }
@@ -64,12 +62,16 @@ func TestLoadConfig(t *testing.T) {
 	// Mock out and create the config file
 	configContents := []byte(`
 ---
-agent_config:
-  port: 5051
-  metric_topic: agent-metrics
-polling_period: 5 
-http_profiler: false
-kafka_producer: false`)
+collector:
+  agent_config:
+    port: 5051
+    kafka_topic: agent-metrics
+  polling_period: 5
+  http_profiler: false
+producers:
+  kafka:
+    brokers: 'foo'
+`)
 
 	tmpConfig, err := ioutil.TempFile("", "testConfig")
 	if err != nil {
@@ -91,11 +93,52 @@ kafka_producer: false`)
 			loadErr := testConfig.loadConfig()
 			So(loadErr, ShouldBeNil)
 
-			So(testConfig.AgentConfig.Port, ShouldEqual, 5051)
-			So(testConfig.AgentConfig.Topic, ShouldEqual, "agent-metrics")
-			So(testConfig.PollingPeriod, ShouldEqual, 5)
-			So(testConfig.HTTPProfiler, ShouldBeFalse)
-			So(testConfig.KafkaProducer, ShouldBeFalse)
+			So(testConfig.Collector.AgentConfig.Port, ShouldEqual, 5051)
+			So(testConfig.Collector.AgentConfig.KafkaTopic, ShouldEqual, "agent-metrics")
+			So(testConfig.Collector.PollingPeriod, ShouldEqual, 5)
+			So(testConfig.Collector.HTTPProfiler, ShouldBeFalse)
+			So(testConfig.Producers.KafkaProducerConfig.Brokers, ShouldEqual, "foo")
+		})
+	})
+}
+
+func TestProducerIsConfigured(t *testing.T) {
+	Convey("When analyzing a ProducersConfig struct to determine if a producer is configured", t, func() {
+		Convey("Should return true if a producer configuration was provided", func() {
+			var c Config
+			mockConfig := []byte(`
+---
+producers:
+    http:
+        someConfig: 'someVal'
+    kafka:
+        someConfig: 'someVal'
+    statsd:
+        someConfig: 'someVal'
+`)
+
+			if err := yaml.Unmarshal(mockConfig, &c); err != nil {
+				panic(err)
+			}
+			So(producerIsConfigured("http", c), ShouldBeTrue)
+			So(producerIsConfigured("kafka", c), ShouldBeTrue)
+			So(producerIsConfigured("statsd", c), ShouldBeTrue)
+		})
+		Convey("Should return false if a producer configuration wasn't provided", func() {
+			var c Config
+			mockConfig := []byte(`
+---
+producers:
+    http:
+        someConfig: 'someVal'
+    statsd:
+        someConfig: 'someVal'
+`)
+
+			if err := yaml.Unmarshal(mockConfig, &c); err != nil {
+				panic(err)
+			}
+			So(producerIsConfigured("someBogusProducer", c), ShouldBeFalse)
 		})
 	})
 }

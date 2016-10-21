@@ -27,7 +27,7 @@ import (
 // StatsEventType ...
 type StatsEventType int
 
-type StatsdConfig struct {
+type Config struct {
 	StatsdHost   string `yaml:"statsd_host"`
 	StatsdPort   int    `yaml:"statsd_port"`
 	StatsdPeriod int    `yaml:"statsd_period"`
@@ -107,7 +107,7 @@ func MakeEvent(evttype StatsEventType) StatsEvent {
 // RunStatsEmitter creates and runs a Stats Emitter which sends counts to a UDP endpoint,
 // or which just emits to logs if the endpoint isn't available.
 // This function should be run as a gofunc.
-func RunStatsEmitter(events <-chan StatsEvent, c StatsdConfig) {
+func RunStatsEmitter(events <-chan StatsEvent, c Config) {
 	gauges := make(map[string]int64)
 	statsdConn := getStatsdConn(c)
 	ticker := time.NewTicker(time.Second * time.Duration(c.StatsdPeriod))
@@ -206,7 +206,7 @@ func toStatsdLabel(event StatsEvent) string {
 	return fmt.Sprintf("%s.%s.%s", statsdPrefix, statsdKey, event.suffix)
 }
 
-func getStatsdConn(c StatsdConfig) *net.UDPConn {
+func getStatsdConn(c Config) *net.UDPConn {
 	if c.StatsdHost == "" || c.StatsdPort == 0 {
 		log.Println("STATSD_UDP_HOST and/or STATSD_UDP_PORT not present in environment. " +
 			"Internal collector metrics over StatsD is disabled.")

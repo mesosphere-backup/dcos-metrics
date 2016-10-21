@@ -19,87 +19,110 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"reflect"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/dcos/dcos-metrics/collector"
-	httpAPI "github.com/dcos/dcos-metrics/producers/http"
-	"github.com/dcos/dcos-metrics/producers/kafka"
-	"github.com/dcos/dcos-metrics/producers/statsd"
+	httpProducer "github.com/dcos/dcos-metrics/producers/http"
+	kafkaProducer "github.com/dcos/dcos-metrics/producers/kafka"
+	statsdProducer "github.com/dcos/dcos-metrics/producers/statsd"
 	"github.com/dcos/dcos-metrics/util"
 )
 
-// MasterConfig ...
-type MasterConfig struct {
-	Port  int    `yaml:"port,omitempty"`
-	Topic string `yaml:"metric_topic,omitempty"`
-}
-
-// AgentConfig ...
-type AgentConfig struct {
-	Port  int    `yaml:"port,omitempty"`
-	Topic string `yaml:"metric_topic,omitempty"`
-}
-
-// Config ...
+// Config defines the top-level configuration options for the dcos-metrics-collector project.
+// It is (currently) broken up into two main sections: collectors and producers.
 type Config struct {
-	HTTPProfiler  bool   `yaml:"http_profiler"`
-	KafkaProducer bool   `yaml:"kafka_producer_enabled"`
-	IPCommand     string `yaml:"ip_command"`
-	PollingPeriod int    `yaml:"polling_period"`
-
-	AgentConfig  AgentConfig  `yaml:"agent_config,omitempty"`
-	MasterConfig MasterConfig `yaml:"master_config,omitempty"`
+	Collector CollectorConfig `yaml:"collector"`
+	Producers ProducersConfig `yaml:"producers"`
 
 	ConfigPath string
 	DCOSRole   string
+}
 
-	// Optionally add the Kafka configuration to this config if
-	// you're using that producer.
-	KafkaProducerConfig kafka.KafkaConfig `yaml:"kafka_producer_config,omitempty"`
+// CollectorConfig contains configuration options relevant to the "collector"
+// portion of this project. That is, the code responsible for querying Mesos,
+// et. al to gather metrics and send them to a "producer".
+type CollectorConfig struct {
+	HTTPProfiler  bool   `yaml:"http_profiler"`
+	IPCommand     string `yaml:"ip_command"`
+	PollingPeriod int    `yaml:"polling_period"`
 
-	// Optionally, add the configuration to run the
-	// statsd "exhaust"
-	StatsdProducerConfig statsd.StatsdConfig `yaml:"statsd_producer_config,omitempty"`
+	MasterConfig MasterConfig `yaml:"master_config,omitempty"`
+	AgentConfig  AgentConfig  `yaml:"agent_config,omitempty"`
+}
 
-	// HTTP producer config
-	HTTPProducerConfig httpAPI.Config `yaml:"http_producer_config,omitempty"`
+// ProducersConfig contains references to other structs that provide individual producer configs.
+// The configuration for all producers is then located in their corresponding packages.
+//
+// For example: Config.Producers.KafkaProducerConfig references kafkaProducer.Config. This struct
+// contains an optional Kafka configuration. This configuration is available in the source file
+// 'producers/kafka/kafka.go'. It is then the responsibility of the individual producers to
+// validate the configuration the user has provided and panic if necessary.
+type ProducersConfig struct {
+	HTTPProducerConfig   httpProducer.Config   `yaml:"http,omitempty"`
+	KafkaProducerConfig  kafkaProducer.Config  `yaml:"kafka,omitempty"`
+	StatsdProducerConfig statsdProducer.Config `yaml:"statsd,omitempty"`
+}
+
+// MasterConfig contains configuration options relevant to metrics collection
+// from a DC/OS (Mesos) master.
+type MasterConfig struct {
+	Port       int    `yaml:"port,omitempty"`
+	KafkaTopic string `yaml:"kafka_topic,omitempty"`
+}
+
+// AgentConfig contains configuration options relevant to metrics collection
+// from a DC/OS (Mesos) agent.
+type AgentConfig struct {
+	Port       int    `yaml:"port,omitempty"`
+	KafkaTopic string `yaml:"kafka_topic,omitempty"`
 }
 
 func main() {
-	collectorConfig, err := getNewConfig(os.Args[1:])
+	cfg, err := getNewConfig(os.Args[1:])
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
 
-	if collectorConfig.HTTPProducerConfig.Port != 0 {
-		go httpAPI.Start(collectorConfig.HTTPProducerConfig)
+	// HTTP profiling
+	if cfg.Collector.HTTPProfiler {
+		log.Printf("HTTP Profiling Enabled")
+		go util.RunHTTPProfAccess()
 	}
 
-	stats := make(chan statsd.StatsEvent)
-	if collectorConfig.StatsdProducerConfig.StatsdPort != 0 {
-		go statsd.RunStatsEmitter(stats, collectorConfig.StatsdProducerConfig)
+	// HTTP producer
+	if producerIsConfigured("http", cfg) {
+		go httpProducer.Start(cfg.Producers.HTTPProducerConfig)
 	}
 
-	kafkaOutputChan := make(chan kafka.KafkaMessage)
-	if collectorConfig.KafkaProducer {
-		log.Printf("Kafkfa producer enabled")
-		go kafka.RunKafkaProducer(kafkaOutputChan, stats, collectorConfig.KafkaProducerConfig)
+	// StatsD producer
+	stats := make(chan statsdProducer.StatsEvent)
+	if producerIsConfigured("statsd", cfg) {
+		go statsdProducer.RunStatsEmitter(stats, cfg.Producers.StatsdProducerConfig)
+	}
+
+	// Kafka producer
+	kafkaOutputChan := make(chan kafkaProducer.KafkaMessage)
+	if producerIsConfigured("kafka", cfg) {
+		log.Printf("Kafka producer enabled")
+		go kafkaProducer.RunKafkaProducer(kafkaOutputChan, stats, cfg.Producers.KafkaProducerConfig)
 	} else {
 		go printReceivedMessages(kafkaOutputChan)
 	}
 
 	recordInputChan := make(chan *collector.AvroDatum)
 	agentStateChan := make(chan *collector.AgentState)
-	if collectorConfig.DCOSRole == "agent" {
+	if cfg.DCOSRole == "agent" {
 		log.Printf("Agent polling enabled")
 		agent, err := collector.NewAgent(
-			collectorConfig.IPCommand,
-			collectorConfig.AgentConfig.Port,
-			collectorConfig.PollingPeriod,
-			collectorConfig.AgentConfig.Topic)
+			cfg.Collector.IPCommand,
+			cfg.Collector.AgentConfig.Port,
+			cfg.Collector.PollingPeriod,
+			cfg.Collector.AgentConfig.KafkaTopic)
 		if err != nil {
 			log.Fatal(err.Error())
 		}
@@ -108,16 +131,11 @@ func main() {
 	}
 	go collector.RunAvroTCPReader(recordInputChan, stats)
 
-	if collectorConfig.HTTPProfiler {
-		log.Printf("HTTP Profiling Enabled")
-		go util.RunHTTPProfAccess()
-	}
-
 	// Run the sorter on the main thread (exit process if Kafka stops accepting data)
 	collector.RunTopicSorter(recordInputChan, agentStateChan, kafkaOutputChan, stats)
 }
 
-func printReceivedMessages(msgChan <-chan kafka.KafkaMessage) {
+func printReceivedMessages(msgChan <-chan kafkaProducer.KafkaMessage) {
 	for {
 		msg := <-msgChan
 		log.Printf("Topic '%s': %d bytes would've been written (-kafka=false)\n",
@@ -144,22 +162,28 @@ func (c *Config) loadConfig() error {
 	return nil
 }
 
+// newConfig establishes our default, base configuration.
 func newConfig() Config {
 	return Config{
-		HTTPProfiler:  true,
-		KafkaProducer: true,
-		PollingPeriod: 15,
-		IPCommand:     "/opt/mesosphere/bin/detect_ip",
-		ConfigPath:    "dcos-metrics-config.yaml",
-		HTTPProducerConfig: httpAPI.Config{
-			Port: 8000,
+		Collector: CollectorConfig{
+			HTTPProfiler:  true,
+			IPCommand:     "/opt/mesosphere/bin/detect_ip",
+			PollingPeriod: 15,
+			MasterConfig:  MasterConfig{Port: 5050},
+			AgentConfig:   AgentConfig{Port: 5051},
 		},
+		Producers: ProducersConfig{
+			HTTPProducerConfig: httpProducer.Config{Port: 8000},
+		},
+		ConfigPath: "dcos-metrics-config.yaml",
 	}
 }
 
+// getNewConfig loads the configuration and sets precedence of configuration values.
+// For example: command line flags override values provided in the config file.
 func getNewConfig(args []string) (Config, error) {
 	c := newConfig()
-	thisFlagSet := flag.NewFlagSet("", flag.PanicOnError)
+	thisFlagSet := flag.NewFlagSet("", flag.ExitOnError)
 	c.setFlags(thisFlagSet)
 	// Override default config with CLI flags if any
 	if err := thisFlagSet.Parse(args); err != nil {
@@ -172,4 +196,19 @@ func getNewConfig(args []string) (Config, error) {
 	}
 
 	return c, nil
+}
+
+// producerIsConfigured analyzes the ProducersConfig struct and determines if
+// configuration exists for a given producer by name (i.e., is the "http"
+// producer configured?). If a configuration exists, this function will return
+// true, as a configured producer is an enabled one.
+func producerIsConfigured(name string, cfg Config) bool {
+	s := reflect.ValueOf(cfg.Producers)
+	cfgType := s.Type()
+	for i := 0; i < s.NumField(); i++ {
+		if strings.Split(cfgType.Field(i).Tag.Get("yaml"), ",")[0] == name {
+			return true
+		}
+	}
+	return false
 }
