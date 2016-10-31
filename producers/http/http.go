@@ -17,6 +17,8 @@ package http
 import (
 	"fmt"
 	"net/http"
+
+	"github.com/dcos/dcos-metrics/producers"
 )
 
 // Config for the HTTP producer
@@ -24,11 +26,26 @@ type Config struct {
 	Port int `yaml:"port"`
 }
 
-// Start a HTTP server and serve up the various API endpoints
-func Start(c Config) error {
+type producerImpl struct {
+	config      Config
+	metricsChan chan<- producers.MetricsMessage
+}
+
+// New creates a new instance of the HTTP producer with the provided configuration.
+func New(cfg interface{}) (producers.ProducerInterface, chan<- producers.MetricsMessage) {
+	var p producerImpl
+	p.config = cfg.(Config)
+	p.metricsChan = make(chan producers.MetricsMessage)
+	return &p, p.metricsChan
+}
+
+// Run a HTTP server and serve the various metrics API endpoints.
+// This function should be run in its own goroutine.
+func (p *producerImpl) Run() error {
 	r := newRouter()
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", c.Port), r); err != nil {
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", p.config.Port), r); err != nil {
 		return err
 	}
 	return nil
+
 }

@@ -90,13 +90,14 @@ func main() {
 
 	// HTTP profiling
 	if cfg.Collector.HTTPProfiler {
-		log.Printf("HTTP Profiling Enabled")
+		log.Printf("HTTP profiling enabled")
 		go util.RunHTTPProfAccess()
 	}
 
 	// HTTP producer
 	if producerIsConfigured("http", cfg) {
-		go httpProducer.Start(cfg.Producers.HTTPProducerConfig)
+		httpProducer, httpProducerChan := httpProducer.New(cfg.Producers.HTTPProducerConfig)
+		go httpProducer.Run()
 	}
 
 	// StatsD producer
