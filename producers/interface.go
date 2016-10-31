@@ -14,7 +14,7 @@
 
 package producers
 
-// ProducerInterface defines an interface that the various producers must
+// MetricsProducer defines an interface that the various producers must
 // implement in order to receive, process, and present metrics to the caller or
 // client. All producers must use the MetricsMessage structure to receive
 // metrics, and they must implement their own struct for handling configuration.
@@ -24,7 +24,7 @@ package producers
 // used both in the implementation (e.g., &producerImpl{}) and to be returned
 // to the caller. Doing so ensures that, in the future, multiple producers
 // can be enabled at once (each producer has a dedicated chan).
-type ProducerInterface interface {
+type MetricsProducer interface {
 	Run() error
 }
 
