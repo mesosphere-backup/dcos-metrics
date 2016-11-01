@@ -32,10 +32,11 @@ type producerImpl struct {
 }
 
 // New creates a new instance of the HTTP producer with the provided configuration.
-func New(cfg interface{}) (producers.MetricsProducer, chan<- producers.MetricsMessage) {
-	var p producerImpl
-	p.config = cfg.(Config)
-	p.metricsChan = make(chan producers.MetricsMessage)
+func New(cfg Config) (producers.MetricsProducer, chan<- producers.MetricsMessage) {
+	p := producerImpl{
+		config:      cfg,
+		metricsChan: make(chan producers.MetricsMessage),
+	}
 	return &p, p.metricsChan
 }
 
