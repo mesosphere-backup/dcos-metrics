@@ -50,8 +50,8 @@ type CollectorConfig struct {
 	IPCommand     string `yaml:"ip_command"`
 	PollingPeriod int    `yaml:"polling_period"`
 
-	MasterConfig MasterConfig `yaml:"master_config,omitempty"`
-	AgentConfig  AgentConfig  `yaml:"agent_config,omitempty"`
+	MasterConfig collector.MasterConfig `yaml:"master_config,omitempty"`
+	AgentConfig  collector.AgentConfig  `yaml:"agent_config,omitempty"`
 }
 
 // ProducersConfig contains references to other structs that provide individual producer configs.
@@ -65,20 +65,6 @@ type ProducersConfig struct {
 	HTTPProducerConfig   httpProducer.Config   `yaml:"http,omitempty"`
 	KafkaProducerConfig  kafkaProducer.Config  `yaml:"kafka,omitempty"`
 	StatsdProducerConfig statsdProducer.Config `yaml:"statsd,omitempty"`
-}
-
-// MasterConfig contains configuration options relevant to metrics collection
-// from a DC/OS (Mesos) master.
-type MasterConfig struct {
-	Port       int    `yaml:"port,omitempty"`
-	KafkaTopic string `yaml:"kafka_topic,omitempty"`
-}
-
-// AgentConfig contains configuration options relevant to metrics collection
-// from a DC/OS (Mesos) agent.
-type AgentConfig struct {
-	Port       int    `yaml:"port,omitempty"`
-	KafkaTopic string `yaml:"kafka_topic,omitempty"`
 }
 
 func main() {
