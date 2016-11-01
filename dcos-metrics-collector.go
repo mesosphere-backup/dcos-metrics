@@ -100,23 +100,7 @@ func main() {
 		go httpProducer.Run()
 	}
 
-	// StatsD producer
-	stats := make(chan statsdProducer.StatsEvent)
-	if producerIsConfigured("statsd", cfg) {
-		go statsdProducer.RunStatsEmitter(stats, cfg.Producers.StatsdProducerConfig)
-	}
-
-	// Kafka producer
-	kafkaOutputChan := make(chan kafkaProducer.KafkaMessage)
-	if producerIsConfigured("kafka", cfg) {
-		log.Printf("Kafka producer enabled")
-		go kafkaProducer.RunKafkaProducer(kafkaOutputChan, stats, cfg.Producers.KafkaProducerConfig)
-	} else {
-		go printReceivedMessages(kafkaOutputChan)
-	}
-
 	recordInputChan := make(chan *collector.AvroDatum)
-	agentStateChan := make(chan *collector.AgentState)
 	if cfg.DCOSRole == "agent" {
 		log.Printf("Agent polling enabled")
 		agent, err := collector.NewAgent(
@@ -128,12 +112,9 @@ func main() {
 			log.Fatal(err.Error())
 		}
 
-		go agent.Run(recordInputChan, stats)
+		go agent.Run(recordInputChan)
 	}
-	go collector.RunAvroTCPReader(recordInputChan, stats)
-
-	// Run the sorter on the main thread (exit process if Kafka stops accepting data)
-	collector.RunTopicSorter(recordInputChan, agentStateChan, kafkaOutputChan, stats)
+	go collector.RunAvroTCPReader(recordInputChan)
 }
 
 func printReceivedMessages(msgChan <-chan kafkaProducer.KafkaMessage) {

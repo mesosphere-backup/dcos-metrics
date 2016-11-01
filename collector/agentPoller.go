@@ -24,7 +24,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/antonholmquist/jason"
-	"github.com/dcos/dcos-metrics/producers/statsd"
 	"github.com/dcos/dcos-metrics/schema/metrics_schema"
 	"github.com/dcos/dcos-metrics/util"
 	"github.com/linkedin/goavro"
@@ -115,39 +114,39 @@ func NewAgent(ipCommand string, port int, pollPeriod int, topic string) (Agent, 
 
 // Run runs an Agent Poller which periodically produces data retrieved from a local Mesos Agent.
 // This function should be run as a gofunc.
-func (a *Agent) Run(recordsChan chan<- *AvroDatum, stats chan<- statsd.StatsEvent) {
+func (a *Agent) Run(recordsChan chan<- *AvroDatum) {
 	// fetch agent ip once. per DC/OS docs, changing a node IP is unsupported
 	if len(*agentTestStateFileFlag) == 0 ||
 		len(*agentTestSystemFileFlag) == 0 ||
 		len(*agentTestContainersFileFlag) == 0 {
 		// only get the ip if actually needed
 		//TODO needs err
-		a.getIP(stats)
+		a.getIP()
 	}
 
 	// do one poll immediately upon starting, to ensure that agent metadata is populated early:
-	a.pollAgent(recordsChan, stats)
+	a.pollAgent(recordsChan)
 	ticker := time.NewTicker(time.Second * time.Duration(a.PollPeriod))
 	for {
 		select {
 		case _ = <-ticker.C:
-			a.pollAgent(recordsChan, stats)
+			a.pollAgent(recordsChan)
 		}
 	}
 }
 
 // ---
 
-func (a *Agent) pollAgent(recordsChan chan<- *AvroDatum, stats chan<- statsd.StatsEvent) {
+func (a *Agent) pollAgent(recordsChan chan<- *AvroDatum) {
 	// always fetch/emit agent state first: downstream will use it for tagging metrics
-	agentState, err := a.getAgentState(stats)
+	agentState, err := a.getAgentState()
 	if err == nil {
 		a.AgentStateChan <- agentState
 	} else {
 		log.Printf("Failed to retrieve state from agent at %s: %s", a.AgentIP, err)
 	}
 
-	systemMetricsList, err := a.getSystemMetrics(agentState, stats)
+	systemMetricsList, err := a.getSystemMetrics(agentState)
 	if err == nil {
 		if systemMetricsList != nil {
 			recordsChan <- systemMetricsList
@@ -156,7 +155,7 @@ func (a *Agent) pollAgent(recordsChan chan<- *AvroDatum, stats chan<- statsd.Sta
 		log.Printf("Failed to retrieve system metrics from agent at %s: %s", a.AgentIP, err)
 	}
 
-	containerMetricsLists, err := a.getContainerMetrics(agentState, stats)
+	containerMetricsLists, err := a.getContainerMetrics(agentState)
 	if err == nil {
 		for _, metricList := range containerMetricsLists {
 			recordsChan <- metricList
@@ -167,17 +166,14 @@ func (a *Agent) pollAgent(recordsChan chan<- *AvroDatum, stats chan<- statsd.Sta
 }
 
 // runs detect_ip => "10.0.3.26\n"
-func (a *Agent) getIP(stats chan<- statsd.StatsEvent) error {
-	stats <- statsd.MakeEvent(statsd.AgentIPLookup)
+func (a *Agent) getIP() error {
 	cmdWithArgs := strings.Split(a.IPCommand, " ")
 	ipBytes, err := exec.Command(cmdWithArgs[0], cmdWithArgs[1:]...).Output()
 	if err != nil {
-		stats <- statsd.MakeEvent(statsd.AgentIPLookupFailed)
 		return err
 	}
 	ip := strings.TrimSpace(string(ipBytes))
 	if len(ip) == 0 {
-		stats <- statsd.MakeEvent(statsd.AgentIPLookupEmpty)
 		return err
 	}
 
@@ -187,15 +183,14 @@ func (a *Agent) getIP(stats chan<- statsd.StatsEvent) error {
 }
 
 // fetches container-level resource metrics from the agent (via /containers), emits to the framework topics (default 'metrics-<framework_id>')
-func (a *Agent) getContainerMetrics(agentState *AgentState, stats chan<- statsd.StatsEvent) ([]*AvroDatum, error) {
-	rootJSON, err := a.getJSONFromAgent("/containers", agentTestContainersFileFlag, stats)
+func (a *Agent) getContainerMetrics(agentState *AgentState) ([]*AvroDatum, error) {
+	rootJSON, err := a.getJSONFromAgent("/containers", agentTestContainersFileFlag)
 	if err != nil {
 		return nil, err
 	}
 
 	containersArray, err := rootJSON.ObjectArray()
 	if err != nil {
-		stats <- statsd.MakeEvent(statsd.AgentQueryBadData)
 		return nil, err
 	}
 
@@ -208,20 +203,17 @@ func (a *Agent) getContainerMetrics(agentState *AgentState, stats chan<- statsd.
 		// get framework id for topic
 		frameworkID, err := containerObj.GetString(frameworkIDKey)
 		if err != nil {
-			stats <- statsd.MakeEvent(statsd.AgentQueryBadData)
 			return nil, err
 		}
 
 		statisticsObj, err := containerObj.GetObject("statistics")
 		if err != nil {
-			stats <- statsd.MakeEvent(statsd.AgentQueryBadData)
 			return nil, err
 		}
 
 		// extract timestamp from statistics
 		timestampRaw, err := statisticsObj.GetFloat64(timestampKey)
 		if err != nil {
-			stats <- statsd.MakeEvent(statsd.AgentQueryBadData)
 			return nil, err
 		}
 		timestampMillis := int64(timestampRaw * 1000)
@@ -234,7 +226,6 @@ func (a *Agent) getContainerMetrics(agentState *AgentState, stats chan<- statsd.
 			}
 			valFloat, err := valRaw.Float64()
 			if err != nil {
-				stats <- statsd.MakeEvent(statsd.AgentMetricsValueUnsupported)
 				log.Printf("Failed to convert value %s to float64: %+v", key, valRaw)
 				continue
 			}
@@ -248,7 +239,7 @@ func (a *Agent) getContainerMetrics(agentState *AgentState, stats chan<- statsd.
 			datapoint.Set("value", valFloat)
 			datapoints = append(datapoints, datapoint)
 		}
-		stats <- statsd.MakeEventCount(statsd.AgentMetricsValue, len(datapoints))
+
 		if len(datapoints) == 0 {
 			// no data, exit early
 			continue
@@ -260,14 +251,12 @@ func (a *Agent) getContainerMetrics(agentState *AgentState, stats chan<- statsd.
 		// container_id
 		tagVal, err := containerObj.GetString(containerIDKey)
 		if err != nil {
-			stats <- statsd.MakeEvent(statsd.AgentQueryBadData)
 			return nil, err
 		}
 		tags = addTag(tags, containerIDKey, tagVal)
 		// executor_id
 		tagVal, err = containerObj.GetString(executorIDKey)
 		if err != nil {
-			stats <- statsd.MakeEvent(statsd.AgentQueryBadData)
 			return nil, err
 		}
 		tags = addTag(tags, executorIDKey, tagVal)
@@ -289,15 +278,14 @@ func (a *Agent) getContainerMetrics(agentState *AgentState, stats chan<- statsd.
 }
 
 // fetches system-level metrics from the agent (via /metrics/snapshot), emits to the agent topic (default 'metrics-agent')
-func (a *Agent) getSystemMetrics(agentState *AgentState, stats chan<- statsd.StatsEvent) (*AvroDatum, error) {
-	rootJSON, err := a.getJSONFromAgent("/metrics/snapshot", agentTestSystemFileFlag, stats)
+func (a *Agent) getSystemMetrics(agentState *AgentState) (*AvroDatum, error) {
+	rootJSON, err := a.getJSONFromAgent("/metrics/snapshot", agentTestSystemFileFlag)
 	if err != nil {
 		return nil, err
 	}
 
 	json, err := rootJSON.Object()
 	if err != nil {
-		stats <- statsd.MakeEvent(statsd.AgentQueryBadData)
 		return nil, err
 	}
 
@@ -308,7 +296,6 @@ func (a *Agent) getSystemMetrics(agentState *AgentState, stats chan<- statsd.Sta
 	for key, valRaw := range json.Map() {
 		valFloat, err := valRaw.Float64()
 		if err != nil {
-			stats <- statsd.MakeEvent(statsd.AgentMetricsValueUnsupported)
 			log.Printf("Failed to convert value %s to float64: %+v", key, valRaw)
 			continue
 		}
@@ -322,7 +309,6 @@ func (a *Agent) getSystemMetrics(agentState *AgentState, stats chan<- statsd.Sta
 		datapoint.Set("value", valFloat)
 		datapoints = append(datapoints, datapoint)
 	}
-	stats <- statsd.MakeEventCount(statsd.AgentMetricsValue, len(datapoints))
 	if len(datapoints) == 0 {
 		return nil, errors.New("No datapoints found in agent metrics")
 	}
@@ -341,28 +327,25 @@ func (a *Agent) getSystemMetrics(agentState *AgentState, stats chan<- statsd.Sta
 }
 
 // fetches container state from the agent (via /state) to populate AgentState
-func (a *Agent) getAgentState(stats chan<- statsd.StatsEvent) (*AgentState, error) {
-	rootJSON, err := a.getJSONFromAgent("/state", agentTestStateFileFlag, stats)
+func (a *Agent) getAgentState() (*AgentState, error) {
+	rootJSON, err := a.getJSONFromAgent("/state", agentTestStateFileFlag)
 	if err != nil {
 		return nil, err
 	}
 
 	json, err := rootJSON.Object()
 	if err != nil {
-		stats <- statsd.MakeEvent(statsd.AgentQueryBadData)
 		return nil, err
 	}
 
 	// state["id"] (agent_id)
 	agentID, err := json.GetString("id")
 	if err != nil {
-		stats <- statsd.MakeEvent(statsd.AgentQueryBadData)
 		return nil, err
 	}
 
 	frameworks, err := json.GetObjectArray("frameworks")
 	if err != nil {
-		stats <- statsd.MakeEvent(statsd.AgentQueryBadData)
 		return nil, err
 	}
 
@@ -377,25 +360,21 @@ func (a *Agent) getAgentState(stats chan<- statsd.StatsEvent) (*AgentState, erro
 	for _, framework := range frameworks {
 		frameworkID, err := framework.GetString("id")
 		if err != nil {
-			stats <- statsd.MakeEvent(statsd.AgentQueryBadData)
 			return nil, err
 		}
 		frameworkName, err := framework.GetString("name")
 		if err != nil {
-			stats <- statsd.MakeEvent(statsd.AgentQueryBadData)
 			return nil, err
 		}
 		frameworkNames[frameworkID] = frameworkName
 
 		executors, err := framework.GetObjectArray("executors")
 		if err != nil {
-			stats <- statsd.MakeEvent(statsd.AgentQueryBadData)
 			return nil, err
 		}
 		for _, executor := range executors {
 			executorID, err := executor.GetString("id")
 			if err != nil {
-				stats <- statsd.MakeEvent(statsd.AgentQueryBadData)
 				return nil, err
 			}
 			labels, err := executor.GetObjectArray("labels")
@@ -407,14 +386,12 @@ func (a *Agent) getAgentState(stats chan<- statsd.StatsEvent) (*AgentState, erro
 			for _, label := range labels {
 				labelKey, err := label.GetString("key")
 				if err != nil {
-					stats <- statsd.MakeEvent(statsd.AgentQueryBadData)
 					return nil, err
 				}
 				_, ok := marathonAppIDLabelKeys[labelKey]
 				if ok {
 					labelValue, err := label.GetString("value")
 					if err != nil {
-						stats <- statsd.MakeEvent(statsd.AgentQueryBadData)
 						return nil, err
 					}
 					executorAppNames[executorID] = strings.TrimLeft(labelValue, "/")
@@ -429,8 +406,7 @@ func (a *Agent) getAgentState(stats chan<- statsd.StatsEvent) (*AgentState, erro
 		executorAppNames: executorAppNames}, nil
 }
 
-func (a *Agent) getJSONFromAgent(urlPath string, testFileFlag *string, stats chan<- statsd.StatsEvent) (*jason.Value, error) {
-	stats <- statsd.MakeEvent(statsd.AgentQuery)
+func (a *Agent) getJSONFromAgent(urlPath string, testFileFlag *string) (*jason.Value, error) {
 	var rawJSON []byte
 	var err error
 	if len(*testFileFlag) == 0 {
@@ -443,7 +419,6 @@ func (a *Agent) getJSONFromAgent(urlPath string, testFileFlag *string, stats cha
 		// Special case: on HTTP 401 Unauthorized, exit immediately rather than failing forever
 		if httpErr, ok := err.(util.HTTPCodeError); ok {
 			if httpErr.Code == 401 {
-				stats <- statsd.MakeEvent(statsd.AgentQueryFailed)
 				log.Fatalf("Got 401 Unauthorized when querying agent. "+
 					"Please provide a suitable auth token using the AUTH_CREDENTIAL env var: %s", err)
 			}
@@ -452,13 +427,11 @@ func (a *Agent) getJSONFromAgent(urlPath string, testFileFlag *string, stats cha
 		rawJSON, err = ioutil.ReadFile(*testFileFlag)
 	}
 	if err != nil {
-		stats <- statsd.MakeEvent(statsd.AgentQueryFailed)
 		return nil, err
 	}
 
 	json, err := jason.NewValueFromBytes(rawJSON)
 	if err != nil {
-		stats <- statsd.MakeEvent(statsd.AgentQueryBadData)
 		return nil, err
 	}
 	return json, nil
