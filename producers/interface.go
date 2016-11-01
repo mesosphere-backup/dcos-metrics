@@ -29,15 +29,32 @@ type MetricsProducer interface {
 }
 
 // MetricsMessage defines the structure of the metrics being sent to the various
-// producers.
+// producers. For every message sent from the collector to a producer, the
+// following fields must be present.
 type MetricsMessage struct {
-	// Classification is an arbitrary string that can be used to identify or
-	// "tag" the outgoing data.
-	//
-	//   * For the Kafka producer, this might be the Kafka topic.
-	//   * For the HTTP producer, this might be the endpoint that the metrics
-	//     will be available at.
-	//
-	Classification string
-	Data           interface{}
+	Name       string      `json:"name"`
+	Datapoints []Datapoint `json:"datapoints"`
+	Dimensions *Dimensions `json:"dimensions,omitempty"`
+}
+
+// Datapoint represents a single metric's timestamp, value, and unit in a response.
+// A single datapoint is typically contained in an array, such as []Datapoint{}.
+type Datapoint struct {
+	Name      string `json:"name"`
+	Value     string `json:"value"`
+	Unit      string `json:"unit"`
+	Timestamp string `json:"timestamp"` // time.RFC3339Nano, e.g. "2016-01-01T01:01:01.10000000Z"
+}
+
+// Dimensions are metadata about the metrics contained in a given MetricsMessage.
+type Dimensions struct {
+	ClusterID          string            `json:"cluster_id"`
+	AgentID            string            `json:"agent_id"`
+	FrameworkName      string            `json:"framework_name"`
+	FrameworkID        string            `json:"framework_id"`
+	FrameworkRole      string            `json:"framework_role"`
+	FrameworkPrincipal string            `json:"framework_principal"`
+	ExecutorID         string            `json:"executor_id"`
+	ContainerID        string            `json:"container_id"`
+	Labels             map[string]string `json:"labels,omitempty"` // map of arbitrary key/value pairs (aka "labels")
 }

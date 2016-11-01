@@ -19,35 +19,6 @@ import (
 	"net/http"
 )
 
-// Response represents the structure of the JSON document presented by the
-// HTTP producer for a query about metrics.
-type Response struct {
-	Name       string      `json:"name"`
-	Datapoints []Datapoint `json:"datapoints"`
-}
-
-// Datapoint represents a single metric's timestamp, value, and unit in a response.
-// A single datapoint is typically contained in an array, such as []Datapoint{}.
-type Datapoint struct {
-	Name      string `json:"name"`
-	Value     string `json:"value"`
-	Unit      string `json:"unit"`
-	Timestamp string `json:"timestamp"` // time.RFC3339Nano, e.g. "2016-01-01T01:01:01.10000000Z"
-}
-
-// Dimensions represents various metadata about the metric, including (but not limited to)
-// the cluster ID, the agent ID, the executor ID, and so on.
-type Dimensions struct {
-	ClusterID          string `json:"cluster_id"`
-	AgentID            string `json:"agent_id"`
-	FrameworkName      string `json:"framework_name"`
-	FrameworkID        string `json:"framework_id"`
-	FrameworkRole      string `json:"framework_role"`
-	FrameworkPrincipal string `json:"framework_principal"`
-	ExecutorID         string `json:"executor_id"`
-	ContainerID        string `json:"container_id"`
-}
-
 func fooHandler(w http.ResponseWriter, r *http.Request) {
 	type fooData struct {
 		Message string `json:"message"`
