@@ -81,20 +81,20 @@ type agentContainer struct {
 //   * Executor info:  https://github.com/apache/mesos/blob/1.0.1/include/mesos/v1/mesos.proto#L474-L522
 //
 type agentState struct {
-	Frameworks []*frameworkInfo `json:"frameworks"`
+	Frameworks []frameworkInfo `json:"frameworks"`
 }
 
 type frameworkInfo struct {
-	ID        string          `json:"id"`
-	Name      string          `json:"name"`
-	Executors []*executorInfo `json:"executors"`
+	ID        string         `json:"id"`
+	Name      string         `json:"name"`
+	Executors []executorInfo `json:"executors"`
 }
 
 type executorInfo struct {
-	ID        string            `json:"id"`
-	Name      string            `json:"name"`
-	Container string            `json:"container"`
-	Labels    []*executorLabels `json:"labels,omitempty"` // labels are optional
+	ID        string           `json:"id"`
+	Name      string           `json:"name"`
+	Container string           `json:"container"`
+	Labels    []executorLabels `json:"labels,omitempty"` // labels are optional
 }
 
 type executorLabels struct {
@@ -348,15 +348,43 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 		msg.Dimensions.AgentID = "" // TODO(roger)
 		msg.Dimensions.ContainerID = c.ContainerID
 		msg.Dimensions.FrameworkID = c.FrameworkID
-		msg.Dimensions.FrameworkName = ""      // TODO(roger)
+		msg.Dimensions.FrameworkName = getFrameworkNameByFrameworkID(c.FrameworkID, in.agentState.Frameworks)
 		msg.Dimensions.FrameworkRole = ""      // TODO(roger)
 		msg.Dimensions.FrameworkPrincipal = "" // TODO(roger)
 		msg.Dimensions.ExecutorID = c.ExecutorID
 		msg.Dimensions.ContainerID = c.ContainerID
-		msg.Dimensions.Labels = make(map[string]string) // TODO(roger)
+		msg.Dimensions.Labels = getLabelsByContainerID(c.ContainerID, in.agentState.Frameworks)
 
 		out = append(out, msg)
 	}
 
 	return out
+}
+
+// getFrameworkNameByFrameworkID returns the human-readable framework name.
+// For example: "5349f49b-68b3-4638-aab2-fc4ec845f993-0000" => "marathon"
+func getFrameworkNameByFrameworkID(frameworkID string, frameworks []frameworkInfo) string {
+	for _, framework := range frameworks {
+		if framework.ID == frameworkID {
+			return framework.Name
+		}
+	}
+	return ""
+}
+
+// getLabelsByContainerID returns a map of labels, as specified by the framework
+// that created the executor. In the case of Marathon, the framework allows the
+// user to specify their own arbitrary labels per application.
+func getLabelsByContainerID(containerID string, frameworks []frameworkInfo) (labels map[string]string) {
+	for _, framework := range frameworks {
+		for _, executor := range framework.Executors {
+			if executor.Container == containerID {
+				for _, pair := range executor.Labels {
+					labels[pair.Key] = pair.Value
+				}
+				return
+			}
+		}
+	}
+	return
 }
