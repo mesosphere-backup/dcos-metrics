@@ -34,11 +34,11 @@ const (
 // Agent defines the structure of the agent metrics poller and any configuration
 // that might be required to run it.
 type Agent struct {
-	AgentIP      string
-	IPCommand    string
-	Port         int
-	PollPeriod   int
-	MetricsChans []chan<- producers.MetricsMessage
+	AgentIP     string
+	IPCommand   string
+	Port        int
+	PollPeriod  int
+	MetricsChan chan<- producers.MetricsMessage
 }
 
 // metricsMeta is a high-level struct that contains data structures with the
@@ -164,7 +164,7 @@ type resourceStatistics struct {
 }
 
 // NewAgent ...
-func NewAgent(ipCommand string, port int, pollPeriod int) (Agent, error) {
+func NewAgent(ipCommand string, port int, pollPeriod int, metricsChan chan<- producers.MetricsMessage) (Agent, error) {
 	var a Agent
 	var err error
 
@@ -181,6 +181,7 @@ func NewAgent(ipCommand string, port int, pollPeriod int) (Agent, error) {
 	a.IPCommand = ipCommand
 	a.Port = port
 	a.PollPeriod = pollPeriod
+	a.MetricsChan = metricsChan
 
 	// Detect the agent's IP address once. Per the DC/OS docs (at least as of
 	// November 2016), changing a node's IP address is not supported.
@@ -194,12 +195,13 @@ func NewAgent(ipCommand string, port int, pollPeriod int) (Agent, error) {
 // RunPoller periodiclly polls the HTTP APIs of a Mesos agent. This function
 // should be run in its own goroutine.
 func (a *Agent) RunPoller() {
-	// do one poll immediately upon starting, to ensure that agent metadata is populated early:
 	ticker := time.NewTicker(time.Second * time.Duration(a.PollPeriod))
 	for {
 		select {
 		case _ = <-ticker.C:
-			a.pollAgent()
+			for _, m := range a.transform(a.pollAgent()) {
+				a.MetricsChan <- m
+			}
 		}
 	}
 }

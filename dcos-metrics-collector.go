@@ -26,6 +26,7 @@ import (
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/dcos/dcos-metrics/collector"
+	"github.com/dcos/dcos-metrics/producers"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
 	//kafkaProducer "github.com/dcos/dcos-metrics/producers/kafka"
 	//statsdProducer "github.com/dcos/dcos-metrics/producers/statsd"
@@ -62,13 +63,15 @@ type CollectorConfig struct {
 // 'producers/kafka/kafka.go'. It is then the responsibility of the individual producers to
 // validate the configuration the user has provided and panic if necessary.
 type ProducersConfig struct {
-	HTTPProducerConfig   httpProducer.Config   `yaml:"http,omitempty"`
-	KafkaProducerConfig  kafkaProducer.Config  `yaml:"kafka,omitempty"`
-	StatsdProducerConfig statsdProducer.Config `yaml:"statsd,omitempty"`
+	HTTPProducerConfig httpProducer.Config `yaml:"http,omitempty"`
+	//KafkaProducerConfig  kafkaProducer.Config  `yaml:"kafka,omitempty"`
+	//StatsdProducerConfig statsdProducer.Config `yaml:"statsd,omitempty"`
 }
 
 func main() {
 	cfg, err := getNewConfig(os.Args[1:])
+	var producerChans []chan<- producers.MetricsMessage
+
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
@@ -83,17 +86,19 @@ func main() {
 	// HTTP producer
 	if producerIsConfigured("http", cfg) {
 		httpProducer, httpProducerChan := httpProducer.New(cfg.Producers.HTTPProducerConfig)
+		producerChans = append(producerChans, httpProducerChan)
 		go httpProducer.Run()
 	}
 
+	collectorChan := make(chan producers.MetricsMessage)
 	if cfg.DCOSRole == "agent" {
 		log.Printf("Agent polling enabled")
 
 		agent, err := collector.NewAgent(
 			cfg.Collector.IPCommand,
 			cfg.Collector.AgentConfig.Port,
-			cfg.Collector.PollingPeriod
-		)
+			cfg.Collector.PollingPeriod,
+			collectorChan)
 
 		if err != nil {
 			log.Fatal(err.Error())
@@ -101,15 +106,23 @@ func main() {
 
 		go agent.RunPoller()
 	}
-	//go collector.RunAvroTCPReader(recordInputChan)
-}
 
-func printReceivedMessages(msgChan <-chan kafkaProducer.KafkaMessage) {
-	for {
-		msg := <-msgChan
-		log.Printf("Topic '%s': %d bytes would've been written (-kafka=false)\n",
-			msg.Topic, len(msg.Data))
-	}
+	//go collector.RunAvroTCPReader(recordInputChan)
+
+	// Broadcast (one-to-many) messages from the collector to the various producers.
+	go func() {
+		for {
+			message := <-collectorChan
+			done := make(chan bool) // prevent leaking goroutines
+			for _, producer := range producerChans {
+				go func() {
+					producer <- message
+					done <- true
+				}()
+				<-done
+			}
+		}
+	}()
 }
 
 func (c *Config) setFlags(fs *flag.FlagSet) {
@@ -138,8 +151,8 @@ func newConfig() Config {
 			HTTPProfiler:  true,
 			IPCommand:     "/opt/mesosphere/bin/detect_ip",
 			PollingPeriod: 15,
-			MasterConfig:  MasterConfig{Port: 5050},
-			AgentConfig:   AgentConfig{Port: 5051},
+			MasterConfig:  collector.MasterConfig{Port: 5050},
+			AgentConfig:   collector.AgentConfig{Port: 5051},
 		},
 		Producers: ProducersConfig{
 			HTTPProducerConfig: httpProducer.Config{Port: 8000},
