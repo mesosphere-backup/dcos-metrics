@@ -27,8 +27,8 @@ import (
 
 	"github.com/dcos/dcos-metrics/collector"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
-	kafkaProducer "github.com/dcos/dcos-metrics/producers/kafka"
-	statsdProducer "github.com/dcos/dcos-metrics/producers/statsd"
+	//kafkaProducer "github.com/dcos/dcos-metrics/producers/kafka"
+	//statsdProducer "github.com/dcos/dcos-metrics/producers/statsd"
 	"github.com/dcos/dcos-metrics/util"
 )
 
@@ -86,21 +86,22 @@ func main() {
 		go httpProducer.Run()
 	}
 
-	recordInputChan := make(chan *collector.AvroDatum)
 	if cfg.DCOSRole == "agent" {
 		log.Printf("Agent polling enabled")
+
 		agent, err := collector.NewAgent(
 			cfg.Collector.IPCommand,
 			cfg.Collector.AgentConfig.Port,
-			cfg.Collector.PollingPeriod,
-			cfg.Collector.AgentConfig.KafkaTopic)
+			cfg.Collector.PollingPeriod
+		)
+
 		if err != nil {
 			log.Fatal(err.Error())
 		}
 
-		go agent.Run(recordInputChan)
+		go agent.RunPoller()
 	}
-	go collector.RunAvroTCPReader(recordInputChan)
+	//go collector.RunAvroTCPReader(recordInputChan)
 }
 
 func printReceivedMessages(msgChan <-chan kafkaProducer.KafkaMessage) {

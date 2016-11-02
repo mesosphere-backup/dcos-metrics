@@ -34,7 +34,7 @@ type MetricsProducer interface {
 type MetricsMessage struct {
 	Name       string      `json:"name"`
 	Datapoints []Datapoint `json:"datapoints"`
-	Dimensions *Dimensions `json:"dimensions,omitempty"`
+	Dimensions Dimensions  `json:"dimensions,omitempty"`
 }
 
 // Datapoint represents a single metric's timestamp, value, and unit in a response.

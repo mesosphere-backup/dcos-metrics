@@ -15,424 +15,348 @@
 package collector
 
 import (
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"os/exec"
+	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/antonholmquist/jason"
-	"github.com/dcos/dcos-metrics/schema/metrics_schema"
-	"github.com/dcos/dcos-metrics/util"
-	"github.com/linkedin/goavro"
-)
-
-var (
-	agentTestStateFileFlag = StringEnvFlag("agent-test-state-file", "",
-		"JSON file containing the agent state to be used, for debugging")
-	agentTestSystemFileFlag = StringEnvFlag("agent-test-system-file", "",
-		"JSON file containing the agent system metrics to be used, for debugging")
-	agentTestContainersFileFlag = StringEnvFlag("agent-test-containers-file", "",
-		"JSON file containing the container usage metrics to be used, for debugging")
-
-	authCredentialFlag = StringEnvFlag("auth-credential", "",
-		"Authentication credential token for use with querying the Mesos Agent")
-
-	datapointNamespace = goavro.RecordEnclosingNamespace(metrics_schema.DatapointNamespace)
-	datapointSchema    = goavro.RecordSchema(metrics_schema.DatapointSchema)
-
-	metricListNamespace = goavro.RecordEnclosingNamespace(metrics_schema.MetricListNamespace)
-	metricListSchema    = goavro.RecordSchema(metrics_schema.MetricListSchema)
-
-	tagNamespace = goavro.RecordEnclosingNamespace(metrics_schema.TagNamespace)
-	tagSchema    = goavro.RecordSchema(metrics_schema.TagSchema)
+	"github.com/dcos/dcos-metrics/producers"
 )
 
 const (
-	containerMetricPrefix = "dcos.metrics.container."
-	systemMetricPrefix    = "dcos.metrics.agent."
-
-	// same name in both agent json and metrics tags:
-	timestampKey   = "timestamp"
-	containerIDKey = "container_id"
-	executorIDKey  = "executor_id"
-	frameworkIDKey = "framework_id"
+	containerMetricPrefix = "dcos.metrics.container"
+	agentMetricPrefix     = "dcos.metrics.agent"
 )
 
-// can't be const:
-var marathonAppIDLabelKeys = map[string]bool{
-	"MARATHON_APP_ID": true,
-	"DCOS_SPACE":      true,
-}
-
-// AgentState ...
-type AgentState struct {
-	// agent_id
-	agentID string
-	// framework_id => framework_name
-	frameworkNames map[string]string
-	// executor_id => application_name
-	executorAppNames map[string]string
-}
-
-// Agent ...
+// Agent defines the structure of the agent metrics poller and any configuration
+// that might be required to run it.
 type Agent struct {
-	AgentIP        string
-	IPCommand      string
-	Port           int
-	PollPeriod     int
-	Topic          string
-	AgentStateChan chan<- *AgentState
+	AgentIP      string
+	IPCommand    string
+	Port         int
+	PollPeriod   int
+	MetricsChans []chan<- producers.MetricsMessage
+}
+
+// metricsMeta is a high-level struct that contains data structures with the
+// various metrics we're collecting from the agent. By implementing this
+// "meta struct", we're able to more easily handle the transformation of
+// metrics from the structs in this file to the MetricsMessage struct expected
+// by the producer(s).
+type metricsMeta struct {
+	agentState           agentState
+	agentMetricsSnapshot agentMetricsSnapshot
+	containerMetrics     []agentContainer
+	timestamp            string
+}
+
+// agentContainer defines the structure of the response expected from Mesos
+// *for a single container* when polling the '/containers' endpoint in API v1.
+// Note that agentContainer is actually in a top-level array. For more info, see
+// https://github.com/apache/mesos/blob/1.0.1/include/mesos/v1/agent/agent.proto#L161-L168
+type agentContainer struct {
+	FrameworkID     string                 `json:"framework_id"`
+	ExecutorID      string                 `json:"executor_id"`
+	ExecutorName    string                 `json:"executor_name"`
+	Source          string                 `json:"source"`
+	ContainerID     string                 `json:"container_id"`
+	ContainerStatus map[string]interface{} `json:"container_status"`
+	Statistics      *resourceStatistics    `json:"statistics"`
+}
+
+// agentState defines the structure of the response expected from Mesos
+// *for all cluster state* when polling the /monitor/state endpoint.
+// Specifically, this struct exists for the following purposes:
+//
+//   * collect labels from individual containers (executors) since labels are
+//     NOT available via the /containers endpoint in v1.
+//   * map framework IDs to a human-readable name
+//
+// For more information, see the upstream protobuf in Mesos v1:
+//
+//   * Framework info: https://github.com/apache/mesos/blob/1.0.1/include/mesos/v1/mesos.proto#L207-L307
+//   * Executor info:  https://github.com/apache/mesos/blob/1.0.1/include/mesos/v1/mesos.proto#L474-L522
+//
+type agentState struct {
+	Frameworks []*frameworkInfo `json:"frameworks"`
+}
+
+type frameworkInfo struct {
+	ID        string          `json:"id"`
+	Name      string          `json:"name"`
+	Executors []*executorInfo `json:"executors"`
+}
+
+type executorInfo struct {
+	ID        string            `json:"id"`
+	Name      string            `json:"name"`
+	Container string            `json:"container"`
+	Labels    []*executorLabels `json:"labels,omitempty"` // labels are optional
+}
+
+type executorLabels struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+// agentMetricsSnapshot defines the structure of the response expected from Mesos
+// when referring to agent-level metrics.
+//
+// TODO(roger): the metrics available via the /metrics/snapshot endpoint DO NOT
+// satisfy the requirements set forth in the original dcos-metrics design doc.
+// I've included the base Mesos agent metrics here as a starting point ONLY.
+// In the future, this should be replaced by something like
+// github.com/shirou/gopsutil.
+type agentMetricsSnapshot struct {
+	// System info
+	SystemLoad1Min  float64 `json:"system/load_1min"`
+	SystemLoad5Min  float64 `json:"system/load_5min"`
+	SystemLoad15Min float64 `json:"system/load_15min"`
+
+	// CPU info
+	CPUTotal float64 `json:"system/cpu_total"`
+
+	// Memory info
+	MemTotalBytes float64 `json:"system/mem_total_bytes"`
+	MemFreeBytes  float64 `json:"system/mem_free_bytes"`
+}
+
+// resourceStatistics defines the structure of the response expected from Mesos
+// when referring to container and/or executor metrics. In Mesos, the
+// ResourceStatistics message is very large; it defines many fields that are
+// dependent on a feature being enabled in Mesos, and not all of those features
+// are enabled in DC/OS.
+//
+// Therefore, we redefine the resourceStatistics struct here with only the fields
+// dcos-metrics currently cares about, which should be stable for Mesos API v1.
+//
+// For a complete reference, see:
+// https://github.com/apache/mesos/blob/1.0.1/include/mesos/v1/mesos.proto#L921-L1022
+type resourceStatistics struct {
+	Timestamp float64 `json:"timestamp,omitempty"`
+
+	// CPU usage info
+	CpusUserTimeSecs      float64 `json:"cpus_user_time_secs,omitempty"`
+	CpusSystemTimeSecs    float64 `json:"cpus_system_time_secs,omitempty"`
+	CpusLimit             float64 `json:"cpus_limit,omitempty"`
+	CpusThrottledTimeSecs float64 `json:"cpus_throttled_time_secs,omitempty"`
+
+	// Memory info
+	MemTotalBytes uint64 `json:"mem_total_bytes,omitempty"`
+	MemLimitBytes uint64 `json:"mem_limit_bytes,omitempty"`
+
+	// Disk info
+	DiskLimitBytes uint64 `json:"disk_limit_bytes,omitempty"`
+	DiskUsedBytes  uint64 `json:"disk_used_bytes,omitempty"`
+
+	// Network info
+	NetRxPackets uint64 `json:"net_rx_packets,omitempty"`
+	NetRxBytes   uint64 `json:"net_rx_bytes,omitempty"`
+	NetRxErrors  uint64 `json:"net_rx_errors,omitempty"`
+	NetRxDropped uint64 `json:"net_rx_dropped,omitempty"`
+	NetTxPackets uint64 `json:"net_tx_packets,omitempty"`
+	NetTxBytes   uint64 `json:"net_tx_bytes,omitempty"`
+	NetTxErrors  uint64 `json:"net_tx_errors,omitempty"`
+	NetTxDropped uint64 `json:"net_tx_dropped,omitempty"`
 }
 
 // NewAgent ...
-func NewAgent(ipCommand string, port int, pollPeriod int, topic string) (Agent, error) {
-	a := Agent{}
+func NewAgent(ipCommand string, port int, pollPeriod int) (Agent, error) {
+	var a Agent
+	var err error
+
 	if len(ipCommand) == 0 {
-		return a, errors.New("Must pass ipAddress to NewAgent()")
+		return a, fmt.Errorf("Must pass ipAddress to NewAgent()")
 	}
 	if port < 1024 {
-		return a, errors.New("Must pass port to NewAgent()")
+		return a, fmt.Errorf("Must pass port > 1024 to NewAgent()")
 	}
 	if pollPeriod == 0 {
-		return a, errors.New("Must pass pollPeriod to NewAgent()")
-	}
-	if len(topic) == 0 {
-		return a, errors.New("Must pass topic to NewAgent()")
+		return a, fmt.Errorf("Must pass pollPeriod to NewAgent()")
 	}
 
 	a.IPCommand = ipCommand
 	a.Port = port
 	a.PollPeriod = pollPeriod
-	a.Topic = topic
-	a.AgentStateChan = make(chan *AgentState)
+
+	// Detect the agent's IP address once. Per the DC/OS docs (at least as of
+	// November 2016), changing a node's IP address is not supported.
+	if a.AgentIP, err = a.getIP(); err != nil {
+		log.Error(err)
+	}
 
 	return a, nil
 }
 
-// Run runs an Agent Poller which periodically produces data retrieved from a local Mesos Agent.
-// This function should be run as a gofunc.
-func (a *Agent) Run(recordsChan chan<- *AvroDatum) {
-	// fetch agent ip once. per DC/OS docs, changing a node IP is unsupported
-	if len(*agentTestStateFileFlag) == 0 ||
-		len(*agentTestSystemFileFlag) == 0 ||
-		len(*agentTestContainersFileFlag) == 0 {
-		// only get the ip if actually needed
-		//TODO needs err
-		a.getIP()
-	}
-
+// RunPoller periodiclly polls the HTTP APIs of a Mesos agent. This function
+// should be run in its own goroutine.
+func (a *Agent) RunPoller() {
 	// do one poll immediately upon starting, to ensure that agent metadata is populated early:
-	a.pollAgent(recordsChan)
 	ticker := time.NewTicker(time.Second * time.Duration(a.PollPeriod))
 	for {
 		select {
 		case _ = <-ticker.C:
-			a.pollAgent(recordsChan)
+			a.pollAgent()
 		}
 	}
 }
 
-// ---
+// getContainerMetrics queries an agent for container-level metrics, such as
+// CPU, memory, disk, and network usage.
+func (a *Agent) getContainerMetrics() ([]agentContainer, error) {
+	var containers []agentContainer
 
-func (a *Agent) pollAgent(recordsChan chan<- *AvroDatum) {
-	// always fetch/emit agent state first: downstream will use it for tagging metrics
-	agentState, err := a.getAgentState()
-	if err == nil {
-		a.AgentStateChan <- agentState
-	} else {
-		log.Printf("Failed to retrieve state from agent at %s: %s", a.AgentIP, err)
+	// TODO(roger): 15sec timeout is a guess. Is there a better way to do this?
+	c := NewHTTPClient(strings.Join([]string{a.AgentIP, strconv.Itoa(a.Port)}, ":"), "/containers", 15)
+	if err := c.Fetch(&containers); err != nil {
+		log.Error(err)
+		return nil, err
 	}
 
-	systemMetricsList, err := a.getSystemMetrics(agentState)
-	if err == nil {
-		if systemMetricsList != nil {
-			recordsChan <- systemMetricsList
-		}
-	} else {
-		log.Printf("Failed to retrieve system metrics from agent at %s: %s", a.AgentIP, err)
-	}
-
-	containerMetricsLists, err := a.getContainerMetrics(agentState)
-	if err == nil {
-		for _, metricList := range containerMetricsLists {
-			recordsChan <- metricList
-		}
-	} else {
-		log.Printf("Failed to retrieve container metrics from agent at %s: %s", a.AgentIP, err)
-	}
+	return containers, nil
 }
 
-// runs detect_ip => "10.0.3.26\n"
-func (a *Agent) getIP() error {
+// getAgentMetrics queries an agent for system-level metrics, such as CPU,
+// memory, disk, and network.
+//
+// TODO(roger): the metrics available via the /metrics/snapshot endpoint DO NOT
+// satisfy the requirements set forth in the original dcos-metrics design doc.
+// I've included the base Mesos agent metrics here as a starting point ONLY.
+// In the future, this should be replaced by something like
+// github.com/shirou/gopsutil.
+func (a *Agent) getAgentMetrics() (agentMetricsSnapshot, error) {
+	var metrics agentMetricsSnapshot
+
+	// TODO(roger): 5sec timeout is a guess. Is there a better way to do this?
+	c := NewHTTPClient(strings.Join([]string{a.AgentIP, strconv.Itoa(a.Port)}, ":"), "/metrics/snapshot", 5)
+	if err := c.Fetch(&metrics); err != nil {
+		log.Error(err)
+		return agentMetricsSnapshot{}, err
+	}
+
+	return metrics, nil
+}
+
+// getAgentState fetches the state JSON from the Mesos agent, which contains
+// info such as framework names and IDs, the current leader, config flags,
+// container (executor) labels, and more.
+func (a *Agent) getAgentState() (agentState, error) {
+	var state agentState
+
+	// TODO(roger): 15sec timeout is a guess. Is there a better way to do this?
+	c := NewHTTPClient(strings.Join([]string{a.AgentIP, strconv.Itoa(a.Port)}, ":"), "/monitor/state", 15)
+	if err := c.Fetch(&state); err != nil {
+		log.Error(err)
+		return agentState{}, err
+	}
+
+	return state, nil
+}
+
+// getIP runs the ip_detect script and returns the IP address that the agent
+// is listening on.
+func (a *Agent) getIP() (string, error) {
 	cmdWithArgs := strings.Split(a.IPCommand, " ")
 	ipBytes, err := exec.Command(cmdWithArgs[0], cmdWithArgs[1:]...).Output()
 	if err != nil {
-		return err
+		return "", err
 	}
 	ip := strings.TrimSpace(string(ipBytes))
 	if len(ip) == 0 {
-		return err
+		return "", err
 	}
 
-	a.AgentIP = ip
-
-	return nil
+	return ip, nil
 }
 
-// fetches container-level resource metrics from the agent (via /containers), emits to the framework topics (default 'metrics-<framework_id>')
-func (a *Agent) getContainerMetrics(agentState *AgentState) ([]*AvroDatum, error) {
-	rootJSON, err := a.getJSONFromAgent("/containers", agentTestContainersFileFlag)
+// pollAgent queries the DC/OS agent for metrics and returns.
+func (a *Agent) pollAgent() metricsMeta {
+	var metrics metricsMeta
+	now := time.Now().Format(time.RFC3339Nano)
+
+	// always fetch/emit agent state first: downstream will use it for tagging metrics
+	agentState, err := a.getAgentState()
 	if err != nil {
-		return nil, err
+		log.Errorf("Failed to get agent state from %s:%d. Error: %s", a.AgentIP, a.Port, err)
+		return metrics
 	}
 
-	containersArray, err := rootJSON.ObjectArray()
+	agentMetrics, err := a.getAgentMetrics()
 	if err != nil {
-		return nil, err
+		log.Errorf("Failed to get agent metrics from %s:%d. Error: %s", a.AgentIP, a.Port, err)
+		return metrics
 	}
 
-	var metricLists []*AvroDatum
-	// collect datapoints. expecting a list of dicts, where each dict has:
-	// - tags: 'container_id'/'executor_id'/'framework_id' strings
-	// - datapoints/timestamp: 'statistics' dict of string=>int/dbl (incl a dbl 'timestamp')
-	for _, containerObj := range containersArray {
-
-		// get framework id for topic
-		frameworkID, err := containerObj.GetString(frameworkIDKey)
-		if err != nil {
-			return nil, err
-		}
-
-		statisticsObj, err := containerObj.GetObject("statistics")
-		if err != nil {
-			return nil, err
-		}
-
-		// extract timestamp from statistics
-		timestampRaw, err := statisticsObj.GetFloat64(timestampKey)
-		if err != nil {
-			return nil, err
-		}
-		timestampMillis := int64(timestampRaw * 1000)
-
-		// create datapoints from statistics (excluding timestamp itself)
-		var datapoints []interface{}
-		for key, valRaw := range statisticsObj.Map() {
-			if key == timestampKey {
-				continue
-			}
-			valFloat, err := valRaw.Float64()
-			if err != nil {
-				log.Printf("Failed to convert value %s to float64: %+v", key, valRaw)
-				continue
-			}
-			datapoint, err := goavro.NewRecord(datapointNamespace, datapointSchema)
-			if err != nil {
-				log.Fatalf("Failed to create Datapoint record for topic %s (agent %s): %s",
-					frameworkID, agentState.agentID, err)
-			}
-			datapoint.Set("name", containerMetricPrefix+key)
-			datapoint.Set("time_ms", timestampMillis)
-			datapoint.Set("value", valFloat)
-			datapoints = append(datapoints, datapoint)
-		}
-
-		if len(datapoints) == 0 {
-			// no data, exit early
-			continue
-		}
-
-		// create tags
-		// note: agent_id/framework_name tags are automatically added downstream
-		var tags []interface{}
-		// container_id
-		tagVal, err := containerObj.GetString(containerIDKey)
-		if err != nil {
-			return nil, err
-		}
-		tags = addTag(tags, containerIDKey, tagVal)
-		// executor_id
-		tagVal, err = containerObj.GetString(executorIDKey)
-		if err != nil {
-			return nil, err
-		}
-		tags = addTag(tags, executorIDKey, tagVal)
-		// framework_id
-		tags = addTag(tags, frameworkIDKey, frameworkID)
-
-		metricListRec, err := goavro.NewRecord(metricListNamespace, metricListSchema)
-		if err != nil {
-			log.Fatalf("Failed to create MetricList record for topic %s (agent %s): %s",
-				frameworkID, agentState.agentID, err)
-		}
-		metricListRec.Set("topic", frameworkID)
-		metricListRec.Set("datapoints", datapoints)
-		metricListRec.Set("tags", tags)
-		// just use a size of zero, relative to limits it'll be insignificant anyway:
-		metricLists = append(metricLists, &AvroDatum{metricListRec, frameworkID, 0})
+	containerMetrics, err := a.getContainerMetrics()
+	if err != nil {
+		log.Errorf("Failed to get container metrics from %s:%d. Error: %s", a.AgentIP, a.Port, err)
+		return metrics
 	}
-	return metricLists, nil
+
+	metrics.agentState = agentState
+	metrics.agentMetricsSnapshot = agentMetrics
+	metrics.containerMetrics = containerMetrics
+	metrics.timestamp = now
+
+	return metrics
 }
 
-// fetches system-level metrics from the agent (via /metrics/snapshot), emits to the agent topic (default 'metrics-agent')
-func (a *Agent) getSystemMetrics(agentState *AgentState) (*AvroDatum, error) {
-	rootJSON, err := a.getJSONFromAgent("/metrics/snapshot", agentTestSystemFileFlag)
-	if err != nil {
-		return nil, err
-	}
+// transform will take metrics retrieved from the agent and perform any
+// transformations necessary to make the data fit the output expected by
+// producers.MetricsMessage.
+func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
+	var msg producers.MetricsMessage
+	var v reflect.Value
 
-	json, err := rootJSON.Object()
-	if err != nil {
-		return nil, err
+	// Produce agent metrics
+	msg = producers.MetricsMessage{
+		Name:       "agent",
+		Datapoints: []producers.Datapoint{},
+		// TODO(roger): Dimensions: producers.Dimensions{},
 	}
+	v = reflect.ValueOf(in.agentMetricsSnapshot)
+	for i := 0; i < v.NumField(); i++ {
+		msg.Datapoints = append(msg.Datapoints, producers.Datapoint{
+			Name:      v.Type().Field(i).Name,
+			Unit:      "",                  // TODO(roger): not currently an easy way to get units
+			Value:     v.Field(i).String(), // TODO(roger): everything is a string for MVP
+			Timestamp: in.timestamp,
+		})
+	}
+	out = append(out, msg)
 
-	nowMillis := time.Now().UnixNano() / 1000000
-	// collect datapoints
-	// expecting a single dict containing 'string => floatval' entries
-	var datapoints []interface{}
-	for key, valRaw := range json.Map() {
-		valFloat, err := valRaw.Float64()
-		if err != nil {
-			log.Printf("Failed to convert value %s to float64: %+v", key, valRaw)
-			continue
+	// Produce container metrics
+	for _, c := range in.containerMetrics {
+		msg = producers.MetricsMessage{
+			Name:       "container",
+			Datapoints: []producers.Datapoint{},
+			Dimensions: producers.Dimensions{},
 		}
-		datapoint, err := goavro.NewRecord(datapointNamespace, datapointSchema)
-		if err != nil {
-			log.Fatalf("Failed to create Datapoint record for topic %s (agent %s): %s",
-				a.Topic, agentState.agentID, err)
+		v = reflect.ValueOf(c.Statistics)
+		for i := 0; i < v.NumField(); i++ {
+			msg.Datapoints = append(msg.Datapoints, producers.Datapoint{
+				Name:      v.Type().Field(i).Name,
+				Unit:      "",                  // TODO(roger): not currently an easy way to get units
+				Value:     v.Field(i).String(), // TODO(roger): everything is a string for MVP
+				Timestamp: in.timestamp,
+			})
 		}
-		datapoint.Set("name", systemMetricPrefix+strings.Replace(key, "/", ".", -1)) // "key/path" => "key.path"
-		datapoint.Set("time_ms", nowMillis)
-		datapoint.Set("value", valFloat)
-		datapoints = append(datapoints, datapoint)
-	}
-	if len(datapoints) == 0 {
-		return nil, errors.New("No datapoints found in agent metrics")
-	}
 
-	metricListRec, err := goavro.NewRecord(metricListNamespace, metricListSchema)
-	if err != nil {
-		log.Fatalf("Failed to create MetricList record for topic %s (agent %s): %s",
-			a.Topic, agentState.agentID, err)
-	}
-	metricListRec.Set("topic", a.Topic)
-	metricListRec.Set("datapoints", datapoints)
-	// note: agent_id tag is automatically added downstream
-	metricListRec.Set("tags", make([]interface{}, 0))
-	// just use a size of zero, relative to limits it'll be insignificant anyway:
-	return &AvroDatum{metricListRec, a.Topic, 0}, nil
-}
+		msg.Dimensions.AgentID = "" // TODO(roger)
+		msg.Dimensions.ContainerID = c.ContainerID
+		msg.Dimensions.FrameworkID = c.FrameworkID
+		msg.Dimensions.FrameworkName = ""      // TODO(roger)
+		msg.Dimensions.FrameworkRole = ""      // TODO(roger)
+		msg.Dimensions.FrameworkPrincipal = "" // TODO(roger)
+		msg.Dimensions.ExecutorID = c.ExecutorID
+		msg.Dimensions.ContainerID = c.ContainerID
+		msg.Dimensions.Labels = make(map[string]string) // TODO(roger)
 
-// fetches container state from the agent (via /state) to populate AgentState
-func (a *Agent) getAgentState() (*AgentState, error) {
-	rootJSON, err := a.getJSONFromAgent("/state", agentTestStateFileFlag)
-	if err != nil {
-		return nil, err
+		out = append(out, msg)
 	}
 
-	json, err := rootJSON.Object()
-	if err != nil {
-		return nil, err
-	}
-
-	// state["id"] (agent_id)
-	agentID, err := json.GetString("id")
-	if err != nil {
-		return nil, err
-	}
-
-	frameworks, err := json.GetObjectArray("frameworks")
-	if err != nil {
-		return nil, err
-	}
-
-	// state["frameworks"][N]["id"] (framework_id)
-	// => state["frameworks"][N]["name"] (framework_name)
-	frameworkNames := make(map[string]string, len(frameworks))
-
-	// state["frameworks"][N]["executors"][M]["id"] (executor_id)
-	// => state["frameworks"][N]["executors"][M]["labels"][L(MARATHON_APP_ID)]["value"] (application_name)
-	executorAppNames := make(map[string]string, 0)
-
-	for _, framework := range frameworks {
-		frameworkID, err := framework.GetString("id")
-		if err != nil {
-			return nil, err
-		}
-		frameworkName, err := framework.GetString("name")
-		if err != nil {
-			return nil, err
-		}
-		frameworkNames[frameworkID] = frameworkName
-
-		executors, err := framework.GetObjectArray("executors")
-		if err != nil {
-			return nil, err
-		}
-		for _, executor := range executors {
-			executorID, err := executor.GetString("id")
-			if err != nil {
-				return nil, err
-			}
-			labels, err := executor.GetObjectArray("labels")
-			if err != nil {
-				// ignore this failure: labels are often missing when it's not a marathon app.
-				continue
-			}
-			// check for marathon app id. if present, store as application name:
-			for _, label := range labels {
-				labelKey, err := label.GetString("key")
-				if err != nil {
-					return nil, err
-				}
-				_, ok := marathonAppIDLabelKeys[labelKey]
-				if ok {
-					labelValue, err := label.GetString("value")
-					if err != nil {
-						return nil, err
-					}
-					executorAppNames[executorID] = strings.TrimLeft(labelValue, "/")
-				}
-			}
-		}
-	}
-
-	return &AgentState{
-		agentID:          agentID,
-		frameworkNames:   frameworkNames,
-		executorAppNames: executorAppNames}, nil
-}
-
-func (a *Agent) getJSONFromAgent(urlPath string, testFileFlag *string) (*jason.Value, error) {
-	var rawJSON []byte
-	var err error
-	if len(*testFileFlag) == 0 {
-		endpoint := fmt.Sprintf("http://%s:%d%s", a.AgentIP, a.Port, urlPath)
-		if len(*authCredentialFlag) == 0 {
-			rawJSON, err = util.HTTPGet(endpoint)
-		} else {
-			rawJSON, err = util.AuthedHTTPGet(endpoint, *authCredentialFlag)
-		}
-		// Special case: on HTTP 401 Unauthorized, exit immediately rather than failing forever
-		if httpErr, ok := err.(util.HTTPCodeError); ok {
-			if httpErr.Code == 401 {
-				log.Fatalf("Got 401 Unauthorized when querying agent. "+
-					"Please provide a suitable auth token using the AUTH_CREDENTIAL env var: %s", err)
-			}
-		}
-	} else {
-		rawJSON, err = ioutil.ReadFile(*testFileFlag)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	json, err := jason.NewValueFromBytes(rawJSON)
-	if err != nil {
-		return nil, err
-	}
-	return json, nil
+	return out
 }
