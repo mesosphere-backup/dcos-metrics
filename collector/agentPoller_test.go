@@ -19,13 +19,14 @@ package collector
 import (
 	"testing"
 
+	"github.com/dcos/dcos-metrics/producers"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestNewAgent(t *testing.T) {
 	Convey("When establishing a new agentPoller", t, func() {
 		Convey("When given an improper IP address", func() {
-			_, err := NewAgent("", 10000, 60, "some-metrics")
+			_, err := NewAgent("", 10000, 60, make(chan<- producers.MetricsMessage))
 
 			Convey("Should return an error", func() {
 				So(err, ShouldNotBeNil)
@@ -33,7 +34,7 @@ func TestNewAgent(t *testing.T) {
 		})
 
 		Convey("When given an improper port", func() {
-			_, err := NewAgent("1.2.3.4", 1023, 60, "some-metrics")
+			_, err := NewAgent("1.2.3.4", 1023, 60, make(chan<- producers.MetricsMessage))
 
 			Convey("Should return an error", func() {
 				So(err, ShouldNotBeNil)
@@ -41,15 +42,7 @@ func TestNewAgent(t *testing.T) {
 		})
 
 		Convey("When given an improper pollPeriod", func() {
-			_, err := NewAgent("1.2.3.4", 1024, 0, "some-metrics")
-
-			Convey("Should return an error", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
-
-		Convey("When given an improper topic", func() {
-			_, err := NewAgent("1.2.3.4", 1024, 60, "")
+			_, err := NewAgent("1.2.3.4", 1024, 0, make(chan<- producers.MetricsMessage))
 
 			Convey("Should return an error", func() {
 				So(err, ShouldNotBeNil)
@@ -57,7 +50,7 @@ func TestNewAgent(t *testing.T) {
 		})
 
 		Convey("When given proper inputs, should return an agent", func() {
-			a, err := NewAgent("1.2.3.4", 10000, 60, "some-metrics")
+			a, err := NewAgent("1.2.3.4", 10000, 60, make(chan<- producers.MetricsMessage))
 			So(a, ShouldHaveSameTypeAs, Agent{})
 			So(err, ShouldBeNil)
 		})

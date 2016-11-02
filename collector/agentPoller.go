@@ -195,7 +195,7 @@ func NewAgent(ipCommand string, port int, pollPeriod int, metricsChan chan<- pro
 // RunPoller periodiclly polls the HTTP APIs of a Mesos agent. This function
 // should be run in its own goroutine.
 func (a *Agent) RunPoller() {
-	ticker := time.NewTicker(time.Second * time.Duration(a.PollPeriod))
+	ticker := time.NewTicker(time.Duration(a.PollPeriod) * time.Second)
 	for {
 		select {
 		case _ = <-ticker.C:
@@ -212,7 +212,10 @@ func (a *Agent) getContainerMetrics() ([]agentContainer, error) {
 	var containers []agentContainer
 
 	// TODO(roger): 15sec timeout is a guess. Is there a better way to do this?
-	c := NewHTTPClient(strings.Join([]string{a.AgentIP, strconv.Itoa(a.Port)}, ":"), "/containers", 15)
+	c := NewHTTPClient(
+		strings.Join([]string{a.AgentIP, strconv.Itoa(a.Port)}, ":"),
+		"/containers",
+		time.Duration(15*time.Second))
 	if err := c.Fetch(&containers); err != nil {
 		log.Error(err)
 		return nil, err
@@ -233,7 +236,10 @@ func (a *Agent) getAgentMetrics() (agentMetricsSnapshot, error) {
 	var metrics agentMetricsSnapshot
 
 	// TODO(roger): 5sec timeout is a guess. Is there a better way to do this?
-	c := NewHTTPClient(strings.Join([]string{a.AgentIP, strconv.Itoa(a.Port)}, ":"), "/metrics/snapshot", 5)
+	c := NewHTTPClient(
+		strings.Join([]string{a.AgentIP, strconv.Itoa(a.Port)}, ":"),
+		"/metrics/snapshot",
+		time.Duration(5*time.Second))
 	if err := c.Fetch(&metrics); err != nil {
 		log.Error(err)
 		return agentMetricsSnapshot{}, err
@@ -249,7 +255,10 @@ func (a *Agent) getAgentState() (agentState, error) {
 	var state agentState
 
 	// TODO(roger): 15sec timeout is a guess. Is there a better way to do this?
-	c := NewHTTPClient(strings.Join([]string{a.AgentIP, strconv.Itoa(a.Port)}, ":"), "/monitor/state", 15)
+	c := NewHTTPClient(
+		strings.Join([]string{a.AgentIP, strconv.Itoa(a.Port)}, ":"),
+		"/monitor/state",
+		time.Duration(15*time.Second))
 	if err := c.Fetch(&state); err != nil {
 		log.Error(err)
 		return agentState{}, err

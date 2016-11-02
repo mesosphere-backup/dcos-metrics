@@ -65,12 +65,8 @@ func TestLoadConfig(t *testing.T) {
 collector:
   agent_config:
     port: 5051
-    kafka_topic: agent-metrics
   polling_period: 5
   http_profiler: false
-producers:
-  kafka:
-    brokers: 'foo'
 `)
 
 	tmpConfig, err := ioutil.TempFile("", "testConfig")
@@ -94,10 +90,8 @@ producers:
 			So(loadErr, ShouldBeNil)
 
 			So(testConfig.Collector.AgentConfig.Port, ShouldEqual, 5051)
-			So(testConfig.Collector.AgentConfig.KafkaTopic, ShouldEqual, "agent-metrics")
 			So(testConfig.Collector.PollingPeriod, ShouldEqual, 5)
 			So(testConfig.Collector.HTTPProfiler, ShouldBeFalse)
-			So(testConfig.Producers.KafkaProducerConfig.Brokers, ShouldEqual, "foo")
 		})
 	})
 }
@@ -111,18 +105,12 @@ func TestProducerIsConfigured(t *testing.T) {
 producers:
     http:
         someConfig: 'someVal'
-    kafka:
-        someConfig: 'someVal'
-    statsd:
-        someConfig: 'someVal'
 `)
 
 			if err := yaml.Unmarshal(mockConfig, &c); err != nil {
 				panic(err)
 			}
 			So(producerIsConfigured("http", c), ShouldBeTrue)
-			So(producerIsConfigured("kafka", c), ShouldBeTrue)
-			So(producerIsConfigured("statsd", c), ShouldBeTrue)
 		})
 		Convey("Should return false if a producer configuration wasn't provided", func() {
 			var c Config
@@ -130,8 +118,6 @@ producers:
 ---
 producers:
     http:
-        someConfig: 'someVal'
-    statsd:
         someConfig: 'someVal'
 `)
 

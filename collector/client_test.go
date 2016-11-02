@@ -21,11 +21,13 @@ import (
 	"net/url"
 	"testing"
 	"time"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestNewHTTPClient(t *testing.T) {
 	Convey("Should return a new client", t, func() {
-		c := NewHTTPClient("foo.example.com", "/bar", time.Duration(1))
+		c := NewHTTPClient("foo.example.com", "/bar", time.Duration(1*time.Second))
 		So(c, ShouldHaveSameTypeAs, &HTTPClient{})
 	})
 }
@@ -46,13 +48,13 @@ func TestHTTPClient_Fetch(t *testing.T) {
 	defer ts.Close()
 
 	Convey("Should fetch data UNAUTHENTICATED from the Mesos API and return", t, func() {
-		data := map[string]string{}
+		var data map[string]string
 		host, err := extractHostFromURL(ts.URL)
 		if err != nil {
 			panic(err)
 		}
 
-		c := NewHTTPClient(host, "/", time.Duration(1))
+		c := NewHTTPClient(host, "/", time.Duration(1*time.Second))
 		err = c.Fetch(&data)
 
 		So(data["foo"], ShouldEqual, "bar")
@@ -65,7 +67,7 @@ func TestHTTPClient_Fetch(t *testing.T) {
 
 func TestHTTPClient_URL(t *testing.T) {
 	Convey("Should return the URL as a string", t, func() {
-		c := NewClient("foo.example.com", "/bar", time.Duration(1))
+		c := NewHTTPClient("foo.example.com", "/bar", time.Duration(1*time.Second))
 		So(c.URL(), ShouldEqual, "http://foo.example.com/bar")
 	})
 }
