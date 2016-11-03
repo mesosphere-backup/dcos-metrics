@@ -332,7 +332,7 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 		Datapoints: []producers.Datapoint{},
 		// TODO(roger): Dimensions: producers.Dimensions{},
 	}
-	v = reflect.ValueOf(in.agentMetricsSnapshot)
+	v = reflect.Indirect(reflect.ValueOf(in.agentMetricsSnapshot))
 	for i := 0; i < v.NumField(); i++ {
 		msg.Datapoints = append(msg.Datapoints, producers.Datapoint{
 			Name:      v.Type().Field(i).Name,
@@ -350,7 +350,7 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 			Datapoints: []producers.Datapoint{},
 			Dimensions: producers.Dimensions{},
 		}
-		v = reflect.ValueOf(c.Statistics)
+		v = reflect.Indirect(reflect.ValueOf(c.Statistics))
 		for i := 0; i < v.NumField(); i++ {
 			msg.Datapoints = append(msg.Datapoints, producers.Datapoint{
 				Name:      v.Type().Field(i).Name,

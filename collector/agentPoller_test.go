@@ -17,6 +17,7 @@
 package collector
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -224,7 +225,43 @@ func TestGetIP(t *testing.T) {
 
 func TestTransform(t *testing.T) {
 	Convey("When transforming agent metrics to fit producers.MetricsMessage", t, func() {
-		Convey("Should return a []producers.MetricsMessage without errors", nil)
+		// bogus port and IP address here; no HTTP client in a.transform()
+		a, _ := NewAgent("/bin/true", 9000, 60, make(chan<- producers.MetricsMessage))
+		a.AgentIP = "127.127.127.127"
+
+		// The mocks in this test file are bytearrays so that they can be used
+		// by the HTTP test server(s). So we need to unmarshal them here before
+		// they can be used by a.transform().
+		var thisAgentMetrics agentMetricsSnapshot
+		var thisAgentState agentState
+		var thisContainerMetrics []agentContainer
+		if err := json.Unmarshal(mockAgentMetrics, &thisAgentMetrics); err != nil {
+			panic(err)
+		}
+		if err := json.Unmarshal(mockAgentState, &thisAgentState); err != nil {
+			panic(err)
+		}
+		if err := json.Unmarshal(mockContainerMetrics, &thisContainerMetrics); err != nil {
+			panic(err)
+		}
+
+		testData := metricsMeta{
+			agentMetricsSnapshot: thisAgentMetrics,
+			agentState:           thisAgentState,
+			containerMetrics:     thisContainerMetrics,
+			timestamp:            "2009-11-10T23:00:00Z",
+		}
+
+		Convey("Should return a []producers.MetricsMessage without errors", func() {
+			result := a.transform(testData)
+			So(len(result), ShouldEqual, 2) // one agent message, one container message
+
+			// From the implementation of a.transform() and the mocks in this test file,
+			// result[0] will be agent metrics, and result[1] will be container metrics.
+			So(result[0].Datapoints[0].Timestamp, ShouldEqual, "2009-11-10T23:00:00Z")
+			So(result[1].Datapoints[0].Timestamp, ShouldEqual, "2009-11-10T23:00:00Z")
+			So(result[1].Dimensions.FrameworkName, ShouldEqual, "marathon")
+		})
 	})
 }
 
