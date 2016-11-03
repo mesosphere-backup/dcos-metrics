@@ -28,82 +28,8 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestNewAgent(t *testing.T) {
-	Convey("When establishing a new agentPoller", t, func() {
-		Convey("Should return an error when given an improper IP address", func() {
-			_, err := NewAgent("", 10000, 60, make(chan<- producers.MetricsMessage))
-			So(err, ShouldNotBeNil)
-		})
-
-		Convey("Should return an error when given an improper port", func() {
-			_, err := NewAgent("1.2.3.4", 1023, 60, make(chan<- producers.MetricsMessage))
-			So(err, ShouldNotBeNil)
-		})
-
-		Convey("Should return an error when given an improper pollPeriod", func() {
-			_, err := NewAgent("1.2.3.4", 1024, 0, make(chan<- producers.MetricsMessage))
-			So(err, ShouldNotBeNil)
-		})
-
-		Convey("Should return an Agent when given proper inputs", func() {
-			a, err := NewAgent("1.2.3.4", 10000, 60, make(chan<- producers.MetricsMessage))
-			So(a, ShouldHaveSameTypeAs, Agent{})
-			So(err, ShouldBeNil)
-		})
-	})
-}
-
-func TestGetContainerMetrics(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		td := []byte(`
-		[
-			{
-				"container_id": "e4faacb2-f69f-4ea1-9d96-eb06fea75eef",
-				"executor_id": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
-				"executor_name": "Command Executor (Task: foo.adf2b6f4-a171-11e6-9182-080027fb5b88) (Command: sh -c 'sleep 900')",
-				"framework_id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
-				"source": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
-				"statistics": {
-					"cpus_limit": 1.1,
-					"cpus_system_time_secs": 0.31,
-					"cpus_user_time_secs": 0.22,
-					"mem_limit_bytes": 167772160,
-					"mem_total_bytes": 4476928
-				}
-			}
-		]`)
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(200)
-		w.Write(td)
-	}))
-	defer ts.Close()
-
-	Convey("When fetching container metrics", t, func() {
-		port, err := extractPortFromURL(ts.URL)
-		if err != nil {
-			panic(err)
-		}
-
-		a, _ := NewAgent("/bin/true", port, 60, make(chan<- producers.MetricsMessage))
-		a.AgentIP = "127.0.0.1"
-		result, err := a.getContainerMetrics()
-
-		Convey("Should return an array of 'agentContainer' without error", func() {
-			// Ensure that we're
-			//   a) unmarshaling the data correctly, and
-			//   b) that we're getting valid types for the data (string, float, int)
-			So(result[0].ContainerID, ShouldEqual, "e4faacb2-f69f-4ea1-9d96-eb06fea75eef")
-			So(result[0].Statistics.CpusLimit, ShouldEqual, 1.1)
-			So(result[0].Statistics.MemTotalBytes, ShouldEqual, 4476928)
-			So(err, ShouldBeNil)
-		})
-	})
-}
-
-func TestGetAgentMetrics(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		td := []byte(`
+var (
+	mockAgentMetrics = []byte(`
 		{
 			"system\/cpus_total": 2,
 			"system\/load_1min": 0.1,
@@ -113,34 +39,7 @@ func TestGetAgentMetrics(t *testing.T) {
 			"system\/mem_free_bytes": 3349942272
 		}`)
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(200)
-		w.Write(td)
-	}))
-	defer ts.Close()
-
-	Convey("When fetching agent metrics", t, func() {
-		port, err := extractPortFromURL(ts.URL)
-		if err != nil {
-			panic(err)
-		}
-
-		Convey("Should return an 'agentMetricsSnapshot' without error", func() {
-			a, _ := NewAgent("/bin/true", port, 60, make(chan<- producers.MetricsMessage))
-			a.AgentIP = "127.0.0.1"
-			result, err := a.getAgentMetrics()
-
-			So(result.CPUsTotal, ShouldEqual, 2)
-			So(result.SystemLoad5Min, ShouldEqual, 0.11)
-			So(result.MemFreeBytes, ShouldEqual, 3349942272)
-			So(err, ShouldBeNil)
-		})
-	})
-}
-
-func TestGetAgentState(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		td := []byte(`
+	mockAgentState = []byte(`
 		{
 			"frameworks": [
 				{
@@ -179,9 +78,112 @@ func TestGetAgentState(t *testing.T) {
 			]
 		}`)
 
+	mockContainerMetrics = []byte(`
+		[
+			{
+				"container_id": "e4faacb2-f69f-4ea1-9d96-eb06fea75eef",
+				"executor_id": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
+				"executor_name": "Command Executor (Task: foo.adf2b6f4-a171-11e6-9182-080027fb5b88) (Command: sh -c 'sleep 900')",
+				"framework_id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
+				"source": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
+				"statistics": {
+					"cpus_limit": 1.1,
+					"cpus_system_time_secs": 0.31,
+					"cpus_user_time_secs": 0.22,
+					"mem_limit_bytes": 167772160,
+					"mem_total_bytes": 4476928
+				}
+			}
+		]`)
+)
+
+func TestNewAgent(t *testing.T) {
+	Convey("When establishing a new agentPoller", t, func() {
+		Convey("Should return an error when given an improper IP address", func() {
+			_, err := NewAgent("", 10000, 60, make(chan<- producers.MetricsMessage))
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("Should return an error when given an improper port", func() {
+			_, err := NewAgent("1.2.3.4", 1023, 60, make(chan<- producers.MetricsMessage))
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("Should return an error when given an improper pollPeriod", func() {
+			_, err := NewAgent("1.2.3.4", 1024, 0, make(chan<- producers.MetricsMessage))
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("Should return an Agent when given proper inputs", func() {
+			a, err := NewAgent("1.2.3.4", 10000, 60, make(chan<- producers.MetricsMessage))
+			So(a, ShouldHaveSameTypeAs, Agent{})
+			So(err, ShouldBeNil)
+		})
+	})
+}
+
+func TestGetContainerMetrics(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		w.Write(td)
+		w.Write(mockContainerMetrics)
+	}))
+	defer ts.Close()
+
+	Convey("When fetching container metrics", t, func() {
+		port, err := extractPortFromURL(ts.URL)
+		if err != nil {
+			panic(err)
+		}
+
+		a, _ := NewAgent("/bin/true", port, 60, make(chan<- producers.MetricsMessage))
+		a.AgentIP = "127.0.0.1"
+		result, err := a.getContainerMetrics()
+
+		Convey("Should return an array of 'agentContainer' without error", func() {
+			// Ensure that we're
+			//   a) unmarshaling the data correctly, and
+			//   b) that we're getting valid types for the data (string, float, int)
+			So(result[0].ContainerID, ShouldEqual, "e4faacb2-f69f-4ea1-9d96-eb06fea75eef")
+			So(result[0].Statistics.CpusLimit, ShouldEqual, 1.1)
+			So(result[0].Statistics.MemTotalBytes, ShouldEqual, 4476928)
+			So(err, ShouldBeNil)
+		})
+	})
+}
+
+func TestGetAgentMetrics(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		w.Write(mockAgentMetrics)
+	}))
+	defer ts.Close()
+
+	Convey("When fetching agent metrics", t, func() {
+		port, err := extractPortFromURL(ts.URL)
+		if err != nil {
+			panic(err)
+		}
+
+		Convey("Should return an 'agentMetricsSnapshot' without error", func() {
+			a, _ := NewAgent("/bin/true", port, 60, make(chan<- producers.MetricsMessage))
+			a.AgentIP = "127.0.0.1"
+			result, err := a.getAgentMetrics()
+
+			So(result.CPUsTotal, ShouldEqual, 2)
+			So(result.SystemLoad5Min, ShouldEqual, 0.11)
+			So(result.MemFreeBytes, ShouldEqual, 3349942272)
+			So(err, ShouldBeNil)
+		})
+	})
+}
+
+func TestGetAgentState(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		w.Write(mockAgentState)
 	}))
 	defer ts.Close()
 
