@@ -87,6 +87,7 @@ type agentState struct {
 type frameworkInfo struct {
 	ID        string         `json:"id"`
 	Name      string         `json:"name"`
+	Role      string         `json:"role"`
 	Executors []executorInfo `json:"executors"`
 }
 
@@ -117,7 +118,7 @@ type agentMetricsSnapshot struct {
 	SystemLoad15Min float64 `json:"system/load_15min"`
 
 	// CPU info
-	CPUTotal float64 `json:"system/cpu_total"`
+	CPUsTotal float64 `json:"system/cpus_total"`
 
 	// Memory info
 	MemTotalBytes float64 `json:"system/mem_total_bytes"`
@@ -185,8 +186,11 @@ func NewAgent(ipCommand string, port int, pollPeriod int, metricsChan chan<- pro
 
 	// Detect the agent's IP address once. Per the DC/OS docs (at least as of
 	// November 2016), changing a node's IP address is not supported.
-	if a.AgentIP, err = a.getIP(); err != nil {
-		log.Error(err)
+	//
+	if a.AgentIP == "" { // allows us to mock this during testing
+		if a.AgentIP, err = a.getIP(); err != nil {
+			log.Error(err)
+		}
 	}
 
 	return a, nil
@@ -386,16 +390,17 @@ func getFrameworkNameByFrameworkID(frameworkID string, frameworks []frameworkInf
 // getLabelsByContainerID returns a map of labels, as specified by the framework
 // that created the executor. In the case of Marathon, the framework allows the
 // user to specify their own arbitrary labels per application.
-func getLabelsByContainerID(containerID string, frameworks []frameworkInfo) (labels map[string]string) {
+func getLabelsByContainerID(containerID string, frameworks []frameworkInfo) map[string]string {
+	labels := map[string]string{}
 	for _, framework := range frameworks {
 		for _, executor := range framework.Executors {
 			if executor.Container == containerID {
 				for _, pair := range executor.Labels {
 					labels[pair.Key] = pair.Value
 				}
-				return
+				return labels
 			}
 		}
 	}
-	return
+	return labels
 }
