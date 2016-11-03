@@ -27,6 +27,12 @@
 			"revisionTime": "2015-11-05T21:09:06Z"
 		},
 		{
+			"checksumSHA1": "aWYiS9mxplpIHek9FXCiVOFTRVQ=",
+			"path": "github.com/dcos/dcos-go/store",
+			"revision": "59a7af368759a010e9f8d8ba7ec8ca7b39ff1e73",
+			"revisionTime": "2016-10-28T21:55:51Z"
+		},
+		{
 			"checksumSHA1": "y2Kh4iPlgCPXSGTCcFpzePYdzzg=",
 			"path": "github.com/eapache/go-resiliency/breaker",
 			"revision": "b86b1ec0dd4209a588dc1285cdd471e73525c0b3",
