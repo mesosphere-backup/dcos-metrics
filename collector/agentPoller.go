@@ -68,7 +68,7 @@ type agentContainer struct {
 }
 
 // agentState defines the structure of the response expected from Mesos
-// *for all cluster state* when polling the /monitor/state endpoint.
+// *for all cluster state* when polling the /state endpoint.
 // Specifically, this struct exists for the following purposes:
 //
 //   * collect labels from individual containers (executors) since labels are
@@ -261,7 +261,7 @@ func (a *Agent) getAgentState() (agentState, error) {
 	// TODO(roger): 15sec timeout is a guess. Is there a better way to do this?
 	c := NewHTTPClient(
 		strings.Join([]string{a.AgentIP, strconv.Itoa(a.Port)}, ":"),
-		"/monitor/state",
+		"/state",
 		time.Duration(15*time.Second))
 	if err := c.Fetch(&state); err != nil {
 		log.Error(err)
