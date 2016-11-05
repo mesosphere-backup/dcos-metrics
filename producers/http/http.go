@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"net/http"
 
+	log "github.com/Sirupsen/logrus"
+	"github.com/dcos/dcos-go/store"
 	"github.com/dcos/dcos-metrics/producers"
 )
 
@@ -28,13 +30,15 @@ type Config struct {
 
 type producerImpl struct {
 	config      Config
-	metricsChan chan<- producers.MetricsMessage
+	store       store.Store
+	metricsChan chan producers.MetricsMessage
 }
 
 // New creates a new instance of the HTTP producer with the provided configuration.
-func New(cfg Config) (producers.MetricsProducer, chan<- producers.MetricsMessage) {
+func New(cfg Config) (producers.MetricsProducer, chan producers.MetricsMessage) {
 	p := producerImpl{
 		config:      cfg,
+		store:       store.New(),
 		metricsChan: make(chan producers.MetricsMessage),
 	}
 	return &p, p.metricsChan
@@ -43,10 +47,14 @@ func New(cfg Config) (producers.MetricsProducer, chan<- producers.MetricsMessage
 // Run a HTTP server and serve the various metrics API endpoints.
 // This function should be run in its own goroutine.
 func (p *producerImpl) Run() error {
-	r := newRouter()
+	r := newRouter(p)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", p.config.Port), r); err != nil {
-		return err
+		log.Fatalf("error: http producer: %s", err)
 	}
-	return nil
+	log.Infof("The HTTP producer is serving requests on port %d", p.config.Port)
 
+	for {
+		message := <-p.metricsChan         // read messages off the channel
+		p.store.Set(message.Name, message) // overwrite existing object with the same message.Name
+	}
 }

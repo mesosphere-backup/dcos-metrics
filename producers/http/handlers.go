@@ -19,16 +19,34 @@ import (
 	"net/http"
 )
 
-func fooHandler(w http.ResponseWriter, r *http.Request) {
-	type fooData struct {
-		Message string `json:"message"`
+func agentHandler(p *producerImpl) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		agentMetrics, ok := p.store.Get("agent")
+		if !ok {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		if err := json.NewEncoder(w).Encode(agentMetrics); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		} else {
+			w.WriteHeader(http.StatusOK)
+		}
 	}
+}
 
-	result := fooData{Message: "Hello, world!"}
+func fooHandler(p *producerImpl) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		type fooData struct {
+			Message string `json:"message"`
+		}
 
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(result); err != nil {
-		panic(err)
+		result := fooData{Message: "Hello, world!"}
+
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(result); err != nil {
+			panic(err)
+		}
 	}
 }

@@ -79,20 +79,21 @@ func main() {
 
 	// HTTP profiling
 	if cfg.Collector.HTTPProfiler {
-		log.Printf("HTTP profiling enabled")
+		log.Info("HTTP profiling enabled")
 		go util.RunHTTPProfAccess()
 	}
 
 	// HTTP producer
 	if producerIsConfigured("http", cfg) {
-		httpProducer, httpProducerChan := httpProducer.New(cfg.Producers.HTTPProducerConfig)
+		log.Info("HTTP producer enabled")
+		hp, httpProducerChan := httpProducer.New(cfg.Producers.HTTPProducerConfig)
 		producerChans = append(producerChans, httpProducerChan)
-		go httpProducer.Run()
+		go hp.Run()
 	}
 
 	collectorChan := make(chan producers.MetricsMessage)
 	if cfg.DCOSRole == "agent" {
-		log.Printf("Agent polling enabled")
+		log.Info("Agent polling enabled")
 
 		agent, err := collector.NewAgent(
 			cfg.Collector.IPCommand,
@@ -110,19 +111,17 @@ func main() {
 	//go collector.RunAvroTCPReader(recordInputChan)
 
 	// Broadcast (one-to-many) messages from the collector to the various producers.
-	go func() {
-		for {
-			message := <-collectorChan
-			done := make(chan bool) // prevent leaking goroutines
-			for _, producer := range producerChans {
-				go func() {
-					producer <- message
-					done <- true
-				}()
-				<-done
-			}
+	for {
+		message := <-collectorChan
+		done := make(chan bool) // prevent leaking goroutines
+		for _, producer := range producerChans {
+			go func() {
+				producer <- message
+				done <- true
+			}()
+			<-done
 		}
-	}()
+	}
 }
 
 func (c *Config) setFlags(fs *flag.FlagSet) {

@@ -17,19 +17,21 @@ package http
 import (
 	"net/http"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 )
 
 // NewRouter iterates over a slice of Route types and creates them
 // in gorilla/mux.
-func newRouter() *mux.Router {
+func newRouter(p *producerImpl) *mux.Router {
 
 	router := mux.NewRouter().StrictSlash(true)
 	// Various HTTP routes defined in routes.go
 	for _, route := range routes {
+		log.Debugf("http producer: establishing endpoint %s at %s", route.Name, route.Path)
 		var handler http.Handler
 
-		handler = route.HandlerFunc
+		handler = route.HandlerFunc(p)
 		handler = logger(handler, route.Name)
 
 		router.NewRoute().

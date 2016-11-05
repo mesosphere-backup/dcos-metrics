@@ -38,7 +38,7 @@ type Route struct {
 	Name        string
 	Method      string
 	Path        string
-	HandlerFunc http.HandlerFunc
+	HandlerFunc func(*producerImpl) http.HandlerFunc
 }
 
 var (
@@ -56,35 +56,35 @@ var routes = []Route{
 		HandlerFunc: fooHandler,
 	},
 
-	// Node Endpoints, e.g. /api/v0/node...
+	// Agent Endpoints, e.g. /api/v0/agent...
 	Route{
-		Name:        "node",
+		Name:        "agent",
 		Method:      "GET",
-		Path:        strings.Join([]string{root, "node"}, "/"),
+		Path:        strings.Join([]string{root, "agent"}, "/"),
+		HandlerFunc: agentHandler,
+	},
+	Route{
+		Name:        "agent_cpu",
+		Method:      "GET",
+		Path:        strings.Join([]string{root, "agent", "cpu"}, "/"),
 		HandlerFunc: fooHandler,
 	},
 	Route{
-		Name:        "node_cpu",
+		Name:        "agent_memory",
 		Method:      "GET",
-		Path:        strings.Join([]string{root, "node", "cpu"}, "/"),
+		Path:        strings.Join([]string{root, "agent", "memory"}, "/"),
 		HandlerFunc: fooHandler,
 	},
 	Route{
-		Name:        "node_memory",
+		Name:        "agent_disks",
 		Method:      "GET",
-		Path:        strings.Join([]string{root, "node", "memory"}, "/"),
+		Path:        strings.Join([]string{root, "agent", "disks"}, "/"),
 		HandlerFunc: fooHandler,
 	},
 	Route{
-		Name:        "node_disks",
+		Name:        "agent_networks",
 		Method:      "GET",
-		Path:        strings.Join([]string{root, "node", "disks"}, "/"),
-		HandlerFunc: fooHandler,
-	},
-	Route{
-		Name:        "node_networks",
-		Method:      "GET",
-		Path:        strings.Join([]string{root, "node", "networks"}, "/"),
+		Path:        strings.Join([]string{root, "agent", "networks"}, "/"),
 		HandlerFunc: fooHandler,
 	},
 
