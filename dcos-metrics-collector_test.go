@@ -24,6 +24,7 @@ import (
 
 	yaml "gopkg.in/yaml.v2"
 
+	"github.com/Sirupsen/logrus"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -42,19 +43,42 @@ func TestDefaultConfig(t *testing.T) {
 		Convey("HTTP profiler should be enabled by default", func() {
 			So(testConfig.Collector.HTTPProfiler, ShouldBeTrue)
 		})
+
+		Convey("Default log level should be 'info'", func() {
+			So(testConfig.LogLevel, ShouldEqual, "info")
+		})
 	})
 }
 
 func TestSetFlags(t *testing.T) {
-	Convey("Ensure command line flags are applied", t, func() {
-		testConfig := Config{
-			ConfigPath: "/some/default/path",
-		}
-		testFS := flag.NewFlagSet("", flag.PanicOnError)
-		testConfig.setFlags(testFS)
-		testFS.Parse([]string{"-config", "/another/config/path"})
+	Convey("When command line arguments are provided", t, func() {
+		Convey("Should apply an alternate configuration path", func() {
+			testConfig := Config{
+				ConfigPath: "/some/default/path",
+			}
+			testFS := flag.NewFlagSet("", flag.PanicOnError)
+			testConfig.setFlags(testFS)
+			testFS.Parse([]string{"-config", "/another/config/path"})
 
-		So(testConfig.ConfigPath, ShouldEqual, "/another/config/path")
+			So(testConfig.ConfigPath, ShouldEqual, "/another/config/path")
+		})
+
+		Convey("Should apply an alternate log level", func() {
+			testConfig := Config{
+				LogLevel: "debug",
+			}
+			testFS := flag.NewFlagSet("", flag.PanicOnError)
+			testConfig.setFlags(testFS)
+			testFS.Parse([]string{"-loglevel", "debug"})
+
+			lvl, err := logrus.ParseLevel(testConfig.LogLevel)
+			if err != nil {
+				panic(err)
+			}
+
+			So(testConfig.LogLevel, ShouldEqual, "debug")
+			So(lvl, ShouldEqual, logrus.DebugLevel)
+		})
 	})
 }
 

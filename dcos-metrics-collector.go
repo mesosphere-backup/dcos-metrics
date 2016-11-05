@@ -41,6 +41,7 @@ type Config struct {
 
 	ConfigPath string
 	DCOSRole   string
+	LogLevel   string
 }
 
 // CollectorConfig contains configuration options relevant to the "collector"
@@ -69,19 +70,28 @@ type ProducersConfig struct {
 }
 
 func main() {
+	// Get configuration
 	cfg, err := getNewConfig(os.Args[1:])
-	var producerChans []chan<- producers.MetricsMessage
-
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Fatal(err)
 		os.Exit(1)
 	}
+
+	// Set logging level
+	lvl, err := log.ParseLevel(cfg.LogLevel)
+	if err != nil {
+		log.Fatal(err)
+		os.Exit(1)
+	}
+	log.SetLevel(lvl)
 
 	// HTTP profiling
 	if cfg.Collector.HTTPProfiler {
 		log.Info("HTTP profiling enabled")
 		go util.RunHTTPProfAccess()
 	}
+
+	var producerChans []chan<- producers.MetricsMessage
 
 	// HTTP producer
 	if producerIsConfigured("http", cfg) {
@@ -91,6 +101,7 @@ func main() {
 		go hp.Run()
 	}
 
+	// Collector
 	collectorChan := make(chan producers.MetricsMessage)
 	if cfg.DCOSRole == "agent" {
 		log.Info("Agent polling enabled")
@@ -126,6 +137,7 @@ func main() {
 
 func (c *Config) setFlags(fs *flag.FlagSet) {
 	fs.StringVar(&c.ConfigPath, "config", c.ConfigPath, "The path to the config file.")
+	fs.StringVar(&c.LogLevel, "loglevel", c.LogLevel, "Logging level (default: info). Must be one of: debug, info, warn, error, fatal, panic.")
 	fs.StringVar(&c.DCOSRole, "role", c.DCOSRole, "The DC/OS role this instance runs on.")
 }
 
@@ -157,6 +169,7 @@ func newConfig() Config {
 			HTTPProducerConfig: httpProducer.Config{Port: 8000},
 		},
 		ConfigPath: "dcos-metrics-config.yaml",
+		LogLevel:   "info",
 	}
 }
 
