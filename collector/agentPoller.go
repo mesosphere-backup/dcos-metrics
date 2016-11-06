@@ -26,9 +26,10 @@ import (
 	"github.com/dcos/dcos-metrics/producers"
 )
 
-const (
-	containerMetricPrefix = "dcos.metrics.container"
-	agentMetricPrefix     = "dcos.metrics.agent"
+var (
+	metricNamespaceSep    = "."
+	containerMetricPrefix = strings.Join([]string{"dcos", "metrics", "containner"}, metricNamespaceSep)
+	agentMetricPrefix     = strings.Join([]string{"dcos", "metrics", "agent"}, metricNamespaceSep)
 )
 
 // Agent defines the structure of the agent metrics poller and any configuration
@@ -328,14 +329,14 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 
 	// Produce agent metrics
 	msg = producers.MetricsMessage{
-		Name:       "agent",
+		Name:       strings.Join([]string{agentMetricPrefix, a.AgentIP}, metricNamespaceSep),
 		Datapoints: []producers.Datapoint{},
 		// TODO(roger): Dimensions: producers.Dimensions{},
 	}
 	v = reflect.Indirect(reflect.ValueOf(in.agentMetricsSnapshot))
 	for i := 0; i < v.NumField(); i++ {
 		msg.Datapoints = append(msg.Datapoints, producers.Datapoint{
-			Name:      v.Type().Field(i).Name,
+			Name:      strings.Join([]string{msg.Name, v.Type().Field(i).Name}, metricNamespaceSep),
 			Unit:      "",                  // TODO(roger): not currently an easy way to get units
 			Value:     v.Field(i).String(), // TODO(roger): everything is a string for MVP
 			Timestamp: in.timestamp.Format(time.RFC3339Nano),
