@@ -37,7 +37,7 @@ type Agent struct {
 	AgentIP     string
 	IPCommand   string
 	Port        int
-	PollPeriod  int
+	PollPeriod  time.Duration
 	MetricsChan chan<- producers.MetricsMessage
 }
 
@@ -50,7 +50,7 @@ type metricsMeta struct {
 	agentState           agentState
 	agentMetricsSnapshot agentMetricsSnapshot
 	containerMetrics     []agentContainer
-	timestamp            string
+	timestamp            time.Time
 }
 
 // agentContainer defines the structure of the response expected from Mesos
@@ -165,7 +165,7 @@ type resourceStatistics struct {
 }
 
 // NewAgent ...
-func NewAgent(ipCommand string, port int, pollPeriod int, metricsChan chan<- producers.MetricsMessage) (Agent, error) {
+func NewAgent(ipCommand string, port int, pollPeriod time.Duration, metricsChan chan<- producers.MetricsMessage) (Agent, error) {
 	var a Agent
 	var err error
 
@@ -199,7 +199,7 @@ func NewAgent(ipCommand string, port int, pollPeriod int, metricsChan chan<- pro
 // RunPoller periodiclly polls the HTTP APIs of a Mesos agent. This function
 // should be run in its own goroutine.
 func (a *Agent) RunPoller() {
-	ticker := time.NewTicker(time.Duration(a.PollPeriod) * time.Second)
+	ticker := time.NewTicker(a.PollPeriod)
 	for {
 		select {
 		case _ = <-ticker.C:
@@ -290,7 +290,7 @@ func (a *Agent) getIP() (string, error) {
 // pollAgent queries the DC/OS agent for metrics and returns.
 func (a *Agent) pollAgent() metricsMeta {
 	var metrics metricsMeta
-	now := time.Now().Format(time.RFC3339Nano)
+	now := time.Now()
 
 	// always fetch/emit agent state first: downstream will use it for tagging metrics
 	agentState, err := a.getAgentState()
@@ -338,7 +338,7 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 			Name:      v.Type().Field(i).Name,
 			Unit:      "",                  // TODO(roger): not currently an easy way to get units
 			Value:     v.Field(i).String(), // TODO(roger): everything is a string for MVP
-			Timestamp: in.timestamp,
+			Timestamp: in.timestamp.Format(time.RFC3339Nano),
 		})
 	}
 	out = append(out, msg)
@@ -356,7 +356,7 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 				Name:      v.Type().Field(i).Name,
 				Unit:      "",                  // TODO(roger): not currently an easy way to get units
 				Value:     v.Field(i).String(), // TODO(roger): everything is a string for MVP
-				Timestamp: in.timestamp,
+				Timestamp: in.timestamp.Format(time.RFC3339Nano),
 			})
 		}
 

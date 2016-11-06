@@ -14,6 +14,8 @@
 
 package producers
 
+import "time"
+
 // MetricsProducer defines an interface that the various producers must
 // implement in order to receive, process, and present metrics to the caller or
 // client. All producers must use the MetricsMessage structure to receive
@@ -35,6 +37,7 @@ type MetricsMessage struct {
 	Name       string      `json:"name"`
 	Datapoints []Datapoint `json:"datapoints"`
 	Dimensions Dimensions  `json:"dimensions,omitempty"`
+	Timestamp  time.Time   `json:"timestamp"`
 }
 
 // Datapoint represents a single metric's timestamp, value, and unit in a response.

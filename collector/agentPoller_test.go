@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/dcos/dcos-metrics/producers"
 	. "github.com/smartystreets/goconvey/convey"
@@ -245,11 +246,15 @@ func TestTransform(t *testing.T) {
 			panic(err)
 		}
 
+		testTime, err := time.Parse(time.RFC3339Nano, "2009-11-10T23:00:00Z")
+		if err != nil {
+			panic(err)
+		}
 		testData := metricsMeta{
 			agentMetricsSnapshot: thisAgentMetrics,
 			agentState:           thisAgentState,
 			containerMetrics:     thisContainerMetrics,
-			timestamp:            "2009-11-10T23:00:00Z",
+			timestamp:            testTime,
 		}
 
 		Convey("Should return a []producers.MetricsMessage without errors", func() {

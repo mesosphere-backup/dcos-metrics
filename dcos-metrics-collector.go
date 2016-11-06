@@ -21,6 +21,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
@@ -109,7 +110,7 @@ func main() {
 		agent, err := collector.NewAgent(
 			cfg.Collector.IPCommand,
 			cfg.Collector.AgentConfig.Port,
-			cfg.Collector.PollingPeriod,
+			time.Duration(cfg.Collector.PollingPeriod)*time.Second,
 			collectorChan)
 
 		if err != nil {
