@@ -97,7 +97,11 @@ func main() {
 	// HTTP producer
 	if producerIsConfigured("http", cfg) {
 		log.Info("HTTP producer enabled")
-		hp, httpProducerChan := httpProducer.New(cfg.Producers.HTTPProducerConfig)
+		c := httpProducer.Config{
+			Port:        cfg.Producers.HTTPProducerConfig.Port,
+			CacheExpiry: time.Duration(cfg.Collector.PollingPeriod) * time.Second * 2,
+		}
+		hp, httpProducerChan := httpProducer.New(c)
 		producerChans = append(producerChans, httpProducerChan)
 		go hp.Run()
 	}

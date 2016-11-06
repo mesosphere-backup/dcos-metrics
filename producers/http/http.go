@@ -17,6 +17,7 @@ package http
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-go/store"
@@ -25,7 +26,8 @@ import (
 
 // Config for the HTTP producer
 type Config struct {
-	Port int `yaml:"port"`
+	Port        int           `yaml:"port"`
+	CacheExpiry time.Duration // ideally this is a multiple of the collector's PollingPeriod
 }
 
 type producerImpl struct {
@@ -52,9 +54,33 @@ func (p *producerImpl) Run() error {
 		log.Fatalf("error: http producer: %s", err)
 	}
 	log.Infof("The HTTP producer is serving requests on port %d", p.config.Port)
+	log.Info("Starting janitor for in-memory data store")
+	go p.janitor()
 
 	for {
 		message := <-p.metricsChan         // read messages off the channel
 		p.store.Set(message.Name, message) // overwrite existing object with the same message.Name
+	}
+}
+
+// janitor analyzes the objects in the store and removes stale objects. An
+// object is considered stale when the top-level timestamp of its MetricsMessage
+// has exceeded the CacheExpiry, which is calculated as a multiple of the
+// collector's polling period. This function should be run in its own goroutine.
+func (p *producerImpl) janitor() {
+	ticker := time.NewTicker(time.Duration(60 * time.Second))
+	for {
+		select {
+		case _ = <-ticker.C:
+			for _, obj := range p.store.Objects() {
+				o := obj.(producers.MetricsMessage)
+
+				lastUpdated := time.Since(o.Timestamp)
+				if lastUpdated > p.config.CacheExpiry {
+					log.Debugf("Removing stale object %s; last updated %d seconds ago", o.Name, lastUpdated*time.Second)
+					p.store.Delete(o.Name)
+				}
+			}
+		}
 	}
 }
