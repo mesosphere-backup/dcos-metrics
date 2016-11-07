@@ -50,9 +50,10 @@ func New(cfg Config) (producers.MetricsProducer, chan producers.MetricsMessage) 
 // This function should be run in its own goroutine.
 func (p *producerImpl) Run() error {
 	r := newRouter(p)
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", p.config.Port), r); err != nil {
-		log.Fatalf("error: http producer: %s", err)
-	}
+	go func() {
+		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", p.config.Port), r)) // http.ListenAndServe blocks
+	}()
+
 	log.Infof("The HTTP producer is serving requests on port %d", p.config.Port)
 	log.Info("Starting janitor for in-memory data store")
 	go p.janitor()
