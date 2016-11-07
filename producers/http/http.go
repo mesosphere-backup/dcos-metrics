@@ -55,11 +55,15 @@ func (p *producerImpl) Run() error {
 	}()
 
 	log.Infof("The HTTP producer is serving requests on port %d", p.config.Port)
+
 	log.Info("Starting janitor for in-memory data store")
 	go p.janitor()
 
+	log.Debug("Listening for incoming messages on metricsChan")
 	for {
-		message := <-p.metricsChan         // read messages off the channel
+		message := <-p.metricsChan // read messages off the channel
+		log.Debugf("Received message '%s' with timestamp", message.Name, message.Timestamp)
+		log.Debugf("Setting store object '%s' with timestamp", message.Name, message.Timestamp)
 		p.store.Set(message.Name, message) // overwrite existing object with the same message.Name
 	}
 }

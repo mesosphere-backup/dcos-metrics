@@ -271,7 +271,9 @@ func (a *Agent) getAgentState() (agentState, error) {
 // getIP runs the ip_detect script and returns the IP address that the agent
 // is listening on.
 func (a *Agent) getIP() (string, error) {
+	log.Debugf("Executing ip-detect script %s", a.IPCommand)
 	cmdWithArgs := strings.Split(a.IPCommand, " ")
+
 	ipBytes, err := exec.Command(cmdWithArgs[0], cmdWithArgs[1:]...).Output()
 	if err != nil {
 		return "", err
@@ -281,6 +283,7 @@ func (a *Agent) getIP() (string, error) {
 		return "", err
 	}
 
+	log.Debugf("getIP() returned successfully, got IP %s", ip)
 	return ip, nil
 }
 
@@ -288,25 +291,31 @@ func (a *Agent) getIP() (string, error) {
 func (a *Agent) pollAgent() metricsMeta {
 	var metrics metricsMeta
 	now := time.Now()
+	log.Debugf("Polling the Mesos agent at %s:%d. Started at %s", a.AgentIP, a.Port, now.String())
 
 	// always fetch/emit agent state first: downstream will use it for tagging metrics
+	log.Debugf("Fetching state from agent %s:%d", a.AgentIP, a.Port)
 	agentState, err := a.getAgentState()
 	if err != nil {
 		log.Errorf("Failed to get agent state from %s:%d. Error: %s", a.AgentIP, a.Port, err)
 		return metrics
 	}
 
+	log.Debugf("Fetching agent metrics from agent %s:%d", a.AgentIP, a.Port)
 	agentMetrics, err := a.getAgentMetrics()
 	if err != nil {
 		log.Errorf("Failed to get agent metrics from %s:%d. Error: %s", a.AgentIP, a.Port, err)
 		return metrics
 	}
 
+	log.Debugf("Fetching container metrics from agent %s:%d", a.AgentIP, a.Port)
 	containerMetrics, err := a.getContainerMetrics()
 	if err != nil {
 		log.Errorf("Failed to get container metrics from %s:%d. Error: %s", a.AgentIP, a.Port, err)
 		return metrics
 	}
+
+	log.Debugf("Finished polling agent %s:%d, took %d seconds.", a.AgentIP, a.Port, time.Since(now).Seconds())
 
 	metrics.agentState = agentState
 	metrics.agentMetricsSnapshot = agentMetrics
