@@ -14,7 +14,19 @@
 
 package producers
 
-import "time"
+import (
+	"strings"
+	"time"
+)
+
+var (
+	// MetricNamespaceSep defines the separator for a metrics namespace
+	MetricNamespaceSep = "."
+	// ContainerMetricPrefix defines the prefix of container-level metrics
+	ContainerMetricPrefix = strings.Join([]string{"dcos", "metrics", "container"}, MetricNamespaceSep)
+	// AgentMetricPrefix defines the prefix of agent-level metrics
+	AgentMetricPrefix = strings.Join([]string{"dcos", "metrics", "agent"}, MetricNamespaceSep)
+)
 
 // MetricsProducer defines an interface that the various producers must
 // implement in order to receive, process, and present metrics to the caller or
@@ -51,13 +63,14 @@ type Datapoint struct {
 
 // Dimensions are metadata about the metrics contained in a given MetricsMessage.
 type Dimensions struct {
-	ClusterID          string            `json:"cluster_id"`
 	AgentID            string            `json:"agent_id"`
+	ClusterID          string            `json:"cluster_id"`
+	ContainerID        string            `json:"container_id"`
+	ExecutorID         string            `json:"executor_id"`
 	FrameworkName      string            `json:"framework_name"`
 	FrameworkID        string            `json:"framework_id"`
 	FrameworkRole      string            `json:"framework_role"`
 	FrameworkPrincipal string            `json:"framework_principal"`
-	ExecutorID         string            `json:"executor_id"`
-	ContainerID        string            `json:"container_id"`
+	Hostname           string            `json:"hostname"`
 	Labels             map[string]string `json:"labels,omitempty"` // map of arbitrary key/value pairs (aka "labels")
 }

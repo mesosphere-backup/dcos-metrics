@@ -26,12 +26,6 @@ import (
 	"github.com/dcos/dcos-metrics/producers"
 )
 
-var (
-	metricNamespaceSep    = "."
-	containerMetricPrefix = strings.Join([]string{"dcos", "metrics", "containner"}, metricNamespaceSep)
-	agentMetricPrefix     = strings.Join([]string{"dcos", "metrics", "agent"}, metricNamespaceSep)
-)
-
 // Agent defines the structure of the agent metrics poller and any configuration
 // that might be required to run it.
 type Agent struct {
@@ -82,6 +76,8 @@ type agentContainer struct {
 //   * Executor info:  https://github.com/apache/mesos/blob/1.0.1/include/mesos/v1/mesos.proto#L474-L522
 //
 type agentState struct {
+	ID         string          `json:"id"`
+	Hostname   string          `json:"hostname"`
 	Frameworks []frameworkInfo `json:"frameworks"`
 }
 
@@ -329,14 +325,20 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 
 	// Produce agent metrics
 	msg = producers.MetricsMessage{
-		Name:       strings.Join([]string{agentMetricPrefix, a.AgentIP}, metricNamespaceSep),
+		Name: strings.Join([]string{
+			producers.AgentMetricPrefix,
+			in.agentState.ID,
+		}, producers.MetricNamespaceSep),
 		Datapoints: []producers.Datapoint{},
-		// TODO(roger): Dimensions: producers.Dimensions{},
+		Dimensions: producers.Dimensions{
+			AgentID:  in.agentState.ID,
+			Hostname: in.agentState.Hostname,
+		},
 	}
 	v = reflect.Indirect(reflect.ValueOf(in.agentMetricsSnapshot))
 	for i := 0; i < v.NumField(); i++ {
 		msg.Datapoints = append(msg.Datapoints, producers.Datapoint{
-			Name:      strings.Join([]string{msg.Name, v.Type().Field(i).Name}, metricNamespaceSep),
+			Name:      strings.Join([]string{msg.Name, v.Type().Field(i).Name}, producers.MetricNamespaceSep),
 			Unit:      "",                  // TODO(roger): not currently an easy way to get units
 			Value:     v.Field(i).String(), // TODO(roger): everything is a string for MVP
 			Timestamp: in.timestamp.Format(time.RFC3339Nano),
@@ -347,14 +349,20 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 	// Produce container metrics
 	for _, c := range in.containerMetrics {
 		msg = producers.MetricsMessage{
-			Name:       "container",
+			Name: strings.Join([]string{
+				producers.ContainerMetricPrefix,
+				c.ContainerID,
+			}, producers.MetricNamespaceSep),
 			Datapoints: []producers.Datapoint{},
 			Dimensions: producers.Dimensions{},
 		}
 		v = reflect.Indirect(reflect.ValueOf(c.Statistics))
 		for i := 0; i < v.NumField(); i++ {
 			msg.Datapoints = append(msg.Datapoints, producers.Datapoint{
-				Name:      v.Type().Field(i).Name,
+				Name: strings.Join([]string{
+					producers.ContainerMetricPrefix,
+					v.Type().Field(i).Name,
+				}, producers.MetricNamespaceSep),
 				Unit:      "",                  // TODO(roger): not currently an easy way to get units
 				Value:     v.Field(i).String(), // TODO(roger): everything is a string for MVP
 				Timestamp: in.timestamp.Format(time.RFC3339Nano),

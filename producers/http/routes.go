@@ -93,7 +93,7 @@ var routes = []Route{
 		Name:        "containers",
 		Method:      "GET",
 		Path:        strings.Join([]string{root, "containers"}, "/"),
-		HandlerFunc: fooHandler,
+		HandlerFunc: containersHandler,
 	},
 	Route{
 		Name:        "containers",

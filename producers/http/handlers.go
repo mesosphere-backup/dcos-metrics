@@ -17,17 +17,35 @@ package http
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/dcos/dcos-metrics/producers"
 )
 
 func agentHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		agentMetrics, ok := p.store.Get("agent")
-		if !ok {
+		agentMetrics, err := p.store.GetByRegex(producers.AgentMetricPrefix + ".*")
+		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 
 		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 		if err := json.NewEncoder(w).Encode(agentMetrics); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		} else {
+			w.WriteHeader(http.StatusOK)
+		}
+	}
+}
+
+func containersHandler(p *producerImpl) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		containerMetrics, err := p.store.GetByRegex(producers.ContainerMetricPrefix + ".*")
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		if err := json.NewEncoder(w).Encode(containerMetrics); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
 			w.WriteHeader(http.StatusOK)
