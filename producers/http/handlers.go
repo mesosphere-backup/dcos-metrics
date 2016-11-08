@@ -25,20 +25,11 @@ func agentHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var am []interface{}
 		agentMetrics, err := p.store.GetByRegex(producers.AgentMetricPrefix + ".*")
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-		}
-
+		handleErr(err, w)
 		for _, v := range agentMetrics {
 			am = append(am, v)
 		}
-
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		if err := json.NewEncoder(w).Encode(am[0]); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-		} else {
-			w.WriteHeader(http.StatusOK)
-		}
+		encode(am[0], w)
 	}
 }
 
@@ -46,20 +37,11 @@ func containersHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var cm []interface{}
 		containerMetrics, err := p.store.GetByRegex(producers.ContainerMetricPrefix + ".*")
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-		}
-
+		handleErr(err, w)
 		for _, v := range containerMetrics {
 			cm = append(cm, v)
 		}
-
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		if err := json.NewEncoder(w).Encode(cm[0]); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-		} else {
-			w.WriteHeader(http.StatusOK)
-		}
+		encode(cm[0], w)
 	}
 }
 
@@ -68,13 +50,24 @@ func fooHandler(p *producerImpl) http.HandlerFunc {
 		type fooData struct {
 			Message string `json:"message"`
 		}
-
 		result := fooData{Message: "Hello, world!"}
+		encode(result, w)
+	}
+}
 
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+// -- helpers
+
+func encode(v interface{}, w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	} else {
 		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(result); err != nil {
-			panic(err)
-		}
+	}
+}
+
+func handleErr(err error, w http.ResponseWriter) {
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
