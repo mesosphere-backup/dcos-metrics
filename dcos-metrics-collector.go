@@ -19,104 +19,130 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"reflect"
+	"strings"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/dcos/dcos-metrics/collector"
-	"github.com/dcos/dcos-metrics/producers/kafka"
-	"github.com/dcos/dcos-metrics/producers/statsd"
+	"github.com/dcos/dcos-metrics/producers"
+	httpProducer "github.com/dcos/dcos-metrics/producers/http"
+	//kafkaProducer "github.com/dcos/dcos-metrics/producers/kafka"
+	//statsdProducer "github.com/dcos/dcos-metrics/producers/statsd"
 	"github.com/dcos/dcos-metrics/util"
 )
 
-// MasterConfig ...
-type MasterConfig struct {
-	Port  int    `yaml:"port,omitempty"`
-	Topic string `yaml:"metric_topic,omitempty"`
-}
-
-// AgentConfig ...
-type AgentConfig struct {
-	Port  int    `yaml:"port,omitempty"`
-	Topic string `yaml:"metric_topic,omitempty"`
-}
-
-// Config ...
+// Config defines the top-level configuration options for the dcos-metrics-collector project.
+// It is (currently) broken up into two main sections: collectors and producers.
 type Config struct {
-	HTTPProfiler  bool   `yaml:"http_profiler"`
-	KafkaProducer bool   `yaml:"kafka_producer_enabled"`
-	IPCommand     string `yaml:"ip_command"`
-	PollingPeriod int    `yaml:"polling_period"`
-
-	AgentConfig  AgentConfig  `yaml:"agent_config,omitempty"`
-	MasterConfig MasterConfig `yaml:"master_config,omitempty"`
+	Collector CollectorConfig `yaml:"collector"`
+	Producers ProducersConfig `yaml:"producers"`
 
 	ConfigPath string
 	DCOSRole   string
+	LogLevel   string
+}
 
-	// Optionally add the Kafka configuration to this config if
-	// you're using that producer.
-	KafkaProducerConfig kafka.KafkaConfig `yaml:"kafka_producer_config,omitempty"`
+// CollectorConfig contains configuration options relevant to the "collector"
+// portion of this project. That is, the code responsible for querying Mesos,
+// et. al to gather metrics and send them to a "producer".
+type CollectorConfig struct {
+	HTTPProfiler  bool   `yaml:"http_profiler"`
+	IPCommand     string `yaml:"ip_command"`
+	PollingPeriod int    `yaml:"polling_period"`
 
-	// Optionally, add the configuration to run the
-	// statsd "exhaust"
-	StatsdProducerConfig statsd.StatsdConfig `yaml:"statsd_producer_config,omitempty"`
+	MasterConfig collector.MasterConfig `yaml:"master_config,omitempty"`
+	AgentConfig  collector.AgentConfig  `yaml:"agent_config,omitempty"`
+}
+
+// ProducersConfig contains references to other structs that provide individual producer configs.
+// The configuration for all producers is then located in their corresponding packages.
+//
+// For example: Config.Producers.KafkaProducerConfig references kafkaProducer.Config. This struct
+// contains an optional Kafka configuration. This configuration is available in the source file
+// 'producers/kafka/kafka.go'. It is then the responsibility of the individual producers to
+// validate the configuration the user has provided and panic if necessary.
+type ProducersConfig struct {
+	HTTPProducerConfig httpProducer.Config `yaml:"http,omitempty"`
+	//KafkaProducerConfig  kafkaProducer.Config  `yaml:"kafka,omitempty"`
+	//StatsdProducerConfig statsdProducer.Config `yaml:"statsd,omitempty"`
 }
 
 func main() {
-	collectorConfig, err := getNewConfig(os.Args[1:])
+	// Get configuration
+	cfg, err := getNewConfig(os.Args[1:])
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Fatal(err)
 		os.Exit(1)
 	}
 
-	stats := make(chan statsd.StatsEvent)
-	go statsd.RunStatsEmitter(stats, collectorConfig.StatsdProducerConfig)
+	// Set logging level
+	lvl, err := log.ParseLevel(cfg.LogLevel)
+	if err != nil {
+		log.Fatal(err)
+		os.Exit(1)
+	}
+	log.SetLevel(lvl)
 
-	kafkaOutputChan := make(chan kafka.KafkaMessage)
-	if collectorConfig.KafkaProducer {
-		log.Printf("Kafkfa producer enabled")
-		go kafka.RunKafkaProducer(kafkaOutputChan, stats, collectorConfig.KafkaProducerConfig)
-	} else {
-		go printReceivedMessages(kafkaOutputChan)
+	// HTTP profiling
+	if cfg.Collector.HTTPProfiler {
+		log.Info("HTTP profiling enabled")
+		go util.RunHTTPProfAccess()
 	}
 
-	recordInputChan := make(chan *collector.AvroDatum)
-	agentStateChan := make(chan *collector.AgentState)
-	if collectorConfig.DCOSRole == "agent" {
-		log.Printf("Agent polling enabled")
+	var producerChans []chan<- producers.MetricsMessage
+
+	// HTTP producer
+	if producerIsConfigured("http", cfg) {
+		log.Info("HTTP producer enabled")
+		c := httpProducer.Config{
+			Port:        cfg.Producers.HTTPProducerConfig.Port,
+			CacheExpiry: time.Duration(cfg.Collector.PollingPeriod) * time.Second * 2,
+		}
+		hp, httpProducerChan := httpProducer.New(c)
+		producerChans = append(producerChans, httpProducerChan)
+		go hp.Run()
+	}
+
+	// Collector
+	collectorChan := make(chan producers.MetricsMessage)
+	if cfg.DCOSRole == "agent" {
+		log.Info("Agent polling enabled")
+
 		agent, err := collector.NewAgent(
-			collectorConfig.IPCommand,
-			collectorConfig.AgentConfig.Port,
-			collectorConfig.PollingPeriod,
-			collectorConfig.AgentConfig.Topic)
+			cfg.Collector.IPCommand,
+			cfg.Collector.AgentConfig.Port,
+			time.Duration(cfg.Collector.PollingPeriod)*time.Second,
+			collectorChan)
+
 		if err != nil {
 			log.Fatal(err.Error())
 		}
 
-		go agent.Run(recordInputChan, stats)
-	}
-	go collector.RunAvroTCPReader(recordInputChan, stats)
-
-	if collectorConfig.HTTPProfiler {
-		log.Printf("HTTP Profiling Enabled")
-		go util.RunHTTPProfAccess()
+		go agent.RunPoller()
 	}
 
-	// Run the sorter on the main thread (exit process if Kafka stops accepting data)
-	collector.RunTopicSorter(recordInputChan, agentStateChan, kafkaOutputChan, stats)
-}
+	//go collector.RunAvroTCPReader(recordInputChan)
 
-func printReceivedMessages(msgChan <-chan kafka.KafkaMessage) {
+	// Broadcast (one-to-many) messages from the collector to the various producers.
 	for {
-		msg := <-msgChan
-		log.Printf("Topic '%s': %d bytes would've been written (-kafka=false)\n",
-			msg.Topic, len(msg.Data))
+		message := <-collectorChan
+		done := make(chan bool) // prevent leaking goroutines
+		for _, producer := range producerChans {
+			go func() {
+				producer <- message
+				done <- true
+			}()
+			<-done
+		}
 	}
 }
 
 func (c *Config) setFlags(fs *flag.FlagSet) {
 	fs.StringVar(&c.ConfigPath, "config", c.ConfigPath, "The path to the config file.")
+	fs.StringVar(&c.LogLevel, "loglevel", c.LogLevel, "Logging level (default: info). Must be one of: debug, info, warn, error, fatal, panic.")
 	fs.StringVar(&c.DCOSRole, "role", c.DCOSRole, "The DC/OS role this instance runs on.")
 }
 
@@ -134,19 +160,29 @@ func (c *Config) loadConfig() error {
 	return nil
 }
 
+// newConfig establishes our default, base configuration.
 func newConfig() Config {
 	return Config{
-		HTTPProfiler:  true,
-		KafkaProducer: true,
-		PollingPeriod: 15,
-		IPCommand:     "/opt/mesosphere/bin/detect_ip",
-		ConfigPath:    "dcos-metrics-config.yaml",
+		Collector: CollectorConfig{
+			HTTPProfiler:  true,
+			IPCommand:     "/opt/mesosphere/bin/detect_ip",
+			PollingPeriod: 15,
+			MasterConfig:  collector.MasterConfig{Port: 5050},
+			AgentConfig:   collector.AgentConfig{Port: 5051},
+		},
+		Producers: ProducersConfig{
+			HTTPProducerConfig: httpProducer.Config{Port: 8000},
+		},
+		ConfigPath: "dcos-metrics-config.yaml",
+		LogLevel:   "info",
 	}
 }
 
+// getNewConfig loads the configuration and sets precedence of configuration values.
+// For example: command line flags override values provided in the config file.
 func getNewConfig(args []string) (Config, error) {
 	c := newConfig()
-	thisFlagSet := flag.NewFlagSet("", flag.PanicOnError)
+	thisFlagSet := flag.NewFlagSet("", flag.ExitOnError)
 	c.setFlags(thisFlagSet)
 	// Override default config with CLI flags if any
 	if err := thisFlagSet.Parse(args); err != nil {
@@ -159,4 +195,19 @@ func getNewConfig(args []string) (Config, error) {
 	}
 
 	return c, nil
+}
+
+// producerIsConfigured analyzes the ProducersConfig struct and determines if
+// configuration exists for a given producer by name (i.e., is the "http"
+// producer configured?). If a configuration exists, this function will return
+// true, as a configured producer is an enabled one.
+func producerIsConfigured(name string, cfg Config) bool {
+	s := reflect.ValueOf(cfg.Producers)
+	cfgType := s.Type()
+	for i := 0; i < s.NumField(); i++ {
+		if strings.Split(cfgType.Field(i).Tag.Get("yaml"), ",")[0] == name {
+			return true
+		}
+	}
+	return false
 }

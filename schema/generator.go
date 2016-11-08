@@ -1,20 +1,17 @@
+// Generate Go code from an Avro schema.
 package main
-
-// This command is meant to be run as part of "go generate".
-// To use it, add something like the following to your Go code:
-// "//go:generate go run generator.go -infile metrics.avsc -outfile schema.go"
 
 import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/antonholmquist/jason"
 )
 
@@ -75,13 +72,12 @@ func writeNestedRecords(outfile *os.File, record *jason.Object) {
 func gitRev() string {
 	rev, err := exec.Command("git", "rev-parse", "HEAD").Output()
 	if err != nil {
-		fmt.Fprint(os.Stderr, "Failed to get Git revision: ", err)
+		log.Warn("Failed to get Git revision: ", err, os.Stderr)
 		return "UNKNOWN"
-	} else {
-		sanitizedRev := strings.TrimSpace(string(rev))
-		log.Print("Git revision: ", sanitizedRev)
-		return sanitizedRev
 	}
+	sanitizedRev := strings.TrimSpace(string(rev))
+	log.Print("Git revision: ", sanitizedRev)
+	return sanitizedRev
 }
 
 func main() {
@@ -95,9 +91,9 @@ func main() {
 
 	if *infileFlag == "" {
 		flag.Usage()
-		log.Fatalf("Missing argument: -infile")
+		log.Fatal("Missing argument: -infile")
 	}
-	log.Printf("Opening JSON %s\n", *infileFlag)
+	log.Info("Opening JSON ", *infileFlag)
 	infile, err := os.Open(*infileFlag)
 	if err != nil {
 		log.Fatalf("Couldn't open input %s: %s", *infileFlag, err)
@@ -112,7 +108,7 @@ func main() {
 	prunedData := make([]byte, 0)
 	for i, row := range strings.Split(string(data), "\n") {
 		if strings.Contains(row, "\"doc\"") {
-			log.Printf("Skipping doc (row %d): %s\n", i, strings.TrimSpace(row))
+			log.Infof("Skipping doc (row %d): %s", i, strings.TrimSpace(row))
 		} else {
 			prunedData = append(prunedData, []byte(row+"\n")...)
 		}
@@ -126,7 +122,7 @@ func main() {
 	// check output flags before creating an output file:
 	if *outfileFlag == "" {
 		flag.Usage()
-		log.Fatalf("Missing argument: -outfile")
+		log.Fatal("Missing argument: -outfile")
 	}
 
 	if err = os.MkdirAll(filepath.Dir(*outfileFlag), 0777); err != nil {
@@ -165,5 +161,5 @@ func main() {
 `); err != nil {
 		log.Fatalf("Couldn't write footer to %s: %s", *outfileFlag, err)
 	}
-	log.Printf("SUCCESS: Wrote preprocessed schema to %s", *outfileFlag)
+	log.Info("SUCCESS: Wrote preprocessed schema to ", *outfileFlag)
 }

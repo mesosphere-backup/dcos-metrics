@@ -22,6 +22,9 @@ import (
 	"os"
 	"testing"
 
+	yaml "gopkg.in/yaml.v2"
+
+	"github.com/Sirupsen/logrus"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -34,29 +37,48 @@ func TestDefaultConfig(t *testing.T) {
 		testConfig := newConfig()
 
 		Convey("Default polling period should be 15", func() {
-			So(testConfig.PollingPeriod, ShouldEqual, 15)
+			So(testConfig.Collector.PollingPeriod, ShouldEqual, 15)
 		})
 
 		Convey("HTTP profiler should be enabled by default", func() {
-			So(testConfig.HTTPProfiler, ShouldBeTrue)
+			So(testConfig.Collector.HTTPProfiler, ShouldBeTrue)
 		})
 
-		Convey("Kafka flag should be enabled by default", func() {
-			So(testConfig.KafkaProducer, ShouldBeTrue)
+		Convey("Default log level should be 'info'", func() {
+			So(testConfig.LogLevel, ShouldEqual, "info")
 		})
 	})
 }
 
 func TestSetFlags(t *testing.T) {
-	Convey("Ensure command line flags are applied", t, func() {
-		testConfig := Config{
-			ConfigPath: "/some/default/path",
-		}
-		testFS := flag.NewFlagSet("", flag.PanicOnError)
-		testConfig.setFlags(testFS)
-		testFS.Parse([]string{"-config", "/another/config/path"})
+	Convey("When command line arguments are provided", t, func() {
+		Convey("Should apply an alternate configuration path", func() {
+			testConfig := Config{
+				ConfigPath: "/some/default/path",
+			}
+			testFS := flag.NewFlagSet("", flag.PanicOnError)
+			testConfig.setFlags(testFS)
+			testFS.Parse([]string{"-config", "/another/config/path"})
 
-		So(testConfig.ConfigPath, ShouldEqual, "/another/config/path")
+			So(testConfig.ConfigPath, ShouldEqual, "/another/config/path")
+		})
+
+		Convey("Should apply an alternate log level", func() {
+			testConfig := Config{
+				LogLevel: "debug",
+			}
+			testFS := flag.NewFlagSet("", flag.PanicOnError)
+			testConfig.setFlags(testFS)
+			testFS.Parse([]string{"-loglevel", "debug"})
+
+			lvl, err := logrus.ParseLevel(testConfig.LogLevel)
+			if err != nil {
+				panic(err)
+			}
+
+			So(testConfig.LogLevel, ShouldEqual, "debug")
+			So(lvl, ShouldEqual, logrus.DebugLevel)
+		})
 	})
 }
 
@@ -64,12 +86,12 @@ func TestLoadConfig(t *testing.T) {
 	// Mock out and create the config file
 	configContents := []byte(`
 ---
-agent_config:
-  port: 5051
-  metric_topic: agent-metrics
-polling_period: 5 
-http_profiler: false
-kafka_producer: false`)
+collector:
+  agent_config:
+    port: 5051
+  polling_period: 5
+  http_profiler: false
+`)
 
 	tmpConfig, err := ioutil.TempFile("", "testConfig")
 	if err != nil {
@@ -91,11 +113,42 @@ kafka_producer: false`)
 			loadErr := testConfig.loadConfig()
 			So(loadErr, ShouldBeNil)
 
-			So(testConfig.AgentConfig.Port, ShouldEqual, 5051)
-			So(testConfig.AgentConfig.Topic, ShouldEqual, "agent-metrics")
-			So(testConfig.PollingPeriod, ShouldEqual, 5)
-			So(testConfig.HTTPProfiler, ShouldBeFalse)
-			So(testConfig.KafkaProducer, ShouldBeFalse)
+			So(testConfig.Collector.AgentConfig.Port, ShouldEqual, 5051)
+			So(testConfig.Collector.PollingPeriod, ShouldEqual, 5)
+			So(testConfig.Collector.HTTPProfiler, ShouldBeFalse)
+		})
+	})
+}
+
+func TestProducerIsConfigured(t *testing.T) {
+	Convey("When analyzing a ProducersConfig struct to determine if a producer is configured", t, func() {
+		Convey("Should return true if a producer configuration was provided", func() {
+			var c Config
+			mockConfig := []byte(`
+---
+producers:
+    http:
+        someConfig: 'someVal'
+`)
+
+			if err := yaml.Unmarshal(mockConfig, &c); err != nil {
+				panic(err)
+			}
+			So(producerIsConfigured("http", c), ShouldBeTrue)
+		})
+		Convey("Should return false if a producer configuration wasn't provided", func() {
+			var c Config
+			mockConfig := []byte(`
+---
+producers:
+    http:
+        someConfig: 'someVal'
+`)
+
+			if err := yaml.Unmarshal(mockConfig, &c); err != nil {
+				panic(err)
+			}
+			So(producerIsConfigured("someBogusProducer", c), ShouldBeFalse)
 		})
 	})
 }

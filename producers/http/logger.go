@@ -1,5 +1,3 @@
-// +build unit
-
 // Copyright 2016 Mesosphere, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,4 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package collector
+package http
+
+import (
+	"net/http"
+	"time"
+
+	log "github.com/Sirupsen/logrus"
+)
+
+func logger(inner http.Handler, name string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		inner.ServeHTTP(w, r)
+
+		log.Printf(
+			"%s\t%s\t%s\t%s",
+			r.Method,
+			r.RequestURI,
+			name,
+			time.Since(start),
+		)
+	})
+}

@@ -1,3 +1,5 @@
+.PHONY: all build test clean
+
 all: clean build test
 
 build:
