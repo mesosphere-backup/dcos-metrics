@@ -11,9 +11,9 @@
 # Mesos, Marathon, and Go. Alternately, you may set one or more of these values
 # to 'latest' to unpin it.
 #
-MESOS_RELEASE    = '0.28.2-2.0.27.ubuntu1404'
-MARATHON_RELEASE = '1.1.1-1.0.472.ubuntu1404'
-GOLANG_RELEASE   = '1.7.1'
+MESOS_RELEASE    = '1.0.1-2.0.93.ubuntu1404'
+MARATHON_RELEASE = '1.3.5-1.0.537.ubuntu1404'
+GOLANG_RELEASE   = '1.7.3'
 IP_ADDRESS       = '172.16.99.100'
 
 Vagrant.configure(2) do |config|
