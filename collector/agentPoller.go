@@ -45,7 +45,7 @@ type metricsMeta struct {
 	agentState           agentState
 	agentMetricsSnapshot agentMetricsSnapshot
 	containerMetrics     []agentContainer
-	timestamp            time.Time
+	timestamp            int64
 }
 
 // agentContainer defines the structure of the response expected from Mesos
@@ -197,6 +197,11 @@ func NewAgent(ipCommand string, port int, pollPeriod time.Duration, metricsChan 
 // should be run in its own goroutine.
 func (a *Agent) RunPoller() {
 	ticker := time.NewTicker(a.PollPeriod)
+
+	// Poll once immediately
+	for _, m := range a.transform(a.pollAgent()) {
+		a.MetricsChan <- m
+	}
 	for {
 		select {
 		case _ = <-ticker.C:
@@ -290,7 +295,7 @@ func (a *Agent) getIP() (string, error) {
 // pollAgent queries the DC/OS agent for metrics and returns.
 func (a *Agent) pollAgent() metricsMeta {
 	var metrics metricsMeta
-	now := time.Now()
+	now := time.Now().UTC()
 	log.Debugf("Polling the Mesos agent at %s:%d. Started at %s", a.AgentIP, a.Port, now.String())
 
 	// always fetch/emit agent state first: downstream will use it for tagging metrics
@@ -315,12 +320,12 @@ func (a *Agent) pollAgent() metricsMeta {
 		return metrics
 	}
 
-	log.Debugf("Finished polling agent %s:%d, took %d seconds.", a.AgentIP, a.Port, time.Since(now).Seconds())
+	log.Debugf("Finished polling agent %s:%d, took %f seconds.", a.AgentIP, a.Port, time.Since(now).Seconds())
 
 	metrics.agentState = agentState
 	metrics.agentMetricsSnapshot = agentMetrics
 	metrics.containerMetrics = containerMetrics
-	metrics.timestamp = now
+	metrics.timestamp = now.Unix()
 
 	return metrics
 }
@@ -331,6 +336,8 @@ func (a *Agent) pollAgent() metricsMeta {
 func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 	var msg producers.MetricsMessage
 	var v reflect.Value
+
+	t := time.Unix(in.timestamp, 0)
 
 	// Produce agent metrics
 	msg = producers.MetricsMessage{
@@ -343,14 +350,18 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 			AgentID:  in.agentState.ID,
 			Hostname: in.agentState.Hostname,
 		},
+		Timestamp: t.UTC().Unix(),
 	}
 	v = reflect.Indirect(reflect.ValueOf(in.agentMetricsSnapshot))
 	for i := 0; i < v.NumField(); i++ {
 		msg.Datapoints = append(msg.Datapoints, producers.Datapoint{
-			Name:      strings.Join([]string{msg.Name, v.Type().Field(i).Name}, producers.MetricNamespaceSep),
-			Unit:      "",                  // TODO(roger): not currently an easy way to get units
-			Value:     v.Field(i).String(), // TODO(roger): everything is a string for MVP
-			Timestamp: in.timestamp.Format(time.RFC3339Nano),
+			Name: strings.Join([]string{
+				msg.Name,
+				strings.Split(v.Type().Field(i).Tag.Get("json"), ",")[0],
+			}, producers.MetricNamespaceSep),
+			Unit:      "",                                        // TODO(roger): not currently an easy way to get units
+			Value:     fmt.Sprintf("%v", v.Field(i).Interface()), // TODO(roger): everything is a string for MVP
+			Timestamp: t.UTC().Format(time.RFC3339Nano),
 		})
 	}
 	out = append(out, msg)
@@ -364,17 +375,18 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 			}, producers.MetricNamespaceSep),
 			Datapoints: []producers.Datapoint{},
 			Dimensions: producers.Dimensions{},
+			Timestamp:  t.UTC().Unix(),
 		}
 		v = reflect.Indirect(reflect.ValueOf(c.Statistics))
 		for i := 0; i < v.NumField(); i++ {
 			msg.Datapoints = append(msg.Datapoints, producers.Datapoint{
 				Name: strings.Join([]string{
 					producers.ContainerMetricPrefix,
-					v.Type().Field(i).Name,
+					strings.Split(v.Type().Field(i).Tag.Get("json"), ",")[0],
 				}, producers.MetricNamespaceSep),
-				Unit:      "",                  // TODO(roger): not currently an easy way to get units
-				Value:     v.Field(i).String(), // TODO(roger): everything is a string for MVP
-				Timestamp: in.timestamp.Format(time.RFC3339Nano),
+				Unit:      "",                                        // TODO(roger): not currently an easy way to get units
+				Value:     fmt.Sprintf("%v", v.Field(i).Interface()), // TODO(roger): everything is a string for MVP
+				Timestamp: t.UTC().Format(time.RFC3339Nano),
 			})
 		}
 

@@ -62,8 +62,12 @@ func (p *producerImpl) Run() error {
 	log.Debug("Listening for incoming messages on metricsChan")
 	for {
 		message := <-p.metricsChan // read messages off the channel
-		log.Debugf("Received message '%s' with timestamp", message.Name, message.Timestamp)
-		log.Debugf("Setting store object '%s' with timestamp", message.Name, message.Timestamp)
+		log.Debugf("Received message '%s' with timestamp %s",
+			message.Name,
+			time.Unix(message.Timestamp, 0).Format(time.RFC3339))
+		log.Debugf("Setting store object '%s' with timestamp %s",
+			message.Name,
+			time.Unix(message.Timestamp, 0).Format(time.RFC3339))
 		p.store.Set(message.Name, message) // overwrite existing object with the same message.Name
 	}
 }
@@ -80,9 +84,9 @@ func (p *producerImpl) janitor() {
 			for _, obj := range p.store.Objects() {
 				o := obj.(producers.MetricsMessage)
 
-				lastUpdated := time.Since(o.Timestamp)
-				if lastUpdated > p.config.CacheExpiry {
-					log.Debugf("Removing stale object %s; last updated %d seconds ago", o.Name, lastUpdated*time.Second)
+				age := time.Since(time.Unix(o.Timestamp, 0))
+				if age > p.config.CacheExpiry {
+					log.Debugf("Removing stale object %s; last updated %d seconds ago", o.Name, age*time.Second)
 					p.store.Delete(o.Name)
 				}
 			}

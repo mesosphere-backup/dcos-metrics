@@ -254,7 +254,7 @@ func TestTransform(t *testing.T) {
 			agentMetricsSnapshot: thisAgentMetrics,
 			agentState:           thisAgentState,
 			containerMetrics:     thisContainerMetrics,
-			timestamp:            testTime,
+			timestamp:            testTime.UTC().Unix(),
 		}
 
 		Convey("Should return a []producers.MetricsMessage without errors", func() {
