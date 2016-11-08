@@ -21,6 +21,12 @@
 			"revisionTime": "2016-02-10T09:18:53Z"
 		},
 		{
+			"checksumSHA1": "RBwpnMpfQt7Jo7YWrRph0Vwe+f0=",
+			"path": "github.com/coreos/go-systemd/activation",
+			"revision": "d659fb6603e3f57bf01c293c5ffda0debc726d8d",
+			"revisionTime": "2016-11-08T12:53:20Z"
+		},
+		{
 			"checksumSHA1": "5rPfda8jFccr3A6heL+JAmi9K9g=",
 			"path": "github.com/davecgh/go-spew/spew",
 			"revision": "5215b55f46b2b919f50a1df0eaa5886afe4e3b3d",

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/coreos/go-systemd/activation"
 	"github.com/dcos/dcos-go/store"
 	"github.com/dcos/dcos-metrics/producers"
 )
@@ -49,26 +50,36 @@ func New(cfg Config) (producers.MetricsProducer, chan producers.MetricsMessage) 
 // Run a HTTP server and serve the various metrics API endpoints.
 // This function should be run in its own goroutine.
 func (p *producerImpl) Run() error {
-	r := newRouter(p)
-	go func() {
-		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", p.config.Port), r)) // http.ListenAndServe blocks
-	}()
-
-	log.Infof("The HTTP producer is serving requests on port %d", p.config.Port)
-
-	log.Info("Starting janitor for in-memory data store")
+	log.Info("Starting HTTP producer garbage collection service")
 	go p.janitor()
 
-	log.Debug("Listening for incoming messages on metricsChan")
-	for {
-		message := <-p.metricsChan // read messages off the channel
-		log.Debugf("Received message '%s' with timestamp %s",
-			message.Name,
-			time.Unix(message.Timestamp, 0).Format(time.RFC3339))
-		log.Debugf("Setting store object '%s' with timestamp %s",
-			message.Name,
-			time.Unix(message.Timestamp, 0).Format(time.RFC3339))
-		p.store.Set(message.Name, message) // overwrite existing object with the same message.Name
+	go func() {
+		log.Debug("HTTP producer listening for incoming messages on metricsChan")
+		for {
+			message := <-p.metricsChan // read messages off the channel
+			log.Debugf("Received message '%s' with timestamp %s",
+				message.Name,
+				time.Unix(message.Timestamp, 0).Format(time.RFC3339))
+			log.Debugf("Setting store object '%s' with timestamp %s",
+				message.Name,
+				time.Unix(message.Timestamp, 0).Format(time.RFC3339))
+			p.store.Set(message.Name, message) // overwrite existing object with the same message.Name
+		}
+	}()
+
+	r := newRouter(p)
+	listeners, err := activation.Listeners(true)
+	if err != nil {
+		return fmt.Errorf("Unable to get listeners: %s", err)
+	}
+	// If a listener is avialable, use that. If it is not avialable,
+	// listen on the default TCP socket and port.
+	if len(listeners) == 1 {
+		log.Infof("HTTP Producer serving requests on %s", listeners[0].Addr().String())
+		return http.Serve(listeners[0], r)
+	} else {
+		log.Infof("HTTP Producer serving requests on :%d", p.config.Port)
+		return http.ListenAndServe(fmt.Sprintf(":%d", p.config.Port), r)
 	}
 }
 
