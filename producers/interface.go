@@ -14,10 +14,7 @@
 
 package producers
 
-import (
-	"strings"
-	"time"
-)
+import "strings"
 
 var (
 	// MetricNamespaceSep defines the separator for a metrics namespace
@@ -49,7 +46,7 @@ type MetricsMessage struct {
 	Name       string      `json:"name"`
 	Datapoints []Datapoint `json:"datapoints"`
 	Dimensions Dimensions  `json:"dimensions,omitempty"`
-	Timestamp  time.Time   `json:"timestamp"`
+	Timestamp  int64       `json:"_timestamp"`
 }
 
 // Datapoint represents a single metric's timestamp, value, and unit in a response.
@@ -65,12 +62,12 @@ type Datapoint struct {
 type Dimensions struct {
 	AgentID            string            `json:"agent_id"`
 	ClusterID          string            `json:"cluster_id"`
-	ContainerID        string            `json:"container_id"`
-	ExecutorID         string            `json:"executor_id"`
-	FrameworkName      string            `json:"framework_name"`
-	FrameworkID        string            `json:"framework_id"`
-	FrameworkRole      string            `json:"framework_role"`
-	FrameworkPrincipal string            `json:"framework_principal"`
+	ContainerID        string            `json:"container_id,omitempty"`
+	ExecutorID         string            `json:"executor_id,omitempty"`
+	FrameworkName      string            `json:"framework_name,omitempty"`
+	FrameworkID        string            `json:"framework_id,omitempty"`
+	FrameworkRole      string            `json:"framework_role,omitempty"`
+	FrameworkPrincipal string            `json:"framework_principal,omitempty"`
 	Hostname           string            `json:"hostname"`
 	Labels             map[string]string `json:"labels,omitempty"` // map of arbitrary key/value pairs (aka "labels")
 }
