@@ -84,6 +84,7 @@ type agentState struct {
 type frameworkInfo struct {
 	ID        string         `json:"id"`
 	Name      string         `json:"name"`
+	Principal string         `json:"principal"`
 	Role      string         `json:"role"`
 	Executors []executorInfo `json:"executors"`
 }
@@ -134,8 +135,6 @@ type agentMetricsSnapshot struct {
 // For a complete reference, see:
 // https://github.com/apache/mesos/blob/1.0.1/include/mesos/v1/mesos.proto#L921-L1022
 type resourceStatistics struct {
-	Timestamp float64 `json:"timestamp,omitempty"`
-
 	// CPU usage info
 	CpusUserTimeSecs      float64 `json:"cpus_user_time_secs,omitempty"`
 	CpusSystemTimeSecs    float64 `json:"cpus_system_time_secs,omitempty"`
@@ -347,18 +346,21 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 		}, producers.MetricNamespaceSep),
 		Datapoints: []producers.Datapoint{},
 		Dimensions: producers.Dimensions{
-			AgentID:  in.agentState.ID,
-			Hostname: in.agentState.Hostname,
+			AgentID:   in.agentState.ID,
+			ClusterID: "", // TODO(roger) need to get this from the master
+			Hostname:  in.agentState.Hostname,
 		},
 		Timestamp: t.UTC().Unix(),
 	}
 	v = reflect.Indirect(reflect.ValueOf(in.agentMetricsSnapshot))
 	for i := 0; i < v.NumField(); i++ {
+		n := strings.Join([]string{
+			msg.Name,
+			strings.Split(v.Type().Field(i).Tag.Get("json"), ",")[0],
+		}, producers.MetricNamespaceSep)
+
 		msg.Datapoints = append(msg.Datapoints, producers.Datapoint{
-			Name: strings.Join([]string{
-				msg.Name,
-				strings.Split(v.Type().Field(i).Tag.Get("json"), ",")[0],
-			}, producers.MetricNamespaceSep),
+			Name:      strings.Replace(n, "/", producers.MetricNamespaceSep, -1),
 			Unit:      "",                                        // TODO(roger): not currently an easy way to get units
 			Value:     fmt.Sprintf("%v", v.Field(i).Interface()), // TODO(roger): everything is a string for MVP
 			Timestamp: t.UTC().Format(time.RFC3339Nano),
@@ -379,23 +381,32 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 		}
 		v = reflect.Indirect(reflect.ValueOf(c.Statistics))
 		for i := 0; i < v.NumField(); i++ {
+			n := strings.Join([]string{
+				msg.Name,
+				strings.Split(v.Type().Field(i).Tag.Get("json"), ",")[0],
+			}, producers.MetricNamespaceSep)
+
 			msg.Datapoints = append(msg.Datapoints, producers.Datapoint{
-				Name: strings.Join([]string{
-					producers.ContainerMetricPrefix,
-					strings.Split(v.Type().Field(i).Tag.Get("json"), ",")[0],
-				}, producers.MetricNamespaceSep),
+				Name:      strings.Replace(n, "/", producers.MetricNamespaceSep, -1),
 				Unit:      "",                                        // TODO(roger): not currently an easy way to get units
 				Value:     fmt.Sprintf("%v", v.Field(i).Interface()), // TODO(roger): everything is a string for MVP
 				Timestamp: t.UTC().Format(time.RFC3339Nano),
 			})
 		}
 
-		msg.Dimensions.AgentID = "" // TODO(roger)
+		fi, ok := getFrameworkInfoByFrameworkID(c.FrameworkID, in.agentState.Frameworks)
+		if !ok {
+			log.Warnf("Did not find FrameworkInfo for framework ID %s, skipping!", fi.ID)
+			continue
+		}
+
+		msg.Dimensions.AgentID = in.agentState.ID
+		msg.Dimensions.ClusterID = "" // TODO(roger) need to get this from the master
 		msg.Dimensions.ContainerID = c.ContainerID
 		msg.Dimensions.FrameworkID = c.FrameworkID
-		msg.Dimensions.FrameworkName = getFrameworkNameByFrameworkID(c.FrameworkID, in.agentState.Frameworks)
-		msg.Dimensions.FrameworkRole = ""      // TODO(roger)
-		msg.Dimensions.FrameworkPrincipal = "" // TODO(roger)
+		msg.Dimensions.FrameworkName = fi.Name
+		msg.Dimensions.FrameworkRole = fi.Role
+		msg.Dimensions.FrameworkPrincipal = fi.Principal
 		msg.Dimensions.ExecutorID = c.ExecutorID
 		msg.Dimensions.ContainerID = c.ContainerID
 		msg.Dimensions.Labels = getLabelsByContainerID(c.ContainerID, in.agentState.Frameworks)
@@ -406,15 +417,15 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 	return out
 }
 
-// getFrameworkNameByFrameworkID returns the human-readable framework name.
+// getFrameworkInfoByFrameworkID returns the FrameworkInfo struct given its ID.
 // For example: "5349f49b-68b3-4638-aab2-fc4ec845f993-0000" => "marathon"
-func getFrameworkNameByFrameworkID(frameworkID string, frameworks []frameworkInfo) string {
+func getFrameworkInfoByFrameworkID(frameworkID string, frameworks []frameworkInfo) (frameworkInfo, bool) {
 	for _, framework := range frameworks {
 		if framework.ID == frameworkID {
-			return framework.Name
+			return framework, true
 		}
 	}
-	return ""
+	return frameworkInfo{}, false
 }
 
 // getLabelsByContainerID returns a map of labels, as specified by the framework
