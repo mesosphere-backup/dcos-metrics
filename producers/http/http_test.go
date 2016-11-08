@@ -63,14 +63,14 @@ func TestHTTPProducer_Agent(t *testing.T) {
 
 	Convey("When querying the /api/v0/agent endpoint", t, func() {
 		Convey("Should return metrics in the expected structure", func() {
-			pi, pc := New(Config{Port: port, CacheExpiry: time.Duration(5) * time.Second})
+			pi, pc := New(Config{IP: "127.0.0.1", Port: port, CacheExpiry: time.Duration(5) * time.Second})
 			go pi.Run()
 
 			for _, td := range testData {
 				pc <- td
 			}
 
-			resp, err := http.Get(fmt.Sprintf("http://localhost:%d", port))
+			resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", port))
 			if err != nil {
 				panic(err)
 			}

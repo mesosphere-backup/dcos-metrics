@@ -27,6 +27,7 @@ import (
 
 // Config for the HTTP producer
 type Config struct {
+	IP          string        `yaml:"ip"`
 	Port        int           `yaml:"port"`
 	CacheExpiry time.Duration // ideally this is a multiple of the collector's PollingPeriod
 }
@@ -77,10 +78,9 @@ func (p *producerImpl) Run() error {
 	if len(listeners) == 1 {
 		log.Infof("HTTP Producer serving requests on %s", listeners[0].Addr().String())
 		return http.Serve(listeners[0], r)
-	} else {
-		log.Infof("HTTP Producer serving requests on :%d", p.config.Port)
-		return http.ListenAndServe(fmt.Sprintf(":%d", p.config.Port), r)
 	}
+	log.Infof("HTTP Producer serving requests on %s:%d", p.config.IP, p.config.Port)
+	return http.ListenAndServe(fmt.Sprintf("%s:%d", p.config.IP, p.config.Port), r)
 }
 
 // janitor analyzes the objects in the store and removes stale objects. An
