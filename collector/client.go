@@ -89,9 +89,9 @@ func (c *HTTPClient) Fetch(target interface{}) error {
 	defer resp.Body.Close()
 
 	// Special case: on HTTP 401 Unauthorized, exit immediately. Considering this
-	//  could be running in a goroutine, we don't want the caller to fail forever.
+	// could be running in a goroutine, we don't want the caller to fail forever.
 	if resp.StatusCode == http.StatusUnauthorized {
-		log.Fatalf("fetch error: unauthorized: please provide a suitable auth token using the AUTH_CREDENTIAL environment variable.")
+		log.Fatalf("fetch error: unauthorized: please provide a suitable auth token")
 	}
 
 	if resp.StatusCode != http.StatusOK {

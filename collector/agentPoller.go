@@ -160,16 +160,17 @@ type resourceStatistics struct {
 	NetTxDropped uint64 `json:"net_tx_dropped,omitempty"`
 }
 
-// NewAgent ...
+// NewAgent returns a new instance of a DC/OS agent poller based on the provided
+// configuration and the result of the provided ipCommand script for detecting
+// the agent's IP address.
 func NewAgent(ipCommand string, port int, pollPeriod time.Duration, metricsChan chan<- producers.MetricsMessage) (Agent, error) {
-	var a Agent
-	var err error
+	a := Agent{}
 
 	if len(ipCommand) == 0 {
-		return a, fmt.Errorf("Must pass ipAddress to NewAgent()")
+		return a, fmt.Errorf("Must pass ipCommand to NewAgent()")
 	}
 	if port < 1024 {
-		return a, fmt.Errorf("Must pass port > 1024 to NewAgent()")
+		return a, fmt.Errorf("Must pass port >= 1024 to NewAgent()")
 	}
 	if pollPeriod == 0 {
 		return a, fmt.Errorf("Must pass pollPeriod to NewAgent()")
@@ -182,11 +183,9 @@ func NewAgent(ipCommand string, port int, pollPeriod time.Duration, metricsChan 
 
 	// Detect the agent's IP address once. Per the DC/OS docs (at least as of
 	// November 2016), changing a node's IP address is not supported.
-	//
-	if a.AgentIP == "" { // allows us to mock this during testing
-		if a.AgentIP, err = a.getIP(); err != nil {
-			log.Error(err)
-		}
+	var err error
+	if a.AgentIP, err = a.getIP(); err != nil {
+		return a, err
 	}
 
 	return a, nil
@@ -222,7 +221,6 @@ func (a *Agent) getContainerMetrics() ([]agentContainer, error) {
 		"/containers",
 		time.Duration(15*time.Second))
 	if err := c.Fetch(&containers); err != nil {
-		log.Error(err)
 		return nil, err
 	}
 
@@ -238,7 +236,7 @@ func (a *Agent) getContainerMetrics() ([]agentContainer, error) {
 // In the future, this should be replaced by something like
 // github.com/shirou/gopsutil.
 func (a *Agent) getAgentMetrics() (agentMetricsSnapshot, error) {
-	var metrics agentMetricsSnapshot
+	metrics := agentMetricsSnapshot{}
 
 	// TODO(roger): 5sec timeout is a guess. Is there a better way to do this?
 	c := NewHTTPClient(
@@ -246,8 +244,7 @@ func (a *Agent) getAgentMetrics() (agentMetricsSnapshot, error) {
 		"/metrics/snapshot",
 		time.Duration(5*time.Second))
 	if err := c.Fetch(&metrics); err != nil {
-		log.Error(err)
-		return agentMetricsSnapshot{}, err
+		return metrics, err
 	}
 
 	return metrics, nil
@@ -257,7 +254,7 @@ func (a *Agent) getAgentMetrics() (agentMetricsSnapshot, error) {
 // info such as framework names and IDs, the current leader, config flags,
 // container (executor) labels, and more.
 func (a *Agent) getAgentState() (agentState, error) {
-	var state agentState
+	state := agentState{}
 
 	// TODO(roger): 15sec timeout is a guess. Is there a better way to do this?
 	c := NewHTTPClient(
@@ -265,8 +262,7 @@ func (a *Agent) getAgentState() (agentState, error) {
 		"/state",
 		time.Duration(15*time.Second))
 	if err := c.Fetch(&state); err != nil {
-		log.Error(err)
-		return agentState{}, err
+		return state, err
 	}
 
 	return state, nil
@@ -293,9 +289,9 @@ func (a *Agent) getIP() (string, error) {
 
 // pollAgent queries the DC/OS agent for metrics and returns.
 func (a *Agent) pollAgent() metricsMeta {
-	var metrics metricsMeta
+	metrics := metricsMeta{}
 	now := time.Now().UTC()
-	log.Debugf("Polling the Mesos agent at %s:%d. Started at %s", a.AgentIP, a.Port, now.String())
+	log.Infof("Polling the Mesos agent at %s:%d. Started at %s", a.AgentIP, a.Port, now.String())
 
 	// always fetch/emit agent state first: downstream will use it for tagging metrics
 	log.Debugf("Fetching state from agent %s:%d", a.AgentIP, a.Port)
@@ -319,7 +315,7 @@ func (a *Agent) pollAgent() metricsMeta {
 		return metrics
 	}
 
-	log.Debugf("Finished polling agent %s:%d, took %f seconds.", a.AgentIP, a.Port, time.Since(now).Seconds())
+	log.Infof("Finished polling agent %s:%d, took %f seconds.", a.AgentIP, a.Port, time.Since(now).Seconds())
 
 	metrics.agentState = agentState
 	metrics.agentMetricsSnapshot = agentMetrics
@@ -418,7 +414,6 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 }
 
 // getFrameworkInfoByFrameworkID returns the FrameworkInfo struct given its ID.
-// For example: "5349f49b-68b3-4638-aab2-fc4ec845f993-0000" => "marathon"
 func getFrameworkInfoByFrameworkID(frameworkID string, frameworks []frameworkInfo) (frameworkInfo, bool) {
 	for _, framework := range frameworks {
 		if framework.ID == frameworkID {

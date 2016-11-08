@@ -117,7 +117,7 @@ func TestNewAgent(t *testing.T) {
 		})
 
 		Convey("Should return an Agent when given proper inputs", func() {
-			a, err := NewAgent("1.2.3.4", 10000, 60, make(chan<- producers.MetricsMessage))
+			a, err := NewAgent("/bin/echo -n 1.2.3.4", 10000, 60, make(chan<- producers.MetricsMessage))
 			So(a, ShouldHaveSameTypeAs, Agent{})
 			So(err, ShouldBeNil)
 		})
@@ -138,8 +138,7 @@ func TestGetContainerMetrics(t *testing.T) {
 			panic(err)
 		}
 
-		a, _ := NewAgent("/bin/true", port, 60, make(chan<- producers.MetricsMessage))
-		a.AgentIP = "127.0.0.1"
+		a, _ := NewAgent("/bin/echo -n 127.0.0.1", port, 60, make(chan<- producers.MetricsMessage))
 		result, err := a.getContainerMetrics()
 
 		Convey("Should return an array of 'agentContainer' without error", func() {
@@ -169,8 +168,7 @@ func TestGetAgentMetrics(t *testing.T) {
 		}
 
 		Convey("Should return an 'agentMetricsSnapshot' without error", func() {
-			a, _ := NewAgent("/bin/true", port, 60, make(chan<- producers.MetricsMessage))
-			a.AgentIP = "127.0.0.1"
+			a, _ := NewAgent("/bin/echo -n 127.0.0.1", port, 60, make(chan<- producers.MetricsMessage))
 			result, err := a.getAgentMetrics()
 
 			So(result.CPUsTotal, ShouldEqual, 2)
@@ -196,8 +194,7 @@ func TestGetAgentState(t *testing.T) {
 		}
 
 		Convey("Should return an 'agentState' without error", func() {
-			a, _ := NewAgent("/bin/true", port, 60, make(chan<- producers.MetricsMessage))
-			a.AgentIP = "127.0.0.1"
+			a, _ := NewAgent("/bin/echo -n 127.0.0.1", port, 60, make(chan<- producers.MetricsMessage))
 			result, err := a.getAgentState()
 
 			// getAgentState() returns a lot of metadata required for dcos-metrics
@@ -227,8 +224,7 @@ func TestGetIP(t *testing.T) {
 func TestTransform(t *testing.T) {
 	Convey("When transforming agent metrics to fit producers.MetricsMessage", t, func() {
 		// bogus port and IP address here; no HTTP client in a.transform()
-		a, _ := NewAgent("/bin/true", 9000, 60, make(chan<- producers.MetricsMessage))
-		a.AgentIP = "127.127.127.127"
+		a, _ := NewAgent("/bin/echo -n 127.0.0.1", 9000, 60, make(chan<- producers.MetricsMessage))
 
 		// The mocks in this test file are bytearrays so that they can be used
 		// by the HTTP test server(s). So we need to unmarshal them here before
