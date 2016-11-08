@@ -50,6 +50,23 @@ func New(cfg Config) (producers.MetricsProducer, chan producers.MetricsMessage) 
 // Run a HTTP server and serve the various metrics API endpoints.
 // This function should be run in its own goroutine.
 func (p *producerImpl) Run() error {
+	log.Info("Starting HTTP producer garbage collection service")
+	go p.janitor()
+
+	go func() {
+		log.Debug("HTTP producer listening for incoming messages on metricsChan")
+		for {
+			message := <-p.metricsChan // read messages off the channel
+			log.Debugf("Received message '%s' with timestamp %s",
+				message.Name,
+				time.Unix(message.Timestamp, 0).Format(time.RFC3339))
+			log.Debugf("Setting store object '%s' with timestamp %s",
+				message.Name,
+				time.Unix(message.Timestamp, 0).Format(time.RFC3339))
+			p.store.Set(message.Name, message) // overwrite existing object with the same message.Name
+		}
+	}()
+
 	r := newRouter(p)
 	listeners, err := activation.Listeners(true)
 	if err != nil {
@@ -58,18 +75,11 @@ func (p *producerImpl) Run() error {
 	// If a listener is avialable, use that. If it is not avialable,
 	// listen on the default TCP socket and port.
 	if len(listeners) == 1 {
-		log.Infof("Listening on %s", listeners[0].Addr().String())
+		log.Infof("HTTP Producer serving requests on %s", listeners[0].Addr().String())
 		return http.Serve(listeners[0], r)
 	} else {
+		log.Infof("HTTP Producer serving requests on :%d", p.config.Port)
 		return http.ListenAndServe(fmt.Sprintf(":%d", p.config.Port), r)
-	}
-
-	log.Info("Starting janitor for in-memory data store")
-	go p.janitor()
-
-	for {
-		message := <-p.metricsChan         // read messages off the channel
-		p.store.Set(message.Name, message) // overwrite existing object with the same message.Name
 	}
 }
 
@@ -85,9 +95,9 @@ func (p *producerImpl) janitor() {
 			for _, obj := range p.store.Objects() {
 				o := obj.(producers.MetricsMessage)
 
-				lastUpdated := time.Since(o.Timestamp)
-				if lastUpdated > p.config.CacheExpiry {
-					log.Debugf("Removing stale object %s; last updated %d seconds ago", o.Name, lastUpdated*time.Second)
+				age := time.Since(time.Unix(o.Timestamp, 0))
+				if age > p.config.CacheExpiry {
+					log.Debugf("Removing stale object %s; last updated %d seconds ago", o.Name, age*time.Second)
 					p.store.Delete(o.Name)
 				}
 			}

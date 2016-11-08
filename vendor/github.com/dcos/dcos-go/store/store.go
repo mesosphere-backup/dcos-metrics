@@ -15,12 +15,16 @@
 // Package store is a simple, local, goroutine-safe in-memory key-value store.
 package store
 
-import "sync"
+import (
+	"regexp"
+	"sync"
+)
 
 // Store represents the interface and available methods of the dcos-go/store package.
 type Store interface {
 	Delete(string)
 	Get(string) (interface{}, bool)
+	GetByRegex(string) (map[string]interface{}, error)
 	Objects() map[string]interface{}
 	Purge()
 	Set(string, interface{})
@@ -57,7 +61,7 @@ func (s *storeImpl) Delete(key string) {
 	delete(s.objects, key)
 }
 
-// Get returns an object from the store.
+// Get returns a single key-value pair from the store based on its name.
 func (s *storeImpl) Get(key string) (interface{}, bool) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -68,6 +72,24 @@ func (s *storeImpl) Get(key string) (interface{}, bool) {
 	}
 
 	return object.contents, true
+}
+
+// GetByRegex returns a map of key-value pairs from the store based on a regexp search.
+func (s *storeImpl) GetByRegex(expr string) (map[string]interface{}, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	m := make(map[string]interface{})
+	for k, v := range s.objects {
+		matched, err := regexp.MatchString(expr, k)
+		if err != nil {
+			return m, err
+		}
+		if matched {
+			m[k] = v.contents
+		}
+	}
+	return m, nil
 }
 
 // Objects returns all objects in the store.

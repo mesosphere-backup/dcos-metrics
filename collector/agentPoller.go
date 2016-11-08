@@ -26,12 +26,6 @@ import (
 	"github.com/dcos/dcos-metrics/producers"
 )
 
-var (
-	metricNamespaceSep    = "."
-	containerMetricPrefix = strings.Join([]string{"dcos", "metrics", "containner"}, metricNamespaceSep)
-	agentMetricPrefix     = strings.Join([]string{"dcos", "metrics", "agent"}, metricNamespaceSep)
-)
-
 // Agent defines the structure of the agent metrics poller and any configuration
 // that might be required to run it.
 type Agent struct {
@@ -51,7 +45,7 @@ type metricsMeta struct {
 	agentState           agentState
 	agentMetricsSnapshot agentMetricsSnapshot
 	containerMetrics     []agentContainer
-	timestamp            time.Time
+	timestamp            int64
 }
 
 // agentContainer defines the structure of the response expected from Mesos
@@ -82,12 +76,15 @@ type agentContainer struct {
 //   * Executor info:  https://github.com/apache/mesos/blob/1.0.1/include/mesos/v1/mesos.proto#L474-L522
 //
 type agentState struct {
+	ID         string          `json:"id"`
+	Hostname   string          `json:"hostname"`
 	Frameworks []frameworkInfo `json:"frameworks"`
 }
 
 type frameworkInfo struct {
 	ID        string         `json:"id"`
 	Name      string         `json:"name"`
+	Principal string         `json:"principal"`
 	Role      string         `json:"role"`
 	Executors []executorInfo `json:"executors"`
 }
@@ -138,8 +135,6 @@ type agentMetricsSnapshot struct {
 // For a complete reference, see:
 // https://github.com/apache/mesos/blob/1.0.1/include/mesos/v1/mesos.proto#L921-L1022
 type resourceStatistics struct {
-	Timestamp float64 `json:"timestamp,omitempty"`
-
 	// CPU usage info
 	CpusUserTimeSecs      float64 `json:"cpus_user_time_secs,omitempty"`
 	CpusSystemTimeSecs    float64 `json:"cpus_system_time_secs,omitempty"`
@@ -201,6 +196,11 @@ func NewAgent(ipCommand string, port int, pollPeriod time.Duration, metricsChan 
 // should be run in its own goroutine.
 func (a *Agent) RunPoller() {
 	ticker := time.NewTicker(a.PollPeriod)
+
+	// Poll once immediately
+	for _, m := range a.transform(a.pollAgent()) {
+		a.MetricsChan <- m
+	}
 	for {
 		select {
 		case _ = <-ticker.C:
@@ -275,7 +275,9 @@ func (a *Agent) getAgentState() (agentState, error) {
 // getIP runs the ip_detect script and returns the IP address that the agent
 // is listening on.
 func (a *Agent) getIP() (string, error) {
+	log.Debugf("Executing ip-detect script %s", a.IPCommand)
 	cmdWithArgs := strings.Split(a.IPCommand, " ")
+
 	ipBytes, err := exec.Command(cmdWithArgs[0], cmdWithArgs[1:]...).Output()
 	if err != nil {
 		return "", err
@@ -285,37 +287,44 @@ func (a *Agent) getIP() (string, error) {
 		return "", err
 	}
 
+	log.Debugf("getIP() returned successfully, got IP %s", ip)
 	return ip, nil
 }
 
 // pollAgent queries the DC/OS agent for metrics and returns.
 func (a *Agent) pollAgent() metricsMeta {
 	var metrics metricsMeta
-	now := time.Now()
+	now := time.Now().UTC()
+	log.Debugf("Polling the Mesos agent at %s:%d. Started at %s", a.AgentIP, a.Port, now.String())
 
 	// always fetch/emit agent state first: downstream will use it for tagging metrics
+	log.Debugf("Fetching state from agent %s:%d", a.AgentIP, a.Port)
 	agentState, err := a.getAgentState()
 	if err != nil {
 		log.Errorf("Failed to get agent state from %s:%d. Error: %s", a.AgentIP, a.Port, err)
 		return metrics
 	}
 
+	log.Debugf("Fetching agent metrics from agent %s:%d", a.AgentIP, a.Port)
 	agentMetrics, err := a.getAgentMetrics()
 	if err != nil {
 		log.Errorf("Failed to get agent metrics from %s:%d. Error: %s", a.AgentIP, a.Port, err)
 		return metrics
 	}
 
+	log.Debugf("Fetching container metrics from agent %s:%d", a.AgentIP, a.Port)
 	containerMetrics, err := a.getContainerMetrics()
 	if err != nil {
 		log.Errorf("Failed to get container metrics from %s:%d. Error: %s", a.AgentIP, a.Port, err)
 		return metrics
 	}
 
+	log.Debugf("Finished polling agent %s:%d, took %f seconds.", a.AgentIP, a.Port, time.Since(now).Seconds())
+
 	metrics.agentState = agentState
 	metrics.agentMetricsSnapshot = agentMetrics
 	metrics.containerMetrics = containerMetrics
-	metrics.timestamp = now
+	metrics.timestamp = now.Unix()
 
 	return metrics
 }
@@ -327,19 +336,34 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 	var msg producers.MetricsMessage
 	var v reflect.Value
 
+	t := time.Unix(in.timestamp, 0)
+
 	// Produce agent metrics
 	msg = producers.MetricsMessage{
-		Name:       strings.Join([]string{agentMetricPrefix, a.AgentIP}, metricNamespaceSep),
+		Name: strings.Join([]string{
+			producers.AgentMetricPrefix,
+			in.agentState.ID,
+		}, producers.MetricNamespaceSep),
 		Datapoints: []producers.Datapoint{},
-		// TODO(roger): Dimensions: producers.Dimensions{},
+		Dimensions: producers.Dimensions{
+			AgentID:   in.agentState.ID,
+			ClusterID: "", // TODO(roger) need to get this from the master
+			Hostname:  in.agentState.Hostname,
+		},
+		Timestamp: t.UTC().Unix(),
 	}
 	v = reflect.Indirect(reflect.ValueOf(in.agentMetricsSnapshot))
 	for i := 0; i < v.NumField(); i++ {
+		n := strings.Join([]string{
+			msg.Name,
+			strings.Split(v.Type().Field(i).Tag.Get("json"), ",")[0],
+		}, producers.MetricNamespaceSep)
+
 		msg.Datapoints = append(msg.Datapoints, producers.Datapoint{
-			Name:      strings.Join([]string{msg.Name, v.Type().Field(i).Name}, metricNamespaceSep),
-			Unit:      "",                  // TODO(roger): not currently an easy way to get units
-			Value:     v.Field(i).String(), // TODO(roger): everything is a string for MVP
-			Timestamp: in.timestamp.Format(time.RFC3339Nano),
+			Name:      strings.Replace(n, "/", producers.MetricNamespaceSep, -1),
+			Unit:      "",                                        // TODO(roger): not currently an easy way to get units
+			Value:     fmt.Sprintf("%v", v.Field(i).Interface()), // TODO(roger): everything is a string for MVP
+			Timestamp: t.UTC().Format(time.RFC3339Nano),
 		})
 	}
 	out = append(out, msg)
@@ -347,26 +371,42 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 	// Produce container metrics
 	for _, c := range in.containerMetrics {
 		msg = producers.MetricsMessage{
-			Name:       "container",
+			Name: strings.Join([]string{
+				producers.ContainerMetricPrefix,
+				c.ContainerID,
+			}, producers.MetricNamespaceSep),
 			Datapoints: []producers.Datapoint{},
 			Dimensions: producers.Dimensions{},
+			Timestamp:  t.UTC().Unix(),
 		}
 		v = reflect.Indirect(reflect.ValueOf(c.Statistics))
 		for i := 0; i < v.NumField(); i++ {
+			n := strings.Join([]string{
+				msg.Name,
+				strings.Split(v.Type().Field(i).Tag.Get("json"), ",")[0],
+			}, producers.MetricNamespaceSep)
+
 			msg.Datapoints = append(msg.Datapoints, producers.Datapoint{
-				Name:      v.Type().Field(i).Name,
-				Unit:      "",                  // TODO(roger): not currently an easy way to get units
-				Value:     v.Field(i).String(), // TODO(roger): everything is a string for MVP
-				Timestamp: in.timestamp.Format(time.RFC3339Nano),
+				Name:      strings.Replace(n, "/", producers.MetricNamespaceSep, -1),
+				Unit:      "",                                        // TODO(roger): not currently an easy way to get units
+				Value:     fmt.Sprintf("%v", v.Field(i).Interface()), // TODO(roger): everything is a string for MVP
+				Timestamp: t.UTC().Format(time.RFC3339Nano),
 			})
 		}
 
-		msg.Dimensions.AgentID = "" // TODO(roger)
+		fi, ok := getFrameworkInfoByFrameworkID(c.FrameworkID, in.agentState.Frameworks)
+		if !ok {
+			log.Warnf("Did not find FrameworkInfo for framework ID %s, skipping!", fi.ID)
+			continue
+		}
+
+		msg.Dimensions.AgentID = in.agentState.ID
+		msg.Dimensions.ClusterID = "" // TODO(roger) need to get this from the master
 		msg.Dimensions.ContainerID = c.ContainerID
 		msg.Dimensions.FrameworkID = c.FrameworkID
-		msg.Dimensions.FrameworkName = getFrameworkNameByFrameworkID(c.FrameworkID, in.agentState.Frameworks)
-		msg.Dimensions.FrameworkRole = ""      // TODO(roger)
-		msg.Dimensions.FrameworkPrincipal = "" // TODO(roger)
+		msg.Dimensions.FrameworkName = fi.Name
+		msg.Dimensions.FrameworkRole = fi.Role
+		msg.Dimensions.FrameworkPrincipal = fi.Principal
 		msg.Dimensions.ExecutorID = c.ExecutorID
 		msg.Dimensions.ContainerID = c.ContainerID
 		msg.Dimensions.Labels = getLabelsByContainerID(c.ContainerID, in.agentState.Frameworks)
@@ -377,15 +417,15 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 	return out
 }
 
-// getFrameworkNameByFrameworkID returns the human-readable framework name.
+// getFrameworkInfoByFrameworkID returns the FrameworkInfo struct given its ID.
 // For example: "5349f49b-68b3-4638-aab2-fc4ec845f993-0000" => "marathon"
-func getFrameworkNameByFrameworkID(frameworkID string, frameworks []frameworkInfo) string {
+func getFrameworkInfoByFrameworkID(frameworkID string, frameworks []frameworkInfo) (frameworkInfo, bool) {
 	for _, framework := range frameworks {
 		if framework.ID == frameworkID {
-			return framework.Name
+			return framework, true
 		}
 	}
-	return ""
+	return frameworkInfo{}, false
 }
 
 // getLabelsByContainerID returns a map of labels, as specified by the framework

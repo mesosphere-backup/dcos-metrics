@@ -254,7 +254,7 @@ func TestTransform(t *testing.T) {
 			agentMetricsSnapshot: thisAgentMetrics,
 			agentState:           thisAgentState,
 			containerMetrics:     thisContainerMetrics,
-			timestamp:            testTime,
+			timestamp:            testTime.UTC().Unix(),
 		}
 
 		Convey("Should return a []producers.MetricsMessage without errors", func() {
@@ -270,23 +270,30 @@ func TestTransform(t *testing.T) {
 	})
 }
 
-func TestGetFrameworkNameByFrameworkID(t *testing.T) {
-	Convey("When getting a framework's name, given its ID", t, func() {
+func TestGetFrameworkInfoByFrameworkID(t *testing.T) {
+	Convey("When getting a framework's info, given its ID", t, func() {
 		fi := []frameworkInfo{
 			frameworkInfo{
-				Name: "fooframework",
-				ID:   "7",
+				Name:      "fooframework",
+				ID:        "7",
+				Role:      "foorole",
+				Principal: "fooprincipal",
 			},
 		}
 
 		Convey("Should return the framework name without errors", func() {
-			result := getFrameworkNameByFrameworkID("7", fi)
-			So(result, ShouldEqual, "fooframework")
+			result, ok := getFrameworkInfoByFrameworkID("7", fi)
+			So(ok, ShouldBeTrue)
+			So(result.Name, ShouldEqual, "fooframework")
+			So(result.ID, ShouldEqual, "7")
+			So(result.Role, ShouldEqual, "foorole")
+			So(result.Principal, ShouldEqual, "fooprincipal")
 		})
 
-		Convey("Should return an empty string if no match was found", func() {
-			result := getFrameworkNameByFrameworkID("42", fi)
-			So(result, ShouldEqual, "")
+		Convey("Should return an empty frameworkInfo if no match was found", func() {
+			result, ok := getFrameworkInfoByFrameworkID("42", fi)
+			So(result, ShouldResemble, frameworkInfo{})
+			So(ok, ShouldBeFalse)
 		})
 	})
 }
