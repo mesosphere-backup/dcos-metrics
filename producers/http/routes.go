@@ -47,14 +47,9 @@ var (
 )
 
 var routes = []Route{
-
-	// Root endpoint, e.g. /api/v0...
-	Route{
-		Name:        "root",
-		Method:      "GET",
-		Path:        root,
-		HandlerFunc: fooHandler,
-	},
+	// TODO(roger): it would be nice to have root / index endpoints here, e.g.
+	// "/", "/api", and "/api/v0" that has usage info and available endpoints
+	// provided by this service.
 
 	// Agent Endpoints, e.g. /api/v0/agent...
 	Route{
@@ -64,28 +59,10 @@ var routes = []Route{
 		HandlerFunc: agentHandler,
 	},
 	Route{
-		Name:        "agent_cpu",
+		Name:        "agent_singlemetric",
 		Method:      "GET",
-		Path:        strings.Join([]string{root, "agent", "cpu"}, "/"),
-		HandlerFunc: fooHandler,
-	},
-	Route{
-		Name:        "agent_memory",
-		Method:      "GET",
-		Path:        strings.Join([]string{root, "agent", "memory"}, "/"),
-		HandlerFunc: fooHandler,
-	},
-	Route{
-		Name:        "agent_disks",
-		Method:      "GET",
-		Path:        strings.Join([]string{root, "agent", "disks"}, "/"),
-		HandlerFunc: fooHandler,
-	},
-	Route{
-		Name:        "agent_networks",
-		Method:      "GET",
-		Path:        strings.Join([]string{root, "agent", "networks"}, "/"),
-		HandlerFunc: fooHandler,
+		Path:        strings.Join([]string{root, "agent", "{metricFamily:(?:cpu|memory|disks|networks)}"}, "/"),
+		HandlerFunc: agentSingleMetricHandler,
 	},
 
 	// Containers and apps endpoints,e.g. /api/v0/containers...
@@ -96,45 +73,32 @@ var routes = []Route{
 		HandlerFunc: containersHandler,
 	},
 	Route{
-		Name:        "containers",
+		Name:        "container",
 		Method:      "GET",
 		Path:        strings.Join([]string{root, "containers", "{id}"}, "/"),
-		HandlerFunc: fooHandler,
+		HandlerFunc: containerHandler,
 	},
 	Route{
-		Name:        "containers_cpu",
-		Method:      "GET",
-		Path:        strings.Join([]string{root, "containers", "{id}", "cpu"}, "/"),
-		HandlerFunc: fooHandler,
-	},
-	Route{
-		Name:        "containers_memory",
-		Method:      "GET",
-		Path:        strings.Join([]string{root, "containers", "{id}", "memory"}, "/"),
-		HandlerFunc: fooHandler,
-	},
-	Route{
-		Name:        "containers_filesystems",
-		Method:      "GET",
-		Path:        strings.Join([]string{root, "containers", "{id}", "filesystems"}, "/"),
-		HandlerFunc: fooHandler,
-	},
-	Route{
-		Name:        "containers_network",
-		Method:      "GET",
-		Path:        strings.Join([]string{root, "containers", "{id}", "network"}, "/"),
-		HandlerFunc: fooHandler,
+		Name:   "container_singlemetric",
+		Method: "GET",
+		Path: strings.Join([]string{
+			root,
+			"containers",
+			"{id}",
+			"{metricFamily:(?:cpu|memory|filesystems|network)}",
+		}, "/"),
+		HandlerFunc: containerSingleMetricHandler,
 	},
 	Route{
 		Name:        "containers_app",
 		Method:      "GET",
 		Path:        strings.Join([]string{root, "containers", "{id}", "app"}, "/"),
-		HandlerFunc: fooHandler,
+		HandlerFunc: notYetImplementedHandler,
 	},
 	Route{
 		Name:        "containers_app_metric",
 		Method:      "GET",
 		Path:        strings.Join([]string{root, "containers", "{id}", "app", "{metric-id}"}, "/"),
-		HandlerFunc: fooHandler,
+		HandlerFunc: notYetImplementedHandler,
 	},
 }

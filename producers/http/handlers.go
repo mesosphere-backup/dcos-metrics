@@ -16,11 +16,16 @@ package http
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"regexp"
+	"strings"
 
 	"github.com/dcos/dcos-metrics/producers"
+	"github.com/gorilla/mux"
 )
 
+// /api/v0/agent
 func agentHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var am []interface{}
@@ -33,24 +38,86 @@ func agentHandler(p *producerImpl) http.HandlerFunc {
 	}
 }
 
-func containersHandler(p *producerImpl) http.HandlerFunc {
+// /api/v0/agent/{cpu, memory, ...}
+func agentSingleMetricHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var cm []interface{}
-		containerMetrics, err := p.store.GetByRegex(producers.ContainerMetricPrefix + ".*")
+		vars := mux.Vars(r)
+		metricFamily := vars["metricFamily"][0:3] // cpu, mem, dis, net
+		agentMetrics, err := p.store.GetByRegex(producers.AgentMetricPrefix + ".*")
 		handleErr(err, w)
-		for _, v := range containerMetrics {
-			cm = append(cm, v)
+
+		var am []producers.MetricsMessage
+		for _, v := range agentMetrics {
+			am = append(am, v.(producers.MetricsMessage))
 		}
-		encode(cm[0], w)
+
+		datapoints := []producers.Datapoint{}
+		for _, point := range am[0].Datapoints {
+			p := strings.Split(point.Name, producers.MetricNamespaceSep)[5]
+			if match, _ := regexp.MatchString(fmt.Sprintf("%s.*", metricFamily), p); match {
+				datapoints = append(datapoints, point)
+			}
+		}
+		am[0].Datapoints = datapoints
+		encode(am[0], w)
 	}
 }
 
-func fooHandler(p *producerImpl) http.HandlerFunc {
+// /api/v0/containers
+func containersHandler(p *producerImpl) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var cm []producers.MetricsMessage
+		containerMetrics, err := p.store.GetByRegex(producers.ContainerMetricPrefix + ".*")
+		handleErr(err, w)
+
+		for _, c := range containerMetrics {
+			cm = append(cm, c.(producers.MetricsMessage))
+		}
+		encode(cm, w)
+	}
+}
+
+// /api/v0/containers/{id}
+func containerHandler(p *producerImpl) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		key := strings.Join([]string{
+			producers.ContainerMetricPrefix, vars["id"],
+		}, producers.MetricNamespaceSep)
+		containerMetrics, _ := p.store.Get(key)
+		encode(containerMetrics, w)
+	}
+}
+
+// /api/v0/containers/{id}/{cpu, memory, ...}
+func containerSingleMetricHandler(p *producerImpl) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		metricFamily := vars["metricFamily"][0:3] // cpu, mem, dis, net
+		key := strings.Join([]string{
+			producers.ContainerMetricPrefix, vars["id"],
+		}, producers.MetricNamespaceSep)
+		containerMetrics, _ := p.store.Get(key)
+
+		cm := containerMetrics.(producers.MetricsMessage)
+		datapoints := []producers.Datapoint{}
+		for _, point := range cm.Datapoints {
+			p := strings.Split(point.Name, producers.MetricNamespaceSep)[4]
+			if match, _ := regexp.MatchString(fmt.Sprintf("%s.*", metricFamily), p); match {
+				datapoints = append(datapoints, point)
+			}
+		}
+		cm.Datapoints = datapoints
+		encode(cm, w)
+	}
+}
+
+func notYetImplementedHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		type fooData struct {
 			Message string `json:"message"`
 		}
-		result := fooData{Message: "Hello, world!"}
+		result := fooData{Message: "Not Yet Implemented"}
 		encode(result, w)
 	}
 }
