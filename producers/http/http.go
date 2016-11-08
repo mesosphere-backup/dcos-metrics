@@ -20,6 +20,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/coreos/go-systemd/activation"
 	"github.com/dcos/dcos-go/store"
 	"github.com/dcos/dcos-metrics/producers"
 )
@@ -50,10 +51,19 @@ func New(cfg Config) (producers.MetricsProducer, chan producers.MetricsMessage) 
 // This function should be run in its own goroutine.
 func (p *producerImpl) Run() error {
 	r := newRouter(p)
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", p.config.Port), r); err != nil {
-		log.Fatalf("error: http producer: %s", err)
+	listeners, err := activation.Listeners(true)
+	if err != nil {
+		return fmt.Errorf("Unable to get listeners: %s", err)
 	}
-	log.Infof("The HTTP producer is serving requests on port %d", p.config.Port)
+	// If a listener is avialable, use that. If it is not avialable,
+	// listen on the default TCP socket and port.
+	if len(listeners) == 1 {
+		log.Infof("Listening on %s", listeners[0].Addr().String())
+		return http.Serve(listeners[0], r)
+	} else {
+		return http.ListenAndServe(fmt.Sprintf(":%d", p.config.Port), r)
+	}
+
 	log.Info("Starting janitor for in-memory data store")
 	go p.janitor()
 
