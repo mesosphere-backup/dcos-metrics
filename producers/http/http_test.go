@@ -30,7 +30,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-// Functional test for the /api/v0/agent endpoint.
+// Functional test for the /system/metrics/api/v0/agent endpoint.
 func TestHTTPProducer_Agent(t *testing.T) {
 	testTime := time.Now()
 
@@ -60,14 +60,14 @@ func TestHTTPProducer_Agent(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("When querying the /api/v0/agent endpoint", t, func() {
+	Convey("When querying the /system/metrics/api/v0/agent endpoint", t, func() {
 		Convey("Should return metrics in the expected structure", func() {
 			pi, pc := New(Config{IP: "127.0.0.1", Port: port, CacheExpiry: time.Duration(5) * time.Second})
 			go pi.Run()
 			time.Sleep(1 * time.Second) // give the http server a chance to start before querying it
 
 			pc <- testData
-			resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/api/v0/agent", port))
+			resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/system/metrics/api/v0/agent", port))
 			if err != nil {
 				panic(err)
 			}
