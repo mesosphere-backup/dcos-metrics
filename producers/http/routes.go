@@ -51,6 +51,14 @@ var routes = []Route{
 	// "/", "/api", and "/api/v0" that has usage info and available endpoints
 	// provided by this service.
 
+	// Ping endpoin
+	Route{
+		Name:        "ping",
+		Method:      "GET",
+		Path:        strings.Join([]string{root, "ping"}, "/"),
+		HandlerFunc: pingHandler,
+	},
+
 	// Agent Endpoints, e.g. /api/v0/agent...
 	Route{
 		Name:        "agent",
