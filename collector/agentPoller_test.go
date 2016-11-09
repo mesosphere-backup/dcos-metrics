@@ -99,6 +99,31 @@ var (
 		]`)
 )
 
+func TestBuildDatapoints(t *testing.T) {
+	// The mocks at the top of this test file are bytearrays so that they can be
+	// used by the HTTP test server(s). So we need to unmarshal them here before
+	// they can be used.
+	var thisAgentMetrics agentMetricsSnapshot
+	if err := json.Unmarshal(mockAgentMetrics, &thisAgentMetrics); err != nil {
+		panic(err)
+	}
+	testTime, err := time.Parse(time.RFC3339Nano, "2009-11-10T23:00:00Z")
+	if err != nil {
+		panic(err)
+	}
+
+	Convey("When building a slice of producers.Datapoint for a MetricsMessage", t, func() {
+		Convey("Should return the datapoints containing valid tags and values", func() {
+			result := buildDatapoints(thisAgentMetrics, "somebasename", testTime)
+			So(len(result), ShouldEqual, 6)
+			So(result[0].Name, ShouldContainSubstring, "somebasename.system")
+			So(result[0].Unit, ShouldEqual, "")   // TODO(roger): no easy way to get units
+			So(result[0].Value, ShouldNotBeBlank) // TODO(roger): everything is a string for MVP
+			So(result[0].Timestamp, ShouldEqual, "2009-11-10T23:00:00Z")
+		})
+	})
+}
+
 func TestNewAgent(t *testing.T) {
 	Convey("When establishing a new agentPoller", t, func() {
 		Convey("Should return an error when given an improper IP address", func() {

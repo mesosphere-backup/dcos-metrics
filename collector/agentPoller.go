@@ -330,8 +330,6 @@ func (a *Agent) pollAgent() metricsMeta {
 // producers.MetricsMessage.
 func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 	var msg producers.MetricsMessage
-	var v reflect.Value
-
 	t := time.Unix(in.timestamp, 0)
 
 	// Produce agent metrics
@@ -340,27 +338,13 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 			producers.AgentMetricPrefix,
 			in.agentState.ID,
 		}, producers.MetricNamespaceSep),
-		Datapoints: []producers.Datapoint{},
+		Datapoints: buildDatapoints(in.agentMetricsSnapshot, msg.Name, t),
 		Dimensions: producers.Dimensions{
 			AgentID:   in.agentState.ID,
 			ClusterID: "", // TODO(roger) need to get this from the master
 			Hostname:  in.agentState.Hostname,
 		},
 		Timestamp: t.UTC().Unix(),
-	}
-	v = reflect.Indirect(reflect.ValueOf(in.agentMetricsSnapshot))
-	for i := 0; i < v.NumField(); i++ {
-		n := strings.Join([]string{
-			msg.Name,
-			strings.Split(v.Type().Field(i).Tag.Get("json"), ",")[0],
-		}, producers.MetricNamespaceSep)
-
-		msg.Datapoints = append(msg.Datapoints, producers.Datapoint{
-			Name:      strings.Replace(n, "/", producers.MetricNamespaceSep, -1),
-			Unit:      "",                                        // TODO(roger): not currently an easy way to get units
-			Value:     fmt.Sprintf("%v", v.Field(i).Interface()), // TODO(roger): everything is a string for MVP
-			Timestamp: t.UTC().Format(time.RFC3339Nano),
-		})
 	}
 	out = append(out, msg)
 
@@ -371,23 +355,8 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 				producers.ContainerMetricPrefix,
 				c.ContainerID,
 			}, producers.MetricNamespaceSep),
-			Datapoints: []producers.Datapoint{},
-			Dimensions: producers.Dimensions{},
+			Datapoints: buildDatapoints(c.Statistics, msg.Name, t),
 			Timestamp:  t.UTC().Unix(),
-		}
-		v = reflect.Indirect(reflect.ValueOf(c.Statistics))
-		for i := 0; i < v.NumField(); i++ {
-			n := strings.Join([]string{
-				msg.Name,
-				strings.Split(v.Type().Field(i).Tag.Get("json"), ",")[0],
-			}, producers.MetricNamespaceSep)
-
-			msg.Datapoints = append(msg.Datapoints, producers.Datapoint{
-				Name:      strings.Replace(n, "/", producers.MetricNamespaceSep, -1),
-				Unit:      "",                                        // TODO(roger): not currently an easy way to get units
-				Value:     fmt.Sprintf("%v", v.Field(i).Interface()), // TODO(roger): everything is a string for MVP
-				Timestamp: t.UTC().Format(time.RFC3339Nano),
-			})
 		}
 
 		fi, ok := getFrameworkInfoByFrameworkID(c.FrameworkID, in.agentState.Frameworks)
@@ -396,21 +365,44 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 			continue
 		}
 
-		msg.Dimensions.AgentID = in.agentState.ID
-		msg.Dimensions.ClusterID = "" // TODO(roger) need to get this from the master
-		msg.Dimensions.ContainerID = c.ContainerID
-		msg.Dimensions.FrameworkID = c.FrameworkID
-		msg.Dimensions.FrameworkName = fi.Name
-		msg.Dimensions.FrameworkRole = fi.Role
-		msg.Dimensions.FrameworkPrincipal = fi.Principal
-		msg.Dimensions.ExecutorID = c.ExecutorID
-		msg.Dimensions.ContainerID = c.ContainerID
-		msg.Dimensions.Labels = getLabelsByContainerID(c.ContainerID, in.agentState.Frameworks)
-
+		msg.Dimensions = producers.Dimensions{
+			AgentID:            in.agentState.ID,
+			ClusterID:          "", // TODO(roger) need to get this from the master
+			ContainerID:        c.ContainerID,
+			ExecutorID:         c.ExecutorID,
+			FrameworkID:        c.FrameworkID,
+			FrameworkName:      fi.Name,
+			FrameworkRole:      fi.Role,
+			FrameworkPrincipal: fi.Principal,
+			Labels:             getLabelsByContainerID(c.ContainerID, in.agentState.Frameworks),
+		}
 		out = append(out, msg)
 	}
 
 	return out
+}
+
+// buildDatapoints takes an incoming structure and builds Datapoints
+// for a MetricsMessage. It uses a normalized version of the JSON tag
+// as the datapoint name.
+func buildDatapoints(in interface{}, basename string, t time.Time) []producers.Datapoint {
+	pts := []producers.Datapoint{}
+	v := reflect.Indirect(reflect.ValueOf(in))
+
+	for i := 0; i < v.NumField(); i++ {
+		n := strings.Join([]string{
+			basename,
+			strings.Split(v.Type().Field(i).Tag.Get("json"), ",")[0],
+		}, producers.MetricNamespaceSep)
+
+		pts = append(pts, producers.Datapoint{
+			Name:      strings.Replace(n, "/", producers.MetricNamespaceSep, -1),
+			Unit:      "",                                        // TODO(roger): not currently an easy way to get units
+			Value:     fmt.Sprintf("%v", v.Field(i).Interface()), // TODO(roger): everything is a string for MVP
+			Timestamp: t.UTC().Format(time.RFC3339Nano),
+		})
+	}
+	return pts
 }
 
 // getFrameworkInfoByFrameworkID returns the FrameworkInfo struct given its ID.
