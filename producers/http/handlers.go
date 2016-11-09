@@ -28,12 +28,14 @@ import (
 func agentHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var am []interface{}
-		agentMetrics, err := p.store.GetByRegex(producers.AgentMetricPrefix + ".*")
-		handleErr(err, w)
-		for _, v := range agentMetrics {
-			am = append(am, v)
+		if agentMetrics, err := p.store.GetByRegex(producers.AgentMetricPrefix + ".*"); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+		} else {
+			for _, v := range agentMetrics {
+				am = append(am, v)
+			}
+			encode(am[0], w)
 		}
-		encode(am[0], w)
 	}
 }
 
@@ -41,13 +43,15 @@ func agentHandler(p *producerImpl) http.HandlerFunc {
 func containersHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cm := []string{}
-		containerMetrics, err := p.store.GetByRegex(producers.ContainerMetricPrefix + ".*")
-		handleErr(err, w)
+		if containerMetrics, err := p.store.GetByRegex(producers.ContainerMetricPrefix + ".*"); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+		} else {
 
-		for _, c := range containerMetrics {
-			cm = append(cm, c.(producers.MetricsMessage).Dimensions.ContainerID)
+			for _, c := range containerMetrics {
+				cm = append(cm, c.(producers.MetricsMessage).Dimensions.ContainerID)
+			}
+			encode(cm, w)
 		}
-		encode(cm, w)
 	}
 }
 
@@ -58,8 +62,26 @@ func containerHandler(p *producerImpl) http.HandlerFunc {
 		key := strings.Join([]string{
 			producers.ContainerMetricPrefix, vars["id"],
 		}, producers.MetricNamespaceSep)
-		containerMetrics, _ := p.store.Get(key)
-		encode(containerMetrics, w)
+		if containerMetrics, ok := p.store.Get(key); !ok {
+			w.WriteHeader(http.StatusNoContent)
+		} else {
+			encode(containerMetrics, w)
+		}
+	}
+}
+
+// /api/v0/containers/{id}/app/
+func containerAppHandler(p *producerImpl) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		key := strings.Join([]string{
+			producers.AppMetricPrefix, vars["id"],
+		}, producers.MetricNamespaceSep)
+		if containerMetrics, ok := p.store.Get(key); !ok {
+			w.WriteHeader(http.StatusNoContent)
+		} else {
+			encode(containerMetrics, w)
+		}
 	}
 }
 
@@ -91,11 +113,5 @@ func encode(v interface{}, w http.ResponseWriter) {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
 		w.WriteHeader(http.StatusOK)
-	}
-}
-
-func handleErr(err error, w http.ResponseWriter) {
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
 	}
 }

@@ -84,7 +84,7 @@ var routes = []Route{
 		Name:        "containers_app",
 		Method:      "GET",
 		Path:        strings.Join([]string{root, "containers", "{id}", "app"}, "/"),
-		HandlerFunc: notYetImplementedHandler,
+		HandlerFunc: containerAppHandler,
 	},
 	Route{
 		Name:        "containers_app_metric",
