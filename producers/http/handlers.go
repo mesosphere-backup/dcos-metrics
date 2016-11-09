@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/dcos/dcos-metrics/producers"
 	"github.com/gorilla/mux"
@@ -109,6 +110,16 @@ func containerSingleMetricHandler(p *producerImpl) http.HandlerFunc {
 		}
 		cm.Datapoints = datapoints
 		encode(cm, w)
+	}
+}
+
+func pingHandler(p *producerImpl) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		type ping struct {
+			OK        bool   `json:"ok"`
+			Timestamp string `json:"timestamp"`
+		}
+		encode(ping{OK: true, Timestamp: time.Now().UTC().Format(time.RFC3339)}, w)
 	}
 }
 
