@@ -17,6 +17,7 @@
 package http
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -33,27 +34,25 @@ import (
 func TestHTTPProducer_Agent(t *testing.T) {
 	testTime := time.Now()
 
-	testData := []producers.MetricsMessage{
-		producers.MetricsMessage{
-			Name: strings.Join([]string{producers.AgentMetricPrefix, "foo"}, producers.MetricNamespaceSep),
-			Datapoints: []producers.Datapoint{
-				producers.Datapoint{
-					Name: strings.Join([]string{
-						producers.AgentMetricPrefix,
-						"foo",
-						"some-metric",
-					}, producers.MetricNamespaceSep),
-					Unit:      "",
-					Value:     "1234",
-					Timestamp: testTime.Format(time.RFC3339Nano),
-				},
+	testData := producers.MetricsMessage{
+		Name: strings.Join([]string{producers.AgentMetricPrefix, "foo"}, producers.MetricNamespaceSep),
+		Datapoints: []producers.Datapoint{
+			producers.Datapoint{
+				Name: strings.Join([]string{
+					producers.AgentMetricPrefix,
+					"foo",
+					"some-metric",
+				}, producers.MetricNamespaceSep),
+				Unit:      "",
+				Value:     "1234",
+				Timestamp: testTime.Format(time.RFC3339Nano),
 			},
-			Dimensions: producers.Dimensions{
-				AgentID:  "foo",
-				Hostname: "some-host",
-			},
-			Timestamp: testTime.UTC().Unix(),
 		},
+		Dimensions: producers.Dimensions{
+			AgentID:  "foo",
+			Hostname: "some-host",
+		},
+		Timestamp: testTime.UTC().Unix(),
 	}
 
 	port, err := getEphemeralPort()
@@ -67,26 +66,24 @@ func TestHTTPProducer_Agent(t *testing.T) {
 			go pi.Run()
 			time.Sleep(1 * time.Second) // give the http server a chance to start before querying it
 
-			for _, td := range testData {
-				pc <- td
-			}
-
-			resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", port))
+			pc <- testData
+			resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/api/v0/agent", port))
 			if err != nil {
 				panic(err)
 			}
 			defer resp.Body.Close()
 
-			b, err := ioutil.ReadAll(resp.Body)
-			fmt.Println(b)
-		})
-	})
-}
+			got, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				panic(err)
+			}
+			expected, err := json.Marshal(testData)
+			if err != nil {
+				panic(err)
+			}
 
-// Functional test for the /api/v0/containers endpoint.
-func TestHTTPProducer_Containers(t *testing.T) {
-	Convey("When querying the /api/v0/containers endpoint", t, func() {
-		Convey("Should return metrics in the expected structure", nil)
+			So(strings.TrimSpace(string(got)), ShouldEqual, strings.TrimSpace(string(expected)))
+		})
 	})
 }
 
