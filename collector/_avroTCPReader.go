@@ -17,11 +17,10 @@ package collector
 import (
 	"encoding/hex"
 	"io"
-	"log"
 	"net"
 	"time"
 
-	"github.com/dcos/dcos-metrics/producers/statsd"
+	log "github.com/Sirupsen/logrus"
 	"github.com/linkedin/goavro"
 )
 
@@ -44,29 +43,25 @@ var (
 // RunAvroTCPReader runs a TCP socket listener which produces Avro records sent to that socket.
 // Expects input which has been formatted in the Avro ODF standard.
 // This function should be run as a gofunc.
-func RunAvroTCPReader(recordsChan chan<- *AvroDatum, stats chan<- statsd.StatsEvent) {
+func RunAvroTCPReader(recordsChan chan<- *AvroDatum) {
 	addr, err := net.ResolveTCPAddr("tcp", *listenEndpointFlag)
 	if err != nil {
-		stats <- statsd.MakeEvent(statsd.TCPResolveFailed)
 		log.Fatalf("Failed to parse TCP endpoint '%s': %s", *listenEndpointFlag, err)
 	}
 	sock, err := net.ListenTCP("tcp", addr)
 	if err != nil {
-		stats <- statsd.MakeEvent(statsd.TCPListenFailed)
 		log.Fatalf("Failed to listen on TCP endpoint '%s': %s", *listenEndpointFlag, err)
 	}
 
 	for {
 		conn, err := sock.AcceptTCP()
 		if err != nil {
-			stats <- statsd.MakeEvent(statsd.TCPAcceptFailed)
 			log.Printf("Failed to accept connection on TCP endpoint '%s': %s\n",
 				*listenEndpointFlag, err)
 			continue
 		}
-		stats <- statsd.MakeEvent(statsd.TCPSessionOpened)
 		log.Println("Launching handler for TCP connection from:", conn.RemoteAddr())
-		go handleConnection(conn, recordsChan, stats)
+		go handleConnection(conn, recordsChan)
 	}
 }
 
@@ -74,23 +69,20 @@ func RunAvroTCPReader(recordsChan chan<- *AvroDatum, stats chan<- statsd.StatsEv
 
 // Function which reads records from a TCP session.
 // This function should be run as a gofunc.
-func handleConnection(conn *net.TCPConn, recordsChan chan<- *AvroDatum, stats chan<- statsd.StatsEvent) {
+func handleConnection(conn *net.TCPConn, recordsChan chan<- *AvroDatum) {
 	conn.SetKeepAlive(true)
 	defer func() {
-		stats <- statsd.MakeEvent(statsd.TCPSessionClosed)
 		conn.Close()
 	}()
 
 	reader := &countingReader{conn, 0}
 	avroReader, err := goavro.NewReader(goavro.FromReader(reader))
 	if err != nil {
-		stats <- statsd.MakeEvent(statsd.AvroReaderOpenFailed)
 		log.Println("Failed to create avro reader:", err)
 		return // close connection
 	}
 	defer func() {
 		if err := avroReader.Close(); err != nil {
-			stats <- statsd.MakeEvent(statsd.AvroReaderCloseFailed)
 			log.Println("Failed to close avro reader:", err)
 		}
 	}()
@@ -110,16 +102,14 @@ func handleConnection(conn *net.TCPConn, recordsChan chan<- *AvroDatum, stats ch
 			log.Printf("Cannot read avro record from %+v: %s\n", conn.RemoteAddr(), err)
 			continue
 		}
-		topic, ok := GetTopic(datum)
-		if !ok {
-			stats <- statsd.MakeEvent(statsd.RecordBadTopic)
-		}
+
+		// TODO(roger): !ok
+		topic, _ := GetTopic(datum)
+
 		// increment counters before reader.inputBytes is modified too much
 		// NOTE: inputBytes is effectively being modified by a gofunc in avroReader, so it's not a perfect measurement
 		recordCount++
 		approxBytesRead := reader.inputBytes - lastBytesCount
-		stats <- statsd.MakeEventSuff(statsd.AvroRecordIn, topic)
-		stats <- statsd.MakeEventSuffCount(statsd.AvroBytesIn, topic, int(approxBytesRead))
 
 		// reset throttle counter if needed, before enforcing it below
 		// ideally we'd use a ticker for this, but the goavro api already requires we use manual polling
@@ -145,8 +135,6 @@ func handleConnection(conn *net.TCPConn, recordsChan chan<- *AvroDatum, stats ch
 
 		if reader.inputBytes > *inputLimitAmountKBytesFlag*1024 {
 			// input limit reached, skip
-			stats <- statsd.MakeEventSuff(statsd.AvroRecordInThrottled, topic)
-			stats <- statsd.MakeEventSuffCount(statsd.AvroBytesInThrottled, topic, int(approxBytesRead))
 			continue
 		}
 		if *recordInputLogFlag {

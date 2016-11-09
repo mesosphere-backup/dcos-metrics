@@ -1,5 +1,3 @@
-// +build unit
-
 // Copyright 2016 Mesosphere, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,3 +13,15 @@
 // limitations under the License.
 
 package collector
+
+// MasterConfig contains configuration options relevant to metrics collection
+// from a DC/OS (Mesos) master.
+type MasterConfig struct {
+	Port int `yaml:"port,omitempty"`
+}
+
+// AgentConfig contains configuration options relevant to metrics collection
+// from a DC/OS (Mesos) agent.
+type AgentConfig struct {
+	Port int `yaml:"port,omitempty"`
+}

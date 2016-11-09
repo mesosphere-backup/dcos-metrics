@@ -29,12 +29,12 @@ import (
 	util "github.com/dcos/dcos-metrics/util"
 )
 
-// KafkaConfig{} is a set of configurations for Kafka Producer
+// Config{} is a set of configurations for Kafka Producer
 // NOTE:
 // 	KafkaFramework overrides Brokers. This is an artifact from the migration
 // 	process, in the future we'll only have a broker enabled here instead of passing
 // 	framework.
-type KafkaConfig struct {
+type Config struct {
 	Brokers            string `yaml:"brokers"`
 	KafkaFramework     string `yaml:"kafka_framework"`
 	FlushPeriod        int    `yaml:"flush_period"`
@@ -51,7 +51,7 @@ type KafkaMessage struct {
 
 // RunKafkaProducer creates and runs a Kafka Producer which sends records passed to the provided channel.
 // This function should be run as a gofunc.
-func RunKafkaProducer(messages <-chan KafkaMessage, stats chan<- statsd.StatsEvent, kc KafkaConfig) error {
+func RunKafkaProducer(messages <-chan KafkaMessage, stats chan<- statsd.StatsEvent, kc Config) error {
 	if kc.Verbose {
 		sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 	}
@@ -86,7 +86,7 @@ func RunKafkaProducer(messages <-chan KafkaMessage, stats chan<- statsd.StatsEve
 
 // ---
 
-func kafkaProducer(stats chan<- statsd.StatsEvent, kc KafkaConfig) (kafkaProducer sarama.AsyncProducer, err error) {
+func kafkaProducer(stats chan<- statsd.StatsEvent, kc Config) (kafkaProducer sarama.AsyncProducer, err error) {
 	var brokers []string
 	if len(kc.Brokers) != 0 {
 		brokers = strings.Split(kc.Brokers, ",")
@@ -113,7 +113,7 @@ func kafkaProducer(stats chan<- statsd.StatsEvent, kc KafkaConfig) (kafkaProduce
 	return kafkaProducer, nil
 }
 
-func newAsyncProducer(brokerList []string, kc KafkaConfig) (producer sarama.AsyncProducer, err error) {
+func newAsyncProducer(brokerList []string, kc Config) (producer sarama.AsyncProducer, err error) {
 	// For the access log, we are looking for AP semantics, with high throughput.
 	// By creating batches of compressed messages, we reduce network I/O at a cost of more latency.
 	config := sarama.NewConfig()

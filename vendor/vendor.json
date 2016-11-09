@@ -21,10 +21,22 @@
 			"revisionTime": "2016-02-10T09:18:53Z"
 		},
 		{
+			"checksumSHA1": "RBwpnMpfQt7Jo7YWrRph0Vwe+f0=",
+			"path": "github.com/coreos/go-systemd/activation",
+			"revision": "d659fb6603e3f57bf01c293c5ffda0debc726d8d",
+			"revisionTime": "2016-11-08T12:53:20Z"
+		},
+		{
 			"checksumSHA1": "5rPfda8jFccr3A6heL+JAmi9K9g=",
 			"path": "github.com/davecgh/go-spew/spew",
 			"revision": "5215b55f46b2b919f50a1df0eaa5886afe4e3b3d",
 			"revisionTime": "2015-11-05T21:09:06Z"
+		},
+		{
+			"checksumSHA1": "y7+qlMm+ID5NYA8dOFd2WFcIRaU=",
+			"path": "github.com/dcos/dcos-go/store",
+			"revision": "a5d6cbca7de98b4d8b8c6a48520e39be03fb8967",
+			"revisionTime": "2016-11-07T19:15:35Z"
 		},
 		{
 			"checksumSHA1": "y2Kh4iPlgCPXSGTCcFpzePYdzzg=",
@@ -51,6 +63,18 @@
 			"revisionTime": "2016-09-30T12:55:20Z"
 		},
 		{
+			"checksumSHA1": "g/V4qrXjUGG9B+e3hB+4NAYJ5Gs=",
+			"path": "github.com/gorilla/context",
+			"revision": "08b5f424b9271eedf6f9f0ce86cb9396ed337a42",
+			"revisionTime": "2016-08-17T18:46:32Z"
+		},
+		{
+			"checksumSHA1": "urMd7A9QPAJYY0GZJL9qBhlUmD8=",
+			"path": "github.com/gorilla/mux",
+			"revision": "757bef944d0f21880861c2dd9c871ca543023cba",
+			"revisionTime": "2016-09-20T23:08:13Z"
+		},
+		{
 			"checksumSHA1": "tewA7jXVGCw1zb5mA0BDecWi4iQ=",
 			"path": "github.com/jtolds/gls",
 			"revision": "8ddce2a84170772b95dd5d576c48d517b22cac63",
@@ -67,12 +91,6 @@
 			"path": "github.com/linkedin/goavro",
 			"revision": "b9868e46e3fbcc794f40e396bc8ba7d1d97b8095",
 			"revisionTime": "2016-04-14T09:54:25Z"
-		},
-		{
-			"checksumSHA1": "KwrLGj5+XEMFtRTPSBuOQG4g+Ec=",
-			"path": "github.com/dcos/dcos-metrics/collector/metrics_schema",
-			"revision": "411cc900f0006573382fd7968b7390d72b63f5cc",
-			"revisionTime": "2016-09-20T21:17:45Z"
 		},
 		{
 			"checksumSHA1": "6AYg4fjEvFuAVN3wHakGApjhZAM=",

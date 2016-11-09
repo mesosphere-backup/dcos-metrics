@@ -1,0 +1,24 @@
+##############################################
+# Example configuration file for dcos-metrics.
+##############################################
+
+# Collector configuration
+collector:
+  http_profiler: false
+  ip_command: 'cat /etc/mesos-slave/ip'
+  polling_period: 15
+
+  # DC/OS (Mesos) master configuration
+  master_config:
+    port: 5050
+
+  # DC/OS (Mesos) agent configuration
+  agent_config:
+    port: 5051
+
+
+# Producers configuration
+producers:
+  # HTTP producer
+  http:
+    port: 9000

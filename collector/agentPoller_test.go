@@ -17,69 +17,348 @@
 package collector
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strconv"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/dcos/dcos-metrics/producers"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
+var (
+	mockAgentMetrics = []byte(`
+		{
+			"system\/cpus_total": 2,
+			"system\/load_1min": 0.1,
+			"system\/load_5min": 0.11,
+			"system\/load_15min": 0.08,
+			"system\/mem_total_bytes": 4145348608,
+			"system\/mem_free_bytes": 3349942272
+		}`)
+
+	mockAgentState = []byte(`
+		{
+			"frameworks": [
+				{
+					"id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
+					"name": "marathon",
+					"role": "*",
+					"executors": [
+						{
+							"id": "foo.124b1048-a17a-11e6-9182-080027fb5b88",
+							"name": "Command Executor (Task: foo.124b1048-a17a-11e6-9182-080027fb5b88) (Command: sh -c 'sleep 900')",
+							"container": "e4c2f9f6-47aa-481d-a183-a21e8435bc06",
+							"labels": [
+								{
+									"key": "somekey",
+									"value": "someval"
+								}
+							],
+							"tasks": [
+								{
+									"id": "foo.124b1048-a17a-11e6-9182-080027fb5b88",
+									"name": "foo",
+									"framework_id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
+									"executor_id": "",
+									"slave_id": "34b46033-69c0-4663-887c-f64b526e47a6-S0",
+									"labels": [
+										{
+											"key": "somekey",
+											"value": "someval"
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		}`)
+
+	mockContainerMetrics = []byte(`
+		[
+			{
+				"container_id": "e4faacb2-f69f-4ea1-9d96-eb06fea75eef",
+				"executor_id": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
+				"executor_name": "Command Executor (Task: foo.adf2b6f4-a171-11e6-9182-080027fb5b88) (Command: sh -c 'sleep 900')",
+				"framework_id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
+				"source": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
+				"statistics": {
+					"cpus_limit": 1.1,
+					"cpus_system_time_secs": 0.31,
+					"cpus_user_time_secs": 0.22,
+					"mem_limit_bytes": 167772160,
+					"mem_total_bytes": 4476928
+				}
+			}
+		]`)
+)
+
+func TestBuildDatapoints(t *testing.T) {
+	// The mocks at the top of this test file are bytearrays so that they can be
+	// used by the HTTP test server(s). So we need to unmarshal them here before
+	// they can be used.
+	var thisAgentMetrics agentMetricsSnapshot
+	if err := json.Unmarshal(mockAgentMetrics, &thisAgentMetrics); err != nil {
+		panic(err)
+	}
+	testTime, err := time.Parse(time.RFC3339Nano, "2009-11-10T23:00:00Z")
+	if err != nil {
+		panic(err)
+	}
+
+	Convey("When building a slice of producers.Datapoint for a MetricsMessage", t, func() {
+		Convey("Should return the datapoints containing valid tags and values", func() {
+			result := buildDatapoints(thisAgentMetrics, "somebasename", testTime)
+			So(len(result), ShouldEqual, 6)
+			So(result[0].Name, ShouldContainSubstring, "somebasename.system")
+			So(result[0].Unit, ShouldEqual, "")   // TODO(roger): no easy way to get units
+			So(result[0].Value, ShouldNotBeBlank) // TODO(roger): everything is a string for MVP
+			So(result[0].Timestamp, ShouldEqual, "2009-11-10T23:00:00Z")
+		})
+	})
+}
+
 func TestNewAgent(t *testing.T) {
 	Convey("When establishing a new agentPoller", t, func() {
-		Convey("When given an improper IP address", func() {
-			_, err := NewAgent("", 10000, 60, "some-metrics")
-
-			Convey("Should return an error", func() {
-				So(err, ShouldNotBeNil)
-			})
+		Convey("Should return an error when given an improper IP address", func() {
+			_, err := NewAgent("", 10000, 60, make(chan<- producers.MetricsMessage))
+			So(err, ShouldNotBeNil)
 		})
 
-		Convey("When given an improper port", func() {
-			_, err := NewAgent("1.2.3.4", 1023, 60, "some-metrics")
-
-			Convey("Should return an error", func() {
-				So(err, ShouldNotBeNil)
-			})
+		Convey("Should return an error when given an improper port", func() {
+			_, err := NewAgent("1.2.3.4", 1023, 60, make(chan<- producers.MetricsMessage))
+			So(err, ShouldNotBeNil)
 		})
 
-		Convey("When given an improper pollPeriod", func() {
-			_, err := NewAgent("1.2.3.4", 1024, 0, "some-metrics")
-
-			Convey("Should return an error", func() {
-				So(err, ShouldNotBeNil)
-			})
+		Convey("Should return an error when given an improper pollPeriod", func() {
+			_, err := NewAgent("1.2.3.4", 1024, 0, make(chan<- producers.MetricsMessage))
+			So(err, ShouldNotBeNil)
 		})
 
-		Convey("When given an improper topic", func() {
-			_, err := NewAgent("1.2.3.4", 1024, 60, "")
-
-			Convey("Should return an error", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
-
-		Convey("When given proper inputs, should return an agent", func() {
-			a, err := NewAgent("1.2.3.4", 10000, 60, "some-metrics")
+		Convey("Should return an Agent when given proper inputs", func() {
+			a, err := NewAgent("/bin/echo -n 1.2.3.4", 10000, 60, make(chan<- producers.MetricsMessage))
 			So(a, ShouldHaveSameTypeAs, Agent{})
 			So(err, ShouldBeNil)
 		})
 	})
 }
 
-func TestGetIP(t *testing.T) {
-
-}
-
 func TestGetContainerMetrics(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		w.Write(mockContainerMetrics)
+	}))
+	defer ts.Close()
 
+	Convey("When fetching container metrics", t, func() {
+		port, err := extractPortFromURL(ts.URL)
+		if err != nil {
+			panic(err)
+		}
+
+		a, _ := NewAgent("/bin/echo -n 127.0.0.1", port, 60, make(chan<- producers.MetricsMessage))
+		result, err := a.getContainerMetrics()
+
+		Convey("Should return an array of 'agentContainer' without error", func() {
+			// Ensure that we're
+			//   a) unmarshaling the data correctly, and
+			//   b) that we're getting valid types for the data (string, float, int)
+			So(result[0].ContainerID, ShouldEqual, "e4faacb2-f69f-4ea1-9d96-eb06fea75eef")
+			So(result[0].Statistics.CpusLimit, ShouldEqual, 1.1)
+			So(result[0].Statistics.MemTotalBytes, ShouldEqual, 4476928)
+			So(err, ShouldBeNil)
+		})
+	})
 }
 
-func TestGetSystemMetrics(t *testing.T) {
+func TestGetAgentMetrics(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		w.Write(mockAgentMetrics)
+	}))
+	defer ts.Close()
 
+	Convey("When fetching agent metrics", t, func() {
+		port, err := extractPortFromURL(ts.URL)
+		if err != nil {
+			panic(err)
+		}
+
+		Convey("Should return an 'agentMetricsSnapshot' without error", func() {
+			a, _ := NewAgent("/bin/echo -n 127.0.0.1", port, 60, make(chan<- producers.MetricsMessage))
+			result, err := a.getAgentMetrics()
+
+			So(result.CPUsTotal, ShouldEqual, 2)
+			So(result.SystemLoad5Min, ShouldEqual, 0.11)
+			So(result.MemFreeBytes, ShouldEqual, 3349942272)
+			So(err, ShouldBeNil)
+		})
+	})
 }
 
 func TestGetAgentState(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		w.Write(mockAgentState)
+	}))
+	defer ts.Close()
 
+	Convey("When fetching the agent state", t, func() {
+		port, err := extractPortFromURL(ts.URL)
+		if err != nil {
+			panic(err)
+		}
+
+		Convey("Should return an 'agentState' without error", func() {
+			a, _ := NewAgent("/bin/echo -n 127.0.0.1", port, 60, make(chan<- producers.MetricsMessage))
+			result, err := a.getAgentState()
+
+			// getAgentState() returns a lot of metadata required for dcos-metrics
+			// to be useful to operators. Let's ensure that we're unmarshaling
+			// and able to return *everything* we care about.
+			So(len(result.Frameworks), ShouldEqual, 1)
+			So(len(result.Frameworks[0].Executors), ShouldEqual, 1)
+			So(result.Frameworks[0].ID, ShouldEqual, "5349f49b-68b3-4638-aab2-fc4ec845f993-0000")
+			So(result.Frameworks[0].Name, ShouldEqual, "marathon")
+			So(result.Frameworks[0].Role, ShouldEqual, "*")
+			So(result.Frameworks[0].Executors[0].ID, ShouldEqual, "foo.124b1048-a17a-11e6-9182-080027fb5b88")
+			So(result.Frameworks[0].Executors[0].Name, ShouldEqual, "Command Executor (Task: foo.124b1048-a17a-11e6-9182-080027fb5b88) (Command: sh -c 'sleep 900')")
+			So(result.Frameworks[0].Executors[0].Container, ShouldEqual, "e4c2f9f6-47aa-481d-a183-a21e8435bc06")
+			So(result.Frameworks[0].Executors[0].Labels[0].Key, ShouldEqual, "somekey")
+			So(result.Frameworks[0].Executors[0].Labels[0].Value, ShouldEqual, "someval")
+			So(err, ShouldBeNil)
+		})
+	})
 }
 
-func TestGetJSONFromAgent(t *testing.T) {
+func TestGetIP(t *testing.T) {
+	Convey("When getting the agent IP address using the ip_detect script", t, func() {
+		Convey("Should return the IP address without error", nil)
+	})
+}
 
+func TestTransform(t *testing.T) {
+	Convey("When transforming agent metrics to fit producers.MetricsMessage", t, func() {
+		// bogus port and IP address here; no HTTP client in a.transform()
+		a, _ := NewAgent("/bin/echo -n 127.0.0.1", 9000, 60, make(chan<- producers.MetricsMessage))
+
+		// The mocks in this test file are bytearrays so that they can be used
+		// by the HTTP test server(s). So we need to unmarshal them here before
+		// they can be used by a.transform().
+		var thisAgentMetrics agentMetricsSnapshot
+		var thisAgentState agentState
+		var thisContainerMetrics []agentContainer
+		if err := json.Unmarshal(mockAgentMetrics, &thisAgentMetrics); err != nil {
+			panic(err)
+		}
+		if err := json.Unmarshal(mockAgentState, &thisAgentState); err != nil {
+			panic(err)
+		}
+		if err := json.Unmarshal(mockContainerMetrics, &thisContainerMetrics); err != nil {
+			panic(err)
+		}
+
+		testTime, err := time.Parse(time.RFC3339Nano, "2009-11-10T23:00:00Z")
+		if err != nil {
+			panic(err)
+		}
+		testData := metricsMeta{
+			agentMetricsSnapshot: thisAgentMetrics,
+			agentState:           thisAgentState,
+			containerMetrics:     thisContainerMetrics,
+			timestamp:            testTime.UTC().Unix(),
+		}
+
+		Convey("Should return a []producers.MetricsMessage without errors", func() {
+			result := a.transform(testData)
+			So(len(result), ShouldEqual, 2) // one agent message, one container message
+
+			// From the implementation of a.transform() and the mocks in this test file,
+			// result[0] will be agent metrics, and result[1] will be container metrics.
+			So(result[0].Datapoints[0].Timestamp, ShouldEqual, "2009-11-10T23:00:00Z")
+			So(result[1].Datapoints[0].Timestamp, ShouldEqual, "2009-11-10T23:00:00Z")
+			So(result[1].Dimensions.FrameworkName, ShouldEqual, "marathon")
+		})
+	})
+}
+
+func TestGetFrameworkInfoByFrameworkID(t *testing.T) {
+	Convey("When getting a framework's info, given its ID", t, func() {
+		fi := []frameworkInfo{
+			frameworkInfo{
+				Name:      "fooframework",
+				ID:        "7",
+				Role:      "foorole",
+				Principal: "fooprincipal",
+			},
+		}
+
+		Convey("Should return the framework name without errors", func() {
+			result, ok := getFrameworkInfoByFrameworkID("7", fi)
+			So(ok, ShouldBeTrue)
+			So(result.Name, ShouldEqual, "fooframework")
+			So(result.ID, ShouldEqual, "7")
+			So(result.Role, ShouldEqual, "foorole")
+			So(result.Principal, ShouldEqual, "fooprincipal")
+		})
+
+		Convey("Should return an empty frameworkInfo if no match was found", func() {
+			result, ok := getFrameworkInfoByFrameworkID("42", fi)
+			So(result, ShouldResemble, frameworkInfo{})
+			So(ok, ShouldBeFalse)
+		})
+	})
+}
+
+func TestGetLabelsByContainerID(t *testing.T) {
+	Convey("When getting the labels for a container, given its ID", t, func() {
+		fi := []frameworkInfo{
+			frameworkInfo{
+				Name: "fooframework",
+				ID:   "7",
+				Executors: []executorInfo{
+					executorInfo{
+						Container: "someContainerID",
+						Labels: []executorLabels{
+							executorLabels{
+								Key:   "somekey",
+								Value: "someval",
+							},
+						},
+					},
+				},
+			},
+		}
+
+		Convey("Should return a map of key/value pairs", func() {
+			result := getLabelsByContainerID("someContainerID", fi)
+			So(result, ShouldResemble, map[string]string{"somekey": "someval"})
+		})
+
+		Convey("Should return an empty map if no labels were present", func() {
+			result := getLabelsByContainerID("someOtherContainerID", fi)
+			So(result, ShouldResemble, map[string]string{})
+		})
+	})
+}
+
+func extractPortFromURL(u string) (int, error) {
+	parsed, err := url.Parse(u)
+	if err != nil {
+		return 0, err
+	}
+	port, err := strconv.Atoi(strings.Split(parsed.Host, ":")[1])
+	if err != nil {
+		return 0, err
+	}
+	return port, nil
 }

@@ -12,25 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package http
 
 import (
-	"net"
 	"net/http"
-	_ "net/http/pprof" // register all pprof HTTP handlers
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/gorilla/mux"
 )
 
-// RunHTTPProfAccess runs an HTTP listener on a random ephemeral port which allows pprof access.
-// This function should be run as a gofunc.
-func RunHTTPProfAccess() {
-	// listen on an ephemeral port, then print the port
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		log.Printf("Unable to open profile access listener: %s\n", err)
-	} else {
-		log.Printf("Enabling profile access at http://%s/debug/pprof\n", listener.Addr())
-		log.Println(http.Serve(listener, nil)) // blocks
+// NewRouter iterates over a slice of Route types and creates them
+// in gorilla/mux.
+func newRouter(p *producerImpl) *mux.Router {
+
+	router := mux.NewRouter().StrictSlash(true)
+	// Various HTTP routes defined in routes.go
+	for _, route := range routes {
+		log.Debugf("http producer: establishing endpoint %s at %s", route.Name, route.Path)
+		var handler http.Handler
+
+		handler = route.HandlerFunc(p)
+		handler = logger(handler, route.Name)
+
+		router.NewRoute().
+			Methods(route.Method).
+			Path(route.Path).
+			Name(route.Name).
+			Handler(handler)
 	}
+
+	return router
 }
