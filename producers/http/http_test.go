@@ -65,6 +65,7 @@ func TestHTTPProducer_Agent(t *testing.T) {
 		Convey("Should return metrics in the expected structure", func() {
 			pi, pc := New(Config{IP: "127.0.0.1", Port: port, CacheExpiry: time.Duration(5) * time.Second})
 			go pi.Run()
+			time.Sleep(1 * time.Second) // give the http server a chance to start before querying it
 
 			for _, td := range testData {
 				pc <- td
