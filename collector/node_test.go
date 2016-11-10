@@ -15,3 +15,83 @@
 // limitations under the License.
 
 package collector
+
+import (
+	"reflect"
+	"testing"
+
+	"github.com/shirou/gopsutil/cpu"
+	. "github.com/smartystreets/goconvey/convey"
+)
+
+func TestCalculatePcts(t *testing.T) {
+	lastTimes := cpu.TimesStat{
+		CPU:       "cpu-total",
+		User:      20564.8,
+		System:    5355.2,
+		Idle:      3866.2,
+		Nice:      1141.0,
+		Iowait:    161.4,
+		Irq:       0.0,
+		Softirq:   138.8,
+		Steal:     0.0,
+		Guest:     0.0,
+		GuestNice: 0.0,
+		Stolen:    0.0,
+	}
+	currentTimes := cpu.TimesStat{
+		CPU:       "cpu-total",
+		User:      20675.6,
+		System:    5388.1,
+		Idle:      39568.8,
+		Nice:      1141.0,
+		Iowait:    164.5,
+		Irq:       0.0,
+		Softirq:   139.2,
+		Steal:     0.0,
+		Guest:     0.0,
+		GuestNice: 0.0,
+		Stolen:    0.0,
+	}
+
+	Convey("When calculating CPU state percentages", t, func() {
+		pcts := calculatePcts(lastTimes, currentTimes)
+		Convey("Percentages should be calculated to two decimal places", func() {
+			So(pcts.User, ShouldEqual, 0.31)
+			So(pcts.System, ShouldEqual, 0.09)
+			So(pcts.Idle, ShouldEqual, 99.59)
+			So(pcts.Iowait, ShouldEqual, 0.01)
+		})
+		Convey("No percentages should be negative", func() {
+			v := reflect.ValueOf(pcts)
+			for i := 0; i < v.NumField(); i++ {
+				if v.Field(i).Kind() == reflect.String {
+					continue
+				}
+				So(v.Field(i).Interface(), ShouldBeGreaterThanOrEqualTo, 0)
+			}
+		})
+	})
+}
+
+func TestRound(t *testing.T) {
+	Convey("When rounding float64 values to two decimal places", t, func() {
+		Convey("Should work on all numbers", func() {
+			testCases := []struct {
+				input    float64
+				expected float64
+			}{
+				{-123.456, -123.46},
+				{123.456, 123.46},
+				{0, 0.00},
+				{-1, -1.00},
+				{100.00000, 100.00},
+				{100, 100.00},
+			}
+
+			for _, tc := range testCases {
+				So(round(tc.input), ShouldEqual, tc.expected)
+			}
+		})
+	})
+}
