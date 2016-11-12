@@ -83,6 +83,18 @@ func TestHTTPProducer_Agent(t *testing.T) {
 	})
 }
 
+func TestHTTPProducer_Containers(t *testing.T) {
+	Convey("When querying the /system/metrics/api/v0/containers endpoint", t, func() {
+		Convey("Should return container IDs in the expected structure", nil)
+	})
+}
+
+func TestHTTPProducer_Container(t *testing.T) {
+	Convey("When querying the /system/metrics/api/v0/containers/{id} endpoint", t, func() {
+		Convey("Should return container metrics in the expected structure", nil)
+	})
+}
+
 // getEphemeralPort returns an available ephemeral port on the system.
 func getEphemeralPort() (int, error) {
 	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
