@@ -43,10 +43,10 @@ type MetricsProducer interface {
 // producers. For every message sent from the collector to a producer, the
 // following fields must be present.
 type MetricsMessage struct {
-	Name       string      `json:"name"`
+	Name       string      `json:"-"`
 	Datapoints []Datapoint `json:"datapoints"`
 	Dimensions Dimensions  `json:"dimensions,omitempty"`
-	Timestamp  int64       `json:"_timestamp"`
+	Timestamp  int64       `json:"-"`
 }
 
 // Datapoint represents a single metric's timestamp, value, and unit in a response.
