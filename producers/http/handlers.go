@@ -67,12 +67,12 @@ func agentSingleMetricHandler(p *producerImpl) http.HandlerFunc {
 // /api/v0/containers
 func containersHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var cm []producers.MetricsMessage
+		cm := []string{}
 		containerMetrics, err := p.store.GetByRegex(producers.ContainerMetricPrefix + ".*")
 		handleErr(err, w)
 
 		for _, c := range containerMetrics {
-			cm = append(cm, c.(producers.MetricsMessage))
+			cm = append(cm, c.(producers.MetricsMessage).Dimensions.ContainerID)
 		}
 		encode(cm, w)
 	}
