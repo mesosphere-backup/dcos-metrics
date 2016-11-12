@@ -35,14 +35,10 @@ func TestHTTPProducer_Agent(t *testing.T) {
 	testTime := time.Now()
 
 	testData := producers.MetricsMessage{
-		Name: strings.Join([]string{producers.AgentMetricPrefix, "foo"}, producers.MetricNamespaceSep),
+		Name: producers.AgentMetricPrefix,
 		Datapoints: []producers.Datapoint{
 			producers.Datapoint{
-				Name: strings.Join([]string{
-					producers.AgentMetricPrefix,
-					"foo",
-					"some-metric",
-				}, producers.MetricNamespaceSep),
+				Name:      "some-metric",
 				Unit:      "",
 				Value:     "1234",
 				Timestamp: testTime.Format(time.RFC3339Nano),
