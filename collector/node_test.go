@@ -24,6 +24,67 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
+var (
+	mockNodeMetrics = nodeMetrics{
+		Uptime:          uint64(7865),
+		ProcessCount:    3,
+		NumCores:        4,
+		Load1Min:        float64(0.42),
+		Load5Min:        float64(0.58),
+		Load15Min:       float64(0.57),
+		CPUTotalPct:     float64(12.50),
+		CPUUserPct:      float64(9.60),
+		CPUSystemPct:    float64(2.90),
+		CPUIdlePct:      float64(87.40),
+		CPUWaitPct:      float64(0.10),
+		MemTotalBytes:   uint64(16310888 * 1024),
+		MemFreeBytes:    uint64(9121592 * 1024),
+		MemBuffersBytes: uint64(101784 * 1024),
+		MemCachedBytes:  uint64(2909412 * 1024),
+		SwapTotalBytes:  uint64(16658428 * 1024),
+		SwapFreeBytes:   uint64(16658421 * 1024),
+		SwapUsedBytes:   uint64(1 * 1024),
+		Filesystems: []nodeFilesystem{
+			nodeFilesystem{
+				Name:               "/",
+				CapacityTotalBytes: uint64(449660412 * 1024),
+				CapacityUsedBytes:  uint64(25819220 * 1024),
+				CapacityFreeBytes:  uint64(423841192 * 1024),
+			},
+			nodeFilesystem{
+				Name:               "/boot",
+				CapacityTotalBytes: uint64(458961 * 1024),
+				CapacityUsedBytes:  uint64(191925 * 1024),
+				CapacityFreeBytes:  uint64(267036 * 1024),
+			},
+		},
+		NetworkInterfaces: []nodeNetworkInterface{
+			nodeNetworkInterface{
+				Name:      "eth0",
+				RxBytes:   uint64(260522667),
+				TxBytes:   uint64(10451619),
+				RxPackets: uint64(1058595),
+				TxPackets: uint64(62547),
+				RxDropped: uint64(99),
+				TxDropped: uint64(99),
+				RxErrors:  uint64(99),
+				TxErrors:  uint64(99),
+			},
+			nodeNetworkInterface{
+				Name:      "lo",
+				RxBytes:   uint64(7939933),
+				TxBytes:   uint64(8139647),
+				RxPackets: uint64(133276),
+				TxPackets: uint64(133002),
+				RxDropped: uint64(88),
+				TxDropped: uint64(88),
+				RxErrors:  uint64(88),
+				TxErrors:  uint64(88),
+			},
+		},
+	}
+)
+
 func TestCalculatePcts(t *testing.T) {
 	lastTimes := cpu.TimesStat{
 		CPU:       "cpu-total",

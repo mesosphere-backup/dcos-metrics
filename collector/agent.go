@@ -15,10 +15,12 @@
 package collector
 
 import (
+	"bytes"
 	"fmt"
 	"os/exec"
 	"reflect"
 	"strings"
+	"text/template"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -41,10 +43,10 @@ type Agent struct {
 // metrics from the structs in this file to the MetricsMessage struct expected
 // by the producer(s).
 type metricsMeta struct {
-	agentState           agentState
-	agentMetricsSnapshot agentMetricsSnapshot
-	containerMetrics     []agentContainer
-	timestamp            int64
+	agentState       agentState
+	nodeMetrics      nodeMetrics
+	containerMetrics []agentContainer
+	timestamp        int64
 }
 
 // NewAgent returns a new instance of a DC/OS agent poller based on the provided
@@ -130,10 +132,10 @@ func (a *Agent) pollAgent() metricsMeta {
 		return metrics
 	}
 
-	log.Debugf("Fetching agent metrics from agent %s:%d", a.AgentIP, a.Port)
-	agentMetrics, err := a.getAgentMetrics()
+	log.Debugf("Fetching node-level metrics from agent %s:%d", a.AgentIP, a.Port)
+	nm, err := a.getNodeMetrics()
 	if err != nil {
-		log.Errorf("Failed to get agent metrics from %s:%d. Error: %s", a.AgentIP, a.Port, err)
+		log.Errorf("Failed to get node-level metrics from %s:%d. Error: %s", a.AgentIP, a.Port, err)
 		return metrics
 	}
 
@@ -147,7 +149,7 @@ func (a *Agent) pollAgent() metricsMeta {
 	log.Infof("Finished polling agent %s:%d, took %f seconds.", a.AgentIP, a.Port, time.Since(now).Seconds())
 
 	metrics.agentState = agentState
-	metrics.agentMetricsSnapshot = agentMetrics
+	metrics.nodeMetrics = nm
 	metrics.containerMetrics = containerMetrics
 	metrics.timestamp = now.Unix()
 
@@ -161,13 +163,10 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 	var msg producers.MetricsMessage
 	t := time.Unix(in.timestamp, 0)
 
-	// Produce agent metrics
+	// Produce node metrics
 	msg = producers.MetricsMessage{
-		Name: strings.Join([]string{
-			producers.AgentMetricPrefix,
-			in.agentState.ID,
-		}, producers.MetricNamespaceSep),
-		Datapoints: buildDatapoints(in.agentMetricsSnapshot, msg.Name, t),
+		Name:       producers.AgentMetricPrefix,
+		Datapoints: buildDatapoints(in.nodeMetrics, t),
 		Dimensions: producers.Dimensions{
 			AgentID:   in.agentState.ID,
 			ClusterID: "", // TODO(roger) need to get this from the master
@@ -180,11 +179,8 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 	// Produce container metrics
 	for _, c := range in.containerMetrics {
 		msg = producers.MetricsMessage{
-			Name: strings.Join([]string{
-				producers.ContainerMetricPrefix,
-				c.ContainerID,
-			}, producers.MetricNamespaceSep),
-			Datapoints: buildDatapoints(c.Statistics, msg.Name, t),
+			Name:       producers.ContainerMetricPrefix,
+			Datapoints: buildDatapoints(c, t),
 			Timestamp:  t.UTC().Unix(),
 		}
 
@@ -214,20 +210,63 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 // buildDatapoints takes an incoming structure and builds Datapoints
 // for a MetricsMessage. It uses a normalized version of the JSON tag
 // as the datapoint name.
-func buildDatapoints(in interface{}, basename string, t time.Time) []producers.Datapoint {
+func buildDatapoints(in interface{}, t time.Time) []producers.Datapoint {
 	pts := []producers.Datapoint{}
 	v := reflect.Indirect(reflect.ValueOf(in))
 
-	for i := 0; i < v.NumField(); i++ {
-		n := strings.Join([]string{
-			basename,
-			strings.Split(v.Type().Field(i).Tag.Get("json"), ",")[0],
-		}, producers.MetricNamespaceSep)
+	for i := 0; i < v.NumField(); i++ { // Iterate over fields in the struct
+		f := v.Field(i)
+		typ := v.Type().Field(i)
+
+		switch f.Kind() { // Handle nested data
+		case reflect.Ptr:
+			pts = append(pts, buildDatapoints(f.Elem().Interface(), t)...)
+			continue
+		case reflect.Map:
+			// Ignore maps when building datapoints
+			continue
+		case reflect.Slice:
+			for j := 0; j < f.Len(); j++ {
+				for _, ndp := range buildDatapoints(f.Index(j).Interface(), t) {
+					pts = append(pts, ndp)
+				}
+			}
+			continue
+		case reflect.Struct:
+			pts = append(pts, buildDatapoints(f.Interface(), t)...)
+			continue
+		}
+
+		// Get the underlying value; see https://golang.org/pkg/reflect/#Kind
+		var uv interface{}
+		switch f.Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			uv = f.Int()
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			uv = f.Uint()
+		case reflect.Float32, reflect.Float64:
+			uv = f.Float()
+		case reflect.String:
+			continue // strings aren't valid values for our metrics
+		}
+
+		// Parse JSON name (with or without templating)
+		var parsed bytes.Buffer
+		jsonName := strings.Join([]string{strings.Split(typ.Tag.Get("json"), ",")[0]}, producers.MetricNamespaceSep)
+		tmpl, err := template.New("_nodeMetricName").Parse(jsonName)
+		if err != nil {
+			log.Warn("Unable to build datapoint for metric with name %s, skipping", jsonName)
+			continue
+		}
+		if err := tmpl.Execute(&parsed, v.Interface()); err != nil {
+			log.Warn("Unable to build datapoint for metric with name %s, skipping", jsonName)
+			continue
+		}
 
 		pts = append(pts, producers.Datapoint{
-			Name:      strings.Replace(n, "/", producers.MetricNamespaceSep, -1),
-			Unit:      "",                                        // TODO(roger): not currently an easy way to get units
-			Value:     fmt.Sprintf("%v", v.Field(i).Interface()), // TODO(roger): everything is a string for MVP
+			Name:      parsed.String(),
+			Unit:      "", // TODO(roger): not currently an easy way to get units
+			Value:     uv,
 			Timestamp: t.UTC().Format(time.RFC3339Nano),
 		})
 	}

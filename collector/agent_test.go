@@ -18,6 +18,7 @@ package collector
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -29,44 +30,56 @@ import (
 )
 
 func TestBuildDatapoints(t *testing.T) {
-	// The mocks at the top of this test file are bytearrays so that they can be
-	// used by the HTTP test server(s). So we need to unmarshal them here before
-	// they can be used.
-	var thisAgentMetrics agentMetricsSnapshot
-	if err := json.Unmarshal(mockAgentMetrics, &thisAgentMetrics); err != nil {
-		panic(err)
-	}
 	testTime, err := time.Parse(time.RFC3339Nano, "2009-11-10T23:00:00Z")
 	if err != nil {
 		panic(err)
 	}
 
 	Convey("When building a slice of producers.Datapoint for a MetricsMessage", t, func() {
-		Convey("Should return the datapoints containing valid tags and values", func() {
-			result := buildDatapoints(thisAgentMetrics, "somebasename", testTime)
-			So(len(result), ShouldEqual, 6)
-			So(result[0].Name, ShouldContainSubstring, "somebasename.system")
-			So(result[0].Unit, ShouldEqual, "")   // TODO(roger): no easy way to get units
-			So(result[0].Value, ShouldNotBeBlank) // TODO(roger): everything is a string for MVP
+		Convey("Should return the node's datapoints with valid tags and values", func() {
+			result := buildDatapoints(mockNodeMetrics, testTime)
+			So(len(result), ShouldEqual, 46)
+			So(result[0].Name, ShouldEqual, "uptime")
+			So(result[0].Unit, ShouldEqual, "")            // TODO(roger): no easy way to get units
+			So(result[0].Value, ShouldEqual, uint64(7865)) // TODO(roger): everything is a string for MVP
 			So(result[0].Timestamp, ShouldEqual, "2009-11-10T23:00:00Z")
 		})
+
+		Convey("Should return a container's datapoints with valid tags and values", func() {
+			var thisContainerMetrics []agentContainer
+			if err := json.Unmarshal(mockContainerMetrics, &thisContainerMetrics); err != nil {
+				panic(err)
+			}
+
+			result := []producers.Datapoint{}
+			for _, c := range thisContainerMetrics {
+				pts := buildDatapoints(c, testTime)
+				result = append(result, pts...)
+			}
+			for _, r := range result {
+				fmt.Println(r.Name)
+			}
+			So(len(result), ShouldEqual, 16)
+			So(result[0].Timestamp, ShouldEqual, "2009-11-10T23:00:00Z")
+		})
+
 	})
 }
 
 func TestNewAgent(t *testing.T) {
 	Convey("When establishing a new agentPoller", t, func() {
-		Convey("Should return an error when given an improper IP address", func() {
+		Convey("Should return an error when given an improper ip-detect command", func() {
 			_, err := NewAgent("", 10000, 60, make(chan<- producers.MetricsMessage))
 			So(err, ShouldNotBeNil)
 		})
 
 		Convey("Should return an error when given an improper port", func() {
-			_, err := NewAgent("1.2.3.4", 1023, 60, make(chan<- producers.MetricsMessage))
+			_, err := NewAgent("/bin/echo -n 1.2.3.4", 1023, 60, make(chan<- producers.MetricsMessage))
 			So(err, ShouldNotBeNil)
 		})
 
 		Convey("Should return an error when given an improper pollPeriod", func() {
-			_, err := NewAgent("1.2.3.4", 1024, 0, make(chan<- producers.MetricsMessage))
+			_, err := NewAgent("/bin/echo -n 1.2.3.4", 1024, 0, make(chan<- producers.MetricsMessage))
 			So(err, ShouldNotBeNil)
 		})
 
@@ -80,7 +93,12 @@ func TestNewAgent(t *testing.T) {
 
 func TestGetIP(t *testing.T) {
 	Convey("When getting the agent IP address using the ip_detect script", t, func() {
-		Convey("Should return the IP address without error", nil)
+		Convey("Should return the IP address without error", func() {
+			a := Agent{IPCommand: "/bin/echo -n 172.16.10.88"}
+			i, err := a.getIP()
+			So(i, ShouldEqual, "172.16.10.88")
+			So(err, ShouldBeNil)
+		})
 	})
 }
 
@@ -92,12 +110,8 @@ func TestTransform(t *testing.T) {
 		// The mocks in this test file are bytearrays so that they can be used
 		// by the HTTP test server(s). So we need to unmarshal them here before
 		// they can be used by a.transform().
-		var thisAgentMetrics agentMetricsSnapshot
 		var thisAgentState agentState
 		var thisContainerMetrics []agentContainer
-		if err := json.Unmarshal(mockAgentMetrics, &thisAgentMetrics); err != nil {
-			panic(err)
-		}
 		if err := json.Unmarshal(mockAgentState, &thisAgentState); err != nil {
 			panic(err)
 		}
@@ -110,10 +124,10 @@ func TestTransform(t *testing.T) {
 			panic(err)
 		}
 		testData := metricsMeta{
-			agentMetricsSnapshot: thisAgentMetrics,
-			agentState:           thisAgentState,
-			containerMetrics:     thisContainerMetrics,
-			timestamp:            testTime.UTC().Unix(),
+			nodeMetrics:      mockNodeMetrics,
+			agentState:       thisAgentState,
+			containerMetrics: thisContainerMetrics,
+			timestamp:        testTime.UTC().Unix(),
 		}
 
 		Convey("Should return a []producers.MetricsMessage without errors", func() {

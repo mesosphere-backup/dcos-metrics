@@ -26,16 +26,6 @@ import (
 )
 
 var (
-	mockAgentMetrics = []byte(`
-		{
-			"system\/cpus_total": 2,
-			"system\/load_1min": 0.1,
-			"system\/load_5min": 0.11,
-			"system\/load_15min": 0.08,
-			"system\/mem_total_bytes": 4145348608,
-			"system\/mem_free_bytes": 3349942272
-		}`)
-
 	mockAgentState = []byte(`
 		{
 			"frameworks": [
@@ -118,32 +108,6 @@ func TestGetContainerMetrics(t *testing.T) {
 			So(result[0].ContainerID, ShouldEqual, "e4faacb2-f69f-4ea1-9d96-eb06fea75eef")
 			So(result[0].Statistics.CpusLimit, ShouldEqual, 1.1)
 			So(result[0].Statistics.MemTotalBytes, ShouldEqual, 4476928)
-			So(err, ShouldBeNil)
-		})
-	})
-}
-
-func TestGetAgentMetrics(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(200)
-		w.Write(mockAgentMetrics)
-	}))
-	defer ts.Close()
-
-	Convey("When fetching agent metrics", t, func() {
-		port, err := extractPortFromURL(ts.URL)
-		if err != nil {
-			panic(err)
-		}
-
-		Convey("Should return an 'agentMetricsSnapshot' without error", func() {
-			a, _ := NewAgent("/bin/echo -n 127.0.0.1", port, 60, make(chan<- producers.MetricsMessage))
-			result, err := a.getAgentMetrics()
-
-			So(result.CPUsTotal, ShouldEqual, 2)
-			So(result.SystemLoad5Min, ShouldEqual, 0.11)
-			So(result.MemFreeBytes, ShouldEqual, 3349942272)
 			So(err, ShouldBeNil)
 		})
 	})

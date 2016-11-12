@@ -73,28 +73,6 @@ type executorLabels struct {
 	Value string `json:"value"`
 }
 
-// agentMetricsSnapshot defines the structure of the response expected from Mesos
-// when referring to agent-level metrics.
-//
-// TODO(roger): the metrics available via the /metrics/snapshot endpoint DO NOT
-// satisfy the requirements set forth in the original dcos-metrics design doc.
-// I've included the base Mesos agent metrics here as a starting point ONLY.
-// In the future, this should be replaced by something like
-// github.com/shirou/gopsutil.
-type agentMetricsSnapshot struct {
-	// System info
-	SystemLoad1Min  float64 `json:"system/load_1min"`
-	SystemLoad5Min  float64 `json:"system/load_5min"`
-	SystemLoad15Min float64 `json:"system/load_15min"`
-
-	// CPU info
-	CPUsTotal float64 `json:"system/cpus_total"`
-
-	// Memory info
-	MemTotalBytes float64 `json:"system/mem_total_bytes"`
-	MemFreeBytes  float64 `json:"system/mem_free_bytes"`
-}
-
 // resourceStatistics defines the structure of the response expected from Mesos
 // when referring to container and/or executor metrics. In Mesos, the
 // ResourceStatistics message is very large; it defines many fields that are
@@ -147,29 +125,6 @@ func (a *Agent) getContainerMetrics() ([]agentContainer, error) {
 	}
 
 	return containers, nil
-}
-
-// getAgentMetrics queries an agent for system-level metrics, such as CPU,
-// memory, disk, and network.
-//
-// TODO(roger): the metrics available via the /metrics/snapshot endpoint DO NOT
-// satisfy the requirements set forth in the original dcos-metrics design doc.
-// I've included the base Mesos agent metrics here as a starting point ONLY.
-// In the future, this should be replaced by something like
-// github.com/shirou/gopsutil.
-func (a *Agent) getAgentMetrics() (agentMetricsSnapshot, error) {
-	metrics := agentMetricsSnapshot{}
-
-	// TODO(roger): 5sec timeout is a guess. Is there a better way to do this?
-	c := NewHTTPClient(
-		strings.Join([]string{a.AgentIP, strconv.Itoa(a.Port)}, ":"),
-		"/metrics/snapshot",
-		time.Duration(5*time.Second))
-	if err := c.Fetch(&metrics); err != nil {
-		return metrics, err
-	}
-
-	return metrics, nil
 }
 
 // getAgentState fetches the state JSON from the Mesos agent, which contains

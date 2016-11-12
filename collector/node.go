@@ -56,24 +56,24 @@ type nodeMetrics struct {
 
 type nodeFilesystem struct {
 	Name               string `json:"name"`
-	CapacityTotalBytes uint64 `json:"filesystem.capacity.total"`
-	CapacityUsedBytes  uint64 `json:"filesystem.capacity.used"`
-	CapacityFreeBytes  uint64 `json:"filesystem.capacity.free"`
-	InodesTotal        uint64 `json:"filesystem.inodes.total"`
-	InodesUsed         uint64 `json:"filesystem.inodes.used"`
-	InodesFree         uint64 `json:"filesystem.inodes.free"`
+	CapacityTotalBytes uint64 `json:"filesystem.{{.Name}}.capacity.total"`
+	CapacityUsedBytes  uint64 `json:"filesystem.{{.Name}}.capacity.used"`
+	CapacityFreeBytes  uint64 `json:"filesystem.{{.Name}}.capacity.free"`
+	InodesTotal        uint64 `json:"filesystem.{{.Name}}.inodes.total"`
+	InodesUsed         uint64 `json:"filesystem.{{.Name}}.inodes.used"`
+	InodesFree         uint64 `json:"filesystem.{{.Name}}.inodes.free"`
 }
 
 type nodeNetworkInterface struct {
-	Name             string `json:"name"`
-	RxBytes          uint64 `json:"network.in.bytes"`
-	TxBytes          uint64 `json:"network.out.bytes"`
-	RxPackets        uint64 `json:"network.in.packets"`
-	TxPackets        uint64 `json:"network.out.packets"`
-	RxDroppedPackets uint64 `json:"network.in.dropped"`
-	TxDroppedPackets uint64 `json:"network.out.dropped"`
-	RxErrors         uint64 `json:"network.in.errors"`
-	TxErrors         uint64 `json:"network.out.errors"`
+	Name      string `json:"name"`
+	RxBytes   uint64 `json:"network.{{.Name}}.in.bytes"`
+	TxBytes   uint64 `json:"network.{{.Name}}.out.bytes"`
+	RxPackets uint64 `json:"network.{{.Name}}.in.packets"`
+	TxPackets uint64 `json:"network.{{.Name}}.out.packets"`
+	RxDropped uint64 `json:"network.{{.Name}}.in.dropped"`
+	TxDropped uint64 `json:"network.{{.Name}}.out.dropped"`
+	RxErrors  uint64 `json:"network.{{.Name}}.in.errors"`
+	TxErrors  uint64 `json:"network.{{.Name}}.out.errors"`
 }
 
 func (a *Agent) getNodeMetrics() (nodeMetrics, error) {
@@ -197,15 +197,15 @@ func getNetworkInterfaces() []nodeNetworkInterface {
 	ioc, _ := net.IOCounters(true) // per nic
 	for _, nic := range ioc {
 		n = append(n, nodeNetworkInterface{
-			Name:             nic.Name,
-			RxBytes:          nic.BytesRecv,
-			TxBytes:          nic.BytesSent,
-			RxPackets:        nic.PacketsRecv,
-			TxPackets:        nic.PacketsSent,
-			RxDroppedPackets: nic.Dropin,
-			TxDroppedPackets: nic.Dropout,
-			RxErrors:         nic.Errin,
-			TxErrors:         nic.Errout,
+			Name:      nic.Name,
+			RxBytes:   nic.BytesRecv,
+			TxBytes:   nic.BytesSent,
+			RxPackets: nic.PacketsRecv,
+			TxPackets: nic.PacketsSent,
+			RxDropped: nic.Dropin,
+			TxDropped: nic.Dropout,
+			RxErrors:  nic.Errin,
+			TxErrors:  nic.Errout,
 		})
 	}
 	return n

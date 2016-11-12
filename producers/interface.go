@@ -52,10 +52,10 @@ type MetricsMessage struct {
 // Datapoint represents a single metric's timestamp, value, and unit in a response.
 // A single datapoint is typically contained in an array, such as []Datapoint{}.
 type Datapoint struct {
-	Name      string `json:"name"`
-	Value     string `json:"value"`
-	Unit      string `json:"unit"`
-	Timestamp string `json:"timestamp"` // time.RFC3339, e.g. "2016-01-01T01:01:01Z"
+	Name      string      `json:"name"`
+	Value     interface{} `json:"value"`
+	Unit      string      `json:"unit"`
+	Timestamp string      `json:"timestamp"` // time.RFC3339, e.g. "2016-01-01T01:01:01Z"
 }
 
 // Dimensions are metadata about the metrics contained in a given MetricsMessage.
