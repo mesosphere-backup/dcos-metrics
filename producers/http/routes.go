@@ -66,12 +66,6 @@ var routes = []Route{
 		Path:        strings.Join([]string{root, "agent"}, "/"),
 		HandlerFunc: agentHandler,
 	},
-	Route{
-		Name:        "agent_singlemetric",
-		Method:      "GET",
-		Path:        strings.Join([]string{root, "agent", "{metricFamily:(?:cpu|memory|disks|networks)}"}, "/"),
-		HandlerFunc: agentSingleMetricHandler,
-	},
 
 	// Containers and apps endpoints,e.g. /api/v0/containers...
 	Route{
@@ -85,17 +79,6 @@ var routes = []Route{
 		Method:      "GET",
 		Path:        strings.Join([]string{root, "containers", "{id}"}, "/"),
 		HandlerFunc: containerHandler,
-	},
-	Route{
-		Name:   "container_singlemetric",
-		Method: "GET",
-		Path: strings.Join([]string{
-			root,
-			"containers",
-			"{id}",
-			"{metricFamily:(?:cpu|memory|filesystems|network)}",
-		}, "/"),
-		HandlerFunc: containerSingleMetricHandler,
 	},
 	Route{
 		Name:        "containers_app",

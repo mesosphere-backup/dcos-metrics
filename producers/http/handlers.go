@@ -16,9 +16,7 @@ package http
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 
@@ -35,31 +33,6 @@ func agentHandler(p *producerImpl) http.HandlerFunc {
 		for _, v := range agentMetrics {
 			am = append(am, v)
 		}
-		encode(am[0], w)
-	}
-}
-
-// /api/v0/agent/{cpu, memory, ...}
-func agentSingleMetricHandler(p *producerImpl) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		metricFamily := vars["metricFamily"][0:3] // cpu, mem, dis, net
-		agentMetrics, err := p.store.GetByRegex(producers.AgentMetricPrefix + ".*")
-		handleErr(err, w)
-
-		var am []producers.MetricsMessage
-		for _, v := range agentMetrics {
-			am = append(am, v.(producers.MetricsMessage))
-		}
-
-		datapoints := []producers.Datapoint{}
-		for _, point := range am[0].Datapoints {
-			p := strings.Split(point.Name, producers.MetricNamespaceSep)[5]
-			if match, _ := regexp.MatchString(fmt.Sprintf("%s.*", metricFamily), p); match {
-				datapoints = append(datapoints, point)
-			}
-		}
-		am[0].Datapoints = datapoints
 		encode(am[0], w)
 	}
 }
@@ -87,29 +60,6 @@ func containerHandler(p *producerImpl) http.HandlerFunc {
 		}, producers.MetricNamespaceSep)
 		containerMetrics, _ := p.store.Get(key)
 		encode(containerMetrics, w)
-	}
-}
-
-// /api/v0/containers/{id}/{cpu, memory, ...}
-func containerSingleMetricHandler(p *producerImpl) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		metricFamily := vars["metricFamily"][0:3] // cpu, mem, dis, net
-		key := strings.Join([]string{
-			producers.ContainerMetricPrefix, vars["id"],
-		}, producers.MetricNamespaceSep)
-		containerMetrics, _ := p.store.Get(key)
-
-		cm := containerMetrics.(producers.MetricsMessage)
-		datapoints := []producers.Datapoint{}
-		for _, point := range cm.Datapoints {
-			p := strings.Split(point.Name, producers.MetricNamespaceSep)[4]
-			if match, _ := regexp.MatchString(fmt.Sprintf("%s.*", metricFamily), p); match {
-				datapoints = append(datapoints, point)
-			}
-		}
-		cm.Datapoints = datapoints
-		encode(cm, w)
 	}
 }
 
