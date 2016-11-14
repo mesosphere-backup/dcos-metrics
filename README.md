@@ -1,5 +1,6 @@
 # dcos-metrics
 [![Build Status](https://jenkins.mesosphere.com/service/jenkins/buildStatus/icon?job=public-dcos-metrics/public-dcos-metrics-master)](https://jenkins.mesosphere.com/service/jenkins/job/public-dcos-metrics/job/public-dcos-metrics-master/)
+[![Go Report Card](https://goreportcard.com/badge/github.com/dcos/dcos-metrics)](https://goreportcard.com/report/github.com/dcos/dcos-metrics)
 
 _*Note:* This project is a work-in-progress. We're currently aiming to ship a completed service,
 with integration hooks, as part of DC/OS 1.10. Community help is welcome and appreciated!_
