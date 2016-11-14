@@ -17,6 +17,7 @@ package http
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -57,14 +58,28 @@ func (p *producerImpl) Run() error {
 	go func() {
 		log.Debug("HTTP producer listening for incoming messages on metricsChan")
 		for {
-			message := <-p.metricsChan // read messages off the channel
+			// read messages off the channel,
+			// and give them a unique name in the store
+			message := <-p.metricsChan
 			log.Debugf("Received message '%s' with timestamp %s",
-				message.Name,
-				time.Unix(message.Timestamp, 0).Format(time.RFC3339))
+				message.Name, time.Unix(message.Timestamp, 0).Format(time.RFC3339))
+
+			var name string
+			switch message.Name {
+			case producers.AgentMetricPrefix:
+				name = strings.Join([]string{
+					message.Name,
+					message.Dimensions.AgentID,
+				}, producers.MetricNamespaceSep)
+			case producers.ContainerMetricPrefix:
+				name = strings.Join([]string{
+					message.Name,
+					message.Dimensions.ContainerID,
+				}, producers.MetricNamespaceSep)
+			}
 			log.Debugf("Setting store object '%s' with timestamp %s",
-				message.Name,
-				time.Unix(message.Timestamp, 0).Format(time.RFC3339))
-			p.store.Set(message.Name, message) // overwrite existing object with the same message.Name
+				name, time.Unix(message.Timestamp, 0).Format(time.RFC3339))
+			p.store.Set(name, message) // overwrite existing object with the same name
 		}
 	}()
 

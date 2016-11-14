@@ -35,14 +35,10 @@ func TestHTTPProducer_Agent(t *testing.T) {
 	testTime := time.Now()
 
 	testData := producers.MetricsMessage{
-		Name: strings.Join([]string{producers.AgentMetricPrefix, "foo"}, producers.MetricNamespaceSep),
+		Name: producers.AgentMetricPrefix,
 		Datapoints: []producers.Datapoint{
 			producers.Datapoint{
-				Name: strings.Join([]string{
-					producers.AgentMetricPrefix,
-					"foo",
-					"some-metric",
-				}, producers.MetricNamespaceSep),
+				Name:      "some-metric",
 				Unit:      "",
 				Value:     "1234",
 				Timestamp: testTime.Format(time.RFC3339Nano),
@@ -84,6 +80,18 @@ func TestHTTPProducer_Agent(t *testing.T) {
 
 			So(strings.TrimSpace(string(got)), ShouldEqual, strings.TrimSpace(string(expected)))
 		})
+	})
+}
+
+func TestHTTPProducer_Containers(t *testing.T) {
+	Convey("When querying the /system/metrics/api/v0/containers endpoint", t, func() {
+		Convey("Should return container IDs in the expected structure", nil)
+	})
+}
+
+func TestHTTPProducer_Container(t *testing.T) {
+	Convey("When querying the /system/metrics/api/v0/containers/{id} endpoint", t, func() {
+		Convey("Should return container metrics in the expected structure", nil)
 	})
 }
 
