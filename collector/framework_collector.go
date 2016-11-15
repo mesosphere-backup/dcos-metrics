@@ -105,7 +105,7 @@ func (a *AvroDatum) Transform() (producers.MetricsMessage, error) {
 // Expects input which has been formatted in the Avro ODF standard.
 // This function should be run as a gofunc.
 func RunFrameworkTCPListener(recordsChan chan *AvroDatum) {
-	fwColLog.Debug("Kicking off TCP socket creation...")
+	fwColLog.Info("Starting TCP listener for framework metric collection")
 	addr, err := net.ResolveTCPAddr("tcp", listenEndpointFlag)
 	if err != nil {
 		fwColLog.Errorf("Failed to parse TCP endpoint '%s': %s", listenEndpointFlag, err)
