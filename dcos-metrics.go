@@ -125,7 +125,6 @@ func main() {
 
 	go host.RunPoller()
 
-	log.Info("Starting TCP metrics collector for Mesos Framework metrics")
 	go collector.RunFrameworkTCPListener(frameworkCollectorChan)
 
 	// Broadcast (many-to-many) messages from the collector to the various producers.

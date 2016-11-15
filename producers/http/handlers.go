@@ -62,6 +62,7 @@ func containerHandler(p *producerImpl) http.HandlerFunc {
 		key := strings.Join([]string{
 			producers.ContainerMetricPrefix, vars["id"],
 		}, producers.MetricNamespaceSep)
+
 		if containerMetrics, ok := p.store.Get(key); !ok {
 			w.WriteHeader(http.StatusNoContent)
 		} else {
@@ -74,9 +75,11 @@ func containerHandler(p *producerImpl) http.HandlerFunc {
 func containerAppHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
+		cid := vars["id"]
 		key := strings.Join([]string{
-			producers.AppMetricPrefix, vars["id"],
+			producers.AppMetricPrefix, cid,
 		}, producers.MetricNamespaceSep)
+
 		if containerMetrics, ok := p.store.Get(key); !ok {
 			w.WriteHeader(http.StatusNoContent)
 		} else {

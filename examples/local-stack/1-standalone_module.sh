@@ -1,6 +1,6 @@
 #!/bin/sh
 
-cd ../../module/build/tests
+cd ../../mesos_module/tests
 
 make -j8 standalone_module
 if [ $? -ne 0 ]; then

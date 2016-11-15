@@ -22,14 +22,30 @@ import (
 	"github.com/dcos/dcos-metrics/producers"
 )
 
-func AvroRecord_Extract_Datapoint_Test(t *testing.T) {
+func TestAvroRecordExtractDatapoint(t *testing.T) {
 
-	var avroDatapoint = avroRecord{}
-	var pmmTest = producers.MetricsMessage{}
+	var (
+		testRecord = record{
+			Name: "dcos.metrics.Datapoint",
+			Fields: []field{
+				{
+					Name:  "test-name",
+					Datum: "name-field-test",
+				},
+				{
+					Name:  "test-value",
+					Datum: "value-field-test",
+				},
+				{
+					Name:  "test-unit",
+					Datum: "unit-field-test",
+				},
+			},
+		}
 
-	avroDatapoint[0].Name = "dcos.metrics.Datapoint"
-	avroDatapoint[0].Fields[0].Datum = 123
-	avroDatapoint[0].Fields[0].Name = "test-name"
+		avroDatapoint = avroRecord{testRecord}
+		pmmTest       = producers.MetricsMessage{}
+	)
 
 	err := avroDatapoint.extract(&pmmTest)
 	if err != nil {
@@ -40,38 +56,54 @@ func AvroRecord_Extract_Datapoint_Test(t *testing.T) {
 		t.Errorf("Got %s, expected 1 datapoint", len(pmmTest.Datapoints))
 	}
 
-	if pmmTest.Datapoints[0].Name != "test-name" {
-		t.Errorf("Got %s, expected test-name", pmmTest.Datapoints[0].Name)
+	if pmmTest.Datapoints[0].Name != "name-field-test" {
+		t.Errorf("Got %s, expected name-field-test", pmmTest.Datapoints[0].Name)
 	}
 
-	if pmmTest.Datapoints[0].Value != "123" {
-		t.Errorf("Got %s, expected 123", pmmTest.Datapoints[0].Value)
+	if pmmTest.Datapoints[0].Value != "value-field-test" {
+		t.Errorf("Got %s, expected value-field-test", pmmTest.Datapoints[0].Value)
+	}
+
+	if pmmTest.Datapoints[0].Unit != "unit-field-test" {
+		t.Errorf("Got %s, expected unit-field-test", pmmTest.Datapoints[0].Value)
 	}
 }
 
-func AvroRecord_Extract_Tags_Test(t *testing.T) {
+func TestAvroRecordExtractTags(t *testing.T) {
+	var (
+		testRecord = record{
+			Name: "dcos.metrics.Tag",
+			Fields: []field{
+				{
+					Name:  "test-tag-name",
+					Datum: "tag-name-field-test",
+				},
+				{
+					Name:  "test-tag-value",
+					Datum: "tag-value-field-test",
+				},
+			},
+		}
 
-	var avroDatapoint = avroRecord{}
-	var pmmTest = producers.MetricsMessage{}
-
-	avroDatapoint[0].Name = "dcos.metrics.Tag"
-	avroDatapoint[0].Fields[0].Datum = "foo"
-	avroDatapoint[0].Fields[0].Name = "test-tag"
+		avroDatapoint = avroRecord{testRecord}
+		pmmTest       = producers.MetricsMessage{
+			Dimensions: producers.Dimensions{
+				Labels: make(map[string]string),
+			},
+		}
+	)
 
 	err := avroDatapoint.extract(&pmmTest)
 	if err != nil {
 		t.Errorf("Got %s, expected no errors.", err)
 	}
 
-	if len(pmmTest.Dimensions.Labels) != 1 {
-		t.Errorf("Got %s, expected 1 datapoint", len(pmmTest.Dimensions.Labels))
+	if value, ok := pmmTest.Dimensions.Labels["tag-name-field-test"]; !ok {
+		t.Errorf("Expected 'tag-name-field-test' label to exist, got %s", ok)
+	} else {
+		if value != "tag-value-field-test" {
+			t.Errorf("Got %s, expected 'tag-value-field-test", value)
+		}
 	}
 
-	if _, ok := pmmTest.Dimensions.Labels["test-tag"]; !ok {
-		t.Errorf("Got %s, expected test-tag to exist", pmmTest.Dimensions.Labels)
-	}
-
-	if pmmTest.Dimensions.Labels["test-tag"] != "foo" {
-		t.Errorf("Got %s, expected foo", pmmTest.Dimensions.Labels)
-	}
 }
