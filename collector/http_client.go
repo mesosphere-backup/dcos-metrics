@@ -25,6 +25,10 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
+var clientLog = log.WithFields(log.Fields{
+	"collector": "http-client",
+})
+
 var (
 	// TODO(roger): place the value of userAgent somewhere convenient
 	userAgent = "com.mesosphere.dcos-metrics/1.0"
@@ -68,7 +72,7 @@ func (c *HTTPClient) URL() string {
 // errors are handled correctly, but allows the returned data to be mapped to
 // an arbitrary struct that the caller is aware of.
 func (c *HTTPClient) Fetch(target interface{}) error {
-	log.Debug("Building new HTTP request for ", c.URL())
+	clientLog.Debug("Building new HTTP request for ", c.URL())
 	req, err := http.NewRequest("GET", c.URL(), nil)
 	if err != nil {
 		return err
@@ -80,10 +84,10 @@ func (c *HTTPClient) Fetch(target interface{}) error {
 		req.Header.Set("Authorization", fmt.Sprintf("token=%s", c.authToken))
 	}
 
-	log.Debug("Fetching data from ", c.URL())
+	clientLog.Debug("Fetching data from ", c.URL())
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		log.Error(err)
+		clientLog.Error(err)
 		return err
 	}
 	defer resp.Body.Close()
@@ -91,25 +95,25 @@ func (c *HTTPClient) Fetch(target interface{}) error {
 	// Special case: on HTTP 401 Unauthorized, exit immediately. Considering this
 	// could be running in a goroutine, we don't want the caller to fail forever.
 	if resp.StatusCode == http.StatusUnauthorized {
-		log.Fatalf("fetch error: unauthorized: please provide a suitable auth token")
+		clientLog.Fatalf("fetch error: unauthorized: please provide a suitable auth token")
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		e := fmt.Errorf("fetch error: %s", resp.Status)
-		log.Error(e)
+		clientLog.Error(e)
 		return e
 	}
 
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		e := fmt.Errorf("read error: %s: %v\n", c.URL(), err)
-		log.Error(e)
+		clientLog.Error(e)
 		return e
 	}
 
 	if err := json.Unmarshal(b, &target); err != nil {
 		e := fmt.Errorf("unmarshal error: %s: %v\n", b, err)
-		log.Error(e)
+		clientLog.Error(e)
 		return e
 	}
 
