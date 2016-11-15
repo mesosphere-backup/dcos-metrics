@@ -10,13 +10,17 @@ import (
 
 // avroRecord{} conveys field for goavro.Record
 // schema set by the schema package
-type avroRecord []struct {
-	Name   string `json:"name"`
-	Fields []struct {
-		Name  interface{} `json:"name"`
-		Datum interface{} `json:"datum"`
-	} `json:"fields"`
+type field struct {
+	Name  interface{} `json:"name"`
+	Datum interface{} `json:"datum"`
 }
+
+type record struct {
+	Name   string  `json:"name"`
+	Fields []field `json:"fields"`
+}
+
+type avroRecord []record
 
 // avroRecord.extract() gets tags and datapoints from avro formatted data
 // and creates a MetricsMessage{}
