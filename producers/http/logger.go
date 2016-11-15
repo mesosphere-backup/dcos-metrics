@@ -17,8 +17,6 @@ package http
 import (
 	"net/http"
 	"time"
-
-	log "github.com/Sirupsen/logrus"
 )
 
 func logger(inner http.Handler, name string) http.Handler {
@@ -27,7 +25,7 @@ func logger(inner http.Handler, name string) http.Handler {
 
 		inner.ServeHTTP(w, r)
 
-		log.Printf(
+		httpLog.Printf(
 			"%s\t%s\t%s\t%s",
 			r.Method,
 			r.RequestURI,

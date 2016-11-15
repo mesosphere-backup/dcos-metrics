@@ -21,8 +21,8 @@ var (
 	MetricNamespaceSep = "."
 	// ContainerMetricPrefix defines the prefix of container-level metrics
 	ContainerMetricPrefix = strings.Join([]string{"dcos", "metrics", "container"}, MetricNamespaceSep)
-	// AgentMetricPrefix defines the prefix of agent-level metrics
-	AgentMetricPrefix = strings.Join([]string{"dcos", "metrics", "agent"}, MetricNamespaceSep)
+	// NodeMetricPrefix defines the prefix of node-level metrics
+	NodeMetricPrefix = strings.Join([]string{"dcos", "metrics", "node"}, MetricNamespaceSep)
 	// AppMetricPrefix defines the prefix of app-level metrics
 	AppMetricPrefix = strings.Join([]string{"dcos", "metrics", "app"}, MetricNamespaceSep)
 )
@@ -62,8 +62,8 @@ type Datapoint struct {
 
 // Dimensions are metadata about the metrics contained in a given MetricsMessage.
 type Dimensions struct {
-	AgentID            string            `json:"agent_id"`
-	ClusterID          string            `json:"cluster_id"`
+	MesosID            string            `json:"mesos_id"`
+	ClusterID          string            `json:"cluster_id,omitempty"`
 	ContainerID        string            `json:"container_id,omitempty"`
 	ExecutorID         string            `json:"executor_id,omitempty"`
 	FrameworkName      string            `json:"framework_name,omitempty"`

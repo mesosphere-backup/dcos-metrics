@@ -17,18 +17,12 @@ package http
 import (
 	"net/http"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 )
 
-// NewRouter iterates over a slice of Route types and creates them
-// in gorilla/mux.
-func newRouter(p *producerImpl) *mux.Router {
-
-	router := mux.NewRouter().StrictSlash(true)
-	// Various HTTP routes defined in routes.go
+func loadRoutes(routes []Route, router *mux.Router, p *producerImpl) {
 	for _, route := range routes {
-		log.Debugf("http producer: establishing endpoint %s at %s", route.Name, route.Path)
+		httpLog.Debugf("http producer: establishing endpoint %s at %s", route.Name, route.Path)
 		var handler http.Handler
 
 		handler = route.HandlerFunc(p)
@@ -40,6 +34,18 @@ func newRouter(p *producerImpl) *mux.Router {
 			Name(route.Name).
 			Handler(handler)
 	}
+}
+
+// NewRouter iterates over a slice of Route types and creates them
+// in gorilla/mux.
+func newRouter(p *producerImpl) *mux.Router {
+
+	router := mux.NewRouter().StrictSlash(true)
+	if p.config.DCOSRole == "agent" {
+		loadRoutes(agentRoutes, router, p)
+	}
+
+	loadRoutes(routes, router, p)
 
 	return router
 }

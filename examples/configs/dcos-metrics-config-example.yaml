@@ -5,8 +5,8 @@
 # Collector configuration
 collector:
   http_profiler: false
-  ip_command: 'cat /etc/mesos-slave/ip'
-  polling_period: 15
+  ip_command: 'echo 10.1.2.3'
+  polling_period: 1 
 
   # DC/OS (Mesos) master configuration
   master_config:

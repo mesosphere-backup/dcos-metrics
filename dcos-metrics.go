@@ -99,6 +99,7 @@ func main() {
 		log.Info("HTTP producer enabled")
 		c := httpProducer.Config{
 			Port:        cfg.Producers.HTTPProducerConfig.Port,
+			DCOSRole:    cfg.DCOSRole,
 			CacheExpiry: time.Duration(cfg.Collector.PollingPeriod) * time.Second * 2,
 		}
 		hp, httpProducerChan := httpProducer.New(c)
@@ -109,22 +110,23 @@ func main() {
 	// Host-level Metrics Collector
 	agentCollectorChan := make(chan producers.MetricsMessage)
 	frameworkCollectorChan := make(chan *collector.AvroDatum)
-	if cfg.DCOSRole == "agent" {
-		log.Info("Agent polling enabled")
 
-		agent, err := collector.NewAgent(
-			cfg.Collector.IPCommand,
-			cfg.Collector.AgentConfig.Port,
-			time.Duration(cfg.Collector.PollingPeriod)*time.Second, agentCollectorChan)
+	log.Info("Agent polling enabled")
 
-		if err != nil {
-			log.Fatal(err.Error())
-		}
+	host, err := collector.NewDCOSHost(
+		cfg.DCOSRole,
+		cfg.Collector.IPCommand,
+		cfg.Collector.AgentConfig.Port,
+		time.Duration(cfg.Collector.PollingPeriod)*time.Second, agentCollectorChan)
 
-		go agent.RunPoller()
-		log.Info("Starting TCP metrics collector for Mesos Framework metrics")
-		go collector.RunFrameworkTCPListener(frameworkCollectorChan)
+	if err != nil {
+		log.Fatal(err.Error())
 	}
+
+	go host.RunPoller()
+
+	log.Info("Starting TCP metrics collector for Mesos Framework metrics")
+	go collector.RunFrameworkTCPListener(frameworkCollectorChan)
 
 	// Broadcast (many-to-many) messages from the collector to the various producers.
 	for {
