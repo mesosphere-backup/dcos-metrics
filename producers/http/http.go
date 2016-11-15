@@ -71,16 +71,19 @@ func (p *producerImpl) Run() error {
 
 			var name string
 			switch message.Name {
+
 			case producers.NodeMetricPrefix:
 				name = strings.Join([]string{
 					message.Name,
 					message.Dimensions.MesosID,
 				}, producers.MetricNamespaceSep)
+
 			case producers.ContainerMetricPrefix:
 				name = strings.Join([]string{
 					message.Name,
 					message.Dimensions.ContainerID,
 				}, producers.MetricNamespaceSep)
+
 			case producers.AppMetricPrefix:
 				name = strings.Join([]string{
 					message.Name,
@@ -89,6 +92,7 @@ func (p *producerImpl) Run() error {
 			}
 			httpLog.Debugf("Setting store object '%s' with timestamp %s",
 				name, time.Unix(message.Timestamp, 0).Format(time.RFC3339))
+
 			p.store.Set(name, message) // overwrite existing object with the same name
 		}
 	}()
