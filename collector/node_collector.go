@@ -27,14 +27,22 @@ import (
 	"github.com/dcos/dcos-metrics/producers"
 )
 
+var nodeColLog = log.WithFields(log.Fields{
+	"collector": "node",
+})
+
 // Agent defines the structure of the agent metrics poller and any configuration
 // that might be required to run it.
-type Agent struct {
-	AgentIP     string
+type DCOSHost struct {
+	IPAddress   string
 	IPCommand   string
 	Port        int
 	PollPeriod  time.Duration
 	MetricsChan chan<- producers.MetricsMessage
+	DCOSRole    string
+	MesosID     string
+	ClusterID   string
+	Hostname    string
 }
 
 // metricsMeta is a high-level struct that contains data structures with the
@@ -52,48 +60,49 @@ type metricsMeta struct {
 // NewAgent returns a new instance of a DC/OS agent poller based on the provided
 // configuration and the result of the provided ipCommand script for detecting
 // the agent's IP address.
-func NewAgent(ipCommand string, port int, pollPeriod time.Duration, metricsChan chan<- producers.MetricsMessage) (Agent, error) {
-	a := Agent{}
+func NewDCOSHost(dcosRole string, ipCommand string, port int, pollPeriod time.Duration, metricsChan chan<- producers.MetricsMessage) (DCOSHost, error) {
+	h := DCOSHost{}
 
 	if len(ipCommand) == 0 {
-		return a, fmt.Errorf("Must pass ipCommand to NewAgent()")
+		return h, fmt.Errorf("Must pass ipCommand to DCOSHost()")
 	}
 	if port < 1024 {
-		return a, fmt.Errorf("Must pass port >= 1024 to NewAgent()")
+		return h, fmt.Errorf("Must pass port >= 1024 to DCOSHost()")
 	}
 	if pollPeriod == 0 {
-		return a, fmt.Errorf("Must pass pollPeriod to NewAgent()")
+		return h, fmt.Errorf("Must pass pollPeriod to DCOSHost()")
 	}
 
-	a.IPCommand = ipCommand
-	a.Port = port
-	a.PollPeriod = pollPeriod
-	a.MetricsChan = metricsChan
+	h.IPCommand = ipCommand
+	h.Port = port
+	h.PollPeriod = pollPeriod
+	h.MetricsChan = metricsChan
+	h.DCOSRole = dcosRole
 
 	// Detect the agent's IP address once. Per the DC/OS docs (at least as of
 	// November 2016), changing a node's IP address is not supported.
 	var err error
-	if a.AgentIP, err = a.getIP(); err != nil {
-		return a, err
+	if h.IPAddress, err = h.getIP(); err != nil {
+		return h, err
 	}
 
-	return a, nil
+	return h, nil
 }
 
 // RunPoller periodiclly polls the HTTP APIs of a Mesos agent. This function
 // should be run in its own goroutine.
-func (a *Agent) RunPoller() {
-	ticker := time.NewTicker(a.PollPeriod)
+func (h *DCOSHost) RunPoller() {
+	ticker := time.NewTicker(h.PollPeriod)
 
 	// Poll once immediately
-	for _, m := range a.transform(a.pollAgent()) {
-		a.MetricsChan <- m
+	for _, m := range h.transform(h.pollHost()) {
+		h.MetricsChan <- m
 	}
 	for {
 		select {
 		case _ = <-ticker.C:
-			for _, m := range a.transform(a.pollAgent()) {
-				a.MetricsChan <- m
+			for _, m := range h.transform(h.pollHost()) {
+				h.MetricsChan <- m
 			}
 		}
 	}
@@ -101,9 +110,9 @@ func (a *Agent) RunPoller() {
 
 // getIP runs the ip_detect script and returns the IP address that the agent
 // is listening on.
-func (a *Agent) getIP() (string, error) {
-	log.Debugf("Executing ip-detect script %s", a.IPCommand)
-	cmdWithArgs := strings.Split(a.IPCommand, " ")
+func (h *DCOSHost) getIP() (string, error) {
+	nodeColLog.Debugf("Executing ip-detect script %s", h.IPCommand)
+	cmdWithArgs := strings.Split(h.IPCommand, " ")
 
 	ipBytes, err := exec.Command(cmdWithArgs[0], cmdWithArgs[1:]...).Output()
 	if err != nil {
@@ -114,43 +123,49 @@ func (a *Agent) getIP() (string, error) {
 		return "", err
 	}
 
-	log.Debugf("getIP() returned successfully, got IP %s", ip)
+	nodeColLog.Debugf("getIP() returned successfully, got IP %s", ip)
 	return ip, nil
 }
 
-// pollAgent queries the DC/OS agent for metrics and returns.
-func (a *Agent) pollAgent() metricsMeta {
+// pollHost queries the DC/OS hsot for metrics and returns.
+func (h *DCOSHost) pollHost() metricsMeta {
 	metrics := metricsMeta{}
 	now := time.Now().UTC()
-	log.Infof("Polling the Mesos agent at %s:%d. Started at %s", a.AgentIP, a.Port, now.String())
+	nodeColLog.Infof("Polling the DC/OS host at %s:%d. Started at %s", h.IPAddress, h.Port, now.String())
 
-	// always fetch/emit agent state first: downstream will use it for tagging metrics
-	log.Debugf("Fetching state from agent %s:%d", a.AgentIP, a.Port)
-	agentState, err := a.getAgentState()
+	if h.DCOSRole == "agent" {
+		// always fetch/emit agent state first: downstream will use it for tagging metrics
+		nodeColLog.Debugf("Fetching state from DC/OS host %s:%d", h.IPAddress, h.Port)
+		agentState, err := h.getAgentState()
+		if err != nil {
+			nodeColLog.Errorf("Failed to get agent state from %s:%d. Error: %s", h.IPAddress, h.Port, err)
+			return metrics
+		}
+
+		metrics.agentState = agentState
+
+		nodeColLog.Debugf("Fetching container metrics from DC/OS host %s:%d", h.IPAddress, h.Port)
+		containerMetrics, err := h.getContainerMetrics()
+		if err != nil {
+			nodeColLog.Errorf("Failed to get container metrics from %s:%d. Error: %s", h.IPAddress, h.Port, err)
+			return metrics
+		}
+
+		metrics.containerMetrics = containerMetrics
+
+	}
+
+	// Fetch node-level metrics for all DC/OS roles
+	nodeColLog.Debugf("Fetching node-level metrics from DC/OS host %s:%d", h.IPAddress, h.Port)
+	nm, err := h.getNodeMetrics()
 	if err != nil {
-		log.Errorf("Failed to get agent state from %s:%d. Error: %s", a.AgentIP, a.Port, err)
+		nodeColLog.Errorf("Failed to get node-level metrics from %s:%d. Error: %s", h.IPAddress, h.Port, err)
 		return metrics
 	}
 
-	log.Debugf("Fetching node-level metrics from agent %s:%d", a.AgentIP, a.Port)
-	nm, err := a.getNodeMetrics()
-	if err != nil {
-		log.Errorf("Failed to get node-level metrics from %s:%d. Error: %s", a.AgentIP, a.Port, err)
-		return metrics
-	}
+	nodeColLog.Infof("Finished polling DC/OS host %s:%d, took %f seconds.", h.IPAddress, h.Port, time.Since(now).Seconds())
 
-	log.Debugf("Fetching container metrics from agent %s:%d", a.AgentIP, a.Port)
-	containerMetrics, err := a.getContainerMetrics()
-	if err != nil {
-		log.Errorf("Failed to get container metrics from %s:%d. Error: %s", a.AgentIP, a.Port, err)
-		return metrics
-	}
-
-	log.Infof("Finished polling agent %s:%d, took %f seconds.", a.AgentIP, a.Port, time.Since(now).Seconds())
-
-	metrics.agentState = agentState
 	metrics.nodeMetrics = nm
-	metrics.containerMetrics = containerMetrics
 	metrics.timestamp = now.Unix()
 
 	return metrics
@@ -159,16 +174,16 @@ func (a *Agent) pollAgent() metricsMeta {
 // transform will take metrics retrieved from the agent and perform any
 // transformations necessary to make the data fit the output expected by
 // producers.MetricsMessage.
-func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
+func (h *DCOSHost) transform(in metricsMeta) (out []producers.MetricsMessage) {
 	var msg producers.MetricsMessage
 	t := time.Unix(in.timestamp, 0)
 
 	// Produce node metrics
 	msg = producers.MetricsMessage{
-		Name:       producers.AgentMetricPrefix,
+		Name:       producers.NodeMetricPrefix,
 		Datapoints: buildDatapoints(in.nodeMetrics, t),
 		Dimensions: producers.Dimensions{
-			AgentID:   in.agentState.ID,
+			MesosID:   in.agentState.ID,
 			ClusterID: "", // TODO(roger) need to get this from the master
 			Hostname:  in.agentState.Hostname,
 		},
@@ -186,13 +201,13 @@ func (a *Agent) transform(in metricsMeta) (out []producers.MetricsMessage) {
 
 		fi, ok := getFrameworkInfoByFrameworkID(c.FrameworkID, in.agentState.Frameworks)
 		if !ok {
-			log.Warnf("Did not find FrameworkInfo for framework ID %s, skipping!", fi.ID)
+			nodeColLog.Warnf("Did not find FrameworkInfo for framework ID %s, skipping!", fi.ID)
 			continue
 		}
 
 		msg.Dimensions = producers.Dimensions{
-			AgentID:            in.agentState.ID,
-			ClusterID:          "", // TODO(roger) need to get this from the master
+			MesosID:            in.agentState.ID,
+			ClusterID:          "", // TODO(malnick) dcos-go should get this from /var/lib/dcos/cluster-id
 			ContainerID:        c.ContainerID,
 			ExecutorID:         c.ExecutorID,
 			FrameworkID:        c.FrameworkID,
@@ -255,11 +270,11 @@ func buildDatapoints(in interface{}, t time.Time) []producers.Datapoint {
 		jsonName := strings.Join([]string{strings.Split(typ.Tag.Get("json"), ",")[0]}, producers.MetricNamespaceSep)
 		tmpl, err := template.New("_nodeMetricName").Parse(jsonName)
 		if err != nil {
-			log.Warn("Unable to build datapoint for metric with name %s, skipping", jsonName)
+			nodeColLog.Warn("Unable to build datapoint for metric with name %s, skipping", jsonName)
 			continue
 		}
 		if err := tmpl.Execute(&parsed, v.Interface()); err != nil {
-			log.Warn("Unable to build datapoint for metric with name %s, skipping", jsonName)
+			nodeColLog.Warn("Unable to build datapoint for metric with name %s, skipping", jsonName)
 			continue
 		}
 

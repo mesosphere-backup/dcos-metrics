@@ -66,26 +66,26 @@ func TestBuildDatapoints(t *testing.T) {
 	})
 }
 
-func TestNewAgent(t *testing.T) {
-	Convey("When establishing a new agentPoller", t, func() {
+func TestNewDCOSHost(t *testing.T) {
+	Convey("When establishing a new DCOSHost object", t, func() {
 		Convey("Should return an error when given an improper ip-detect command", func() {
-			_, err := NewAgent("", 10000, 60, make(chan<- producers.MetricsMessage))
+			_, err := NewDCOSHost("agent", "", 10000, 60, make(chan<- producers.MetricsMessage))
 			So(err, ShouldNotBeNil)
 		})
 
 		Convey("Should return an error when given an improper port", func() {
-			_, err := NewAgent("/bin/echo -n 1.2.3.4", 1023, 60, make(chan<- producers.MetricsMessage))
+			_, err := NewDCOSHost("agent", "/bin/echo -n 1.2.3.4", 1023, 60, make(chan<- producers.MetricsMessage))
 			So(err, ShouldNotBeNil)
 		})
 
 		Convey("Should return an error when given an improper pollPeriod", func() {
-			_, err := NewAgent("/bin/echo -n 1.2.3.4", 1024, 0, make(chan<- producers.MetricsMessage))
+			_, err := NewDCOSHost("agent", "/bin/echo -n 1.2.3.4", 1024, 0, make(chan<- producers.MetricsMessage))
 			So(err, ShouldNotBeNil)
 		})
 
 		Convey("Should return an Agent when given proper inputs", func() {
-			a, err := NewAgent("/bin/echo -n 1.2.3.4", 10000, 60, make(chan<- producers.MetricsMessage))
-			So(a, ShouldHaveSameTypeAs, Agent{})
+			a, err := NewDCOSHost("agent", "/bin/echo -n 1.2.3.4", 10000, 60, make(chan<- producers.MetricsMessage))
+			So(a, ShouldHaveSameTypeAs, DCOSHost{})
 			So(err, ShouldBeNil)
 		})
 	})
@@ -94,8 +94,8 @@ func TestNewAgent(t *testing.T) {
 func TestGetIP(t *testing.T) {
 	Convey("When getting the agent IP address using the ip_detect script", t, func() {
 		Convey("Should return the IP address without error", func() {
-			a := Agent{IPCommand: "/bin/echo -n 172.16.10.88"}
-			i, err := a.getIP()
+			h := DCOSHost{IPCommand: "/bin/echo -n 172.16.10.88"}
+			i, err := h.getIP()
 			So(i, ShouldEqual, "172.16.10.88")
 			So(err, ShouldBeNil)
 		})
@@ -105,7 +105,7 @@ func TestGetIP(t *testing.T) {
 func TestTransform(t *testing.T) {
 	Convey("When transforming agent metrics to fit producers.MetricsMessage", t, func() {
 		// bogus port and IP address here; no HTTP client in a.transform()
-		a, _ := NewAgent("/bin/echo -n 127.0.0.1", 9000, 60, make(chan<- producers.MetricsMessage))
+		h, _ := NewDCOSHost("agent", "/bin/echo -n 127.0.0.1", 9000, 60, make(chan<- producers.MetricsMessage))
 
 		// The mocks in this test file are bytearrays so that they can be used
 		// by the HTTP test server(s). So we need to unmarshal them here before
@@ -131,7 +131,7 @@ func TestTransform(t *testing.T) {
 		}
 
 		Convey("Should return a []producers.MetricsMessage without errors", func() {
-			result := a.transform(testData)
+			result := h.transform(testData)
 			So(len(result), ShouldEqual, 2) // one agent message, one container message
 
 			// From the implementation of a.transform() and the mocks in this test file,

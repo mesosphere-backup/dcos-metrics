@@ -61,12 +61,14 @@ var routes = []Route{
 
 	// Agent Endpoints, e.g. /api/v0/agent...
 	Route{
-		Name:        "agent",
+		Name:        "node",
 		Method:      "GET",
-		Path:        strings.Join([]string{root, "agent"}, "/"),
-		HandlerFunc: agentHandler,
+		Path:        strings.Join([]string{root, "node"}, "/"),
+		HandlerFunc: nodeHandler,
 	},
+}
 
+var agentRoutes = []Route{
 	// Containers and apps endpoints,e.g. /api/v0/containers...
 	Route{
 		Name:        "containers",

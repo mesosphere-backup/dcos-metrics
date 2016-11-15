@@ -76,7 +76,7 @@ type nodeNetworkInterface struct {
 	TxErrors  uint64 `json:"network.{{.Name}}.out.errors"`
 }
 
-func (a *Agent) getNodeMetrics() (nodeMetrics, error) {
+func (h *DCOSHost) getNodeMetrics() (nodeMetrics, error) {
 	l := getLoadAvg()
 	cpuStatePcts := calculatePcts(getCPUTimes())
 	m := getMemory()

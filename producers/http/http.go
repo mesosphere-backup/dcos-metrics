@@ -26,10 +26,15 @@ import (
 	"github.com/dcos/dcos-metrics/producers"
 )
 
+var httpLog = log.WithFields(log.Fields{
+	"producer": "http",
+})
+
 // Config for the HTTP producer
 type Config struct {
-	IP          string        `yaml:"ip"`
-	Port        int           `yaml:"port"`
+	IP          string `yaml:"ip"`
+	Port        int    `yaml:"port"`
+	DCOSRole    string
 	CacheExpiry time.Duration // ideally this is a multiple of the collector's PollingPeriod
 }
 
@@ -52,24 +57,24 @@ func New(cfg Config) (producers.MetricsProducer, chan producers.MetricsMessage) 
 // Run a HTTP server and serve the various metrics API endpoints.
 // This function should be run in its own goroutine.
 func (p *producerImpl) Run() error {
-	log.Info("Starting HTTP producer garbage collection service")
+	httpLog.Info("Starting HTTP producer garbage collection service")
 	go p.janitor()
 
 	go func() {
-		log.Debug("HTTP producer listening for incoming messages on metricsChan")
+		httpLog.Debug("HTTP producer listening for incoming messages on metricsChan")
 		for {
 			// read messages off the channel,
 			// and give them a unique name in the store
 			message := <-p.metricsChan
-			log.Debugf("Received message '%+v' with timestamp %s",
+			httpLog.Debugf("Received message '%+v' with timestamp %s",
 				message, time.Unix(message.Timestamp, 0).Format(time.RFC3339))
 
 			var name string
 			switch message.Name {
-			case producers.AgentMetricPrefix:
+			case producers.NodeMetricPrefix:
 				name = strings.Join([]string{
 					message.Name,
-					message.Dimensions.AgentID,
+					message.Dimensions.MesosID,
 				}, producers.MetricNamespaceSep)
 			case producers.ContainerMetricPrefix:
 				name = strings.Join([]string{
@@ -82,7 +87,7 @@ func (p *producerImpl) Run() error {
 					message.Dimensions.ContainerID,
 				}, producers.MetricNamespaceSep)
 			}
-			log.Debugf("Setting store object '%s' with timestamp %s",
+			httpLog.Debugf("Setting store object '%s' with timestamp %s",
 				name, time.Unix(message.Timestamp, 0).Format(time.RFC3339))
 			p.store.Set(name, message) // overwrite existing object with the same name
 		}
@@ -96,10 +101,10 @@ func (p *producerImpl) Run() error {
 	// If a listener is avialable, use that. If it is not avialable,
 	// listen on the default TCP socket and port.
 	if len(listeners) == 1 {
-		log.Infof("HTTP Producer serving requests on %s", listeners[0].Addr().String())
+		httpLog.Infof("HTTP Producer serving requests on %s", listeners[0].Addr().String())
 		return http.Serve(listeners[0], r)
 	}
-	log.Infof("HTTP Producer serving requests on %s:%d", p.config.IP, p.config.Port)
+	httpLog.Infof("HTTP Producer serving requests on %s:%d", p.config.IP, p.config.Port)
 	return http.ListenAndServe(fmt.Sprintf("%s:%d", p.config.IP, p.config.Port), r)
 }
 
@@ -117,7 +122,7 @@ func (p *producerImpl) janitor() {
 
 				age := time.Since(time.Unix(o.Timestamp, 0))
 				if age > p.config.CacheExpiry {
-					log.Debugf("Removing stale object %s; last updated %d seconds ago", o.Name, age*time.Second)
+					httpLog.Debugf("Removing stale object %s; last updated %d seconds ago", o.Name, age*time.Second)
 					p.store.Delete(o.Name)
 				}
 			}

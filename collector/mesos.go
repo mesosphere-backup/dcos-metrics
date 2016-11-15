@@ -112,12 +112,12 @@ type resourceStatistics struct {
 
 // getContainerMetrics queries an agent for container-level metrics, such as
 // CPU, memory, disk, and network usage.
-func (a *Agent) getContainerMetrics() ([]agentContainer, error) {
+func (h *DCOSHost) getContainerMetrics() ([]agentContainer, error) {
 	var containers []agentContainer
 
 	// TODO(roger): 15sec timeout is a guess. Is there a better way to do this?
 	c := NewHTTPClient(
-		strings.Join([]string{a.AgentIP, strconv.Itoa(a.Port)}, ":"),
+		strings.Join([]string{h.IPAddress, strconv.Itoa(h.Port)}, ":"),
 		"/containers",
 		time.Duration(15*time.Second))
 	if err := c.Fetch(&containers); err != nil {
@@ -130,12 +130,12 @@ func (a *Agent) getContainerMetrics() ([]agentContainer, error) {
 // getAgentState fetches the state JSON from the Mesos agent, which contains
 // info such as framework names and IDs, the current leader, config flags,
 // container (executor) labels, and more.
-func (a *Agent) getAgentState() (agentState, error) {
+func (h *DCOSHost) getAgentState() (agentState, error) {
 	state := agentState{}
 
 	// TODO(roger): 15sec timeout is a guess. Is there a better way to do this?
 	c := NewHTTPClient(
-		strings.Join([]string{a.AgentIP, strconv.Itoa(a.Port)}, ":"),
+		strings.Join([]string{h.IPAddress, strconv.Itoa(h.Port)}, ":"),
 		"/state",
 		time.Duration(15*time.Second))
 	if err := c.Fetch(&state); err != nil {
