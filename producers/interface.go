@@ -23,6 +23,8 @@ var (
 	ContainerMetricPrefix = strings.Join([]string{"dcos", "metrics", "container"}, MetricNamespaceSep)
 	// AgentMetricPrefix defines the prefix of agent-level metrics
 	AgentMetricPrefix = strings.Join([]string{"dcos", "metrics", "agent"}, MetricNamespaceSep)
+	// AppMetricPrefix defines the prefix of app-level metrics
+	AppMetricPrefix = strings.Join([]string{"dcos", "metrics", "app"}, MetricNamespaceSep)
 )
 
 // MetricsProducer defines an interface that the various producers must

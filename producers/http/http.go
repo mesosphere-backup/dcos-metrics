@@ -61,8 +61,8 @@ func (p *producerImpl) Run() error {
 			// read messages off the channel,
 			// and give them a unique name in the store
 			message := <-p.metricsChan
-			log.Debugf("Received message '%s' with timestamp %s",
-				message.Name, time.Unix(message.Timestamp, 0).Format(time.RFC3339))
+			log.Debugf("Received message '%+v' with timestamp %s",
+				message, time.Unix(message.Timestamp, 0).Format(time.RFC3339))
 
 			var name string
 			switch message.Name {
@@ -72,6 +72,11 @@ func (p *producerImpl) Run() error {
 					message.Dimensions.AgentID,
 				}, producers.MetricNamespaceSep)
 			case producers.ContainerMetricPrefix:
+				name = strings.Join([]string{
+					message.Name,
+					message.Dimensions.ContainerID,
+				}, producers.MetricNamespaceSep)
+			case producers.AppMetricPrefix:
 				name = strings.Join([]string{
 					message.Name,
 					message.Dimensions.ContainerID,

@@ -80,6 +80,7 @@ func generateStats(recordsChan chan<- []interface{}) {
 		tags := []interface{}{
 			buildTag("hostname", hostname),
 			buildTag("pid", strconv.Itoa(os.Getpid())),
+			buildTag("container_id", "123-foo-bar-baz"),
 		}
 
 		// The metrics themselves are values with timestamps attached.

@@ -106,36 +106,41 @@ func main() {
 		go hp.Run()
 	}
 
-	// Collector
-	collectorChan := make(chan producers.MetricsMessage)
+	// Host-level Metrics Collector
+	agentCollectorChan := make(chan producers.MetricsMessage)
+	frameworkCollectorChan := make(chan *collector.AvroDatum)
 	if cfg.DCOSRole == "agent" {
 		log.Info("Agent polling enabled")
 
 		agent, err := collector.NewAgent(
 			cfg.Collector.IPCommand,
 			cfg.Collector.AgentConfig.Port,
-			time.Duration(cfg.Collector.PollingPeriod)*time.Second,
-			collectorChan)
+			time.Duration(cfg.Collector.PollingPeriod)*time.Second, agentCollectorChan)
 
 		if err != nil {
 			log.Fatal(err.Error())
 		}
 
 		go agent.RunPoller()
+		log.Info("Starting TCP metrics collector for Mesos Framework metrics")
+		go collector.RunFrameworkTCPListener(frameworkCollectorChan)
 	}
 
-	//go collector.RunAvroTCPReader(recordInputChan)
-
-	// Broadcast (one-to-many) messages from the collector to the various producers.
+	// Broadcast (many-to-many) messages from the collector to the various producers.
 	for {
-		message := <-collectorChan
-		done := make(chan bool) // prevent leaking goroutines
-		for _, producer := range producerChans {
-			go func() {
-				producer <- message
-				done <- true
-			}()
-			<-done
+		select {
+		case frameworkMessage := <-frameworkCollectorChan:
+			pmm, err := frameworkMessage.Transform()
+			if err != nil {
+				log.Error(err)
+			}
+			for _, producer := range producerChans {
+				producer <- pmm
+			}
+		case agentMessage := <-agentCollectorChan:
+			for _, producer := range producerChans {
+				producer <- agentMessage
+			}
 		}
 	}
 }
