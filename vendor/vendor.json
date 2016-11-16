@@ -39,6 +39,12 @@
 			"revisionTime": "2015-11-05T21:09:06Z"
 		},
 		{
+			"checksumSHA1": "f1GxOGUhIBljeiVVfLMPG33qAzY=",
+			"path": "github.com/dcos/dcos-go/dcos",
+			"revision": "7052cb64dd2a18762c9275f0ac1b13d13678eefd",
+			"revisionTime": "2016-11-15T21:18:46Z"
+		},
+		{
 			"checksumSHA1": "y7+qlMm+ID5NYA8dOFd2WFcIRaU=",
 			"path": "github.com/dcos/dcos-go/store",
 			"revision": "a5d6cbca7de98b4d8b8c6a48520e39be03fb8967",

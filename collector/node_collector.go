@@ -24,6 +24,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-metrics/producers"
 )
 
@@ -73,7 +74,7 @@ func NewDCOSHost(dcosRole string, ipCommand string, port int, pollPeriod time.Du
 		return h, fmt.Errorf("Must pass pollPeriod to DCOSHost()")
 	}
 
-	h.IPCommand = ipCommand
+	h.IPCommand = dcos.FileDetectIP
 	h.Port = port
 	h.PollPeriod = pollPeriod
 	h.MetricsChan = metricsChan
