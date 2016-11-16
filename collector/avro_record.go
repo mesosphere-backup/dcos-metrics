@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/dcos/dcos-metrics/producers"
 )
@@ -36,8 +37,8 @@ func (ar avroRecord) extract(pmm *producers.MetricsMessage) error {
 	if fieldType == "dcos.metrics.Tag" {
 		for _, field := range ar {
 			fwColLog.Debugf("Adding tag %s", field)
-			tagName := fmt.Sprintf("%s", field.Fields[0].Datum)
-			tagValue := fmt.Sprintf("%s", field.Fields[1].Datum)
+			tagName := fmt.Sprintf("%v", field.Fields[0].Datum)
+			tagValue := fmt.Sprintf("%v", field.Fields[1].Datum)
 
 			if tagName == "container_id" {
 				pmm.Dimensions.ContainerID = tagValue
@@ -58,9 +59,10 @@ func (ar avroRecord) extract(pmm *producers.MetricsMessage) error {
 		for _, field := range ar {
 			fwColLog.Debugf("Adding datapoint %s", field)
 			dp := producers.Datapoint{
-				Name:  fmt.Sprintf("%s", field.Fields[0].Datum),
-				Value: fmt.Sprintf("%s", field.Fields[1].Datum),
-				Unit:  fmt.Sprintf("%s", field.Fields[2].Datum),
+				Name:      fmt.Sprintf("%v", field.Fields[0].Datum),
+				Value:     fmt.Sprintf("%v", field.Fields[1].Datum),
+				Unit:      fmt.Sprintf("%v", field.Fields[2].Datum),
+				Timestamp: fmt.Sprintf("%v", time.Now()),
 			}
 			datapoints = append(datapoints, dp)
 		}
