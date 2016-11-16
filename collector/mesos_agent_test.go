@@ -98,7 +98,14 @@ func TestGetContainerMetrics(t *testing.T) {
 			panic(err)
 		}
 
-		a, _ := NewDCOSHost("agent", "/bin/echo -n 127.0.0.1", port, 60, make(chan<- producers.MetricsMessage))
+		a, _ := NewDCOSHost(
+			"agent",
+			"127.0.0.1",
+			"test-mesos-id",
+			"test_cluster-id",
+			port,
+			60,
+			make(chan<- producers.MetricsMessage))
 		result, err := a.getContainerMetrics()
 
 		Convey("Should return an array of 'agentContainer' without error", func() {
@@ -128,7 +135,14 @@ func TestGetAgentState(t *testing.T) {
 		}
 
 		Convey("Should return an 'agentState' without error", func() {
-			h, _ := NewDCOSHost("agent", "/bin/echo -n 127.0.0.1", port, 60, make(chan<- producers.MetricsMessage))
+			h, _ := NewDCOSHost(
+				"agent",
+				"127.0.0.1",
+				"test-mesos-id",
+				"test_cluster-id",
+				port,
+				60,
+				make(chan<- producers.MetricsMessage))
 			result, err := h.getAgentState()
 
 			// getAgentState() returns a lot of metadata required for dcos-metrics

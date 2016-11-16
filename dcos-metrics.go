@@ -27,7 +27,9 @@ import (
 	log "github.com/Sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
 
+	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
+	"github.com/dcos/dcos-go/jwt/transport"
 	"github.com/dcos/dcos-metrics/collector"
 	"github.com/dcos/dcos-metrics/producers"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
@@ -118,16 +120,18 @@ func main() {
 	}
 
 	// Host-level Metrics Collector
-	agentCollectorChan := make(chan producers.MetricsMessage)
+	nodeCollectorChan := make(chan producers.MetricsMessage)
 	frameworkCollectorChan := make(chan *collector.AvroDatum)
 
 	log.Info("Agent polling enabled")
 
 	host, err := collector.NewDCOSHost(
 		cfg.DCOSRole,
-		cfg.Collector.IPCommand,
+		cfg.IPAddress,
+		cfg.MesosID,
+		cfg.ClusterID,
 		cfg.Collector.AgentConfig.Port,
-		time.Duration(cfg.Collector.PollingPeriod)*time.Second, agentCollectorChan)
+		time.Duration(cfg.Collector.PollingPeriod)*time.Second, nodeCollectorChan)
 
 	if err != nil {
 		log.Fatal(err.Error())
@@ -148,7 +152,7 @@ func main() {
 			for _, producer := range producerChans {
 				producer <- pmm
 			}
-		case agentMessage := <-agentCollectorChan:
+		case agentMessage := <-nodeCollectorChan:
 			for _, producer := range producerChans {
 				producer <- agentMessage
 			}
@@ -171,6 +175,58 @@ func (c *Config) loadConfig() error {
 
 	if err = yaml.Unmarshal(fileByte, &c); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (c *Config) getNodeInfo() error {
+	// Create a DC/OS transport
+	client := &http.Client{}
+	// If IAM config path is set, use it to generate a new
+	// round tripper for JWT stuff
+	if len(c.IAMConfigPath) != 0 {
+		rt, err := transport.NewRoundTripper(
+			client.Transport,
+			transport.OptionReadIAMConfig(c.IAMConfigPath),
+			transport.OptionTokenExpire(time.Duration(time.Second*2)))
+		if err != nil {
+			log.Fatal(err)
+		}
+		client.Transport = rt
+	}
+
+	// Get NodeInfo
+	log.Info("Getting NodeInfo{}")
+	nodeInfo, err := nodeutil.NewNodeInfo(client)
+	if err != nil {
+		return err
+	}
+
+	log.Info("Attempting to detect IP address")
+	ip, err := nodeInfo.DetectIP()
+	if err != nil {
+		return err
+	}
+	c.IPAddress = ip.String()
+
+	log.Info("Attempting to get MesosID")
+	id, err := nodeInfo.MesosID(nil)
+	if err != nil {
+		c.MesosID = ""
+	} else {
+		c.MesosID = id
+	}
+
+	if c.DCOSRole == dcos.RoleMaster {
+		cid, err := nodeInfo.ClusterID()
+		if err != nil {
+			return err
+		}
+		c.ClusterID = cid
+	} else {
+		log.Warn("ClusterID is unavailable on non-master hosts")
+		c.ClusterID = ""
 	}
 
 	return nil
@@ -216,38 +272,14 @@ func getNewConfig(args []string) (Config, error) {
 		return c, err
 	}
 
+	// Note: .getNodeInfo() is last so we are sure we have all the
+	// configuration we need from flags and config file to make
+	// this run correctly.
+	if err := c.getNodeInfo(); err != nil {
+		return c, err
+	}
+
 	return c, nil
-}
-
-func (c *Config) getNodeInfo() error {
-	// Create a DC/OS transport
-	client := &http.Client{}
-	// If IAM config path is set, use it to generate a new
-	// round tripper for JWT stuff
-	//	if len(c.IAMConfigPath) != 0 {
-	//		rt, err := transport.NewRoundTripper(
-	//			client.Transport,
-	//			transport.OptionReadIAMConfig(c.IAMConfigPath),
-	//			transport.OptionTokenExpire(time.Duration(time.Second*2)))
-	//		if err != nil {
-	//			log.Fatal(err)
-	//		}
-	//		client.Transport = rt
-	//	}
-
-	// Get NodeInfo
-	nodeInfo, err := nodeutil.NewNodeInfo(client)
-	if err != nil {
-		return err
-	}
-
-	if ip, err := nodeInfo.DetectIP(); err != nil {
-		return err
-	} else {
-		c.IPAddress = string(ip)
-	}
-
-	return nil
 }
 
 // producerIsConfigured analyzes the ProducersConfig struct and determines if
