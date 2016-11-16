@@ -50,7 +50,7 @@ type AvroDatum struct {
 
 // *AvroDatum.Transform() creates a MetricsMessage from the Avro data coming
 // in on our TCP channel.
-func (a *AvroDatum) Transform() (producers.MetricsMessage, error) {
+func (a *AvroDatum) Transform(mesosID string, clusterID string, ipaddress string) (producers.MetricsMessage, error) {
 	var (
 		tagData       = avroRecord{}
 		datapointData = avroRecord{}
@@ -58,7 +58,10 @@ func (a *AvroDatum) Transform() (producers.MetricsMessage, error) {
 		pmm = producers.MetricsMessage{
 			Name: "dcos.metrics.app",
 			Dimensions: producers.Dimensions{
-				Labels: make(map[string]string),
+				ClusterID: clusterID,
+				MesosID:   mesosID,
+				Hostname:  ipaddress,
+				Labels:    make(map[string]string),
 			},
 		}
 	)

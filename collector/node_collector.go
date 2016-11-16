@@ -17,7 +17,6 @@ package collector
 import (
 	"bytes"
 	"fmt"
-	"os/exec"
 	"reflect"
 	"strings"
 	"text/template"
@@ -34,12 +33,11 @@ var nodeColLog = log.WithFields(log.Fields{
 // Agent defines the structure of the agent metrics poller and any configuration
 // that might be required to run it.
 type DCOSHost struct {
-	IPAddress   string
-	IPCommand   string
 	Port        int
 	PollPeriod  time.Duration
 	MetricsChan chan<- producers.MetricsMessage
 	DCOSRole    string
+	IPAddress   string
 	MesosID     string
 	ClusterID   string
 	Hostname    string
@@ -60,12 +58,16 @@ type metricsMeta struct {
 // NewAgent returns a new instance of a DC/OS agent poller based on the provided
 // configuration and the result of the provided ipCommand script for detecting
 // the agent's IP address.
-func NewDCOSHost(dcosRole string, ipCommand string, port int, pollPeriod time.Duration, metricsChan chan<- producers.MetricsMessage) (DCOSHost, error) {
+func NewDCOSHost(
+	dcosRole string,
+	ipAddress string,
+	mesosID string,
+	clusterID string,
+	port int,
+	pollPeriod time.Duration,
+	metricsChan chan<- producers.MetricsMessage) (DCOSHost, error) {
 	h := DCOSHost{}
 
-	if len(ipCommand) == 0 {
-		return h, fmt.Errorf("Must pass ipCommand to DCOSHost()")
-	}
 	if port < 1024 {
 		return h, fmt.Errorf("Must pass port >= 1024 to DCOSHost()")
 	}
@@ -73,18 +75,13 @@ func NewDCOSHost(dcosRole string, ipCommand string, port int, pollPeriod time.Du
 		return h, fmt.Errorf("Must pass pollPeriod to DCOSHost()")
 	}
 
-	h.IPCommand = ipCommand
 	h.Port = port
 	h.PollPeriod = pollPeriod
 	h.MetricsChan = metricsChan
 	h.DCOSRole = dcosRole
-
-	// Detect the agent's IP address once. Per the DC/OS docs (at least as of
-	// November 2016), changing a node's IP address is not supported.
-	var err error
-	if h.IPAddress, err = h.getIP(); err != nil {
-		return h, err
-	}
+	h.IPAddress = ipAddress
+	h.MesosID = mesosID
+	h.ClusterID = clusterID
 
 	return h, nil
 }
@@ -106,25 +103,6 @@ func (h *DCOSHost) RunPoller() {
 			}
 		}
 	}
-}
-
-// getIP runs the ip_detect script and returns the IP address that the agent
-// is listening on.
-func (h *DCOSHost) getIP() (string, error) {
-	nodeColLog.Debugf("Executing ip-detect script %s", h.IPCommand)
-	cmdWithArgs := strings.Split(h.IPCommand, " ")
-
-	ipBytes, err := exec.Command(cmdWithArgs[0], cmdWithArgs[1:]...).Output()
-	if err != nil {
-		return "", err
-	}
-	ip := strings.TrimSpace(string(ipBytes))
-	if len(ip) == 0 {
-		return "", err
-	}
-
-	nodeColLog.Debugf("getIP() returned successfully, got IP %s", ip)
-	return ip, nil
 }
 
 // pollHost queries the DC/OS hsot for metrics and returns.

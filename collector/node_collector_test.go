@@ -68,35 +68,40 @@ func TestBuildDatapoints(t *testing.T) {
 
 func TestNewDCOSHost(t *testing.T) {
 	Convey("When establishing a new DCOSHost object", t, func() {
-		Convey("Should return an error when given an improper ip-detect command", func() {
-			_, err := NewDCOSHost("agent", "", 10000, 60, make(chan<- producers.MetricsMessage))
-			So(err, ShouldNotBeNil)
-		})
-
 		Convey("Should return an error when given an improper port", func() {
-			_, err := NewDCOSHost("agent", "/bin/echo -n 1.2.3.4", 1023, 60, make(chan<- producers.MetricsMessage))
+			_, err := NewDCOSHost(
+				"agent",
+				"10.0.0.1",
+				"test-mesos-id",
+				"test_cluster-id",
+				1023,
+				60,
+				make(chan<- producers.MetricsMessage))
 			So(err, ShouldNotBeNil)
 		})
 
 		Convey("Should return an error when given an improper pollPeriod", func() {
-			_, err := NewDCOSHost("agent", "/bin/echo -n 1.2.3.4", 1024, 0, make(chan<- producers.MetricsMessage))
+			_, err := NewDCOSHost(
+				"agent",
+				"10.0.0.1",
+				"test-mesos-id",
+				"test_cluster-id",
+				1024,
+				0,
+				make(chan<- producers.MetricsMessage))
 			So(err, ShouldNotBeNil)
 		})
 
 		Convey("Should return an Agent when given proper inputs", func() {
-			a, err := NewDCOSHost("agent", "/bin/echo -n 1.2.3.4", 10000, 60, make(chan<- producers.MetricsMessage))
+			a, err := NewDCOSHost(
+				"agent",
+				"10.0.0.1",
+				"test-mesos-id",
+				"test_cluster-id",
+				10000,
+				60,
+				make(chan<- producers.MetricsMessage))
 			So(a, ShouldHaveSameTypeAs, DCOSHost{})
-			So(err, ShouldBeNil)
-		})
-	})
-}
-
-func TestGetIP(t *testing.T) {
-	Convey("When getting the agent IP address using the ip_detect script", t, func() {
-		Convey("Should return the IP address without error", func() {
-			h := DCOSHost{IPCommand: "/bin/echo -n 172.16.10.88"}
-			i, err := h.getIP()
-			So(i, ShouldEqual, "172.16.10.88")
 			So(err, ShouldBeNil)
 		})
 	})
@@ -105,7 +110,14 @@ func TestGetIP(t *testing.T) {
 func TestTransform(t *testing.T) {
 	Convey("When transforming agent metrics to fit producers.MetricsMessage", t, func() {
 		// bogus port and IP address here; no HTTP client in a.transform()
-		h, _ := NewDCOSHost("agent", "/bin/echo -n 127.0.0.1", 9000, 60, make(chan<- producers.MetricsMessage))
+		h, _ := NewDCOSHost(
+			"agent",
+			"10.0.0.1",
+			"test-mesos-id",
+			"test_cluster-id",
+			9000,
+			60,
+			make(chan<- producers.MetricsMessage))
 
 		// The mocks in this test file are bytearrays so that they can be used
 		// by the HTTP test server(s). So we need to unmarshal them here before
