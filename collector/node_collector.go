@@ -82,6 +82,7 @@ func NewDCOSHost(
 	h.IPAddress = ipAddress
 	h.MesosID = mesosID
 	h.ClusterID = clusterID
+	h.Hostname = ipAddress
 
 	return h, nil
 }
@@ -184,8 +185,9 @@ func (h *DCOSHost) transform(in metricsMeta) (out []producers.MetricsMessage) {
 		}
 
 		msg.Dimensions = producers.Dimensions{
-			MesosID:            in.agentState.ID,
-			ClusterID:          "", // TODO(malnick) dcos-go should get this from /var/lib/dcos/cluster-id
+			MesosID:            h.MesosID,
+			ClusterID:          h.ClusterID,
+			Hostname:           h.Hostname,
 			ContainerID:        c.ContainerID,
 			ExecutorID:         c.ExecutorID,
 			FrameworkID:        c.FrameworkID,
