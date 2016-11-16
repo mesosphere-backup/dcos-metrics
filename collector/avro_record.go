@@ -36,6 +36,9 @@ func (ar avroRecord) extract(pmm *producers.MetricsMessage) error {
 	// Extract tags
 	if fieldType == "dcos.metrics.Tag" {
 		for _, field := range ar {
+			if len(field.Fields) != 2 {
+				return errors.New(fmt.Sprintf("Tags must have 2 fields, got %d", len(field.Fields)))
+			}
 			fwColLog.Debugf("Adding tag %s", field)
 			tagName := fmt.Sprintf("%v", field.Fields[0].Datum)
 			tagValue := fmt.Sprintf("%v", field.Fields[1].Datum)
@@ -57,13 +60,24 @@ func (ar avroRecord) extract(pmm *producers.MetricsMessage) error {
 	if fieldType == "dcos.metrics.Datapoint" {
 		datapoints := []producers.Datapoint{}
 		for _, field := range ar {
+			if len(field.Fields) != 3 {
+				return errors.New(fmt.Sprintf("Datapoints must have 3 fields, got %d", len(field.Fields)))
+			}
 			fwColLog.Debugf("Adding datapoint %s", field)
+
+			var (
+				name  = field.Fields[0].Datum
+				value = field.Fields[1].Datum
+				unit  = field.Fields[2].Datum
+			)
+
 			dp := producers.Datapoint{
-				Name:      fmt.Sprintf("%v", field.Fields[0].Datum),
-				Value:     fmt.Sprintf("%v", field.Fields[1].Datum),
-				Unit:      fmt.Sprintf("%v", field.Fields[2].Datum),
+				Name:      fmt.Sprintf("%v", name),
+				Unit:      fmt.Sprintf("%v", unit),
+				Value:     value,
 				Timestamp: fmt.Sprintf("%v", time.Now()),
 			}
+
 			datapoints = append(datapoints, dp)
 		}
 		pmm.Datapoints = datapoints
