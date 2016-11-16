@@ -145,7 +145,7 @@ func main() {
 	for {
 		select {
 		case frameworkMessage := <-frameworkCollectorChan:
-			pmm, err := frameworkMessage.Transform()
+			pmm, err := frameworkMessage.Transform(cfg.MesosID, cfg.ClusterID, cfg.IPAddress)
 			if err != nil {
 				log.Error(err)
 			}
@@ -188,8 +188,7 @@ func (c *Config) getNodeInfo() error {
 	if len(c.IAMConfigPath) != 0 {
 		rt, err := transport.NewRoundTripper(
 			client.Transport,
-			transport.OptionReadIAMConfig(c.IAMConfigPath),
-			transport.OptionTokenExpire(time.Duration(time.Second*2)))
+			transport.OptionReadIAMConfig(c.IAMConfigPath))
 		if err != nil {
 			log.Fatal(err)
 		}
