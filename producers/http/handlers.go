@@ -119,7 +119,7 @@ func containerAppMetricHandler(p *producerImpl) http.HandlerFunc {
 		mid := vars["metric-id"]
 
 		key := strings.Join([]string{
-			producers.AppMetricPrefix, cid, mid,
+			producers.AppMetricPrefix, cid,
 		}, producers.MetricNamespaceSep)
 
 		containerMetrics, ok := p.store.Get(key)
@@ -129,7 +129,19 @@ func containerAppMetricHandler(p *producerImpl) http.HandlerFunc {
 			return
 		}
 
-		encode(containerMetrics, w)
+		if _, ok := containerMetrics.(producers.MetricsMessage); !ok {
+			httpLog.Errorf("/api/v0/contianers - unsupported message type.")
+			http.Error(w, "Got unsupported message type.", http.StatusInternalServerError)
+			return
+		}
+
+		for _, dp := range containerMetrics.(producers.MetricsMessage).Datapoints {
+			if dp.Name == mid {
+				encode(dp, w)
+			}
+		}
+		httpLog.Errorf("/api/v0/containers/{id}/app/{metric-id} - not found in store, CID: %s / Metric-ID: %s", key, mid)
+		http.Error(w, "Metric not found in store", http.StatusNoContent)
 	}
 }
 
