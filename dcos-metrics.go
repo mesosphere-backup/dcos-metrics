@@ -39,7 +39,11 @@ import (
 )
 
 var (
-	VERSION  = "unset"
+	// VERSION set by $(git describe --always)
+	// Set by scripts/build.sh, executed by `make build`
+	VERSION = "unset"
+	// REVISION set by $(git rev-parse --shore HEAD)
+	// Set by scripts/build.sh, executed by `make build`
 	REVISION = "unset"
 )
 
