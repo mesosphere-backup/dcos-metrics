@@ -119,7 +119,7 @@ func (h *DCOSHost) getContainerMetrics() ([]agentContainer, error) {
 	c := NewHTTPClient(
 		strings.Join([]string{h.IPAddress, strconv.Itoa(h.Port)}, ":"),
 		"/containers",
-		time.Duration(15*time.Second))
+		time.Duration(2*time.Second))
 	if err := c.Fetch(&containers); err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func (h *DCOSHost) getAgentState() (agentState, error) {
 	c := NewHTTPClient(
 		strings.Join([]string{h.IPAddress, strconv.Itoa(h.Port)}, ":"),
 		"/state",
-		time.Duration(15*time.Second))
+		time.Duration(2*time.Second))
 	if err := c.Fetch(&state); err != nil {
 		return state, err
 	}

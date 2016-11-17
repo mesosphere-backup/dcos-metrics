@@ -23,6 +23,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-metrics/producers"
 )
 
@@ -96,6 +97,7 @@ func (h *DCOSHost) RunPoller() {
 	for _, m := range h.transform(h.pollHost()) {
 		h.MetricsChan <- m
 	}
+
 	for {
 		select {
 		case _ = <-ticker.C:
@@ -110,42 +112,38 @@ func (h *DCOSHost) RunPoller() {
 func (h *DCOSHost) pollHost() metricsMeta {
 	metrics := metricsMeta{}
 	now := time.Now().UTC()
-	nodeColLog.Infof("Polling the DC/OS host at %s:%d. Started at %s", h.IPAddress, h.Port, now.String())
-
-	if h.DCOSRole == "agent" {
-		// always fetch/emit agent state first: downstream will use it for tagging metrics
-		nodeColLog.Debugf("Fetching state from DC/OS host %s:%d", h.IPAddress, h.Port)
-		agentState, err := h.getAgentState()
-		if err != nil {
-			nodeColLog.Errorf("Failed to get agent state from %s:%d. Error: %s", h.IPAddress, h.Port, err)
-			return metrics
-		}
-
-		metrics.agentState = agentState
-
-		nodeColLog.Debugf("Fetching container metrics from DC/OS host %s:%d", h.IPAddress, h.Port)
-		containerMetrics, err := h.getContainerMetrics()
-		if err != nil {
-			nodeColLog.Errorf("Failed to get container metrics from %s:%d. Error: %s", h.IPAddress, h.Port, err)
-			return metrics
-		}
-
-		metrics.containerMetrics = containerMetrics
-
-	}
+	metrics.timestamp = now.Unix()
 
 	// Fetch node-level metrics for all DC/OS roles
 	nodeColLog.Debugf("Fetching node-level metrics from DC/OS host %s:%d", h.IPAddress, h.Port)
 	nm, err := h.getNodeMetrics()
 	if err != nil {
-		nodeColLog.Errorf("Failed to get node-level metrics from %s:%d. Error: %s", h.IPAddress, h.Port, err)
-		return metrics
+		nodeColLog.Errorf("Failed to get node-level metrics. %s", err)
+	} else {
+		metrics.nodeMetrics = nm
+	}
+
+	if h.DCOSRole == dcos.RoleAgent {
+		// always fetch/emit agent state first: downstream will use it for tagging metrics
+		nodeColLog.Debugf("Fetching state from DC/OS host %s:%d", h.IPAddress, h.Port)
+		agentState, err := h.getAgentState()
+
+		if err != nil {
+			nodeColLog.Errorf("Failed to get agent state from %s:%d. Error: %s", h.IPAddress, h.Port, err)
+		} else {
+			metrics.agentState = agentState
+		}
+
+		nodeColLog.Debugf("Fetching container metrics from DC/OS host %s:%d", h.IPAddress, h.Port)
+		containerMetrics, err := h.getContainerMetrics()
+		if err != nil {
+			nodeColLog.Errorf("Failed to get container metrics from %s:%d. Error: %s", h.IPAddress, h.Port, err)
+		} else {
+			metrics.containerMetrics = containerMetrics
+		}
 	}
 
 	nodeColLog.Infof("Finished polling DC/OS host %s:%d, took %f seconds.", h.IPAddress, h.Port, time.Since(now).Seconds())
-
-	metrics.nodeMetrics = nm
-	metrics.timestamp = now.Unix()
 
 	return metrics
 }
@@ -162,9 +160,9 @@ func (h *DCOSHost) transform(in metricsMeta) (out []producers.MetricsMessage) {
 		Name:       producers.NodeMetricPrefix,
 		Datapoints: buildDatapoints(in.nodeMetrics, t),
 		Dimensions: producers.Dimensions{
-			MesosID:   in.agentState.ID,
-			ClusterID: "", // TODO(roger) need to get this from the master
-			Hostname:  in.agentState.Hostname,
+			MesosID:   h.MesosID,
+			ClusterID: h.ClusterID,
+			Hostname:  h.IPAddress,
 		},
 		Timestamp: t.UTC().Unix(),
 	}

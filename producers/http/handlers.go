@@ -24,18 +24,26 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// /api/v0/agent
+// /api/v0/node
 func nodeHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var am []interface{}
-		if nodeMetrics, err := p.store.GetByRegex(producers.NodeMetricPrefix + ".*"); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-		} else {
-			for _, v := range nodeMetrics {
-				am = append(am, v)
-			}
-			encode(am[0], w)
+		nodeMetrics, err := p.store.GetByRegex(producers.NodeMetricPrefix + ".*")
+		if err != nil {
+			httpLog.Error("/api/v0/node - %s", err.Error())
+			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
+		for _, v := range nodeMetrics {
+			am = append(am, v)
+		}
+
+		if len(am) != 0 {
+			encode(am[0], w)
+			return
+		}
+
+		httpLog.Error("/api/v0/node - no content in store.")
+		http.Error(w, "No values found in store", http.StatusBadRequest)
 	}
 }
 
@@ -43,15 +51,21 @@ func nodeHandler(p *producerImpl) http.HandlerFunc {
 func containersHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cm := []string{}
-		if containerMetrics, err := p.store.GetByRegex(producers.ContainerMetricPrefix + ".*"); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-		} else {
-
-			for _, c := range containerMetrics {
-				cm = append(cm, c.(producers.MetricsMessage).Dimensions.ContainerID)
-			}
-			encode(cm, w)
+		containerMetrics, err := p.store.GetByRegex(producers.ContainerMetricPrefix + ".*")
+		if err != nil {
+			httpLog.Error("/api/v0/containers - %s", err.Error())
+			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
+
+		for _, c := range containerMetrics {
+			if _, ok := c.(producers.MetricsMessage); !ok {
+				httpLog.Error("/api/v0/contianers - unsupported message type.")
+				http.Error(w, "Got unsupported message type.", http.StatusInternalServerError)
+			}
+			cm = append(cm, c.(producers.MetricsMessage).Dimensions.ContainerID)
+		}
+
+		encode(cm, w)
 	}
 }
 
@@ -63,11 +77,13 @@ func containerHandler(p *producerImpl) http.HandlerFunc {
 			producers.ContainerMetricPrefix, vars["id"],
 		}, producers.MetricNamespaceSep)
 
-		if containerMetrics, ok := p.store.Get(key); !ok {
-			w.WriteHeader(http.StatusNoContent)
-		} else {
-			encode(containerMetrics, w)
+		containerMetrics, ok := p.store.Get(key)
+		if !ok {
+			httpLog.Error("/api/v0/containers/{id} - not found in store: %s", key)
+			http.Error(w, "Key not found in store", http.StatusNoContent)
 		}
+
+		encode(containerMetrics, w)
 	}
 }
 
@@ -80,11 +96,13 @@ func containerAppHandler(p *producerImpl) http.HandlerFunc {
 			producers.AppMetricPrefix, cid,
 		}, producers.MetricNamespaceSep)
 
-		if containerMetrics, ok := p.store.Get(key); !ok {
-			w.WriteHeader(http.StatusNoContent)
-		} else {
-			encode(containerMetrics, w)
+		containerMetrics, ok := p.store.Get(key)
+		if !ok {
+			httpLog.Error("/api/v0/containers/{id}/app - not found in store: %s", key)
+			http.Error(w, "Key not found in store", http.StatusNoContent)
 		}
+
+		encode(containerMetrics, w)
 	}
 }
 
@@ -94,6 +112,7 @@ func pingHandler(p *producerImpl) http.HandlerFunc {
 			OK        bool   `json:"ok"`
 			Timestamp string `json:"timestamp"`
 		}
+
 		encode(ping{OK: true, Timestamp: time.Now().UTC().Format(time.RFC3339)}, w)
 	}
 }
@@ -113,8 +132,7 @@ func notYetImplementedHandler(p *producerImpl) http.HandlerFunc {
 func encode(v interface{}, w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	} else {
-		w.WriteHeader(http.StatusOK)
+		httpLog.Error("Failed to encode value to JSON: %v", v)
+		http.Error(w, "Failed to encode value to JSON", http.StatusInternalServerError)
 	}
 }
