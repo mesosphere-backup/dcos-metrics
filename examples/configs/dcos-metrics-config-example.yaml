@@ -6,7 +6,7 @@
 collector:
   http_profiler: false
   ip_command: 'echo 10.1.2.3'
-  polling_period: 1 
+  polling_period: 100 
 
   # DC/OS (Mesos) master configuration
   master_config:

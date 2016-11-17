@@ -27,14 +27,14 @@ import (
 // /api/v0/agent
 func nodeHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var am []interface{}
+		//		var am []interface{}
 		if nodeMetrics, err := p.store.GetByRegex(producers.NodeMetricPrefix + ".*"); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 		} else {
-			for _, v := range nodeMetrics {
-				am = append(am, v)
-			}
-			encode(am[0], w)
+			//for _, v := range nodeMetrics {
+			//	am = append(am, v)
+			//}
+			encode(nodeMetrics, w)
 		}
 	}
 }
