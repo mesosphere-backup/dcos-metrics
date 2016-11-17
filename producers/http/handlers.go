@@ -28,17 +28,23 @@ import (
 func nodeHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var am []interface{}
-		if nodeMetrics, err := p.store.GetByRegex(producers.NodeMetricPrefix + ".*"); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-		} else {
-			for _, v := range nodeMetrics {
-				am = append(am, v)
-			}
-			if len(am) != 0 {
-				encode(am[0], w)
-			}
-			w.WriteHeader(http.StatusNoContent)
+		nodeMetrics, err := p.store.GetByRegex(producers.NodeMetricPrefix + ".*")
+		if err != nil {
+			httpLog.Error(err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
+		for _, v := range nodeMetrics {
+			am = append(am, v)
+		}
+
+		if len(am) != 0 {
+			encode(am[0], w)
+		}
+
+		httpLog.Error("No values found in store")
+		http.Error(w, "No values found in store", http.StatusBadRequest)
+		return
 	}
 }
 
@@ -46,15 +52,18 @@ func nodeHandler(p *producerImpl) http.HandlerFunc {
 func containersHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cm := []string{}
-		if containerMetrics, err := p.store.GetByRegex(producers.ContainerMetricPrefix + ".*"); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-		} else {
-
-			for _, c := range containerMetrics {
-				cm = append(cm, c.(producers.MetricsMessage).Dimensions.ContainerID)
-			}
-			encode(cm, w)
+		containerMetrics, err := p.store.GetByRegex(producers.ContainerMetricPrefix + ".*")
+		if err != nil {
+			httpLog.Error(err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
+
+		for _, c := range containerMetrics {
+			cm = append(cm, c.(producers.MetricsMessage).Dimensions.ContainerID)
+		}
+
+		encode(cm, w)
 	}
 }
 
@@ -66,11 +75,14 @@ func containerHandler(p *producerImpl) http.HandlerFunc {
 			producers.ContainerMetricPrefix, vars["id"],
 		}, producers.MetricNamespaceSep)
 
-		if containerMetrics, ok := p.store.Get(key); !ok {
-			w.WriteHeader(http.StatusNoContent)
-		} else {
-			encode(containerMetrics, w)
+		containerMetrics, ok := p.store.Get(key)
+		if !ok {
+			httpLog.Error("Failed to find value in store: %s", key)
+			http.Error(w, "Key not found in store", http.StatusNoContent)
+			return
 		}
+
+		encode(containerMetrics, w)
 	}
 }
 
@@ -83,11 +95,14 @@ func containerAppHandler(p *producerImpl) http.HandlerFunc {
 			producers.AppMetricPrefix, cid,
 		}, producers.MetricNamespaceSep)
 
-		if containerMetrics, ok := p.store.Get(key); !ok {
-			w.WriteHeader(http.StatusNoContent)
-		} else {
-			encode(containerMetrics, w)
+		containerMetrics, ok := p.store.Get(key)
+		if !ok {
+			httpLog.Error("Failed to find value in store: %s", key)
+			http.Error(w, "Key not found in store", http.StatusNoContent)
+			return
 		}
+
+		encode(containerMetrics, w)
 	}
 }
 
@@ -97,6 +112,7 @@ func pingHandler(p *producerImpl) http.HandlerFunc {
 			OK        bool   `json:"ok"`
 			Timestamp string `json:"timestamp"`
 		}
+
 		encode(ping{OK: true, Timestamp: time.Now().UTC().Format(time.RFC3339)}, w)
 	}
 }
