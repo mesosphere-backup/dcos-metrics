@@ -123,6 +123,7 @@ func TestHTTPProducer_Node(t *testing.T) {
 			if err != nil {
 				panic(err)
 			}
+
 			expected, err := json.Marshal(testNodeData)
 			if err != nil {
 				panic(err)

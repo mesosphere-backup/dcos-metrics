@@ -24,13 +24,13 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// /api/v0/agent
+// /api/v0/node
 func nodeHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var am []interface{}
 		nodeMetrics, err := p.store.GetByRegex(producers.NodeMetricPrefix + ".*")
 		if err != nil {
-			httpLog.Error(err)
+			httpLog.Error("/api/v0/node - %s", err.Error())
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -40,9 +40,10 @@ func nodeHandler(p *producerImpl) http.HandlerFunc {
 
 		if len(am) != 0 {
 			encode(am[0], w)
+			return
 		}
 
-		httpLog.Error("No values found in store")
+		httpLog.Error("/api/v0/node - no content in store.")
 		http.Error(w, "No values found in store", http.StatusBadRequest)
 		return
 	}
@@ -54,7 +55,7 @@ func containersHandler(p *producerImpl) http.HandlerFunc {
 		cm := []string{}
 		containerMetrics, err := p.store.GetByRegex(producers.ContainerMetricPrefix + ".*")
 		if err != nil {
-			httpLog.Error(err)
+			httpLog.Error("/api/v0/containers - %s", err.Error())
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -77,7 +78,7 @@ func containerHandler(p *producerImpl) http.HandlerFunc {
 
 		containerMetrics, ok := p.store.Get(key)
 		if !ok {
-			httpLog.Error("Failed to find value in store: %s", key)
+			httpLog.Error("/api/v0/containers/{id} - not found in store: %s", key)
 			http.Error(w, "Key not found in store", http.StatusNoContent)
 			return
 		}
@@ -97,7 +98,7 @@ func containerAppHandler(p *producerImpl) http.HandlerFunc {
 
 		containerMetrics, ok := p.store.Get(key)
 		if !ok {
-			httpLog.Error("Failed to find value in store: %s", key)
+			httpLog.Error("/api/v0/containers/{id}/app - not found in store: %s", key)
 			http.Error(w, "Key not found in store", http.StatusNoContent)
 			return
 		}
@@ -132,8 +133,8 @@ func notYetImplementedHandler(p *producerImpl) http.HandlerFunc {
 func encode(v interface{}, w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	} else {
-		w.WriteHeader(http.StatusOK)
+		httpLog.Error("Failed to encode value to JSON: %v", v)
+		http.Error(w, "Failed to encode value to JSON", http.StatusInternalServerError)
+		return
 	}
 }
