@@ -4,7 +4,7 @@
 #include <memory>
 #include <mutex>
 
-#include <mesos/slave/containerizer.hpp>
+#include <mesos/slave/isolator.pb.h>
 #include <stout/try.hpp>
 
 #include "udp_endpoint.hpp"

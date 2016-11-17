@@ -2,7 +2,7 @@
 
 #include <memory>
 
-#include <mesos/slave/containerizer.hpp>
+#include <mesos/slave/isolator.pb.h>
 #include <stout/try.hpp>
 
 #include "mesos_hash.hpp"
