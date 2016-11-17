@@ -92,6 +92,6 @@ var agentRoutes = []Route{
 		Name:        "containers_app_metric",
 		Method:      "GET",
 		Path:        strings.Join([]string{root, "containers", "{id}", "app", "{metric-id}"}, "/"),
-		HandlerFunc: notYetImplementedHandler,
+		HandlerFunc: containerAppMetricHandler,
 	},
 }
