@@ -138,6 +138,7 @@ func containerAppMetricHandler(p *producerImpl) http.HandlerFunc {
 		for _, dp := range containerMetrics.(producers.MetricsMessage).Datapoints {
 			if dp.Name == mid {
 				encode(dp, w)
+				return
 			}
 		}
 		httpLog.Errorf("/api/v0/containers/{id}/app/{metric-id} - not found in store, CID: %s / Metric-ID: %s", key, mid)
