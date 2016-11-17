@@ -6,6 +6,8 @@ PLATFORM=$(uname | tr [:upper:] [:lower:])
 GIT_REF=$(git describe --always)
 SOURCE_DIR=$(git rev-parse --show-toplevel)
 BUILD_DIR="${SOURCE_DIR}/build/${COMPONENT}"
+VERSION=${GIT_REF}
+REVISION=$(git rev-parse --short HEAD)
 
 if [[ $COMPONENT == "collector" ]]; then
     export PATH="${GOPATH}/bin:${PATH}"
@@ -18,7 +20,9 @@ if [[ $COMPONENT == "collector" ]]; then
     popd
 
     # build binary
-    go build -a -o ${BUILD_DIR}/dcos-metrics-${COMPONENT}-${GIT_REF} *.go
+    go build -a -o ${BUILD_DIR}/dcos-metrics-${COMPONENT}-${GIT_REF} \
+		-ldflags "-X main.VERSION=${VERSION} -X main.REVISION=${REVISION}" \
+		*.go
 else
     echo "Error: don't know how to build component '${COMPONENT}'!'"
     exit 1
