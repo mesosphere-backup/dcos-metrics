@@ -30,8 +30,9 @@ func nodeHandler(p *producerImpl) http.HandlerFunc {
 		var am []interface{}
 		nodeMetrics, err := p.store.GetByRegex(producers.NodeMetricPrefix + ".*")
 		if err != nil {
-			httpLog.Error("/api/v0/node - %s", err.Error())
+			httpLog.Errorf("/api/v0/node - %s", err.Error())
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 		for _, v := range nodeMetrics {
 			am = append(am, v)
@@ -53,14 +54,16 @@ func containersHandler(p *producerImpl) http.HandlerFunc {
 		cm := []string{}
 		containerMetrics, err := p.store.GetByRegex(producers.ContainerMetricPrefix + ".*")
 		if err != nil {
-			httpLog.Error("/api/v0/containers - %s", err.Error())
+			httpLog.Errorf("/api/v0/containers - %s", err.Error())
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 
 		for _, c := range containerMetrics {
 			if _, ok := c.(producers.MetricsMessage); !ok {
-				httpLog.Error("/api/v0/contianers - unsupported message type.")
+				httpLog.Errorf("/api/v0/contianers - unsupported message type.")
 				http.Error(w, "Got unsupported message type.", http.StatusInternalServerError)
+				return
 			}
 			cm = append(cm, c.(producers.MetricsMessage).Dimensions.ContainerID)
 		}
@@ -79,8 +82,9 @@ func containerHandler(p *producerImpl) http.HandlerFunc {
 
 		containerMetrics, ok := p.store.Get(key)
 		if !ok {
-			httpLog.Error("/api/v0/containers/{id} - not found in store: %s", key)
+			httpLog.Errorf("/api/v0/containers/{id} - not found in store: %s", key)
 			http.Error(w, "Key not found in store", http.StatusNoContent)
+			return
 		}
 
 		encode(containerMetrics, w)
@@ -98,11 +102,47 @@ func containerAppHandler(p *producerImpl) http.HandlerFunc {
 
 		containerMetrics, ok := p.store.Get(key)
 		if !ok {
-			httpLog.Error("/api/v0/containers/{id}/app - not found in store: %s", key)
+			httpLog.Errorf("/api/v0/containers/{id}/app - not found in store: %s", key)
 			http.Error(w, "Key not found in store", http.StatusNoContent)
+			return
 		}
 
 		encode(containerMetrics, w)
+	}
+}
+
+// /api/v0/containers/{id}/app/{metric-id}/
+func containerAppMetricHandler(p *producerImpl) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		cid := vars["id"]
+		mid := vars["metric-id"]
+
+		key := strings.Join([]string{
+			producers.AppMetricPrefix, cid,
+		}, producers.MetricNamespaceSep)
+
+		containerMetrics, ok := p.store.Get(key)
+		if !ok {
+			httpLog.Errorf("/api/v0/containers/{id}/app/{metric-id} - not found in store: %s", key)
+			http.Error(w, "Key not found in store", http.StatusNoContent)
+			return
+		}
+
+		if _, ok := containerMetrics.(producers.MetricsMessage); !ok {
+			httpLog.Errorf("/api/v0/contianers - unsupported message type.")
+			http.Error(w, "Got unsupported message type.", http.StatusInternalServerError)
+			return
+		}
+
+		for _, dp := range containerMetrics.(producers.MetricsMessage).Datapoints {
+			if dp.Name == mid {
+				encode(dp, w)
+				return
+			}
+		}
+		httpLog.Errorf("/api/v0/containers/{id}/app/{metric-id} - not found in store, CID: %s / Metric-ID: %s", key, mid)
+		http.Error(w, "Metric not found in store", http.StatusNoContent)
 	}
 }
 
@@ -132,7 +172,7 @@ func notYetImplementedHandler(p *producerImpl) http.HandlerFunc {
 func encode(v interface{}, w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		httpLog.Error("Failed to encode value to JSON: %v", v)
+		httpLog.Errorf("Failed to encode value to JSON: %v", v)
 		http.Error(w, "Failed to encode value to JSON", http.StatusInternalServerError)
 	}
 }
