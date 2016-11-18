@@ -15,6 +15,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -196,7 +197,11 @@ func (c *Config) loadConfig() error {
 
 func (c *Config) getNodeInfo() error {
 	// Create a DC/OS transport
-	client := &http.Client{}
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
 	// If IAM config path is set, use it to generate a new
 	// round tripper for JWT stuff
 	if len(c.IAMConfigPath) != 0 {
