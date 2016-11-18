@@ -43,7 +43,7 @@ type Route struct {
 
 var (
 	version = 0
-	root    = fmt.Sprintf("/system/metrics/api/v%d", version)
+	root    = fmt.Sprintf("/v%d", version)
 )
 
 var routes = []Route{
