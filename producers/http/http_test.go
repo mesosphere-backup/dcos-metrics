@@ -110,10 +110,10 @@ func setup() int {
 
 // Functional test for the /system/metrics/api/v0/node endpoint.
 func TestHTTPProducer_Node(t *testing.T) {
-	Convey("When querying the /system/metrics/api/v0/node endpoint", t, func() {
+	Convey("When querying the /v0/node endpoint", t, func() {
 		Convey("Should return metrics in the expected structure", func() {
 			port := setup()
-			resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/system/metrics/api/v0/node", port))
+			resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/v0/node", port))
 			if err != nil {
 				panic(err)
 			}
@@ -135,10 +135,10 @@ func TestHTTPProducer_Node(t *testing.T) {
 }
 
 func TestHTTPProducer_Containers(t *testing.T) {
-	Convey("When querying the /system/metrics/api/v0/containers endpoint", t, func() {
+	Convey("When querying the /v0/containers endpoint", t, func() {
 		Convey("Should return container IDs in the expected structure", nil)
 		port := setup()
-		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/system/metrics/api/v0/containers", port))
+		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/v0/containers", port))
 		if err != nil {
 			panic(err)
 		}
@@ -158,10 +158,10 @@ func TestHTTPProducer_Containers(t *testing.T) {
 }
 
 func TestHTTPProducer_ContainerID(t *testing.T) {
-	Convey("When querying the /system/metrics/api/v0/containers/{id} endpoint", t, func() {
+	Convey("When querying the /v0/containers/{id} endpoint", t, func() {
 		Convey("Should return container metrics for the container ID given", nil)
 		port := setup()
-		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/system/metrics/api/v0/containers/foo-container", port))
+		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/v0/containers/foo-container", port))
 		if err != nil {
 			panic(err)
 		}
@@ -181,10 +181,10 @@ func TestHTTPProducer_ContainerID(t *testing.T) {
 }
 
 func TestHTTPProducer_ContainerApp(t *testing.T) {
-	Convey("When querying the /system/metrics/api/v0/containers/{id}/app endpoint", t, func() {
+	Convey("When querying the /v0/containers/{id}/app endpoint", t, func() {
 		Convey("Should return app metrics in the expected structure", nil)
 		port := setup()
-		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/system/metrics/api/v0/containers/foo-container/app", port))
+		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/v0/containers/foo-container/app", port))
 		if err != nil {
 			panic(err)
 		}
