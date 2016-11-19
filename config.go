@@ -89,6 +89,7 @@ func (c *Config) loadConfig() error {
 }
 
 func (c *Config) getNodeInfo() error {
+	log.Debug("Getting node info")
 	client, err := getClient(c.CACertificatePath, c.IAMConfigPath)
 	if err != nil {
 		return err
@@ -97,14 +98,14 @@ func (c *Config) getNodeInfo() error {
 	// Get NodeInfo
 	nodeInfo, err := nodeutil.NewNodeInfo(client)
 	if err != nil {
-		return err
+		log.Errorf("Error getting NodeInfo{}: err")
 	}
 
 	ip, err := nodeInfo.DetectIP()
 	if err != nil {
 		log.Error(err)
 	}
-	c.IPAddress = string(ip)
+	c.IPAddress = ip.String()
 
 	c.MesosID, err = nodeInfo.MesosID(nil)
 	if err != nil {
