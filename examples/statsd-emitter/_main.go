@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -69,19 +70,46 @@ func getConn(address string) *net.UDPConn {
 	return conn
 }
 
-type stat struct {
-	Key   string
-	Value interface{}
-	Unit  string
-	Tags  map[string]string
+func formatCounteri(key string, val int64) string {
+	return formati(key, val, "c")
 }
 
-func uptime(value int64) string {
-	return fmt.Sprintf("statsd_tester.time.uptime:%s|g|#test_tag_key:test_tag_value", value)
+func formatGaugei(key string, val int64) string {
+	return formati(key, val, "g")
 }
 
-func sendUptime(conn *net.UDPConn, value int64) ByteCount {
-	return send(conn, uptime(value))
+func formatGaugef(key string, val float64) string {
+	return formatf(key, val, "g")
+}
+
+func formatTimerMsi(key string, val int64) string {
+	return formati(key, val, "ms")
+}
+
+func formati(key string, val int64, tipe string) string {
+	return fmt.Sprintf("statsd_emitter.%s:%s|%s|#sample_tag:sample_val",
+		key, strconv.FormatInt(val, 10), tipe)
+}
+
+func formatf(key string, val float64, tipe string) string {
+	return fmt.Sprintf("statsd_emitter.%s:%s|%s|#sample_tag:sample_val",
+		key, strconv.FormatFloat(val, 'f', -1, 64), tipe)
+}
+
+func sendCounteri(conn *net.UDPConn, key string, val int64) ByteCount {
+	return send(conn, formatCounteri(key, val))
+}
+
+func sendGaugei(conn *net.UDPConn, key string, val int64) ByteCount {
+	return send(conn, formatGaugei(key, val))
+}
+
+func sendGaugef(conn *net.UDPConn, key string, val float64) ByteCount {
+	return send(conn, formatGaugef(key, val))
+}
+
+func sendTimerMsi(conn *net.UDPConn, key string, val int64) ByteCount {
+	return send(conn, formatTimerMsi(key, val))
 }
 
 func send(conn *net.UDPConn, msg string) ByteCount {
@@ -115,8 +143,28 @@ func sendSomeStats(conn *net.UDPConn, start time.Time, loopCount int64) ByteCoun
 
 	var bytes ByteCount
 
+	bytes.add(sendGaugei(conn, "time.unix", int64(now.Unix())))
+	bytes.add(sendGaugei(conn, "time.unix_nano", int64(now.UnixNano())))
+	bytes.add(sendGaugef(conn, "time.unix_float", float64(now.UnixNano())/1000000000))
 	uptime_ms := int64((now.UnixNano() - start.UnixNano()) / 1000000 /* nano -> milli */)
-	bytes.add(sendUptime(conn, uptime_ms))
+	bytes.add(sendGaugei(conn, "time.uptime_gauge_ms", uptime_ms))
+	bytes.add(sendTimerMsi(conn, "time.uptime_timer_ms", uptime_ms))
+
+	bytes.add(sendGaugei(conn, "proc.pid", int64(os.Getpid())))
+
+	var memstats runtime.MemStats
+	runtime.ReadMemStats(&memstats) // Alloc, TotalAlloc, Sys, Lookups, Mallocs, Frees
+	bytes.add(sendGaugei(conn, "mem.alloc", int64(memstats.Alloc)))
+	bytes.add(sendGaugei(conn, "mem.total_alloc", int64(memstats.TotalAlloc)))
+	bytes.add(sendGaugei(conn, "mem.sys", int64(memstats.Sys)))
+	bytes.add(sendGaugei(conn, "mem.lookups", int64(memstats.Lookups)))
+	bytes.add(sendGaugei(conn, "mem.mallocs", int64(memstats.Mallocs)))
+	bytes.add(sendGaugei(conn, "mem.frees", int64(memstats.Frees)))
+
+	bytes.add(sendCounteri(conn, "sent.loop_counter", 1))
+	bytes.add(sendGaugei(conn, "sent.loop_gauge", loopCount))
+	bytes.add(sendGaugei(conn, "sent.bytes_success", bytes.success))
+	bytes.add(sendGaugei(conn, "sent.bytes_failed", bytes.failed))
 
 	return bytes
 }
@@ -132,6 +180,8 @@ func main() {
 
 	byteCountChan := make(chan ByteCount)
 	go printOutputRateLoop(byteCountChan)
+
+	byteCountChan <- sendCounteri(conn, "proc.instance_counter", 1)
 
 	var loopCount int64 = 0
 	for {
