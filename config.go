@@ -96,7 +96,11 @@ func (c *Config) getNodeInfo() error {
 	}
 
 	// Get NodeInfo
-	nodeInfo, err := nodeutil.NewNodeInfo(client)
+	var stateURL = "http://leader.mesos:5050/state"
+	if len(c.IAMConfigPath) > 0 {
+		stateURL = "https://leader.mesos:5050/state"
+	}
+	nodeInfo, err := nodeutil.NewNodeInfo(client, nodeutil.OptionMesosStateURL(stateURL))
 	if err != nil {
 		log.Errorf("Error getting NodeInfo{}: err")
 	}
