@@ -77,7 +77,7 @@ type stat struct {
 }
 
 func uptime(value int64) string {
-	return fmt.Sprintf("statsd_tester.time.uptime:%s|g|#test_tag_key:test_tag_value", value)
+	return fmt.Sprintf("statsd_tester.time.uptime:%d|g|#test_tag_key:test_tag_value", value)
 }
 
 func sendUptime(conn *net.UDPConn, value int64) ByteCount {
