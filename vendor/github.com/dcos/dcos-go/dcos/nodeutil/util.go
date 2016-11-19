@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -24,9 +25,9 @@ const (
 )
 
 var defaultStateURL = url.URL{
-	Scheme: "https",
-	Host:   dcos.DNSRecordLeader,
-	Path:   "/mesos/state",
+	Scheme: "http",
+	Host:   net.JoinHostPort(dcos.DNSRecordLeader, strconv.Itoa(dcos.PortMesosMaster)),
+	Path:   "/state",
 }
 
 // ErrNodeInfo is an error structure raised by exported functions with meaningful error message.

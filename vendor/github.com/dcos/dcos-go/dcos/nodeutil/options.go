@@ -69,8 +69,8 @@ func OptionAgentPublicRoleFile(path string) Option {
 	}
 }
 
-// OptionLeaderDomain sets a domain name to make a get request to /mesos/state in order to retrieve mesos state.json.
-func OptionLeaderDomain(stateURL string) Option {
+// OptionMesosStateURL sets a domain name to make a get request to /mesos/state in order to retrieve mesos state.json.
+func OptionMesosStateURL(stateURL string) Option {
 	return func(d *dcosInfo) error {
 		if stateURL == "" {
 			return ErrEmptyParam
