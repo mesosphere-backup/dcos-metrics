@@ -65,8 +65,8 @@
 		{
 			"checksumSHA1": "y7+qlMm+ID5NYA8dOFd2WFcIRaU=",
 			"path": "github.com/dcos/dcos-go/store",
-			"revision": "a5d6cbca7de98b4d8b8c6a48520e39be03fb8967",
-			"revisionTime": "2016-11-07T19:15:35Z"
+			"revision": "b55737ec7e18700b34591a773e8a9173c31efa4a",
+			"revisionTime": "2016-11-19T05:07:17Z"
 		},
 		{
 			"checksumSHA1": "7oJyGPn6FhDZeJy9wuWqWSQ5XFM=",
