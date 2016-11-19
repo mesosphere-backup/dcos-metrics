@@ -8,6 +8,7 @@ import (
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
 	"github.com/dcos/dcos-metrics/collector"
+	httpHelpers "github.com/dcos/dcos-metrics/http_helpers"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
 
 	log "github.com/Sirupsen/logrus"
@@ -90,7 +91,7 @@ func (c *Config) loadConfig() error {
 
 func (c *Config) getNodeInfo() error {
 	log.Debug("Getting node info")
-	client, err := getClient(c.CACertificatePath, c.IAMConfigPath)
+	client, err := httpHelpers.NewMetricsClient(c.CACertificatePath, c.IAMConfigPath)
 	if err != nil {
 		return err
 	}
@@ -171,6 +172,15 @@ func getNewConfig(args []string) (Config, error) {
 	if err := c.getNodeInfo(); err != nil {
 		return c, err
 	}
+
+	// Set the client for the collector to reuse in GET operations
+	// to local state and other HTTP sessions
+	collectorClient, err := httpHelpers.NewMetricsClient(c.CACertificatePath, c.IAMConfigPath)
+	if err != nil {
+		return c, err
+	}
+
+	c.Collector.AgentConfig.HTTPClient = collectorClient
 
 	return c, nil
 }

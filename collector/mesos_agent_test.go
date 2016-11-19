@@ -21,6 +21,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	httpHelpers "github.com/dcos/dcos-metrics/http_helpers"
 	"github.com/dcos/dcos-metrics/producers"
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -92,6 +93,11 @@ func TestGetContainerMetrics(t *testing.T) {
 	}))
 	defer ts.Close()
 
+	testClient, err := httpHelpers.NewMetricsClient("", "")
+	if err != nil {
+		t.Error("Error retreiving HTTP Client:", err)
+	}
+
 	Convey("When fetching container metrics", t, func() {
 		port, err := extractPortFromURL(ts.URL)
 		if err != nil {
@@ -105,6 +111,7 @@ func TestGetContainerMetrics(t *testing.T) {
 			"test_cluster-id",
 			port,
 			60,
+			testClient,
 			make(chan<- producers.MetricsMessage))
 		result, err := a.getContainerMetrics()
 
@@ -121,6 +128,7 @@ func TestGetContainerMetrics(t *testing.T) {
 }
 
 func TestGetAgentState(t *testing.T) {
+
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
@@ -128,12 +136,17 @@ func TestGetAgentState(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	Convey("When fetching the agent state", t, func() {
-		port, err := extractPortFromURL(ts.URL)
-		if err != nil {
-			panic(err)
-		}
+	testClient, err := httpHelpers.NewMetricsClient("", "")
+	if err != nil {
+		t.Error("Error retreiving HTTP Client:", err)
+	}
 
+	port, err := extractPortFromURL(ts.URL)
+	if err != nil {
+		panic(err)
+	}
+
+	Convey("When fetching the agent state", t, func() {
 		Convey("Should return an 'agentState' without error", func() {
 			h, _ := NewDCOSHost(
 				"agent",
@@ -142,6 +155,7 @@ func TestGetAgentState(t *testing.T) {
 				"test_cluster-id",
 				port,
 				60,
+				testClient,
 				make(chan<- producers.MetricsMessage))
 			result, err := h.getAgentState()
 

@@ -84,7 +84,9 @@ func main() {
 		cfg.MesosID,
 		cfg.ClusterID,
 		cfg.Collector.AgentConfig.Port,
-		time.Duration(cfg.Collector.PollingPeriod)*time.Second, nodeCollectorChan)
+		time.Duration(cfg.Collector.PollingPeriod)*time.Second,
+		cfg.Collector.AgentConfig.HTTPClient,
+		nodeCollectorChan)
 
 	if err != nil {
 		log.Fatal(err.Error())

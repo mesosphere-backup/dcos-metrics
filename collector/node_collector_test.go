@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	httpHelpers "github.com/dcos/dcos-metrics/http_helpers"
 	"github.com/dcos/dcos-metrics/producers"
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -67,6 +68,11 @@ func TestBuildDatapoints(t *testing.T) {
 }
 
 func TestNewDCOSHost(t *testing.T) {
+	testClient, err := httpHelpers.NewMetricsClient("", "")
+	if err != nil {
+		t.Error("Error retreiving HTTP Client:", err)
+	}
+
 	Convey("When establishing a new DCOSHost object", t, func() {
 		Convey("Should return an error when given an improper port", func() {
 			_, err := NewDCOSHost(
@@ -76,6 +82,7 @@ func TestNewDCOSHost(t *testing.T) {
 				"test_cluster-id",
 				1023,
 				60,
+				testClient,
 				make(chan<- producers.MetricsMessage))
 			So(err, ShouldNotBeNil)
 		})
@@ -88,6 +95,7 @@ func TestNewDCOSHost(t *testing.T) {
 				"test_cluster-id",
 				1024,
 				0,
+				testClient,
 				make(chan<- producers.MetricsMessage))
 			So(err, ShouldNotBeNil)
 		})
@@ -100,6 +108,7 @@ func TestNewDCOSHost(t *testing.T) {
 				"test_cluster-id",
 				10000,
 				60,
+				testClient,
 				make(chan<- producers.MetricsMessage))
 			So(a, ShouldHaveSameTypeAs, DCOSHost{})
 			So(err, ShouldBeNil)
@@ -108,6 +117,11 @@ func TestNewDCOSHost(t *testing.T) {
 }
 
 func TestTransform(t *testing.T) {
+	testClient, err := httpHelpers.NewMetricsClient("", "")
+	if err != nil {
+		t.Error("Error retreiving HTTP Client:", err)
+	}
+
 	Convey("When transforming agent metrics to fit producers.MetricsMessage", t, func() {
 		// bogus port and IP address here; no HTTP client in a.transform()
 		h, _ := NewDCOSHost(
@@ -117,6 +131,7 @@ func TestTransform(t *testing.T) {
 			"test_cluster-id",
 			9000,
 			60,
+			testClient,
 			make(chan<- producers.MetricsMessage))
 
 		// The mocks in this test file are bytearrays so that they can be used

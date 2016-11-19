@@ -14,6 +14,8 @@
 
 package collector
 
+import "net/http"
+
 // MasterConfig contains configuration options relevant to metrics collection
 // from a DC/OS (Mesos) master.
 type MasterConfig struct {
@@ -23,5 +25,6 @@ type MasterConfig struct {
 // AgentConfig contains configuration options relevant to metrics collection
 // from a DC/OS (Mesos) agent.
 type AgentConfig struct {
-	Port int `yaml:"port,omitempty"`
+	Port       int `yaml:"port,omitempty"`
+	HTTPClient *http.Client
 }

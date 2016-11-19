@@ -15,6 +15,7 @@
 package collector
 
 import (
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -114,17 +115,15 @@ type resourceStatistics struct {
 // CPU, memory, disk, and network usage.
 func (h *DCOSHost) getContainerMetrics() ([]agentContainer, error) {
 	var containers []agentContainer
-
-	// TODO(roger): 15sec timeout is a guess. Is there a better way to do this?
-	c := NewHTTPClient(
-		strings.Join([]string{h.IPAddress, strconv.Itoa(h.Port)}, ":"),
-		"/containers",
-		time.Duration(2*time.Second))
-	if err := c.Fetch(&containers); err != nil {
-		return nil, err
+	u := url.URL{
+		Scheme: "http",
+		Host:   strings.Join([]string{h.IPAddress, strconv.Itoa(h.Port)}, ":"),
+		Path:   "/containers",
 	}
 
-	return containers, nil
+	h.HTTPClient.Timeout = time.Duration(2 * time.Second)
+
+	return containers, Fetch(h.HTTPClient, u, &containers)
 }
 
 // getAgentState fetches the state JSON from the Mesos agent, which contains
@@ -133,16 +132,15 @@ func (h *DCOSHost) getContainerMetrics() ([]agentContainer, error) {
 func (h *DCOSHost) getAgentState() (agentState, error) {
 	state := agentState{}
 
-	// TODO(roger): 15sec timeout is a guess. Is there a better way to do this?
-	c := NewHTTPClient(
-		strings.Join([]string{h.IPAddress, strconv.Itoa(h.Port)}, ":"),
-		"/state",
-		time.Duration(2*time.Second))
-	if err := c.Fetch(&state); err != nil {
-		return state, err
+	u := url.URL{
+		Scheme: "http",
+		Host:   strings.Join([]string{h.IPAddress, strconv.Itoa(h.Port)}, ":"),
+		Path:   "/state",
 	}
 
-	return state, nil
+	h.HTTPClient.Timeout = time.Duration(2 * time.Second)
+
+	return state, Fetch(h.HTTPClient, u, &state)
 }
 
 // getFrameworkInfoByFrameworkID returns the FrameworkInfo struct given its ID.

@@ -20,72 +20,31 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"time"
 
 	log "github.com/Sirupsen/logrus"
 )
 
-var clientLog = log.WithFields(log.Fields{
-	"collector": "http-client",
-})
-
 var (
+	clientLog = log.WithFields(log.Fields{"collector": "http-client"})
 	// TODO(roger): place the value of userAgent somewhere convenient
 	userAgent = "com.mesosphere.dcos-metrics/1.0"
 )
-
-// HTTPClient defines the structure of the HTTP client implementation used for
-// collecting metrics from a Mesos master or agent over HTTP.
-type HTTPClient struct {
-	httpClient *http.Client
-	host       string
-	path       string
-	authToken  string // use an empty string "" to disable auth
-}
-
-// NewHTTPClient returns a new instance of the HTTP client.
-func NewHTTPClient(host string, path string, timeout time.Duration) *HTTPClient {
-	var token string
-	// TODO(roger): if auth is required, get a token via jwt/transport. See
-	// https://github.com/dcos/dcos-go/blob/59a7af3/jwt/transport/cmd/example/main.go#L32
-	//
-	// This should be keyed off a configuration option.
-	token = ""
-
-	return &HTTPClient{
-		httpClient: &http.Client{Timeout: timeout},
-		host:       host,
-		path:       path,
-		authToken:  token,
-	}
-}
-
-// URL returns the URL for this client as a string.
-func (c *HTTPClient) URL() string {
-	u := url.URL{Scheme: "http", Host: c.host, Path: c.path}
-	return u.String()
-}
 
 // Fetch queries an API endpoint and expects to receive JSON. It then unmarshals
 // the JSON to the interface{} provided by the caller. By returning data this
 // way, Fetch() ensures that JSON is always unmarshaled the same way, and that
 // errors are handled correctly, but allows the returned data to be mapped to
 // an arbitrary struct that the caller is aware of.
-func (c *HTTPClient) Fetch(target interface{}) error {
-	clientLog.Debug("Building new HTTP request for ", c.URL())
-	req, err := http.NewRequest("GET", c.URL(), nil)
+func Fetch(client *http.Client, url url.URL, target interface{}) error {
+	clientLog.Debug("Attempting to request data from ", url.String())
+	req, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
 		return err
 	}
 
 	req.Header.Set("User-Agent", userAgent)
 
-	if c.authToken != "" {
-		req.Header.Set("Authorization", fmt.Sprintf("token=%s", c.authToken))
-	}
-
-	clientLog.Debug("Fetching data from ", c.URL())
-	resp, err := c.httpClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		clientLog.Error(err)
 		return err
@@ -106,7 +65,7 @@ func (c *HTTPClient) Fetch(target interface{}) error {
 
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		e := fmt.Errorf("read error: %s: %v\n", c.URL(), err)
+		e := fmt.Errorf("read error: %s: %v\n", url.String(), err)
 		clientLog.Error(e)
 		return e
 	}
