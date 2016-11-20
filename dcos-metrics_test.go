@@ -36,8 +36,12 @@ func TestDefaultConfig(t *testing.T) {
 	Convey("Ensure default configuration is set properly", t, func() {
 		testConfig := newConfig()
 
-		Convey("Default polling period should be 15", func() {
-			So(testConfig.Collector.PollingPeriod, ShouldEqual, 15)
+		Convey("Default node polling period should be 15", func() {
+			So(testConfig.Collector.Node.PollPeriod, ShouldEqual, 15)
+		})
+
+		Convey("Default mesos agent polling period should be 15", func() {
+			So(testConfig.Collector.MesosAgent.PollPeriod, ShouldEqual, 15)
 		})
 
 		Convey("HTTP profiler should be enabled by default", func() {
@@ -87,9 +91,11 @@ func TestLoadConfig(t *testing.T) {
 	configContents := []byte(`
 ---
 collector:
-  agent_config:
-    port: 5051
-  polling_period: 5
+  mesos_agent:
+    port: 1234
+    poll_period: 5
+  node:
+    poll_period: 3
   http_profiler: false
 `)
 
@@ -113,8 +119,9 @@ collector:
 			loadErr := testConfig.loadConfig()
 			So(loadErr, ShouldBeNil)
 
-			So(testConfig.Collector.AgentConfig.Port, ShouldEqual, 5051)
-			So(testConfig.Collector.PollingPeriod, ShouldEqual, 5)
+			So(testConfig.Collector.MesosAgent.Port, ShouldEqual, 1234)
+			So(testConfig.Collector.MesosAgent.PollPeriod, ShouldEqual, 5)
+			So(testConfig.Collector.Node.PollPeriod, ShouldEqual, 3)
 			So(testConfig.Collector.HTTPProfiler, ShouldBeFalse)
 		})
 	})

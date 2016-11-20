@@ -50,9 +50,9 @@ type Config struct {
 // portion of this project. That is, the code responsible for querying Mesos,
 // et. al to gather metrics and send them to a "producer".
 type CollectorConfig struct {
-	HTTPProfiler bool                            `yaml:"http_profiler"`
-	Node         node.NodeCollector              `yaml:"node"`
-	MesosAgent   mesos_agent.MesosAgentCollector `yaml:"mesos_agent,omitempty"`
+	HTTPProfiler bool                             `yaml:"http_profiler"`
+	Node         *node.NodeCollector              `yaml:"node,omitempty"`
+	MesosAgent   *mesos_agent.MesosAgentCollector `yaml:"mesos_agent,omitempty"`
 }
 
 // ProducersConfig contains references to other structs that provide individual producer configs.
@@ -131,9 +131,12 @@ func newConfig() Config {
 	return Config{
 		Collector: CollectorConfig{
 			HTTPProfiler: true,
-			MesosAgent: mesos_agent.MesosAgentCollector{
+			MesosAgent: &mesos_agent.MesosAgentCollector{
 				PollPeriod: 15,
 				Port:       5051,
+			},
+			Node: &node.NodeCollector{
+				PollPeriod: 15,
 			},
 		},
 		Producers: ProducersConfig{

@@ -29,30 +29,22 @@ var nodeColLog = log.WithFields(log.Fields{
 	"collector": "node",
 })
 
-// metricsMeta is a high-level struct that contains data structures with the
-// various metrics we're collecting from the agent. By implementing this
-// "meta struct", we're able to more easily handle the transformation of
-// metrics from the structs in this file to the MetricsMessage struct expected
-// by the producer(s).
-type metricsMeta struct {
-	nodeMetrics nodeMetrics
-	timestamp   int64
-}
-
 // RunPoller periodiclly polls the HTTP APIs of a Mesos agent. This function
 // should be run in its own goroutine.
 func (h *NodeCollector) RunPoller() {
-	ticker := time.NewTicker(h.PollPeriod)
+	ticker := time.NewTicker(h.PollPeriod * time.Second)
 
 	// Poll once immediately
-	for _, m := range h.transform(h.pollHost()) {
+	h.pollHost()
+	for _, m := range h.transform() {
 		h.MetricsChan <- m
 	}
 
 	for {
 		select {
 		case _ = <-ticker.C:
-			for _, m := range h.transform(h.pollHost()) {
+			h.pollHost()
+			for _, m := range h.transform() {
 				h.MetricsChan <- m
 			}
 		}
@@ -60,10 +52,9 @@ func (h *NodeCollector) RunPoller() {
 }
 
 // pollHost queries the DC/OS hsot for metrics and returns.
-func (h *NodeCollector) pollHost() metricsMeta {
-	metrics := metricsMeta{}
+func (h *NodeCollector) pollHost() {
 	now := time.Now().UTC()
-	metrics.timestamp = now.Unix()
+	h.timestamp = now.Unix()
 
 	// Fetch node-level metrics for all DC/OS roles
 	nodeColLog.Debugf("Fetching node-level metrics from DC/OS host %s", h.NodeInfo.Hostname)
@@ -71,25 +62,23 @@ func (h *NodeCollector) pollHost() metricsMeta {
 	if err != nil {
 		nodeColLog.Errorf("Failed to get node-level metrics. %s", err)
 	} else {
-		metrics.nodeMetrics = nm
+		h.nodeMetrics = nm
 	}
 
 	nodeColLog.Infof("Finished polling DC/OS host %s, took %f seconds.", h.NodeInfo.Hostname, time.Since(now).Seconds())
-
-	return metrics
 }
 
 // transform will take metrics retrieved from the agent and perform any
 // transformations necessary to make the data fit the output expected by
 // producers.MetricsMessage.
-func (h *NodeCollector) transform(in metricsMeta) (out []producers.MetricsMessage) {
+func (h *NodeCollector) transform() (out []producers.MetricsMessage) {
 	var msg producers.MetricsMessage
-	t := time.Unix(in.timestamp, 0)
+	t := time.Unix(h.timestamp, 0)
 
 	// Produce node metrics
 	msg = producers.MetricsMessage{
 		Name:       producers.NodeMetricPrefix,
-		Datapoints: buildDatapoints(in.nodeMetrics, t),
+		Datapoints: buildDatapoints(h.nodeMetrics, t),
 		Dimensions: producers.Dimensions{
 			MesosID:   h.NodeInfo.MesosID,
 			ClusterID: h.NodeInfo.ClusterID,

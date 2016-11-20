@@ -12,4 +12,7 @@ type NodeCollector struct {
 
 	MetricsChan chan producers.MetricsMessage
 	NodeInfo    collector.NodeInfo
+
+	nodeMetrics nodeMetrics
+	timestamp   int64
 }

@@ -79,9 +79,10 @@ func main() {
 	nodeCollector, err := initializeNodeCollector(cfg)
 	go nodeCollector.RunPoller()
 
+	// Initialize agent specific channels and run agent specific pollers
+	// if role is of type agent
 	frameworkCollectorChan := make(chan *framework.AvroDatum)
 	mesosAgentCollector, err := initializeMesosAgentCollector(cfg)
-
 	if cfg.DCOSRole == "agent" {
 		go framework.RunFrameworkTCPListener(frameworkCollectorChan)
 		go mesosAgentCollector.RunPoller()
@@ -106,7 +107,7 @@ func main() {
 	}
 }
 
-func initializeNodeCollector(cfg Config) (node.NodeCollector, error) {
+func initializeNodeCollector(cfg Config) (*node.NodeCollector, error) {
 	nodeCollector := cfg.Collector.Node
 	nodeCollector.MetricsChan = make(chan producers.MetricsMessage)
 	nodeCollector.NodeInfo.IPAddress = cfg.IPAddress
@@ -117,7 +118,7 @@ func initializeNodeCollector(cfg Config) (node.NodeCollector, error) {
 	return nodeCollector, nil
 }
 
-func initializeMesosAgentCollector(cfg Config) (mesos_agent.MesosAgentCollector, error) {
+func initializeMesosAgentCollector(cfg Config) (*mesos_agent.MesosAgentCollector, error) {
 	ma := cfg.Collector.MesosAgent
 	ma.MetricsChan = make(chan producers.MetricsMessage)
 	ma.NodeInfo.IPAddress = cfg.IPAddress
