@@ -15,10 +15,14 @@
 package collector
 
 import (
+	"net"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
+)
+
+const (
+	HTTPTIMEOUT = 2 * time.Second
 )
 
 // agentContainer defines the structure of the response expected from Mesos
@@ -117,11 +121,11 @@ func (h *DCOSHost) getContainerMetrics() ([]agentContainer, error) {
 	var containers []agentContainer
 	u := url.URL{
 		Scheme: "http",
-		Host:   strings.Join([]string{h.IPAddress, strconv.Itoa(h.Port)}, ":"),
+		Host:   net.JoinHostPort(h.IPAddress, strconv.Itoa(h.Port)),
 		Path:   "/containers",
 	}
 
-	h.HTTPClient.Timeout = time.Duration(2 * time.Second)
+	h.HTTPClient.Timeout = HTTPTIMEOUT
 
 	return containers, Fetch(h.HTTPClient, u, &containers)
 }
@@ -134,11 +138,11 @@ func (h *DCOSHost) getAgentState() (agentState, error) {
 
 	u := url.URL{
 		Scheme: "http",
-		Host:   strings.Join([]string{h.IPAddress, strconv.Itoa(h.Port)}, ":"),
+		Host:   net.JoinHostPort(h.IPAddress, strconv.Itoa(h.Port)),
 		Path:   "/state",
 	}
 
-	h.HTTPClient.Timeout = time.Duration(2 * time.Second)
+	h.HTTPClient.Timeout = HTTPTIMEOUT
 
 	return state, Fetch(h.HTTPClient, u, &state)
 }
