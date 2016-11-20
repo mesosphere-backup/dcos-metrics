@@ -20,17 +20,10 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
-	"time"
 
+	httpHelpers "github.com/dcos/dcos-metrics/http_helpers"
 	. "github.com/smartystreets/goconvey/convey"
 )
-
-func TestNewHTTPClient(t *testing.T) {
-	Convey("Should return a new client", t, func() {
-		c := NewHTTPClient("foo.example.com", "/bar", time.Duration(1*time.Second))
-		So(c, ShouldHaveSameTypeAs, &HTTPClient{})
-	})
-}
 
 func TestHTTPClient_Fetch(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -47,6 +40,11 @@ func TestHTTPClient_Fetch(t *testing.T) {
 	}))
 	defer ts.Close()
 
+	testClient, err := httpHelpers.NewMetricsClient("", "")
+	if err != nil {
+		t.Error("Error retreiving HTTP Client:", err)
+	}
+
 	Convey("Should fetch data UNAUTHENTICATED from the Mesos API and return", t, func() {
 		var data map[string]string
 		host, err := extractHostFromURL(ts.URL)
@@ -54,8 +52,12 @@ func TestHTTPClient_Fetch(t *testing.T) {
 			panic(err)
 		}
 
-		c := NewHTTPClient(host, "/", time.Duration(1*time.Second))
-		err = c.Fetch(&data)
+		testURL := url.URL{
+			Scheme: "http",
+			Host:   host,
+			Path:   "/",
+		}
+		err = Fetch(testClient, testURL, &data)
 
 		So(data["foo"], ShouldEqual, "bar")
 		So(err, ShouldBeNil)
@@ -63,13 +65,6 @@ func TestHTTPClient_Fetch(t *testing.T) {
 
 	// TODO(roger): write a test for the auth portion once it's implemented
 	Convey("Should fetch data AUTHENTICATED from the Mesos API and return", t, nil)
-}
-
-func TestHTTPClient_URL(t *testing.T) {
-	Convey("Should return the URL as a string", t, func() {
-		c := NewHTTPClient("foo.example.com", "/bar", time.Duration(1*time.Second))
-		So(c.URL(), ShouldEqual, "http://foo.example.com/bar")
-	})
 }
 
 func extractHostFromURL(u string) (string, error) {

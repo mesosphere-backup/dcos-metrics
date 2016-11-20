@@ -1,0 +1,22 @@
+
+{
+  "datapoints": [
+    {
+      "name": "statsd_tester.time.uptime",
+      "value": 1479588678444,
+      "unit": "0",
+      "timestamp": "2016-11-19 20:51:19.180548691 +0000 UTC"
+    }
+  ],
+  "dimensions": {
+    "mesos_id": "2a5a652b-5e3d-4df2-9ba5-10a0211ecc07-S1",
+    "container_id": "c3271342-f233-460f-a1b1-759ca0fc5059",
+    "executor_id": "emitter.1638c5cd-ae98-11e6-b63d-7228834ce844",
+    "framework_id": "2a5a652b-5e3d-4df2-9ba5-10a0211ecc07-0000",
+    "hostname": "10.0.0.123",
+    "labels": {
+      "test_tag_key": "test_tag_value"
+    }
+  }
+}
+

@@ -17,6 +17,7 @@ package collector
 import (
 	"bytes"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strings"
 	"text/template"
@@ -33,6 +34,9 @@ var nodeColLog = log.WithFields(log.Fields{
 
 // Agent defines the structure of the agent metrics poller and any configuration
 // that might be required to run it.
+// This entire struct should be the AgentCollectorConfig
+// TODO(malnick) decompose configs so this is
+// all set in main
 type DCOSHost struct {
 	Port        int
 	PollPeriod  time.Duration
@@ -42,6 +46,7 @@ type DCOSHost struct {
 	MesosID     string
 	ClusterID   string
 	Hostname    string
+	HTTPClient  *http.Client
 }
 
 // metricsMeta is a high-level struct that contains data structures with the
@@ -66,6 +71,7 @@ func NewDCOSHost(
 	clusterID string,
 	port int,
 	pollPeriod time.Duration,
+	httpClient *http.Client,
 	metricsChan chan<- producers.MetricsMessage) (DCOSHost, error) {
 	h := DCOSHost{}
 
@@ -84,6 +90,7 @@ func NewDCOSHost(
 	h.MesosID = mesosID
 	h.ClusterID = clusterID
 	h.Hostname = ipAddress
+	h.HTTPClient = httpClient
 
 	return h, nil
 }
