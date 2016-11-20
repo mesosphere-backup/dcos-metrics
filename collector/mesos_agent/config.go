@@ -1,29 +1,24 @@
-// Copyright 2016 Mesosphere, Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-package collector
+package mesos_agent
 
 import (
-	"net"
-	"net/url"
-	"strconv"
+	"net/http"
 	"time"
+
+	"github.com/dcos/dcos-metrics/collector"
+	"github.com/dcos/dcos-metrics/producers"
 )
 
-const (
-	HTTPTIMEOUT = 2 * time.Second
-)
+type MesosAgentCollector struct {
+	Port       int           `yaml:"port"`
+	PollPeriod time.Duration `yaml:"poll_period"`
+
+	MetricsChan chan<- producers.MetricsMessage
+	NodeInfo    collector.NodeInfo
+	HTTPClient  *http.Client
+
+	agentState       agentState
+	containerMetrics []agentContainer
+}
 
 // agentContainer defines the structure of the response expected from Mesos
 // *for a single container* when polling the '/containers' endpoint in API v1.
@@ -113,64 +108,4 @@ type resourceStatistics struct {
 	NetTxBytes   uint64 `json:"net_tx_bytes,omitempty"`
 	NetTxErrors  uint64 `json:"net_tx_errors,omitempty"`
 	NetTxDropped uint64 `json:"net_tx_dropped,omitempty"`
-}
-
-// getContainerMetrics queries an agent for container-level metrics, such as
-// CPU, memory, disk, and network usage.
-func (h *DCOSHost) getContainerMetrics() ([]agentContainer, error) {
-	var containers []agentContainer
-	u := url.URL{
-		Scheme: "http",
-		Host:   net.JoinHostPort(h.IPAddress, strconv.Itoa(h.Port)),
-		Path:   "/containers",
-	}
-
-	h.HTTPClient.Timeout = HTTPTIMEOUT
-
-	return containers, Fetch(h.HTTPClient, u, &containers)
-}
-
-// getAgentState fetches the state JSON from the Mesos agent, which contains
-// info such as framework names and IDs, the current leader, config flags,
-// container (executor) labels, and more.
-func (h *DCOSHost) getAgentState() (agentState, error) {
-	state := agentState{}
-
-	u := url.URL{
-		Scheme: "http",
-		Host:   net.JoinHostPort(h.IPAddress, strconv.Itoa(h.Port)),
-		Path:   "/state",
-	}
-
-	h.HTTPClient.Timeout = HTTPTIMEOUT
-
-	return state, Fetch(h.HTTPClient, u, &state)
-}
-
-// getFrameworkInfoByFrameworkID returns the FrameworkInfo struct given its ID.
-func getFrameworkInfoByFrameworkID(frameworkID string, frameworks []frameworkInfo) (frameworkInfo, bool) {
-	for _, framework := range frameworks {
-		if framework.ID == frameworkID {
-			return framework, true
-		}
-	}
-	return frameworkInfo{}, false
-}
-
-// getLabelsByContainerID returns a map of labels, as specified by the framework
-// that created the executor. In the case of Marathon, the framework allows the
-// user to specify their own arbitrary labels per application.
-func getLabelsByContainerID(containerID string, frameworks []frameworkInfo) map[string]string {
-	labels := map[string]string{}
-	for _, framework := range frameworks {
-		for _, executor := range framework.Executors {
-			if executor.Container == containerID {
-				for _, pair := range executor.Labels {
-					labels[pair.Key] = pair.Value
-				}
-				return labels
-			}
-		}
-	}
-	return labels
 }

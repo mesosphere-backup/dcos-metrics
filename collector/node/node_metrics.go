@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package collector
+package node
 
 import (
 	"math"
@@ -76,7 +76,7 @@ type nodeNetworkInterface struct {
 	TxErrors  uint64 `json:"network.{{.Name}}.out.errors"`
 }
 
-func (h *DCOSHost) getNodeMetrics() (nodeMetrics, error) {
+func (h *NodeCollector) getNodeMetrics() (nodeMetrics, error) {
 	l := getLoadAvg()
 	cpuStatePcts := calculatePcts(getCPUTimes())
 	m := getMemory()

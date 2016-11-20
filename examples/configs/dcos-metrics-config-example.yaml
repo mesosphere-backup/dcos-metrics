@@ -5,15 +5,11 @@
 # Collector configuration
 collector:
   http_profiler: false
-  ip_command: 'echo 10.1.2.3'
-  polling_period: 100 
+  node:
+    polling_period: 15 
 
-  # DC/OS (Mesos) master configuration
-  master_config:
-    port: 5050
-
-  # DC/OS (Mesos) agent configuration
-  agent_config:
+  mesos_agent:
+    polling_period: 15
     port: 5051
 
 

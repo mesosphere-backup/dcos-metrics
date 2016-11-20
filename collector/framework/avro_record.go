@@ -1,4 +1,4 @@
-package collector
+package framework
 
 import (
 	"encoding/json"

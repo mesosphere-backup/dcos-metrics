@@ -7,7 +7,8 @@ import (
 
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
-	"github.com/dcos/dcos-metrics/collector"
+	"github.com/dcos/dcos-metrics/collector/mesos_agent"
+	"github.com/dcos/dcos-metrics/collector/node"
 	httpHelpers "github.com/dcos/dcos-metrics/http_helpers"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
 
@@ -49,11 +50,9 @@ type Config struct {
 // portion of this project. That is, the code responsible for querying Mesos,
 // et. al to gather metrics and send them to a "producer".
 type CollectorConfig struct {
-	HTTPProfiler  bool `yaml:"http_profiler"`
-	PollingPeriod int  `yaml:"polling_period"`
-
-	MasterConfig collector.MasterConfig `yaml:"master_config,omitempty"`
-	AgentConfig  collector.AgentConfig  `yaml:"agent_config,omitempty"`
+	HTTPProfiler bool                            `yaml:"http_profiler"`
+	Node         node.NodeCollector              `yaml:"node"`
+	MesosAgent   mesos_agent.MesosAgentCollector `yaml:"mesos_agent,omitempty"`
 }
 
 // ProducersConfig contains references to other structs that provide individual producer configs.
@@ -131,13 +130,10 @@ func (c *Config) getNodeInfo() error {
 func newConfig() Config {
 	return Config{
 		Collector: CollectorConfig{
-			HTTPProfiler:  true,
-			PollingPeriod: 15,
-			MasterConfig: collector.MasterConfig{
-				Port: 5050,
-			},
-			AgentConfig: collector.AgentConfig{
-				Port: 5051,
+			HTTPProfiler: true,
+			MesosAgent: mesos_agent.MesosAgentCollector{
+				PollPeriod: 15,
+				Port:       5051,
 			},
 		},
 		Producers: ProducersConfig{
@@ -180,7 +176,7 @@ func getNewConfig(args []string) (Config, error) {
 		return c, err
 	}
 
-	c.Collector.AgentConfig.HTTPClient = collectorClient
+	c.Collector.MesosAgent.HTTPClient = collectorClient
 
 	return c, nil
 }
