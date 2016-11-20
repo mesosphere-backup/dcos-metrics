@@ -109,15 +109,18 @@ func (c *Config) getNodeInfo() error {
 	if err != nil {
 		log.Error(err)
 	}
-	c.IPAddress = ip.String()
+	c.Collector.MesosAgent.NodeInfo.IPAddress = ip.String()
+	c.Collector.Node.NodeInfo.IPAddress = ip.String()
 
-	c.MesosID, err = nodeInfo.MesosID(nil)
+	mid, err := nodeInfo.MesosID(nil)
 	if err != nil {
 		log.Error(err)
 	}
+	c.Collector.MesosAgent.NodeInfo.MesosID = mid
+	c.Collector.Node.NodeInfo.MesosID = mid
 
 	if c.DCOSRole == dcos.RoleMaster {
-		c.ClusterID, err = nodeInfo.ClusterID()
+		c.Collector.Node.NodeInfo.ClusterID, err = nodeInfo.ClusterID()
 		if err != nil {
 			return err
 		}

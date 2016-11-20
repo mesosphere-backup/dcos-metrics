@@ -5,13 +5,14 @@
 # Collector configuration
 collector:
   http_profiler: false
+  
   node:
     poll_period: 15 
 
   mesos_agent:
     poll_period: 15
     port: 5051
-
+    request_protocol: http
 
 # Producers configuration
 producers:

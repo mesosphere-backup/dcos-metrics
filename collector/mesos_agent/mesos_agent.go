@@ -56,6 +56,7 @@ type MesosAgentCollector struct {
 
 	agentState       agentState
 	containerMetrics []agentContainer
+	timestamp        int64
 }
 
 // agentContainer defines the structure of the response expected from Mesos
@@ -169,6 +170,9 @@ func (h *MesosAgentCollector) RunPoller() {
 }
 
 func (h *MesosAgentCollector) pollMesosAgent() {
+	now := time.Now().UTC()
+	h.timestamp = now.Unix()
+
 	host := fmt.Sprintf("%s:%d", h.NodeInfo.IPAddress, h.Port)
 
 	// always fetch/emit agent state first: downstream will use it for tagging metrics
@@ -217,14 +221,14 @@ func (h *MesosAgentCollector) getAgentState() error {
 
 func (h *MesosAgentCollector) transformContainerMetrics() (out []producers.MetricsMessage) {
 	var msg producers.MetricsMessage
-	now := time.Now().UTC()
+	t := time.Unix(h.timestamp, 0)
 
 	// Produce container metrics
 	for _, c := range h.containerMetrics {
 		msg = producers.MetricsMessage{
 			Name:       producers.ContainerMetricPrefix,
-			Datapoints: buildDatapoints(c, now),
-			Timestamp:  now.Unix(),
+			Datapoints: buildDatapoints(c, t),
+			Timestamp:  t.UTC().Unix(),
 		}
 
 		fi, ok := getFrameworkInfoByFrameworkID(c.FrameworkID, h.agentState.Frameworks)

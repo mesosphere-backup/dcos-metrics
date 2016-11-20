@@ -24,8 +24,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"github.com/dcos/dcos-metrics/collector/framework"
-	"github.com/dcos/dcos-metrics/collector/mesos_agent"
-	"github.com/dcos/dcos-metrics/collector/node"
 	"github.com/dcos/dcos-metrics/producers"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
 	//kafkaProducer "github.com/dcos/dcos-metrics/producers/kafka"
@@ -76,21 +74,22 @@ func main() {
 	}
 
 	// Initialize and run the host-poller
-	nodeCollector, err := initializeNodeCollector(cfg)
-	go nodeCollector.RunPoller()
+	cfg.Collector.Node.MetricsChan = make(chan producers.MetricsMessage)
+	go cfg.Collector.Node.RunPoller()
 
 	// Initialize agent specific channels and run agent specific pollers
 	// if role is of type agent
 	frameworkCollectorChan := make(chan *framework.AvroDatum)
-	mesosAgentCollector, err := initializeMesosAgentCollector(cfg)
+	cfg.Collector.MesosAgent.MetricsChan = make(chan producers.MetricsMessage)
 	if cfg.DCOSRole == "agent" {
 		go framework.RunFrameworkTCPListener(frameworkCollectorChan)
-		go mesosAgentCollector.RunPoller()
+		go cfg.Collector.MesosAgent.RunPoller()
 	}
 
 	// Broadcast (many-to-many) messages from the collector to the various producers.
 	for {
 		select {
+
 		case frameworkMessage := <-frameworkCollectorChan:
 			pmm, err := frameworkMessage.Transform(cfg.MesosID, cfg.ClusterID, cfg.IPAddress)
 			if err != nil {
@@ -99,34 +98,18 @@ func main() {
 			for _, producer := range producerChans {
 				producer <- pmm
 			}
-		case nodeCollectorMetric := <-nodeCollector.MetricsChan:
+
+		case nodeCollectorMetric := <-cfg.Collector.Node.MetricsChan:
 			for _, producer := range producerChans {
 				producer <- nodeCollectorMetric
 			}
+
+		case mesosAgentCollectorMetric := <-cfg.Collector.MesosAgent.MetricsChan:
+			for _, producer := range producerChans {
+				producer <- mesosAgentCollectorMetric
+			}
 		}
 	}
-}
-
-func initializeNodeCollector(cfg Config) (*node.NodeCollector, error) {
-	nodeCollector := cfg.Collector.Node
-	nodeCollector.MetricsChan = make(chan producers.MetricsMessage)
-	nodeCollector.NodeInfo.IPAddress = cfg.IPAddress
-	nodeCollector.NodeInfo.MesosID = cfg.MesosID
-	nodeCollector.NodeInfo.ClusterID = cfg.ClusterID
-	nodeCollector.NodeInfo.Hostname = cfg.IPAddress
-
-	return nodeCollector, nil
-}
-
-func initializeMesosAgentCollector(cfg Config) (*mesos_agent.MesosAgentCollector, error) {
-	ma := cfg.Collector.MesosAgent
-	ma.MetricsChan = make(chan producers.MetricsMessage)
-	ma.NodeInfo.IPAddress = cfg.IPAddress
-	ma.NodeInfo.MesosID = cfg.MesosID
-	ma.NodeInfo.ClusterID = cfg.ClusterID
-	ma.NodeInfo.Hostname = cfg.IPAddress
-
-	return ma, nil
 }
 
 // producerIsConfigured analyzes the ProducersConfig struct and determines if

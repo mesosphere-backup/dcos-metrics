@@ -94,6 +94,7 @@ collector:
   mesos_agent:
     port: 1234
     poll_period: 5
+    request_protocol: https
   node:
     poll_period: 3
   http_profiler: false
@@ -123,6 +124,7 @@ collector:
 			So(testConfig.Collector.MesosAgent.PollPeriod, ShouldEqual, 5)
 			So(testConfig.Collector.Node.PollPeriod, ShouldEqual, 3)
 			So(testConfig.Collector.HTTPProfiler, ShouldBeFalse)
+			So(testConfig.Collector.MesosAgent.RequestProtocol, ShouldEqual, "https")
 		})
 	})
 }

@@ -22,12 +22,23 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/dcos/dcos-metrics/collector"
 	"github.com/dcos/dcos-metrics/producers"
 )
 
 var nodeColLog = log.WithFields(log.Fields{
 	"collector": "node",
 })
+
+type NodeCollector struct {
+	PollPeriod time.Duration `yaml:"poll_period,omitempty"`
+
+	MetricsChan chan producers.MetricsMessage
+	NodeInfo    collector.NodeInfo
+
+	nodeMetrics nodeMetrics
+	timestamp   int64
+}
 
 // RunPoller periodiclly polls the HTTP APIs of a Mesos agent. This function
 // should be run in its own goroutine.
