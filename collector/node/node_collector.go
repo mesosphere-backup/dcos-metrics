@@ -43,22 +43,12 @@ type NodeCollector struct {
 // RunPoller periodiclly polls the HTTP APIs of a Mesos agent. This function
 // should be run in its own goroutine.
 func (h *NodeCollector) RunPoller() {
-	ticker := time.NewTicker(h.PollPeriod * time.Second)
-
-	// Poll once immediately
-	h.pollHost()
-	for _, m := range h.transform() {
-		h.MetricsChan <- m
-	}
-
 	for {
-		select {
-		case _ = <-ticker.C:
-			h.pollHost()
-			for _, m := range h.transform() {
-				h.MetricsChan <- m
-			}
+		h.pollHost()
+		for _, m := range h.transform() {
+			h.MetricsChan <- m
 		}
+		time.Sleep(h.PollPeriod * time.Second)
 	}
 }
 

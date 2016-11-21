@@ -39,8 +39,8 @@ func TestBuildDatapoints(t *testing.T) {
 			result := buildDatapoints(mockNodeMetrics, testTime)
 			So(len(result), ShouldEqual, 46)
 			So(result[0].Name, ShouldEqual, "uptime")
-			So(result[0].Unit, ShouldEqual, "")            // TODO(roger): no easy way to get units
-			So(result[0].Value, ShouldEqual, uint64(7865)) // TODO(roger): everything is a string for MVP
+			So(result[0].Unit, ShouldEqual, "") // TODO(roger): no easy way to get units
+			So(result[0].Value, ShouldEqual, uint64(7865))
 			So(result[0].Timestamp, ShouldEqual, "2009-11-10T23:00:00Z")
 		})
 	})

@@ -62,13 +62,11 @@ func main() {
 	// HTTP producer
 	if producerIsConfigured("http", cfg) {
 		log.Info("HTTP producer enabled")
-		c := httpProducer.Config{
-			Port:     cfg.Producers.HTTPProducerConfig.Port,
-			DCOSRole: cfg.DCOSRole,
-			// TODO(malnick) constant or from config
-			CacheExpiry: time.Minute * 10,
-		}
-		hp, httpProducerChan := httpProducer.New(c)
+		cfg.Producers.HTTPProducerConfig.DCOSRole = cfg.DCOSRole
+		cfg.Producers.HTTPProducerConfig.CacheExpiry = time.Duration(cfg.Collector.MesosAgent.PollPeriod) * time.Minute * 2
+
+		hp, httpProducerChan := httpProducer.New(
+			cfg.Producers.HTTPProducerConfig)
 		producerChans = append(producerChans, httpProducerChan)
 		go hp.Run()
 	}

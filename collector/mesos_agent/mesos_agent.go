@@ -16,7 +16,6 @@ package mesos_agent
 
 import (
 	"bytes"
-	"fmt"
 	"html/template"
 	"net"
 	"net/http"
@@ -150,22 +149,12 @@ type resourceStatistics struct {
 }
 
 func (h *MesosAgentCollector) RunPoller() {
-	ticker := time.NewTicker(h.PollPeriod * time.Second)
-
-	// Poll once immediately
-	h.pollMesosAgent()
-	for _, m := range h.transformContainerMetrics() {
-		h.MetricsChan <- m
-	}
-
 	for {
-		select {
-		case _ = <-ticker.C:
-			h.pollMesosAgent()
-			for _, m := range h.transformContainerMetrics() {
-				h.MetricsChan <- m
-			}
+		h.pollMesosAgent()
+		for _, m := range h.transformContainerMetrics() {
+			h.MetricsChan <- m
 		}
+		time.Sleep(h.PollPeriod * time.Second)
 	}
 }
 
@@ -173,7 +162,7 @@ func (h *MesosAgentCollector) pollMesosAgent() {
 	now := time.Now().UTC()
 	h.timestamp = now.Unix()
 
-	host := fmt.Sprintf("%s:%d", h.NodeInfo.IPAddress, h.Port)
+	host := net.JoinHostPort(h.NodeInfo.IPAddress, strconv.Itoa(h.Port))
 
 	// always fetch/emit agent state first: downstream will use it for tagging metrics
 	maColLog.Debugf("Fetching state from DC/OS host %s", host)
