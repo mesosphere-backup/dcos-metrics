@@ -32,10 +32,10 @@ var httpLog = log.WithFields(log.Fields{
 
 // Config for the HTTP producer
 type Config struct {
-	IP          string `yaml:"ip"`
-	Port        int    `yaml:"port"`
+	Port        int `yaml:"port"`
+	IP          string
+	CacheExpiry time.Duration
 	DCOSRole    string
-	CacheExpiry time.Duration // ideally this is a multiple of the collector's PollingPeriod
 }
 
 type producerImpl struct {

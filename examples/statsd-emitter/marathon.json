@@ -1,0 +1,17 @@
+{
+    "id": "statsd-emitter-1",
+    "container": {
+        "docker": {
+            "image": "malnick/statsd-emitter",
+						"forcePullImage": true
+        }
+    },
+		"env":{
+			"STATSD_UDP_PORT": "8124",
+			"STATSD_UDP_HOST": "127.0.0.1"
+		},
+    "cpus": 0.5,
+    "mem": 128.0,
+    "instances": 1
+}
+

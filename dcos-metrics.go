@@ -23,7 +23,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"github.com/dcos/dcos-metrics/collector"
+	"github.com/dcos/dcos-metrics/collector/framework"
 	"github.com/dcos/dcos-metrics/producers"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
 	//kafkaProducer "github.com/dcos/dcos-metrics/producers/kafka"
@@ -62,43 +62,32 @@ func main() {
 	// HTTP producer
 	if producerIsConfigured("http", cfg) {
 		log.Info("HTTP producer enabled")
-		c := httpProducer.Config{
-			Port:        cfg.Producers.HTTPProducerConfig.Port,
-			DCOSRole:    cfg.DCOSRole,
-			CacheExpiry: time.Duration(cfg.Collector.PollingPeriod) * time.Second * 2,
-		}
-		hp, httpProducerChan := httpProducer.New(c)
+		cfg.Producers.HTTPProducerConfig.DCOSRole = cfg.DCOSRole
+		cfg.Producers.HTTPProducerConfig.CacheExpiry = time.Duration(cfg.Collector.MesosAgent.PollPeriod) * time.Minute * 2
+
+		hp, httpProducerChan := httpProducer.New(
+			cfg.Producers.HTTPProducerConfig)
 		producerChans = append(producerChans, httpProducerChan)
 		go hp.Run()
 	}
 
-	// Host-level Metrics Collector
-	nodeCollectorChan := make(chan producers.MetricsMessage)
-	frameworkCollectorChan := make(chan *collector.AvroDatum)
+	// Initialize and run the host-poller
+	cfg.Collector.Node.MetricsChan = make(chan producers.MetricsMessage)
+	go cfg.Collector.Node.RunPoller()
 
-	log.Info("Agent polling enabled")
-
-	host, err := collector.NewDCOSHost(
-		cfg.DCOSRole,
-		cfg.IPAddress,
-		cfg.MesosID,
-		cfg.ClusterID,
-		cfg.Collector.AgentConfig.Port,
-		time.Duration(cfg.Collector.PollingPeriod)*time.Second,
-		cfg.Collector.AgentConfig.HTTPClient,
-		nodeCollectorChan)
-
-	if err != nil {
-		log.Fatal(err.Error())
+	// Initialize agent specific channels and run agent specific pollers
+	// if role is of type agent
+	frameworkCollectorChan := make(chan *framework.AvroDatum)
+	cfg.Collector.MesosAgent.MetricsChan = make(chan producers.MetricsMessage)
+	if cfg.DCOSRole == "agent" {
+		go framework.RunFrameworkTCPListener(frameworkCollectorChan)
+		go cfg.Collector.MesosAgent.RunPoller()
 	}
-
-	go host.RunPoller()
-
-	go collector.RunFrameworkTCPListener(frameworkCollectorChan)
 
 	// Broadcast (many-to-many) messages from the collector to the various producers.
 	for {
 		select {
+
 		case frameworkMessage := <-frameworkCollectorChan:
 			pmm, err := frameworkMessage.Transform(cfg.MesosID, cfg.ClusterID, cfg.IPAddress)
 			if err != nil {
@@ -107,9 +96,15 @@ func main() {
 			for _, producer := range producerChans {
 				producer <- pmm
 			}
-		case agentMessage := <-nodeCollectorChan:
+
+		case nodeCollectorMetric := <-cfg.Collector.Node.MetricsChan:
 			for _, producer := range producerChans {
-				producer <- agentMessage
+				producer <- nodeCollectorMetric
+			}
+
+		case mesosAgentCollectorMetric := <-cfg.Collector.MesosAgent.MetricsChan:
+			for _, producer := range producerChans {
+				producer <- mesosAgentCollectorMetric
 			}
 		}
 	}
