@@ -115,7 +115,7 @@ func RunFrameworkTCPListener(recordsChan chan *AvroDatum) {
 	fwColLog.Debugf("Attempting to bind on %+v", addr)
 	sock, err := net.ListenTCP("tcp", addr)
 	if err != nil {
-		fwColLog.Error("Failed to listen on TCP endpoint '%s': %s", listenEndpointFlag, err)
+		fwColLog.Errorf("Failed to listen on TCP endpoint '%s': %s", listenEndpointFlag, err)
 	}
 	for {
 		fwColLog.Debug("Waiting for connections from Mesos Metrics Module...")
