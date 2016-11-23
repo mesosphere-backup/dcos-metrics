@@ -47,7 +47,7 @@ type nodeMetrics struct {
 	MemCachedBytes  uint64 `json:"memory.cached"`
 
 	SwapTotalBytes uint64 `json:"swap.total"`
-	SwapFreeBytes  uint64 `json:"swam.free"`
+	SwapFreeBytes  uint64 `json:"swap.free"`
 	SwapUsedBytes  uint64 `json:"swap.used"`
 
 	Filesystems       []nodeFilesystem       `json:"filesystems"`
