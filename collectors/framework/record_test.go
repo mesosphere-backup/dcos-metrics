@@ -20,12 +20,12 @@ import (
 	"testing"
 
 	"github.com/dcos/dcos-metrics/producers"
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestAvroRecordExtractDatapoint(t *testing.T) {
-
-	var (
-		testRecord = record{
+	Convey("When extracting a datapoint from an Avro record", t, func() {
+		testRecord := record{
 			Name: "dcos.metrics.Datapoint",
 			Fields: []field{
 				{
@@ -43,35 +43,27 @@ func TestAvroRecordExtractDatapoint(t *testing.T) {
 			},
 		}
 
-		avroDatapoint = avroRecord{testRecord}
-		pmmTest       = producers.MetricsMessage{}
-	)
+		avroDatapoint := avroRecord{testRecord}
+		pmmTest := producers.MetricsMessage{}
 
-	err := avroDatapoint.extract(&pmmTest)
-	if err != nil {
-		t.Errorf("Got %s, expected no errors.", err)
-	}
+		err := avroDatapoint.extract(&pmmTest)
 
-	if len(pmmTest.Datapoints) != 1 {
-		t.Errorf("Got %s, expected 1 datapoint", len(pmmTest.Datapoints))
-	}
+		Convey("Should extract the datapoint without errors", func() {
+			So(err, ShouldBeNil)
+			So(len(pmmTest.Datapoints), ShouldEqual, 1)
+		})
 
-	if pmmTest.Datapoints[0].Name != "name-field-test" {
-		t.Errorf("Got %s, expected name-field-test", pmmTest.Datapoints[0].Name)
-	}
-
-	if pmmTest.Datapoints[0].Value != "value-field-test" {
-		t.Errorf("Got %s, expected value-field-test", pmmTest.Datapoints[0].Value)
-	}
-
-	if pmmTest.Datapoints[0].Unit != "unit-field-test" {
-		t.Errorf("Got %s, expected unit-field-test", pmmTest.Datapoints[0].Value)
-	}
+		Convey("Should return the expected name and values from the datapoint", func() {
+			So(pmmTest.Datapoints[0].Name, ShouldEqual, "name-field-test")
+			So(pmmTest.Datapoints[0].Value, ShouldEqual, "value-field-test")
+			So(pmmTest.Datapoints[0].Unit, ShouldEqual, "unit-field-test")
+		})
+	})
 }
 
 func TestAvroRecordExtractTags(t *testing.T) {
-	var (
-		testRecord = record{
+	Convey("When extracting tags from an Avro record", t, func() {
+		testRecord := record{
 			Name: "dcos.metrics.Tag",
 			Fields: []field{
 				{
@@ -85,25 +77,20 @@ func TestAvroRecordExtractTags(t *testing.T) {
 			},
 		}
 
-		avroDatapoint = avroRecord{testRecord}
-		pmmTest       = producers.MetricsMessage{
+		avroDatapoint := avroRecord{testRecord}
+		pmmTest := producers.MetricsMessage{
 			Dimensions: producers.Dimensions{
 				Labels: make(map[string]string),
 			},
 		}
-	)
 
-	err := avroDatapoint.extract(&pmmTest)
-	if err != nil {
-		t.Errorf("Got %s, expected no errors.", err)
-	}
+		Convey("Should extract the tag without errors", func() {
+			err := avroDatapoint.extract(&pmmTest)
+			value, ok := pmmTest.Dimensions.Labels["tag-name-field-test"]
 
-	if value, ok := pmmTest.Dimensions.Labels["tag-name-field-test"]; !ok {
-		t.Errorf("Expected 'tag-name-field-test' label to exist, got %s", ok)
-	} else {
-		if value != "tag-value-field-test" {
-			t.Errorf("Got %s, expected 'tag-value-field-test", value)
-		}
-	}
-
+			So(err, ShouldBeNil)
+			So(ok, ShouldBeTrue)
+			So(value, ShouldEqual, "tag-value-field-test")
+		})
+	})
 }
