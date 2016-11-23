@@ -20,13 +20,13 @@ if [[ $COMPONENT == "collector" ]]; then
     popd
 
     # build binary
-    go build -a -o ${BUILD_DIR}/dcos-metrics-${COMPONENT}-${GIT_REF} \
-		-ldflags "-X main.VERSION=${VERSION} -X main.REVISION=${REVISION}" \
-		*.go
+    go build -a -o ${BUILD_DIR}/dcos-metrics-${COMPONENT}-${GIT_REF}       \
+        -ldflags "-X main.VERSION=${VERSION} -X main.REVISION=${REVISION}" \
+        *.go
 
 elif [[ $COMPONENT == "statsd-emitter" ]]; then
-		go build -a -o ${BUILD_DIR}/dcos-metrics-${COMPONENT}-${GIT_REF} \
-		examples/statsd-emitter/main.go
+    go build -a -o ${BUILD_DIR}/dcos-metrics-${COMPONENT}-${GIT_REF} \
+    examples/statsd-emitter/main.go
 else
     echo "Error: don't know how to build component '${COMPONENT}'!'"
     exit 1
