@@ -23,7 +23,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestAvroRecordExtractDatapoint(t *testing.T) {
+func TestExtract(t *testing.T) {
 	Convey("When extracting a datapoint from an Avro record", t, func() {
 		testRecord := record{
 			Name: "dcos.metrics.Datapoint",
@@ -59,9 +59,7 @@ func TestAvroRecordExtractDatapoint(t *testing.T) {
 			So(pmmTest.Datapoints[0].Unit, ShouldEqual, "unit-field-test")
 		})
 	})
-}
 
-func TestAvroRecordExtractTags(t *testing.T) {
 	Convey("When extracting tags from an Avro record", t, func() {
 		testRecord := record{
 			Name: "dcos.metrics.Tag",
