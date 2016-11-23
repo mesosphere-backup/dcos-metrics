@@ -59,6 +59,14 @@ var (
 )
 
 func TestExtract(t *testing.T) {
+	Convey("When calling extract() on an avroRecord", t, func() {
+		Convey("Should return an error if length of ar is 0", func() {
+			ar := avroRecord{}
+			err := ar.extract(&producers.MetricsMessage{})
+			So(err, ShouldNotBeNil)
+		})
+	})
+
 	Convey("When extracting a datapoint from an Avro record", t, func() {
 		avroDatapoint := avroRecord{testDatapoint}
 		pmmTest := producers.MetricsMessage{}
@@ -91,6 +99,20 @@ func TestExtract(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(ok, ShouldBeTrue)
 			So(value, ShouldEqual, "tag-value-field-test")
+		})
+	})
+
+	Convey("When analyzing the field types in a record", t, func() {
+		Convey("Should return an error if the field type was empty", func() {
+			ar := avroRecord{record{Name: ""}}
+			err := ar.extract(&producers.MetricsMessage{})
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("Should return an error for an unknown field type", func() {
+			ar := avroRecord{record{Name: "not-dcos.not-metrics.not-Type"}}
+			err := ar.extract(&producers.MetricsMessage{})
+			So(err, ShouldNotBeNil)
 		})
 	})
 }
