@@ -20,32 +20,48 @@ import (
 	"testing"
 
 	"github.com/dcos/dcos-metrics/producers"
+	"github.com/dcos/dcos-metrics/schema/metrics_schema"
+	"github.com/linkedin/goavro"
 	. "github.com/smartystreets/goconvey/convey"
+)
+
+var (
+	testDatapoint = record{
+		Name: "dcos.metrics.Datapoint",
+		Fields: []field{
+			{
+				Name:  "test-name",
+				Datum: "name-field-test",
+			},
+			{
+				Name:  "test-value",
+				Datum: "value-field-test",
+			},
+			{
+				Name:  "test-unit",
+				Datum: "unit-field-test",
+			},
+		},
+	}
+	testTag = record{
+		Name: "dcos.metrics.Tag",
+		Fields: []field{
+			{
+				Name:  "test-tag-name",
+				Datum: "tag-name-field-test",
+			},
+			{
+				Name:  "test-tag-value",
+				Datum: "tag-value-field-test",
+			},
+		},
+	}
 )
 
 func TestExtract(t *testing.T) {
 	Convey("When extracting a datapoint from an Avro record", t, func() {
-		testRecord := record{
-			Name: "dcos.metrics.Datapoint",
-			Fields: []field{
-				{
-					Name:  "test-name",
-					Datum: "name-field-test",
-				},
-				{
-					Name:  "test-value",
-					Datum: "value-field-test",
-				},
-				{
-					Name:  "test-unit",
-					Datum: "unit-field-test",
-				},
-			},
-		}
-
-		avroDatapoint := avroRecord{testRecord}
+		avroDatapoint := avroRecord{testDatapoint}
 		pmmTest := producers.MetricsMessage{}
-
 		err := avroDatapoint.extract(&pmmTest)
 
 		Convey("Should extract the datapoint without errors", func() {
@@ -61,21 +77,7 @@ func TestExtract(t *testing.T) {
 	})
 
 	Convey("When extracting tags from an Avro record", t, func() {
-		testRecord := record{
-			Name: "dcos.metrics.Tag",
-			Fields: []field{
-				{
-					Name:  "test-tag-name",
-					Datum: "tag-name-field-test",
-				},
-				{
-					Name:  "test-tag-value",
-					Datum: "tag-value-field-test",
-				},
-			},
-		}
-
-		avroDatapoint := avroRecord{testRecord}
+		avroDatapoint := avroRecord{testTag}
 		pmmTest := producers.MetricsMessage{
 			Dimensions: producers.Dimensions{
 				Labels: make(map[string]string),
@@ -89,6 +91,84 @@ func TestExtract(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(ok, ShouldBeTrue)
 			So(value, ShouldEqual, "tag-value-field-test")
+		})
+	})
+}
+
+func TestCreateObjectFromRecord(t *testing.T) {
+	// Create a test record
+	var (
+		metricListNamespace = goavro.RecordEnclosingNamespace(metrics_schema.MetricListNamespace)
+		metricListSchema    = goavro.RecordSchema(metrics_schema.MetricListSchema)
+		datapointNamespace  = goavro.RecordEnclosingNamespace(metrics_schema.DatapointNamespace)
+		datapointSchema     = goavro.RecordSchema(metrics_schema.DatapointSchema)
+		tagNamespace        = goavro.RecordEnclosingNamespace(metrics_schema.TagNamespace)
+		tagSchema           = goavro.RecordSchema(metrics_schema.TagSchema)
+	)
+
+	recDps, err := goavro.NewRecord(datapointNamespace, datapointSchema)
+	if err != nil {
+		panic(err)
+	}
+	recDps.Set("name", "some-name")
+	recDps.Set("time_ms", 1000)
+	recDps.Set("value", 42.0)
+
+	recTags, err := goavro.NewRecord(tagNamespace, tagSchema)
+	if err != nil {
+		panic(err)
+	}
+	recTags.Set("key", "some-key")
+	recTags.Set("value", "some-val")
+
+	rec, err := goavro.NewRecord(metricListNamespace, metricListSchema)
+	if err != nil {
+		panic(err)
+	}
+	rec.Set("topic", "some-topic")
+	rec.Set("tags", []interface{}{recTags})
+	rec.Set("datapoints", []interface{}{recDps})
+
+	// Run the test
+	Convey("When creating an avroRecord object from an actual Avro record", t, func() {
+		Convey("Should return the provided data in the expected structure without errors", func() {
+			ar := avroRecord{}
+			tags, err := rec.Get("tags")
+			if err != nil {
+				panic(err)
+			}
+
+			err = ar.createObjectFromRecord(tags)
+			So(err, ShouldBeNil)
+			So(ar, ShouldResemble, avroRecord{
+				record{
+					Name: "dcos.metrics.Tag",
+					Fields: []field{
+						field{
+							Name:  "dcos.metrics.key",
+							Datum: "some-key",
+						},
+						field{
+							Name:  "dcos.metrics.value",
+							Datum: "some-val",
+						},
+					},
+				},
+			})
+		})
+
+		Convey("Should return an error if the transformation failed", func() {
+			type badData struct {
+				SomeKey string
+				SomeVal string
+			}
+			bd := badData{
+				SomeKey: "foo-key",
+				SomeVal: "foo-val",
+			}
+			ar := avroRecord{}
+			err := ar.createObjectFromRecord(bd)
+			So(err, ShouldNotBeNil)
 		})
 	})
 }
