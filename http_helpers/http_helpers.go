@@ -1,4 +1,4 @@
-package http_helpers
+package httpHelpers
 
 import (
 	"crypto/tls"
@@ -55,7 +55,7 @@ func getTransport(caCertificatePath string) (*http.Transport, error) {
 	return tr, nil
 }
 
-// GetMetricsClient returns a client with a transport using dcos-go/jwt/transport for
+// NewMetricsClient returns a client with a transport using dcos-go/jwt/transport for
 // secure communications if a IAM configuration is present. It uses a verified cert if
 // present and skips verification if not present.
 func NewMetricsClient(caCertificatePath string, iamConfigPath string) (*http.Client, error) {

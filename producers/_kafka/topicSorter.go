@@ -89,7 +89,7 @@ func (d *avroData) append(datum *AvroDatum) {
 
 // RunTopicSorter sorts incoming Avro records into Kafka topics
 func RunTopicSorter(avroInput <-chan *AvroDatum, agentStateInput <-chan *AgentState, kafkaOutput chan<- kafka.KafkaMessage, stats chan<- statsd.StatsEvent) {
-	codec, err := goavro.NewCodec(metrics_schema.MetricListSchema)
+	codec, err := goavro.NewCodec(metricsSchema.MetricListSchema)
 	if err != nil {
 		log.Fatal("Failed to initialize avro codec: ", err)
 	}

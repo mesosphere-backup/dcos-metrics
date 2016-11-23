@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mesos_agent
+package mesosAgent
 
 import (
 	"encoding/json"
@@ -110,7 +110,7 @@ func TestGetContainerMetrics(t *testing.T) {
 		panic(err)
 	}
 
-	mac := MesosAgentCollector{
+	mac := Collector{
 		Port:        port,
 		PollPeriod:  60,
 		MetricsChan: make(chan producers.MetricsMessage),
@@ -159,7 +159,7 @@ func TestGetAgentState(t *testing.T) {
 		panic(err)
 	}
 
-	mac := MesosAgentCollector{
+	mac := Collector{
 		Port:        port,
 		PollPeriod:  60,
 		MetricsChan: make(chan producers.MetricsMessage),
@@ -225,7 +225,7 @@ func TestBuildDatapoints(t *testing.T) {
 
 func TestTransform(t *testing.T) {
 	Convey("When transforming agent metrics to fit producers.MetricsMessage", t, func() {
-		mac := MesosAgentCollector{
+		mac := Collector{
 			PollPeriod:  60,
 			MetricsChan: make(chan producers.MetricsMessage),
 			NodeInfo: collector.NodeInfo{

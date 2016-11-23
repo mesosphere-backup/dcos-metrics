@@ -22,16 +22,16 @@ var (
 	floodFlag = flag.Bool("flood", false, "Floods the port with stats, for capacity testing")
 )
 
-type ByteCount struct {
+type byteCount struct {
 	success int64
 	failed  int64
 }
 
-func (b *ByteCount) add(b2 ByteCount) {
+func (b *byteCount) add(b2 byteCount) {
 	b.success += b2.success
 	b.failed += b2.failed
 }
-func (b *ByteCount) reset() {
+func (b *byteCount) reset() {
 	b.success = 0
 	b.failed = 0
 }
@@ -41,17 +41,17 @@ func getEnvAddress() string {
 	if host == "" {
 		log.Printf("No UDP Host provided in environment: Need %s", envvarHost)
 	}
-	port_str := os.Getenv(envvarPort)
-	if port_str == "" {
+	portStr := os.Getenv(envvarPort)
+	if portStr == "" {
 		log.Printf("No UDP Port provided in environment: Need %s", envvarPort)
 	}
-	if host == "" || port_str == "" {
+	if host == "" || portStr == "" {
 		log.Fatalf("Environment: %s", os.Environ())
 	}
-	port, err := strconv.Atoi(port_str)
+	port, err := strconv.Atoi(portStr)
 	if err != nil {
 		log.Fatalf("Invalid UDP Port provided in environment (%s): %s=%s %s",
-			os.Environ(), envvarPort, port_str, err)
+			os.Environ(), envvarPort, portStr, err)
 	}
 	return host + ":" + strconv.Itoa(port)
 }
@@ -80,23 +80,23 @@ func uptime(value int64) string {
 	return fmt.Sprintf("statsd_tester.time.uptime:%d|g|#test_tag_key:test_tag_value", value)
 }
 
-func sendUptime(conn *net.UDPConn, value int64) ByteCount {
+func sendUptime(conn *net.UDPConn, value int64) byteCount {
 	return send(conn, uptime(value))
 }
 
-func send(conn *net.UDPConn, msg string) ByteCount {
+func send(conn *net.UDPConn, msg string) byteCount {
 	log.Debugf("SEND (%d): %s", len(msg), msg)
 	sent, err := conn.Write([]byte(msg))
 	if err != nil {
 		log.Debugf("Failed to send %d bytes: %s", len(msg), err)
-		return ByteCount{success: 0, failed: int64(len(msg))}
+		return byteCount{success: 0, failed: int64(len(msg))}
 	}
-	return ByteCount{success: int64(sent), failed: 0}
+	return byteCount{success: int64(sent), failed: 0}
 }
 
-func printOutputRateLoop(byteCountChan <-chan ByteCount) {
+func printOutputRateLoop(byteCountChan <-chan byteCount) {
 	ticker := time.NewTicker(time.Second * time.Duration(reportPeriod))
-	var bc ByteCount
+	var bc byteCount
 	for {
 		select {
 		case _ = <-ticker.C:
@@ -110,13 +110,13 @@ func printOutputRateLoop(byteCountChan <-chan ByteCount) {
 	}
 }
 
-func sendSomeStats(conn *net.UDPConn, start time.Time, loopCount int64) ByteCount {
+func sendSomeStats(conn *net.UDPConn, start time.Time, loopCount int64) byteCount {
 	now := time.Now()
 
-	var bytes ByteCount
+	var bytes byteCount
 
-	uptime_ms := int64((now.UnixNano() - start.UnixNano()) / 1000000 /* nano -> milli */)
-	bytes.add(sendUptime(conn, uptime_ms))
+	uptimeMs := int64((now.UnixNano() - start.UnixNano()) / 1000000 /* nano -> milli */)
+	bytes.add(sendUptime(conn, uptimeMs))
 
 	return bytes
 }
@@ -130,10 +130,10 @@ func main() {
 	conn := getConn(addr)
 	defer conn.Close()
 
-	byteCountChan := make(chan ByteCount)
+	byteCountChan := make(chan byteCount)
 	go printOutputRateLoop(byteCountChan)
 
-	var loopCount int64 = 0
+	var loopCount int64
 	for {
 		// send some random stats, record bytes sent
 		log.Debugf("-- %d", loopCount)

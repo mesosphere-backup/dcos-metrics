@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mesos_agent
+package mesosAgent
 
 import (
 	"bytes"
@@ -32,6 +32,7 @@ import (
 )
 
 const (
+	// HTTPTIMEOUT defines the maximum duration for all requests
 	HTTPTIMEOUT = 2 * time.Second
 )
 
@@ -40,11 +41,10 @@ var (
 		"collector": "mesos-agent"})
 )
 
-/* MesosAgentCollector defines the collector type for Mesos
-agent. It is configured from main from config file options and
-pass a new instance of HTTP client and a channel for dropping metrics
-onto */
-type MesosAgentCollector struct {
+// Collector defines the collector type for Mesos agent. It is
+// configured from main from config file options and pass a new instance of HTTP
+// client and a channel for dropping metrics onto.
+type Collector struct {
 	Port            int           `yaml:"port"`
 	PollPeriod      time.Duration `yaml:"poll_period"`
 	RequestProtocol string        `yaml:"request_protocol"`
@@ -148,7 +148,8 @@ type resourceStatistics struct {
 	NetTxDropped uint64 `json:"net_tx_dropped,omitempty"`
 }
 
-func (h *MesosAgentCollector) RunPoller() {
+// RunPoller continually polls the agent on a set interval.
+func (h *Collector) RunPoller() {
 	for {
 		h.pollMesosAgent()
 		for _, m := range h.transformContainerMetrics() {
@@ -158,7 +159,7 @@ func (h *MesosAgentCollector) RunPoller() {
 	}
 }
 
-func (h *MesosAgentCollector) pollMesosAgent() {
+func (h *Collector) pollMesosAgent() {
 	now := time.Now().UTC()
 	h.timestamp = now.Unix()
 
@@ -178,7 +179,7 @@ func (h *MesosAgentCollector) pollMesosAgent() {
 
 // getContainerMetrics queries an agent for container-level metrics, such as
 // CPU, memory, disk, and network usage.
-func (h *MesosAgentCollector) getContainerMetrics() error {
+func (h *Collector) getContainerMetrics() error {
 	h.containerMetrics = []agentContainer{}
 	u := url.URL{
 		Scheme: h.RequestProtocol,
@@ -188,13 +189,13 @@ func (h *MesosAgentCollector) getContainerMetrics() error {
 
 	h.HTTPClient.Timeout = HTTPTIMEOUT
 
-	return http_client.Fetch(h.HTTPClient, u, &h.containerMetrics)
+	return httpClient.Fetch(h.HTTPClient, u, &h.containerMetrics)
 }
 
 // getAgentState fetches the state JSON from the Mesos agent, which contains
 // info such as framework names and IDs, the current leader, config flags,
 // container (executor) labels, and more.
-func (h *MesosAgentCollector) getAgentState() error {
+func (h *Collector) getAgentState() error {
 	h.agentState = agentState{}
 
 	u := url.URL{
@@ -205,10 +206,10 @@ func (h *MesosAgentCollector) getAgentState() error {
 
 	h.HTTPClient.Timeout = HTTPTIMEOUT
 
-	return http_client.Fetch(h.HTTPClient, u, &h.agentState)
+	return httpClient.Fetch(h.HTTPClient, u, &h.agentState)
 }
 
-func (h *MesosAgentCollector) transformContainerMetrics() (out []producers.MetricsMessage) {
+func (h *Collector) transformContainerMetrics() (out []producers.MetricsMessage) {
 	var msg producers.MetricsMessage
 	t := time.Unix(h.timestamp, 0)
 

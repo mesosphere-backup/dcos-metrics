@@ -30,7 +30,8 @@ var nodeColLog = log.WithFields(log.Fields{
 	"collector": "node",
 })
 
-type NodeCollector struct {
+// Collector defines the collector type for system-level metrics.
+type Collector struct {
 	PollPeriod time.Duration `yaml:"poll_period,omitempty"`
 
 	MetricsChan chan producers.MetricsMessage
@@ -42,7 +43,7 @@ type NodeCollector struct {
 
 // RunPoller periodiclly polls the HTTP APIs of a Mesos agent. This function
 // should be run in its own goroutine.
-func (h *NodeCollector) RunPoller() {
+func (h *Collector) RunPoller() {
 	for {
 		h.pollHost()
 		for _, m := range h.transform() {
@@ -53,7 +54,7 @@ func (h *NodeCollector) RunPoller() {
 }
 
 // pollHost queries the DC/OS hsot for metrics and returns.
-func (h *NodeCollector) pollHost() {
+func (h *Collector) pollHost() {
 	now := time.Now().UTC()
 	h.timestamp = now.Unix()
 
@@ -72,7 +73,7 @@ func (h *NodeCollector) pollHost() {
 // transform will take metrics retrieved from the agent and perform any
 // transformations necessary to make the data fit the output expected by
 // producers.MetricsMessage.
-func (h *NodeCollector) transform() (out []producers.MetricsMessage) {
+func (h *Collector) transform() (out []producers.MetricsMessage) {
 	var msg producers.MetricsMessage
 	t := time.Unix(h.timestamp, 0)
 

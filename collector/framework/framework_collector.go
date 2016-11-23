@@ -37,8 +37,7 @@ var (
 	})
 )
 
-// AvroDatum{} conveys the avro data coming in on our
-// TCP listening channel
+// AvroDatum conveys the avro data coming in on our TCP listening channel.
 type AvroDatum struct {
 	// *goavro.Record
 	Record interface{}
@@ -48,8 +47,8 @@ type AvroDatum struct {
 	ApproxBytes int64
 }
 
-// *AvroDatum.Transform() creates a MetricsMessage from the Avro data coming
-// in on our TCP channel.
+// Transform creates a MetricsMessage from the Avro data coming in on our TCP
+// channel.
 func (a *AvroDatum) Transform(mesosID string, clusterID string, ipaddress string) (producers.MetricsMessage, error) {
 	var (
 		tagData       = avroRecord{}
@@ -104,9 +103,9 @@ func (a *AvroDatum) Transform(mesosID string, clusterID string, ipaddress string
 	return pmm, nil
 }
 
-// RunAvroTCPReader runs a TCP socket listener which produces Avro records sent to that socket.
-// Expects input which has been formatted in the Avro ODF standard.
-// This function should be run as a gofunc.
+// RunFrameworkTCPListener runs a TCP socket listener which produces Avro
+// records sent to that socket. Expects input which has been formatted in the
+// Avro ODF standard. This function should be run as a gofunc.
 func RunFrameworkTCPListener(recordsChan chan *AvroDatum) {
 	fwColLog.Info("Starting TCP listener for framework metric collection")
 	addr, err := net.ResolveTCPAddr("tcp", listenEndpointFlag)
@@ -203,6 +202,7 @@ func handleConnection(conn net.Conn, recordsChan chan<- *AvroDatum) {
 	}
 }
 
+// GetTopic returns the requested topic from an Avro record.
 func GetTopic(obj interface{}) (string, bool) {
 	record, ok := obj.(*goavro.Record)
 	if !ok {

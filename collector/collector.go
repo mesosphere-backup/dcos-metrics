@@ -14,6 +14,8 @@
 
 package collector
 
+// NodeInfo represents information about the node, such as the IP address,
+// hostname, Mesos ID, and the cluster ID that the node belongs to.
 type NodeInfo struct {
 	IPAddress string
 	MesosID   string
