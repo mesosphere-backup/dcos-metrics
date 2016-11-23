@@ -4,6 +4,7 @@ all: clean build test
 
 build:
 	bash -c "./scripts/build.sh collector"
+	bash -c "./scripts/build.sh statsd-emitter"
 
 test:
 	bash -c "./scripts/test.sh collector unit"
