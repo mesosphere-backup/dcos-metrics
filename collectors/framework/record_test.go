@@ -43,12 +43,12 @@ var (
 				Datum: "name-field-test",
 			},
 			{
-				Name:  "test-value",
-				Datum: "value-field-test",
-			},
-			{
 				Name:  "test-unit",
 				Datum: "unit-field-test",
+			},
+			{
+				Name:  "test-value",
+				Datum: "value-field-test",
 			},
 		},
 	}
@@ -86,10 +86,13 @@ func TestExtract(t *testing.T) {
 			So(len(pmmTest.Datapoints), ShouldEqual, 1)
 		})
 
+		// TODO(roger): the datapoint schema does not contain any fields
+		// allowing for the sender to specify units. Therefore we default
+		// to the zero value, an empty string.
 		Convey("Should return the expected name and values from the datapoint", func() {
 			So(pmmTest.Datapoints[0].Name, ShouldEqual, "name-field-test")
 			So(pmmTest.Datapoints[0].Value, ShouldEqual, "value-field-test")
-			So(pmmTest.Datapoints[0].Unit, ShouldEqual, "unit-field-test")
+			So(pmmTest.Datapoints[0].Unit, ShouldEqual, "")
 		})
 	})
 

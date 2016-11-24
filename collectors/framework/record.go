@@ -65,14 +65,17 @@ func (ar avroRecord) extract(pmm *producers.MetricsMessage) error {
 			fwColLog.Debugf("Adding datapoint %s", field)
 
 			var (
-				name  = field.Fields[0].Datum
-				value = field.Fields[1].Datum
-				unit  = field.Fields[2].Datum
+				name = field.Fields[0].Datum
+				//time_ms = field.Fields[1].Datum
+				value = field.Fields[2].Datum
 			)
 
+			// TODO(roger): the datapoint schema does not contain any fields
+			// allowing for the sender to specify units. Therefore we default
+			// to the zero value, an empty string.
 			dp := producers.Datapoint{
-				Name:      fmt.Sprintf("%v", name),
-				Unit:      fmt.Sprintf("%v", unit),
+				Name: fmt.Sprintf("%v", name),
+				//Unit:      fmt.Sprintf("%v", unit),
 				Value:     value,
 				Timestamp: time.Now().UTC().Format(time.RFC3339),
 			}
