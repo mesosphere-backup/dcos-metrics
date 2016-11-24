@@ -52,6 +52,7 @@ func (ar avroRecord) extract(pmm *producers.MetricsMessage) error {
 				// Assumes Labels has been initialized already.
 				pmm.Dimensions.Labels[tagName] = tagValue
 			}
+			pmm.Timestamp = time.Now().Unix()
 		}
 		return nil
 
@@ -73,7 +74,7 @@ func (ar avroRecord) extract(pmm *producers.MetricsMessage) error {
 				Name:      fmt.Sprintf("%v", name),
 				Unit:      fmt.Sprintf("%v", unit),
 				Value:     value,
-				Timestamp: fmt.Sprintf("%v", time.Now()),
+				Timestamp: time.Now().UTC().Format(time.RFC3339),
 			}
 
 			datapoints = append(datapoints, dp)
