@@ -26,6 +26,15 @@ import (
 )
 
 var (
+	metricListNamespace = goavro.RecordEnclosingNamespace(metrics_schema.MetricListNamespace)
+	metricListSchema    = goavro.RecordSchema(metrics_schema.MetricListSchema)
+	datapointNamespace  = goavro.RecordEnclosingNamespace(metrics_schema.DatapointNamespace)
+	datapointSchema     = goavro.RecordSchema(metrics_schema.DatapointSchema)
+	tagNamespace        = goavro.RecordEnclosingNamespace(metrics_schema.TagNamespace)
+	tagSchema           = goavro.RecordSchema(metrics_schema.TagSchema)
+)
+
+var (
 	testDatapoint = record{
 		Name: "dcos.metrics.Datapoint",
 		Fields: []field{
@@ -119,15 +128,6 @@ func TestExtract(t *testing.T) {
 
 func TestCreateObjectFromRecord(t *testing.T) {
 	// Create a test record
-	var (
-		metricListNamespace = goavro.RecordEnclosingNamespace(metrics_schema.MetricListNamespace)
-		metricListSchema    = goavro.RecordSchema(metrics_schema.MetricListSchema)
-		datapointNamespace  = goavro.RecordEnclosingNamespace(metrics_schema.DatapointNamespace)
-		datapointSchema     = goavro.RecordSchema(metrics_schema.DatapointSchema)
-		tagNamespace        = goavro.RecordEnclosingNamespace(metrics_schema.TagNamespace)
-		tagSchema           = goavro.RecordSchema(metrics_schema.TagSchema)
-	)
-
 	recDps, err := goavro.NewRecord(datapointNamespace, datapointSchema)
 	if err != nil {
 		panic(err)
