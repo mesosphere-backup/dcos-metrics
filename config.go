@@ -7,8 +7,8 @@ import (
 
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
-	"github.com/dcos/dcos-metrics/collector/mesos_agent"
-	"github.com/dcos/dcos-metrics/collector/node"
+	mesosAgent "github.com/dcos/dcos-metrics/collectors/mesos/agent"
+	"github.com/dcos/dcos-metrics/collectors/node"
 	httpHelpers "github.com/dcos/dcos-metrics/http_helpers"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
 

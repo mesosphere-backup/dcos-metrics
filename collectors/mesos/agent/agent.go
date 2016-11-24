@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mesosAgent
+package agent
 
 import (
 	"bytes"
@@ -26,9 +26,9 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/dcos/dcos-metrics/collector"
-	"github.com/dcos/dcos-metrics/collector/http_client"
+	"github.com/dcos/dcos-metrics/collectors"
 	"github.com/dcos/dcos-metrics/producers"
+	"github.com/dcos/dcos-metrics/util/http/client"
 )
 
 const (
@@ -50,7 +50,7 @@ type Collector struct {
 	RequestProtocol string        `yaml:"request_protocol"`
 
 	MetricsChan chan producers.MetricsMessage
-	NodeInfo    collector.NodeInfo
+	NodeInfo    collectors.NodeInfo
 	HTTPClient  *http.Client
 
 	agentState       agentState
@@ -189,7 +189,7 @@ func (h *Collector) getContainerMetrics() error {
 
 	h.HTTPClient.Timeout = HTTPTIMEOUT
 
-	return httpClient.Fetch(h.HTTPClient, u, &h.containerMetrics)
+	return client.Fetch(h.HTTPClient, u, &h.containerMetrics)
 }
 
 // getAgentState fetches the state JSON from the Mesos agent, which contains
@@ -206,7 +206,7 @@ func (h *Collector) getAgentState() error {
 
 	h.HTTPClient.Timeout = HTTPTIMEOUT
 
-	return httpClient.Fetch(h.HTTPClient, u, &h.agentState)
+	return client.Fetch(h.HTTPClient, u, &h.agentState)
 }
 
 func (h *Collector) transformContainerMetrics() (out []producers.MetricsMessage) {

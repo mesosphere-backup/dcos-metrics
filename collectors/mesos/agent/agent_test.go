@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mesosAgent
+package agent
 
 import (
 	"encoding/json"
@@ -27,7 +27,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dcos/dcos-metrics/collector"
+	"github.com/dcos/dcos-metrics/collectors"
 	httpHelpers "github.com/dcos/dcos-metrics/http_helpers"
 	"github.com/dcos/dcos-metrics/producers"
 	. "github.com/smartystreets/goconvey/convey"
@@ -114,7 +114,7 @@ func TestGetContainerMetrics(t *testing.T) {
 		Port:        port,
 		PollPeriod:  60,
 		MetricsChan: make(chan producers.MetricsMessage),
-		NodeInfo: collector.NodeInfo{
+		NodeInfo: collectors.NodeInfo{
 			IPAddress: "127.0.0.1",
 			MesosID:   "test-mesos-id",
 			ClusterID: "test-cluster-id",
@@ -163,7 +163,7 @@ func TestGetAgentState(t *testing.T) {
 		Port:        port,
 		PollPeriod:  60,
 		MetricsChan: make(chan producers.MetricsMessage),
-		NodeInfo: collector.NodeInfo{
+		NodeInfo: collectors.NodeInfo{
 			IPAddress: "127.0.0.1",
 			MesosID:   "test-mesos-id",
 			ClusterID: "test-cluster-id",
@@ -228,7 +228,7 @@ func TestTransform(t *testing.T) {
 		mac := Collector{
 			PollPeriod:  60,
 			MetricsChan: make(chan producers.MetricsMessage),
-			NodeInfo: collector.NodeInfo{
+			NodeInfo: collectors.NodeInfo{
 				MesosID:   "test-mesos-id",
 				ClusterID: "test-cluster-id",
 			},

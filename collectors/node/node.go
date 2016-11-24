@@ -22,7 +22,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/dcos/dcos-metrics/collector"
+	"github.com/dcos/dcos-metrics/collectors"
 	"github.com/dcos/dcos-metrics/producers"
 )
 
@@ -35,7 +35,7 @@ type Collector struct {
 	PollPeriod time.Duration `yaml:"poll_period,omitempty"`
 
 	MetricsChan chan producers.MetricsMessage
-	NodeInfo    collector.NodeInfo
+	NodeInfo    collectors.NodeInfo
 
 	nodeMetrics nodeMetrics
 	timestamp   int64
