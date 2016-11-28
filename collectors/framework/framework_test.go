@@ -17,8 +17,11 @@
 package framework
 
 import (
+	"net"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/dcos/dcos-metrics/producers"
 	"github.com/dcos/dcos-metrics/schema/metrics_schema"
@@ -111,7 +114,26 @@ func TestTransform(t *testing.T) {
 }
 
 func TestRunFrameworkTCPListener(t *testing.T) {
+	Convey("When running the framework TCP listener", t, func() {
+		port, err := getEphemeralPort()
+		if err != nil {
+			panic(err)
+		}
 
+		Convey("Should run the listener without errors if valid configuration was given", func() {
+			c := Collector{
+				listenEndpointFlag:         net.JoinHostPort("localhost", strconv.Itoa(port)),
+				recordInputLogFlag:         false,
+				inputLimitAmountKBytesFlag: 20480,
+				inputLimitPeriodFlag:       60,
+			}
+			go c.RunFrameworkTCPListener(make(chan *AvroDatum))
+			time.Sleep(1 * time.Second) // brief delay to allow the tcp listener to start
+
+			_, err := net.Dial("tcp", net.JoinHostPort("localhost", strconv.Itoa(port)))
+			So(err, ShouldBeNil)
+		})
+	})
 }
 
 func TestGetTopic(t *testing.T) {
@@ -178,4 +200,20 @@ func TestRead(t *testing.T) {
 			So(string(result), ShouldEqual, "foo")
 		})
 	})
+}
+
+// getEphemeralPort returns an available ephemeral port on the system.
+func getEphemeralPort() (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return 0, err
+	}
+
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, err
+	}
+
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
 }
