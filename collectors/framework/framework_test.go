@@ -17,6 +17,7 @@
 package framework
 
 import (
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -185,6 +186,108 @@ func TestGetTopic(t *testing.T) {
 			So(ok, ShouldBeTrue)
 		})
 	})
+}
+
+func TestHandleConnection(t *testing.T) {
+	Convey("When handling new TCP connections", t, func() {
+		port, err := getEphemeralPort()
+		if err != nil {
+			panic(err)
+		}
+		ln, err := net.Listen("tcp", net.JoinHostPort("localhost", strconv.Itoa(port)))
+		if err != nil {
+			panic(err)
+		}
+		defer ln.Close()
+		time.Sleep(1 * time.Second)
+
+		c := Collector{}
+		recordsChan := make(chan *AvroDatum)
+
+		// This goroutine runs in the background waiting for a TCP connection
+		// from the test below. Once the connection has been accepted,
+		// handleConnection() processes the data and puts it on the recordsChan.
+		// To avoid a non-deterministic sleep() here, this intentionally blocks
+		// until the connection is processed, at which point we break out of the
+		// loop and the goroutine finishes.
+		//
+		// This works mostly because we only use a single connection in this
+		// test. If we test with >1 conns in the future, this will need to be
+		// reworked a bit.
+		go func() {
+			for {
+				conn, err := ln.Accept()
+				if err != nil {
+					panic(err)
+				}
+				defer conn.Close()
+				c.handleConnection(conn, recordsChan) // blocks
+				break
+			}
+		}()
+
+		Convey("Should put new records of type AvroDatum on to the channel", func() {
+			// Create a test record
+			recDps, err := goavro.NewRecord(datapointNamespace, datapointSchema)
+			if err != nil {
+				panic(err)
+			}
+			recDps.Set("name", "some-name")
+			recDps.Set("time_ms", int64(1000))
+			recDps.Set("value", 42.0)
+
+			recTags, err := goavro.NewRecord(tagNamespace, tagSchema)
+			if err != nil {
+				panic(err)
+			}
+			recTags.Set("key", "some-key")
+			recTags.Set("value", "some-val")
+
+			rec, err := goavro.NewRecord(metricListNamespace, metricListSchema)
+			if err != nil {
+				panic(err)
+			}
+			rec.Set("topic", "some-topic")
+			rec.Set("tags", []interface{}{recTags})
+			rec.Set("datapoints", []interface{}{recDps})
+
+			// Encode and write the record
+			conn, err := net.Dial("tcp", net.JoinHostPort("localhost", strconv.Itoa(port)))
+			if err != nil {
+				panic(err)
+			}
+
+			codec, err := goavro.NewCodec(metricsSchema.MetricListSchema)
+			if err != nil {
+				panic(err)
+			}
+
+			avroWriter, err := goavro.NewWriter(goavro.ToWriter(conn), goavro.UseCodec(codec))
+			if err != nil {
+				panic(err)
+			}
+
+			// Test
+			avroWriter.Write(rec)
+			avroWriter.Close()
+			records := <-recordsChan // blocks
+
+			tags, err := records.Record.(*goavro.Record).Get("tags")
+			if err != nil {
+				panic(err)
+			}
+			dps, err := records.Record.(*goavro.Record).Get("datapoints")
+			if err != nil {
+				panic(err)
+			}
+
+			So(records.ApproxBytes, ShouldBeGreaterThan, 0)
+			So(records.Topic, ShouldEqual, "some-topic")
+			So(fmt.Sprintf("%+v", tags), ShouldEqual, "[{dcos.metrics.Tag: [dcos.metrics.key: some-key, dcos.metrics.value: some-val]}]")
+			So(fmt.Sprintf("%+v", dps), ShouldEqual, "[{dcos.metrics.Datapoint: [dcos.metrics.name: some-name, dcos.metrics.time_ms: 1000, dcos.metrics.value: 42]}]")
+		})
+	})
+
 }
 
 func TestRead(t *testing.T) {

@@ -151,7 +151,7 @@ func (c *Collector) RunFrameworkTCPListener(recordsChan chan *AvroDatum) {
 	}
 }
 
-// Function which reads records from a TCP session.
+// handleConnectionn reads records from a TCP session.
 // This function should be run as a gofunc.
 func (c *Collector) handleConnection(conn net.Conn, recordsChan chan<- *AvroDatum) {
 	defer conn.Close()
