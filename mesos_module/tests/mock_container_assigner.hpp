@@ -5,7 +5,7 @@
 #include <gmock/gmock.h>
 #include <stout/try.hpp>
 #include <mesos/mesos.pb.h>
-#include <mesos/slave/isolator.pb.h>
+#include <mesos/slave/containerizer.hpp>
 
 #include "udp_endpoint.hpp"
 
