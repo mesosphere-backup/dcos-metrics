@@ -1,6 +1,6 @@
 package main
 
-// 'go generate' must be run for the 'metrics_schema' package to be present:
+// 'go generate' must be run for the 'metricsSchema' package to be present:
 //go:generate go run ../../schema/generator.go -infile ../../schema/metrics.avsc -outfile metrics_schema/schema.go
 
 import (
@@ -31,14 +31,14 @@ var (
 	blockTickMsFlag = flag.Int("block-tick-ms", 500,
 		"Number of milliseconds to wait before flushing the current avro block (0 = disabled)")
 
-	datapointNamespace = goavro.RecordEnclosingNamespace(metrics_schema.DatapointNamespace)
-	datapointSchema    = goavro.RecordSchema(metrics_schema.DatapointSchema)
+	datapointNamespace = goavro.RecordEnclosingNamespace(metricsSchema.DatapointNamespace)
+	datapointSchema    = goavro.RecordSchema(metricsSchema.DatapointSchema)
 
-	metricListNamespace = goavro.RecordEnclosingNamespace(metrics_schema.MetricListNamespace)
-	metricListSchema    = goavro.RecordSchema(metrics_schema.MetricListSchema)
+	metricListNamespace = goavro.RecordEnclosingNamespace(metricsSchema.MetricListNamespace)
+	metricListSchema    = goavro.RecordSchema(metricsSchema.MetricListSchema)
 
-	tagNamespace = goavro.RecordEnclosingNamespace(metrics_schema.TagNamespace)
-	tagSchema    = goavro.RecordSchema(metrics_schema.TagSchema)
+	tagNamespace = goavro.RecordEnclosingNamespace(metricsSchema.TagNamespace)
+	tagSchema    = goavro.RecordSchema(metricsSchema.TagSchema)
 
 	startTime = time.Now()
 )
@@ -144,7 +144,7 @@ func buildDatapoint(name string, timeMs int64, value float64) interface{} {
 // ---
 
 func runTCPSerializerSender(recordsChan <-chan []interface{}) {
-	codec, err := goavro.NewCodec(metrics_schema.MetricListSchema)
+	codec, err := goavro.NewCodec(metricsSchema.MetricListSchema)
 	if err != nil {
 		log.Fatal("Failed to initialize avro codec: ", err)
 	}
@@ -203,17 +203,17 @@ func runTCPSerializerSender(recordsChan <-chan []interface{}) {
 	}
 }
 
-// An io.Writer which stores the error when a write fails
+// TCPWriterProxy is an io.Writer which stores the error when a write fails
 type TCPWriterProxy struct {
 	sock    *net.TCPConn
 	lastErr error
 }
 
-func (self *TCPWriterProxy) Write(b []byte) (int, error) {
-	n, err := self.sock.Write(b)
+func (t *TCPWriterProxy) Write(b []byte) (int, error) {
+	n, err := t.sock.Write(b)
 	if err != nil {
 		log.Println("Intercepted TCP Write failure:", err)
-		self.lastErr = err
+		t.lastErr = err
 		return 0, err
 	}
 	log.Printf("Wrote %d bytes to endpoint '%s'\n", n, *sendEndpointFlag)

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package http_client
+package client
 
 import (
 	"encoding/json"
@@ -65,13 +65,13 @@ func Fetch(client *http.Client, url url.URL, target interface{}) error {
 
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		e := fmt.Errorf("read error: %s: %v\n", url.String(), err)
+		e := fmt.Errorf("read error: %s: %v", url.String(), err)
 		clientLog.Error(e)
 		return e
 	}
 
 	if err := json.Unmarshal(b, &target); err != nil {
-		e := fmt.Errorf("unmarshal error: %s: %v\n", b, err)
+		e := fmt.Errorf("unmarshal error: %s: %v", b, err)
 		clientLog.Error(e)
 		return e
 	}

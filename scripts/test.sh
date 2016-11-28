@@ -41,16 +41,17 @@ function _goimports {
 
 function _golint {
     local test_dirs="$1"
+    local ignore_dirs="$1"
     logmsg "Running 'go lint' ..."
     go get -u github.com/golang/lint/golint
-    test -z "$(golint -set_exit_status $test_dirs | tee /dev/stderr)"
+    test -z "$(golint $test_dirs | grep -v vendor | grep -v $ignore_dirs | tee /dev/stderr)"
 }
 
 
 function _govet {
-    local package_dirs="$1"
+    local packages="$@"
     logmsg "Running 'go vet' ..."
-    go vet $(go list $package_dirs | grep -v vendor/)
+    go vet $(go list . ./... | grep -v vendor) | tee /dev/stderr
 }
 
 
@@ -101,13 +102,14 @@ function _unittest_with_coverage {
 function main {
     local test_dirs="./"
     local package_dirs="./..."
-    local ignore_packages="metrics_schema"
+    local ignore_dirs="schema/"
+    local ignore_packages="metricsSchema"
 
     if [[ $TEST_SUITE == "unit" ]]; then
         _gofmt
         _goimports
-        _golint "$test_dirs"
-        _govet "$package_dirs"
+        _golint "$package_dirs" "$ignore_dirs"
+        _govet "$test_dirs" "$ignore_dirs"
         _unittest_with_coverage "$package_dirs" "$ignore_packages"
     else
         echo "Unsupported test suite '${TEST_SUITE}'"

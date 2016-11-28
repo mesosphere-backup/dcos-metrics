@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dcos/dcos-metrics/collector"
+	"github.com/dcos/dcos-metrics/collectors"
 	"github.com/dcos/dcos-metrics/producers"
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -53,10 +53,10 @@ func TestTransform(t *testing.T) {
 			panic(err)
 		}
 
-		nc := NodeCollector{
+		nc := Collector{
 			PollPeriod:  60,
 			MetricsChan: make(chan producers.MetricsMessage),
-			NodeInfo: collector.NodeInfo{
+			NodeInfo: collectors.NodeInfo{
 				MesosID:   "test-mesos-id",
 				ClusterID: "test-cluster-id",
 			},

@@ -23,12 +23,12 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"github.com/dcos/dcos-metrics/collector/framework"
+	"github.com/dcos/dcos-metrics/collectors/framework"
 	"github.com/dcos/dcos-metrics/producers"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
+	"github.com/dcos/dcos-metrics/util/http/profiler"
 	//kafkaProducer "github.com/dcos/dcos-metrics/producers/kafka"
 	//statsdProducer "github.com/dcos/dcos-metrics/producers/statsd"
-	"github.com/dcos/dcos-metrics/util"
 )
 
 func main() {
@@ -54,7 +54,7 @@ func main() {
 	// HTTP profiling
 	if cfg.Collector.HTTPProfiler {
 		log.Info("HTTP profiling enabled")
-		go util.RunHTTPProfAccess()
+		go profiler.RunHTTPProfAccess()
 	}
 
 	var producerChans []chan<- producers.MetricsMessage

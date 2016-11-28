@@ -30,14 +30,14 @@ func (ar avroRecord) extract(pmm *producers.MetricsMessage) error {
 	if len(ar) > 0 {
 		fieldType = ar[0].Name
 	} else {
-		return errors.New("No records found for extract.")
+		return fmt.Errorf("no records found for extract")
 	}
 
 	// Extract tags
 	if fieldType == "dcos.metrics.Tag" {
 		for _, field := range ar {
 			if len(field.Fields) != 2 {
-				return errors.New(fmt.Sprintf("Tags must have 2 fields, got %d", len(field.Fields)))
+				return fmt.Errorf("tags must have 2 fields, got %d", len(field.Fields))
 			}
 			fwColLog.Debugf("Adding tag %s", field)
 			tagName := fmt.Sprintf("%v", field.Fields[0].Datum)
@@ -61,7 +61,7 @@ func (ar avroRecord) extract(pmm *producers.MetricsMessage) error {
 		datapoints := []producers.Datapoint{}
 		for _, field := range ar {
 			if len(field.Fields) != 3 {
-				return errors.New(fmt.Sprintf("Datapoints must have 3 fields, got %d", len(field.Fields)))
+				return fmt.Errorf("datapoints must have 3 fields, got %d", len(field.Fields))
 			}
 			fwColLog.Debugf("Adding datapoint %s", field)
 
