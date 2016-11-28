@@ -17,6 +17,7 @@
 package framework
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/dcos/dcos-metrics/producers"
@@ -165,5 +166,16 @@ func TestGetTopic(t *testing.T) {
 }
 
 func TestRead(t *testing.T) {
+	Convey("When reading bytes from an io.Reader", t, func() {
+		Convey("Should return accurate byte counts to countingReader", func() {
+			result := make([]byte, 3)
+			cr := countingReader{strings.NewReader("foo"), 0}
+			n, err := cr.Read(result)
 
+			So(err, ShouldBeNil)
+			So(cr.inputBytes, ShouldEqual, 3)
+			So(n, ShouldEqual, cr.inputBytes)
+			So(string(result), ShouldEqual, "foo")
+		})
+	})
 }
