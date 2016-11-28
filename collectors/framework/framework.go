@@ -22,19 +22,15 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+
 	"github.com/dcos/dcos-metrics/producers"
 	"github.com/linkedin/goavro"
 )
 
+// TODO(roger): avoid global variables here
 var (
-	listenEndpointFlag         = "127.0.0.1:8124"
-	recordInputLogFlag         = false
-	recordInputHexdumpFlag     = false
-	inputLimitAmountKBytesFlag = 20480
-	inputLimitPeriodFlag       = 60
-	fwColLog                   = log.WithFields(log.Fields{
-		"collector": "framework",
-	})
+	fwColLog               = log.WithFields(log.Fields{"collector": "framework"})
+	recordInputHexdumpFlag = false
 )
 
 // AvroDatum conveys the avro data coming in on our TCP listening channel.
@@ -45,6 +41,32 @@ type AvroDatum struct {
 	Topic string
 	// the approximate byte size of the original Record, if known
 	ApproxBytes int64
+}
+
+// Collector defines the structure of the framework collector and facilitates
+// mocking the various configuration options during testing.
+type Collector struct {
+	listenEndpointFlag         string
+	recordInputLogFlag         bool
+	inputLimitAmountKBytesFlag int
+	inputLimitPeriodFlag       int
+}
+
+// countingReader is an io.Reader that provides counts of the number of bytes
+// read, and which supports optional hexdumps of the data that it's reading.
+type countingReader struct {
+	readerImpl io.Reader
+	inputBytes int64
+}
+
+// New returns a new instance of the framework collector.
+func New() Collector {
+	return Collector{
+		listenEndpointFlag:         "127.0.0.1:8124",
+		recordInputLogFlag:         false,
+		inputLimitAmountKBytesFlag: 20480,
+		inputLimitPeriodFlag:       60,
+	}
 }
 
 // Transform creates a MetricsMessage from the Avro data coming in on our TCP
@@ -106,32 +128,32 @@ func (a *AvroDatum) Transform(mesosID string, clusterID string, ipaddress string
 // RunFrameworkTCPListener runs a TCP socket listener which produces Avro
 // records sent to that socket. Expects input which has been formatted in the
 // Avro ODF standard. This function should be run as a gofunc.
-func RunFrameworkTCPListener(recordsChan chan *AvroDatum) {
+func (c *Collector) RunFrameworkTCPListener(recordsChan chan *AvroDatum) {
 	fwColLog.Info("Starting TCP listener for framework metric collection")
-	addr, err := net.ResolveTCPAddr("tcp", listenEndpointFlag)
+	addr, err := net.ResolveTCPAddr("tcp", c.listenEndpointFlag)
 	if err != nil {
-		fwColLog.Errorf("Failed to parse TCP endpoint '%s': %s", listenEndpointFlag, err)
+		fwColLog.Errorf("Failed to parse TCP endpoint '%s': %s", c.listenEndpointFlag, err)
 	}
 	fwColLog.Debugf("Attempting to bind on %+v", addr)
 	sock, err := net.ListenTCP("tcp", addr)
 	if err != nil {
-		fwColLog.Errorf("Failed to listen on TCP endpoint '%s': %s", listenEndpointFlag, err)
+		fwColLog.Errorf("Failed to listen on TCP endpoint '%s': %s", c.listenEndpointFlag, err)
 	}
 	for {
 		fwColLog.Debug("Waiting for connections from Mesos Metrics Module...")
 		conn, err := sock.Accept()
 		if err != nil {
-			fwColLog.Errorf("Failed to accept connection on TCP endpoint '%s': %s\n", listenEndpointFlag, err)
+			fwColLog.Errorf("Failed to accept connection on TCP endpoint '%s': %s\n", c.listenEndpointFlag, err)
 			continue
 		}
 		fwColLog.Infof("Launching handler for TCP connection from: %+v", conn.RemoteAddr())
-		go handleConnection(conn, recordsChan)
+		go c.handleConnection(conn, recordsChan)
 	}
 }
 
 // Function which reads records from a TCP session.
 // This function should be run as a gofunc.
-func handleConnection(conn net.Conn, recordsChan chan<- *AvroDatum) {
+func (c *Collector) handleConnection(conn net.Conn, recordsChan chan<- *AvroDatum) {
 	defer conn.Close()
 	reader := &countingReader{conn, 0}
 	avroReader, err := goavro.NewReader(goavro.FromReader(reader))
@@ -145,7 +167,7 @@ func handleConnection(conn net.Conn, recordsChan chan<- *AvroDatum) {
 		}
 	}()
 
-	nextInputResetTime := time.Now().Add(time.Second * time.Duration(inputLimitPeriodFlag))
+	nextInputResetTime := time.Now().Add(time.Second * time.Duration(c.inputLimitPeriodFlag))
 	var lastBytesCount int64
 	var recordCount int64
 	for {
@@ -175,26 +197,26 @@ func handleConnection(conn net.Conn, recordsChan chan<- *AvroDatum) {
 		if now.After(nextInputResetTime) {
 			// Limit period has transpired, reset limit count before continuing
 			// TODO(MALNICK) Don't case like this...
-			if reader.inputBytes > int64(inputLimitAmountKBytesFlag)*1024 {
+			if reader.inputBytes > int64(c.inputLimitAmountKBytesFlag)*1024 {
 				fwColLog.Debugf("Received %d MetricLists (%d KB) from %s in the last ~%ds. "+
 					"Of this, ~%d KB was dropped due to throttling.\n",
 					recordCount,
 					reader.inputBytes/1024,
 					conn.RemoteAddr(),
-					inputLimitPeriodFlag,
+					c.inputLimitPeriodFlag,
 					// TODO (MALNICK) don't cast like this..
-					reader.inputBytes/1024-int64(inputLimitAmountKBytesFlag))
+					reader.inputBytes/1024-int64(c.inputLimitAmountKBytesFlag))
 			} else {
 				fwColLog.Debugf("Received %d MetricLists (%d KB) from %s in the last ~%ds\n",
-					recordCount, reader.inputBytes/1024, conn.RemoteAddr(), inputLimitPeriodFlag)
+					recordCount, reader.inputBytes/1024, conn.RemoteAddr(), c.inputLimitPeriodFlag)
 			}
 			recordCount = 0
 			reader.inputBytes = 0
-			nextInputResetTime = now.Add(time.Second * time.Duration(inputLimitPeriodFlag))
+			nextInputResetTime = now.Add(time.Second * time.Duration(c.inputLimitPeriodFlag))
 		}
 
 		// TODO (MALNICK) Don't cast like this
-		if reader.inputBytes > int64(inputLimitAmountKBytesFlag)*1024 {
+		if reader.inputBytes > int64(c.inputLimitAmountKBytesFlag)*1024 {
 			// input limit reached, skip
 			continue
 		}
@@ -217,13 +239,6 @@ func GetTopic(obj interface{}) (string, bool) {
 		return "UNKNOWN_TOPIC_TYPE", false
 	}
 	return topicStr, true
-}
-
-// An io.Reader which provides counts of the number of bytes read, and which supports optional
-// hexdumps of the data that it's reading.
-type countingReader struct {
-	readerImpl io.Reader
-	inputBytes int64
 }
 
 func (cr *countingReader) Read(p []byte) (int, error) {

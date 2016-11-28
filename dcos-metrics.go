@@ -23,7 +23,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"github.com/dcos/dcos-metrics/collectors/framework"
+	frameworkCollector "github.com/dcos/dcos-metrics/collectors/framework"
 	"github.com/dcos/dcos-metrics/producers"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
 	"github.com/dcos/dcos-metrics/util/http/profiler"
@@ -77,7 +77,8 @@ func main() {
 
 	// Initialize agent specific channels and run agent specific pollers
 	// if role is of type agent
-	frameworkCollectorChan := make(chan *framework.AvroDatum)
+	frameworkCollectorChan := make(chan *frameworkCollector.AvroDatum)
+	framework := frameworkCollector.New()
 	cfg.Collector.MesosAgent.MetricsChan = make(chan producers.MetricsMessage)
 	if cfg.DCOSRole == "agent" {
 		go framework.RunFrameworkTCPListener(frameworkCollectorChan)
