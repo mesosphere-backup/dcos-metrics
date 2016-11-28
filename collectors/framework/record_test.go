@@ -26,12 +26,12 @@ import (
 )
 
 var (
-	metricListNamespace = goavro.RecordEnclosingNamespace(metrics_schema.MetricListNamespace)
-	metricListSchema    = goavro.RecordSchema(metrics_schema.MetricListSchema)
-	datapointNamespace  = goavro.RecordEnclosingNamespace(metrics_schema.DatapointNamespace)
-	datapointSchema     = goavro.RecordSchema(metrics_schema.DatapointSchema)
-	tagNamespace        = goavro.RecordEnclosingNamespace(metrics_schema.TagNamespace)
-	tagSchema           = goavro.RecordSchema(metrics_schema.TagSchema)
+	metricListNamespace = goavro.RecordEnclosingNamespace(metricsSchema.MetricListNamespace)
+	metricListSchema    = goavro.RecordSchema(metricsSchema.MetricListSchema)
+	datapointNamespace  = goavro.RecordEnclosingNamespace(metricsSchema.DatapointNamespace)
+	datapointSchema     = goavro.RecordSchema(metricsSchema.DatapointSchema)
+	tagNamespace        = goavro.RecordEnclosingNamespace(metricsSchema.TagNamespace)
+	tagSchema           = goavro.RecordSchema(metricsSchema.TagSchema)
 )
 
 var (

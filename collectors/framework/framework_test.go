@@ -115,8 +115,8 @@ func TestRunFrameworkTCPListener(t *testing.T) {
 
 func TestGetTopic(t *testing.T) {
 	var (
-		metricListNamespace = goavro.RecordEnclosingNamespace(metrics_schema.MetricListNamespace)
-		metricListSchema    = goavro.RecordSchema(metrics_schema.MetricListSchema)
+		metricListNamespace = goavro.RecordEnclosingNamespace(metricsSchema.MetricListNamespace)
+		metricListSchema    = goavro.RecordSchema(metricsSchema.MetricListSchema)
 	)
 
 	Convey("When extracting the topic value from the provided Avro record", t, func() {
