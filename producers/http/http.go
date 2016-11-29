@@ -16,7 +16,9 @@ package http
 
 import (
 	"fmt"
+	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -104,13 +106,13 @@ func (p *producerImpl) Run() error {
 	if err != nil {
 		return fmt.Errorf("Unable to get listeners: %s", err)
 	}
-	// If a listener is avialable, use that. If it is not avialable,
+	// If a listener is available, use that. If it is not avialable,
 	// listen on the default TCP socket and port.
 	if len(listeners) == 1 {
-		httpLog.Infof("HTTP Producer serving requests on %s", listeners[0].Addr().String())
+		httpLog.Infof("http producer serving requests on systemd socket: %s", listeners[0].Addr().String())
 		return http.Serve(listeners[0], r)
 	}
-	httpLog.Infof("HTTP Producer serving requests on %s:%d", p.config.IP, p.config.Port)
+	httpLog.Infof("http producer serving requests on tcp socket: %s", net.JoinHostPort(p.config.IP, strconv.Itoa(p.config.Port)))
 	return http.ListenAndServe(fmt.Sprintf("%s:%d", p.config.IP, p.config.Port), r)
 }
 

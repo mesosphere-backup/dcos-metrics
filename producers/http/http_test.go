@@ -17,13 +17,115 @@
 package http
 
 import (
+	"fmt"
+	"net"
+	"os"
+	"strconv"
 	"testing"
 	"time"
 
+	"github.com/coreos/go-systemd/activation"
 	"github.com/dcos/dcos-go/store"
 	"github.com/dcos/dcos-metrics/producers"
 	. "github.com/smartystreets/goconvey/convey"
 )
+
+func TestNew(t *testing.T) {
+	Convey("When creating a new instance of the HTTP producer", t, func() {
+		Convey("Should return a new Collector instance", func() {
+			pi, pc := New(Config{})
+			So(pi, ShouldHaveSameTypeAs, &producerImpl{})
+			So(pc, ShouldHaveSameTypeAs, make(chan producers.MetricsMessage))
+		})
+	})
+}
+
+func TestRun(t *testing.T) {
+	Convey("When running the HTTP producer", t, func() {
+		Convey("Should read messages off the metricsChan and write them to the store", func() {
+			port, err := getEphemeralPort()
+			if err != nil {
+				panic(err)
+			}
+
+			p := producerImpl{
+				config:             Config{Port: port},
+				store:              store.New(),
+				metricsChan:        make(chan producers.MetricsMessage),
+				janitorRunInterval: 60 * time.Second,
+			}
+			go p.Run()
+			time.Sleep(1 * time.Second)
+
+			p.metricsChan <- producers.MetricsMessage{
+				Name:      "some-message",
+				Timestamp: time.Now().UTC().Unix(),
+			}
+			time.Sleep(250 * time.Millisecond)
+
+			So(p.store.Size(), ShouldEqual, 1)
+		})
+
+		Convey("Should create a new router on a systemd socket (if it's available)", func() {
+			// Mock the systemd socket
+			if err := os.Setenv("LISTEN_PID", strconv.Itoa(os.Getpid())); err != nil {
+				panic(err)
+			}
+			if err := os.Setenv("LISTEN_FDS", strconv.Itoa(1)); err != nil {
+				panic(err)
+			}
+
+			files := activation.Files(false)
+			if len(files) != 1 {
+				panic(fmt.Errorf("expected activation.Files length to be 1, got %d", len(files)))
+			}
+
+			port, err := getEphemeralPort()
+			if err != nil {
+				panic(err)
+			}
+
+			p, _ := New(Config{Port: port})
+			go p.Run()
+			time.Sleep(1 * time.Second)
+
+			// There shouldn't be anything listening on the configured TCP port
+			_, err = net.Dial("tcp", net.JoinHostPort("localhost", strconv.Itoa(port)))
+			So(err, ShouldNotBeNil)
+
+			// Restore the environment
+			if err := os.Unsetenv("LISTEN_PID"); err != nil {
+				panic(err)
+			}
+			if err := os.Unsetenv("LISTEN_FDS"); err != nil {
+				panic(err)
+			}
+		})
+
+		Convey("Should create a new router on a HTTP port if a systemd socket is unavailable", func() {
+			// Ensure the environment is clean
+			if err := os.Unsetenv("LISTEN_PID"); err != nil {
+				panic(err)
+			}
+			if err := os.Unsetenv("LISTEN_FDS"); err != nil {
+				panic(err)
+			}
+
+			port, err := getEphemeralPort()
+			if err != nil {
+				panic(err)
+			}
+
+			p, _ := New(Config{Port: port})
+			go p.Run()
+			time.Sleep(1 * time.Second)
+
+			// The web server should be listening on the configured TCP port
+			_, err = net.Dial("tcp", net.JoinHostPort("localhost", strconv.Itoa(port)))
+			So(err, ShouldBeNil)
+		})
+	})
+}
 
 func TestJanitor(t *testing.T) {
 	Convey("When running the janitor to clean up stale store objects", t, func() {
