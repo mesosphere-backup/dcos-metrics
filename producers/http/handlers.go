@@ -24,13 +24,12 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// /api/v0/node
 func nodeHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var am []interface{}
 		nodeMetrics, err := p.store.GetByRegex(producers.NodeMetricPrefix + ".*")
 		if err != nil {
-			httpLog.Errorf("/api/v0/node - %s", err.Error())
+			httpLog.Errorf("/v0/node - %s", err.Error())
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -43,25 +42,24 @@ func nodeHandler(p *producerImpl) http.HandlerFunc {
 			return
 		}
 
-		httpLog.Error("/api/v0/node - no content in store.")
+		httpLog.Error("/v0/node - no content in store.")
 		http.Error(w, "No values found in store", http.StatusBadRequest)
 	}
 }
 
-// /api/v0/containers
 func containersHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cm := []string{}
 		containerMetrics, err := p.store.GetByRegex(producers.ContainerMetricPrefix + ".*")
 		if err != nil {
-			httpLog.Errorf("/api/v0/containers - %s", err.Error())
+			httpLog.Errorf("/v0/containers - %s", err.Error())
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		for _, c := range containerMetrics {
 			if _, ok := c.(producers.MetricsMessage); !ok {
-				httpLog.Errorf("/api/v0/contianers - unsupported message type.")
+				httpLog.Errorf("/v0/containers - unsupported message type")
 				http.Error(w, "Got unsupported message type.", http.StatusInternalServerError)
 				return
 			}
@@ -72,7 +70,6 @@ func containersHandler(p *producerImpl) http.HandlerFunc {
 	}
 }
 
-// /api/v0/containers/{id}
 func containerHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -82,7 +79,7 @@ func containerHandler(p *producerImpl) http.HandlerFunc {
 
 		containerMetrics, ok := p.store.Get(key)
 		if !ok {
-			httpLog.Errorf("/api/v0/containers/{id} - not found in store: %s", key)
+			httpLog.Errorf("/v0/containers/{id} - not found in store: %s", key)
 			http.Error(w, "Key not found in store", http.StatusNoContent)
 			return
 		}
@@ -91,7 +88,6 @@ func containerHandler(p *producerImpl) http.HandlerFunc {
 	}
 }
 
-// /api/v0/containers/{id}/app/
 func containerAppHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -102,7 +98,7 @@ func containerAppHandler(p *producerImpl) http.HandlerFunc {
 
 		containerMetrics, ok := p.store.Get(key)
 		if !ok {
-			httpLog.Errorf("/api/v0/containers/{id}/app - not found in store: %s", key)
+			httpLog.Errorf("/v0/containers/{id}/app - not found in store: %s", key)
 			http.Error(w, "Key not found in store", http.StatusNoContent)
 			return
 		}
@@ -111,37 +107,39 @@ func containerAppHandler(p *producerImpl) http.HandlerFunc {
 	}
 }
 
-// /api/v0/containers/{id}/app/{metric-id}/
 func containerAppMetricHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		cid := vars["id"]
 		mid := vars["metric-id"]
-
 		key := strings.Join([]string{
 			producers.AppMetricPrefix, cid,
 		}, producers.MetricNamespaceSep)
 
-		containerMetrics, ok := p.store.Get(key)
+		appMetrics, ok := p.store.Get(key)
 		if !ok {
-			httpLog.Errorf("/api/v0/containers/{id}/app/{metric-id} - not found in store: %s", key)
+			httpLog.Errorf("/v0/containers/{id}/app/{metric-id} - not found in store: %s", key)
 			http.Error(w, "Key not found in store", http.StatusNoContent)
 			return
 		}
 
-		if _, ok := containerMetrics.(producers.MetricsMessage); !ok {
-			httpLog.Errorf("/api/v0/contianers - unsupported message type.")
+		if _, ok := appMetrics.(producers.MetricsMessage); !ok {
+			httpLog.Errorf("/v0/contianers - unsupported message type.")
 			http.Error(w, "Got unsupported message type.", http.StatusInternalServerError)
 			return
 		}
 
-		for _, dp := range containerMetrics.(producers.MetricsMessage).Datapoints {
+		for _, dp := range appMetrics.(producers.MetricsMessage).Datapoints {
 			if dp.Name == mid {
-				encode(dp, w)
+				m := producers.MetricsMessage{
+					Datapoints: []producers.Datapoint{dp},
+					Dimensions: appMetrics.(producers.MetricsMessage).Dimensions,
+				}
+				encode(m, w)
 				return
 			}
 		}
-		httpLog.Errorf("/api/v0/containers/{id}/app/{metric-id} - not found in store, CID: %s / Metric-ID: %s", key, mid)
+		httpLog.Errorf("/v0/containers/{id}/app/{metric-id} - not found in store, CID: %s / Metric-ID: %s", key, mid)
 		http.Error(w, "Metric not found in store", http.StatusNoContent)
 	}
 }

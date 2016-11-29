@@ -51,7 +51,7 @@ var routes = []Route{
 	// "/", "/api", and "/api/v0" that has usage info and available endpoints
 	// provided by this service.
 
-	// Ping endpoin
+	// Ping endpoint
 	Route{
 		Name:        "ping",
 		Method:      "GET",
@@ -59,7 +59,7 @@ var routes = []Route{
 		HandlerFunc: pingHandler,
 	},
 
-	// Agent Endpoints, e.g. /api/v0/agent...
+	// Agent Endpoints, e.g. /v0/agent...
 	Route{
 		Name:        "node",
 		Method:      "GET",
@@ -69,7 +69,7 @@ var routes = []Route{
 }
 
 var agentRoutes = []Route{
-	// Containers and apps endpoints,e.g. /api/v0/containers...
+	// Containers and apps endpoints,e.g. /v0/containers...
 	Route{
 		Name:        "containers",
 		Method:      "GET",
