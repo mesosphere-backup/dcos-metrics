@@ -28,8 +28,8 @@ import (
 	"time"
 
 	"github.com/dcos/dcos-metrics/collectors"
-	httpHelpers "github.com/dcos/dcos-metrics/http_helpers"
 	"github.com/dcos/dcos-metrics/producers"
+	httpHelpers "github.com/dcos/dcos-metrics/util/http/helpers"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

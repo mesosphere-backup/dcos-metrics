@@ -21,7 +21,7 @@ import (
 	"net/url"
 	"testing"
 
-	httpHelpers "github.com/dcos/dcos-metrics/http_helpers"
+	httpHelpers "github.com/dcos/dcos-metrics/util/http/helpers"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
