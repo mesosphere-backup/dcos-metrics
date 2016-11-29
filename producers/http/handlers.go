@@ -157,16 +157,6 @@ func pingHandler(p *producerImpl) http.HandlerFunc {
 	}
 }
 
-func notYetImplementedHandler(p *producerImpl) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		type fooData struct {
-			Message string `json:"message"`
-		}
-		result := fooData{Message: "Not Yet Implemented"}
-		encode(result, w)
-	}
-}
-
 // -- helpers
 
 func encode(v interface{}, w http.ResponseWriter) {
