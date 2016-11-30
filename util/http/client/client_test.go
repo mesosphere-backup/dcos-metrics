@@ -1,3 +1,5 @@
+// +build unit
+
 // Copyright 2016 Mesosphere, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,7 +27,40 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestHTTPClient_Fetch(t *testing.T) {
+func TestClient(t *testing.T) {
+	Convey("User-Agent should match Git version", t, func() {
+		var gotUserAgent string
+
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			td, err := json.Marshal(map[string]string{
+				"foo": "bar",
+			})
+			if err != nil {
+				panic(err)
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(td)
+
+			gotUserAgent = r.UserAgent()
+		}))
+		defer ts.Close()
+
+		u, err := url.Parse(ts.URL)
+		if err != nil {
+			panic(err)
+		}
+
+		if err := Fetch(http.DefaultClient, *u, nil); err != nil {
+			panic(err)
+		}
+
+		So(gotUserAgent, ShouldContainSubstring, "com.mesosphere.dcos-metrics/")
+	})
+}
+
+func TestFetch(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		td, err := json.Marshal(map[string]string{
 			"foo": "bar",
