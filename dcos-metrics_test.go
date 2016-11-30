@@ -19,6 +19,7 @@ package main
 import (
 	"bytes"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -38,8 +39,10 @@ func TestMain(t *testing.T) {
 		stdout := bytes.Buffer{}
 		cmd.Stdout = &stdout
 		cmd.Run()
+		fmt.Println(stdout.String())
 		So(stdout.String(), ShouldContainSubstring, "Version: ")
 		So(stdout.String(), ShouldContainSubstring, "Revision: ")
+		So(stdout.String(), ShouldContainSubstring, "HTTP User-Agent: ")
 		So(stdout.String(), ShouldNotContainSubstring, "unset")
 	})
 }

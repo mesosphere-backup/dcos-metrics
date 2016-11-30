@@ -56,7 +56,10 @@ func TestClient(t *testing.T) {
 			panic(err)
 		}
 
-		So(gotUserAgent, ShouldContainSubstring, "com.mesosphere.dcos-metrics/")
+		// Default is "unset"; this is set by 'scripts/build.sh' via ldflags.
+		// The actual test for the version in the built binary is in TestMain,
+		// located in dcos-metrics_test.go.
+		So(gotUserAgent, ShouldEqual, "unset")
 	})
 }
 

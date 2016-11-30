@@ -25,9 +25,9 @@ import (
 )
 
 var (
+	// USERAGENT based on $(git describe --always) and set by 'scripts/build.sh'
+	USERAGENT = "unset"
 	clientLog = log.WithFields(log.Fields{"collector": "http-client"})
-	// TODO(roger): place the value of userAgent somewhere convenient
-	userAgent = "com.mesosphere.dcos-metrics/1.0"
 )
 
 // Fetch queries an API endpoint and expects to receive JSON. It then unmarshals
@@ -42,7 +42,7 @@ func Fetch(client *http.Client, url url.URL, target interface{}) error {
 		return err
 	}
 
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("User-Agent", USERAGENT)
 
 	resp, err := client.Do(req)
 	if err != nil {
