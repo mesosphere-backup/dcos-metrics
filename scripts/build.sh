@@ -21,7 +21,7 @@ if [[ $COMPONENT == "collector" ]]; then
 
     # build binary
     go build -a -o ${BUILD_DIR}/dcos-metrics-${COMPONENT}-${GIT_REF}       \
-        -ldflags "-X main.VERSION=${VERSION} -X main.REVISION=${REVISION}" \
+        -ldflags "-X main.VERSION=${VERSION} -X main.REVISION=${REVISION} -X github.com/dcos/dcos-metrics/util/http/client.USERAGENT=dcos-metrics/${VERSION}" \
         *.go
 
 elif [[ $COMPONENT == "statsd-emitter" ]]; then

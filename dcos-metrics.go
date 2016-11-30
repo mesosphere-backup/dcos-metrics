@@ -26,6 +26,7 @@ import (
 	frameworkCollector "github.com/dcos/dcos-metrics/collectors/framework"
 	"github.com/dcos/dcos-metrics/producers"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
+	httpClient "github.com/dcos/dcos-metrics/util/http/client"
 	"github.com/dcos/dcos-metrics/util/http/profiler"
 	//kafkaProducer "github.com/dcos/dcos-metrics/producers/kafka"
 	//statsdProducer "github.com/dcos/dcos-metrics/producers/statsd"
@@ -39,7 +40,12 @@ func main() {
 		os.Exit(1)
 	}
 	if cfg.VersionFlag {
-		fmt.Printf("DC/OS Metrics Service\nVersion: %s\nRevsision: %s\n\r", VERSION, REVISION)
+		fmt.Printf(strings.Join([]string{
+			"DC/OS Metrics Service",
+			fmt.Sprintf("Version: %s", VERSION),
+			fmt.Sprintf("Revision: %s", REVISION),
+			fmt.Sprintf("HTTP User-Agent: %s", httpClient.USERAGENT),
+		}, "\n"))
 		os.Exit(0)
 	}
 
