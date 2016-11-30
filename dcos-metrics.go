@@ -39,7 +39,7 @@ func main() {
 		os.Exit(1)
 	}
 	if cfg.VersionFlag {
-		fmt.Printf("DC/OS Metrics Service\nVersion: %s\nRevsision: %s\n\r", VERSION, REVISION)
+		fmt.Printf("DC/OS Metrics Service\nVersion: %s\nRevision: %s\n\r", VERSION, REVISION)
 		os.Exit(0)
 	}
 

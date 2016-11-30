@@ -17,9 +17,11 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"testing"
 
 	yaml "gopkg.in/yaml.v2"
@@ -29,7 +31,17 @@ import (
 )
 
 func TestMain(t *testing.T) {
-	Convey("Ensure collector loads and responds", t, nil)
+	// This test assumes that `go build` was run before `go test`,
+	// preferably by running `make` at the root of this repo.
+	Convey("Version and revision should match Git", t, func() {
+		cmd := exec.Command("/bin/bash", "-c", "./build/collector/dcos-metrics-collector* -config /dev/null -version")
+		stdout := bytes.Buffer{}
+		cmd.Stdout = &stdout
+		cmd.Run()
+		So(stdout.String(), ShouldContainSubstring, "Version: ")
+		So(stdout.String(), ShouldContainSubstring, "Revision: ")
+		So(stdout.String(), ShouldNotContainSubstring, "unset")
+	})
 }
 
 func TestDefaultConfig(t *testing.T) {
