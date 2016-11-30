@@ -60,7 +60,7 @@ func (h *Collector) pollHost() {
 
 	// Fetch node-level metrics for all DC/OS roles
 	nodeColLog.Debugf("Fetching node-level metrics from DC/OS host %s", h.NodeInfo.Hostname)
-	nm, err := h.getNodeMetrics()
+	nm, err := getNodeMetrics()
 	if err != nil {
 		nodeColLog.Errorf("Failed to get node-level metrics. %s", err)
 	} else {

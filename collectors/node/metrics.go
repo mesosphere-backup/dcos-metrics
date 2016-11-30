@@ -76,7 +76,7 @@ type nodeNetworkInterface struct {
 	TxErrors  uint64 `json:"network.{{.Name}}.out.errors"`
 }
 
-func (h *Collector) getNodeMetrics() (nodeMetrics, error) {
+func getNodeMetrics() (nodeMetrics, error) {
 	l := getLoadAvg()
 	cpuStatePcts := calculatePcts(getCPUTimes())
 	m := getMemory()

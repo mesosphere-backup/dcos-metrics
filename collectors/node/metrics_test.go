@@ -85,6 +85,22 @@ var (
 	}
 )
 
+func TestGetNodeMetrics(t *testing.T) {
+	Convey("When getting node metrics, should return nodeMetrics type", t, func() {
+		m, err := getNodeMetrics()
+		So(err, ShouldBeNil)
+		So(m, ShouldHaveSameTypeAs, nodeMetrics{})
+
+		// smoke test certain values that should always be > 0
+		So(m.Uptime, ShouldBeGreaterThan, 0)
+		So(m.ProcessCount, ShouldBeGreaterThan, 0)
+		So(m.NumCores, ShouldBeGreaterThan, 0)
+		So(m.MemTotalBytes, ShouldBeGreaterThan, 0)
+		So(len(m.Filesystems), ShouldBeGreaterThan, 0)
+		So(len(m.NetworkInterfaces), ShouldBeGreaterThan, 0)
+	})
+}
+
 func TestCalculatePcts(t *testing.T) {
 	lastTimes := cpu.TimesStat{
 		CPU:       "cpu-total",
