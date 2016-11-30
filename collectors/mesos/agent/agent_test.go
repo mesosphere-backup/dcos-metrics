@@ -18,7 +18,6 @@ package agent
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -212,9 +211,6 @@ func TestBuildDatapoints(t *testing.T) {
 				for _, c := range thisContainerMetrics {
 					pts := buildDatapoints(c, testTime)
 					result = append(result, pts...)
-				}
-				for _, r := range result {
-					fmt.Println(r.Name)
 				}
 				So(len(result), ShouldEqual, 16)
 				So(result[0].Timestamp, ShouldEqual, "2009-11-10T23:00:00Z")

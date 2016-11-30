@@ -16,7 +16,9 @@ package http
 
 import (
 	"fmt"
+	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,17 +41,19 @@ type Config struct {
 }
 
 type producerImpl struct {
-	config      Config
-	store       store.Store
-	metricsChan chan producers.MetricsMessage
+	config             Config
+	store              store.Store
+	metricsChan        chan producers.MetricsMessage
+	janitorRunInterval time.Duration
 }
 
 // New creates a new instance of the HTTP producer with the provided configuration.
 func New(cfg Config) (producers.MetricsProducer, chan producers.MetricsMessage) {
 	p := producerImpl{
-		config:      cfg,
-		store:       store.New(),
-		metricsChan: make(chan producers.MetricsMessage),
+		config:             cfg,
+		store:              store.New(),
+		metricsChan:        make(chan producers.MetricsMessage),
+		janitorRunInterval: 60 * time.Second,
 	}
 	return &p, p.metricsChan
 }
@@ -102,13 +106,13 @@ func (p *producerImpl) Run() error {
 	if err != nil {
 		return fmt.Errorf("Unable to get listeners: %s", err)
 	}
-	// If a listener is avialable, use that. If it is not avialable,
+	// If a listener is available, use that. If it is not avialable,
 	// listen on the default TCP socket and port.
 	if len(listeners) == 1 {
-		httpLog.Infof("HTTP Producer serving requests on %s", listeners[0].Addr().String())
+		httpLog.Infof("http producer serving requests on systemd socket: %s", listeners[0].Addr().String())
 		return http.Serve(listeners[0], r)
 	}
-	httpLog.Infof("HTTP Producer serving requests on %s:%d", p.config.IP, p.config.Port)
+	httpLog.Infof("http producer serving requests on tcp socket: %s", net.JoinHostPort(p.config.IP, strconv.Itoa(p.config.Port)))
 	return http.ListenAndServe(fmt.Sprintf("%s:%d", p.config.IP, p.config.Port), r)
 }
 
@@ -117,17 +121,17 @@ func (p *producerImpl) Run() error {
 // has exceeded the CacheExpiry, which is calculated as a multiple of the
 // collector's polling period. This function should be run in its own goroutine.
 func (p *producerImpl) janitor() {
-	ticker := time.NewTicker(time.Duration(60 * time.Second))
+	ticker := time.NewTicker(p.janitorRunInterval)
 	for {
 		select {
 		case _ = <-ticker.C:
-			for _, obj := range p.store.Objects() {
-				o := obj.(producers.MetricsMessage)
+			for k, v := range p.store.Objects() {
+				o := v.(producers.MetricsMessage)
 
-				age := time.Since(time.Unix(o.Timestamp, 0))
+				age := time.Now().Sub(time.Unix(o.Timestamp, 0))
 				if age > p.config.CacheExpiry {
-					httpLog.Debugf("Removing stale object %s; last updated %d seconds ago", o.Name, age*time.Second)
-					p.store.Delete(o.Name)
+					httpLog.Debugf("Removing stale object %s; last updated %d seconds ago", k, age/time.Second)
+					p.store.Delete(k)
 				}
 			}
 		}

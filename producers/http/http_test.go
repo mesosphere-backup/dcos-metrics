@@ -17,204 +17,163 @@
 package http
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
-	"net/http"
-	"strings"
+	"os"
+	"strconv"
 	"testing"
 	"time"
 
+	"github.com/coreos/go-systemd/activation"
+	"github.com/dcos/dcos-go/store"
 	"github.com/dcos/dcos-metrics/producers"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-var (
-	testTime = time.Now()
-
-	testNodeData = producers.MetricsMessage{
-		Name: producers.NodeMetricPrefix,
-		Datapoints: []producers.Datapoint{
-			producers.Datapoint{
-				Name:      "some-node-metric",
-				Unit:      "",
-				Value:     "1234",
-				Timestamp: testTime.Format(time.RFC3339Nano),
-			},
-		},
-		Dimensions: producers.Dimensions{
-			MesosID:  "foo",
-			Hostname: "some-host",
-		},
-		Timestamp: testTime.UTC().Unix(),
-	}
-
-	testContainerData = producers.MetricsMessage{
-		Name: producers.ContainerMetricPrefix,
-		Datapoints: []producers.Datapoint{
-			producers.Datapoint{
-				Name:      "some-container-metric",
-				Unit:      "",
-				Value:     "1234",
-				Timestamp: testTime.Format(time.RFC3339Nano),
-			},
-		},
-		Dimensions: producers.Dimensions{
-			MesosID:     "foo",
-			Hostname:    "some-host",
-			ContainerID: "foo-container",
-		},
-		Timestamp: testTime.UTC().Unix(),
-	}
-
-	testAppData = producers.MetricsMessage{
-		Name: producers.AppMetricPrefix,
-		Datapoints: []producers.Datapoint{
-			producers.Datapoint{
-				Name:      "some-app-metric",
-				Unit:      "",
-				Value:     "1234",
-				Timestamp: testTime.Format(time.RFC3339Nano),
-			},
-		},
-		Dimensions: producers.Dimensions{
-			MesosID:     "foo",
-			Hostname:    "some-host",
-			ContainerID: "foo-container",
-		},
-		Timestamp: testTime.UTC().Unix(),
-	}
-)
-
-func setup() int {
-	port, err := getEphemeralPort()
-	if err != nil {
-		panic(err)
-	}
-
-	pi, pc := New(Config{
-		DCOSRole:    "agent",
-		IP:          "127.0.0.1",
-		Port:        port,
-		CacheExpiry: time.Duration(5) * time.Second})
-	go pi.Run()
-	time.Sleep(1 * time.Second) // give the http server a chance to start before querying it
-
-	pc <- testNodeData
-	pc <- testContainerData
-	pc <- testAppData
-
-	return port
-}
-
-// Functional test for the /system/metrics/api/v0/node endpoint.
-func TestHTTPProducer_Node(t *testing.T) {
-	Convey("When querying the /v0/node endpoint", t, func() {
-		Convey("Should return metrics in the expected structure", func() {
-			port := setup()
-			resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/v0/node", port))
-			if err != nil {
-				panic(err)
-			}
-			defer resp.Body.Close()
-
-			got, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				panic(err)
-			}
-
-			expected, err := json.Marshal(testNodeData)
-			if err != nil {
-				panic(err)
-			}
-
-			So(strings.TrimSpace(string(got)), ShouldEqual, strings.TrimSpace(string(expected)))
+func TestNew(t *testing.T) {
+	Convey("When creating a new instance of the HTTP producer", t, func() {
+		Convey("Should return a new Collector instance", func() {
+			pi, pc := New(Config{})
+			So(pi, ShouldHaveSameTypeAs, &producerImpl{})
+			So(pc, ShouldHaveSameTypeAs, make(chan producers.MetricsMessage))
 		})
 	})
 }
 
-func TestHTTPProducer_Containers(t *testing.T) {
-	Convey("When querying the /v0/containers endpoint", t, func() {
-		Convey("Should return container IDs in the expected structure", nil)
-		port := setup()
-		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/v0/containers", port))
-		if err != nil {
-			panic(err)
-		}
-		defer resp.Body.Close()
+func TestRun(t *testing.T) {
+	Convey("When running the HTTP producer", t, func() {
+		Convey("Should read messages off the metricsChan and write them to the store", func() {
+			port, err := getEphemeralPort()
+			if err != nil {
+				panic(err)
+			}
 
-		got, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			panic(err)
-		}
-		expected, err := json.Marshal([]string{testContainerData.Dimensions.ContainerID})
-		if err != nil {
-			panic(err)
-		}
+			p := producerImpl{
+				config:             Config{Port: port},
+				store:              store.New(),
+				metricsChan:        make(chan producers.MetricsMessage),
+				janitorRunInterval: 60 * time.Second,
+			}
+			go p.Run()
+			time.Sleep(1 * time.Second)
 
-		So(strings.TrimSpace(string(got)), ShouldEqual, strings.TrimSpace(string(expected)))
+			p.metricsChan <- producers.MetricsMessage{
+				Name:      "some-message",
+				Timestamp: time.Now().UTC().Unix(),
+			}
+			time.Sleep(250 * time.Millisecond)
+
+			So(p.store.Size(), ShouldEqual, 1)
+		})
+
+		Convey("Should create a new router on a systemd socket (if it's available)", func() {
+			// Mock the systemd socket
+			if err := os.Setenv("LISTEN_PID", strconv.Itoa(os.Getpid())); err != nil {
+				panic(err)
+			}
+			if err := os.Setenv("LISTEN_FDS", strconv.Itoa(1)); err != nil {
+				panic(err)
+			}
+
+			files := activation.Files(false)
+			if len(files) != 1 {
+				panic(fmt.Errorf("expected activation.Files length to be 1, got %d", len(files)))
+			}
+
+			port, err := getEphemeralPort()
+			if err != nil {
+				panic(err)
+			}
+
+			p, _ := New(Config{Port: port})
+			go p.Run()
+			time.Sleep(1 * time.Second)
+
+			// There shouldn't be anything listening on the configured TCP port
+			_, err = net.Dial("tcp", net.JoinHostPort("localhost", strconv.Itoa(port)))
+			So(err, ShouldNotBeNil)
+
+			// Restore the environment
+			if err := os.Unsetenv("LISTEN_PID"); err != nil {
+				panic(err)
+			}
+			if err := os.Unsetenv("LISTEN_FDS"); err != nil {
+				panic(err)
+			}
+		})
+
+		Convey("Should create a new router on a HTTP port if a systemd socket is unavailable", func() {
+			// Ensure the environment is clean
+			if err := os.Unsetenv("LISTEN_PID"); err != nil {
+				panic(err)
+			}
+			if err := os.Unsetenv("LISTEN_FDS"); err != nil {
+				panic(err)
+			}
+
+			port, err := getEphemeralPort()
+			if err != nil {
+				panic(err)
+			}
+
+			p, _ := New(Config{Port: port})
+			go p.Run()
+			time.Sleep(1 * time.Second)
+
+			// The web server should be listening on the configured TCP port
+			_, err = net.Dial("tcp", net.JoinHostPort("localhost", strconv.Itoa(port)))
+			So(err, ShouldBeNil)
+		})
 	})
 }
 
-func TestHTTPProducer_ContainerID(t *testing.T) {
-	Convey("When querying the /v0/containers/{id} endpoint", t, func() {
-		Convey("Should return container metrics for the container ID given", nil)
-		port := setup()
-		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/v0/containers/foo-container", port))
-		if err != nil {
-			panic(err)
+func TestJanitor(t *testing.T) {
+	Convey("When running the janitor to clean up stale store objects", t, func() {
+		// In this test, we set the default CacheExpiry to 120 seconds, which is
+		// far longer than this test should ever take to run. testTime then uses
+		// the current time (since janitor uses time.Since() to calculate age),
+		// so we need to substract seconds from objects in the store
+		// (via producers.MetricsMessage.Timestamp) to simulate "stale" objects.
+		p := producerImpl{
+			config: Config{
+				CacheExpiry: 60 * time.Second,
+			},
+			store:              store.New(),
+			janitorRunInterval: 1 * time.Second,
 		}
-		defer resp.Body.Close()
+		testTime := time.Now().UTC().Unix()
+		testCases := map[string]interface{}{
+			"obj0": producers.MetricsMessage{Timestamp: testTime + 30}, // superfresh, expires in 90secs
+			"obj1": producers.MetricsMessage{Timestamp: testTime},      // fresh, expires in 60secs
+			"obj2": producers.MetricsMessage{Timestamp: testTime - 57}, // fresh, expires in 3secs
+			"obj3": producers.MetricsMessage{Timestamp: testTime - 90}, // stale, expired 30secs ago
+			"obj4": producers.MetricsMessage{Timestamp: testTime - 90}, // stale, expired 30secs ago
+		}
+		p.store.Supplant(testCases)
 
-		got, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			panic(err)
-		}
-		expected, err := json.Marshal(testContainerData)
-		if err != nil {
-			panic(err)
-		}
+		go p.janitor()
+		time.Sleep(2 * p.janitorRunInterval)
 
-		So(strings.TrimSpace(string(got)), ShouldEqual, strings.TrimSpace(string(expected)))
+		Convey("Should remove only stale objects", func() {
+			So(p.store.Size(), ShouldEqual, 3)
+			So(p.store.Objects(), ShouldNotContainKey, "obj3")
+			So(p.store.Objects(), ShouldNotContainKey, "obj4")
+			So(p.store.Objects(), ShouldContainKey, "obj0")
+			So(p.store.Objects(), ShouldContainKey, "obj1")
+			So(p.store.Objects(), ShouldContainKey, "obj2")
+		})
+
+		Convey("Should run on set schedule", func() {
+			// Considering that obj2 should expire in 3 seconds, there's a
+			// problem if it hasn't been removed in 5 seconds.
+			for i := 0; i < 5; i++ {
+				if p.store.Size() == 2 {
+					break
+				}
+				time.Sleep(1 * time.Second)
+			}
+			So(p.store.Size(), ShouldEqual, 2)
+			So(p.store.Objects(), ShouldNotContainKey, "obj2")
+		})
 	})
-}
-
-func TestHTTPProducer_ContainerApp(t *testing.T) {
-	Convey("When querying the /v0/containers/{id}/app endpoint", t, func() {
-		Convey("Should return app metrics in the expected structure", nil)
-		port := setup()
-		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/v0/containers/foo-container/app", port))
-		if err != nil {
-			panic(err)
-		}
-		defer resp.Body.Close()
-
-		got, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			panic(err)
-		}
-		expected, err := json.Marshal(testAppData)
-		if err != nil {
-			panic(err)
-		}
-
-		So(strings.TrimSpace(string(got)), ShouldEqual, strings.TrimSpace(string(expected)))
-	})
-}
-
-// getEphemeralPort returns an available ephemeral port on the system.
-func getEphemeralPort() (int, error) {
-	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
-	if err != nil {
-		return 0, err
-	}
-
-	l, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		return 0, err
-	}
-	defer l.Close()
-
-	return l.Addr().(*net.TCPAddr).Port, nil
 }
