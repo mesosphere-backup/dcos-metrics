@@ -1,4 +1,4 @@
-package httpHelpers
+package helpers
 
 import (
 	"crypto/tls"

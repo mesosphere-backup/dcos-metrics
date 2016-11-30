@@ -9,8 +9,8 @@ import (
 	"github.com/dcos/dcos-go/dcos/nodeutil"
 	mesosAgent "github.com/dcos/dcos-metrics/collectors/mesos/agent"
 	"github.com/dcos/dcos-metrics/collectors/node"
-	httpHelpers "github.com/dcos/dcos-metrics/http_helpers"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
+	httpHelpers "github.com/dcos/dcos-metrics/util/http/helpers"
 
 	log "github.com/Sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
