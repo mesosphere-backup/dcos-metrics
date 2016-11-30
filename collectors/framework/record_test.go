@@ -20,90 +20,180 @@ import (
 	"testing"
 
 	"github.com/dcos/dcos-metrics/producers"
+	"github.com/dcos/dcos-metrics/schema/metrics_schema"
+	"github.com/linkedin/goavro"
+	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestAvroRecordExtractDatapoint(t *testing.T) {
+var (
+	metricListNamespace = goavro.RecordEnclosingNamespace(metricsSchema.MetricListNamespace)
+	metricListSchema    = goavro.RecordSchema(metricsSchema.MetricListSchema)
+	datapointNamespace  = goavro.RecordEnclosingNamespace(metricsSchema.DatapointNamespace)
+	datapointSchema     = goavro.RecordSchema(metricsSchema.DatapointSchema)
+	tagNamespace        = goavro.RecordEnclosingNamespace(metricsSchema.TagNamespace)
+	tagSchema           = goavro.RecordSchema(metricsSchema.TagSchema)
+)
 
-	var (
-		testRecord = record{
-			Name: "dcos.metrics.Datapoint",
-			Fields: []field{
-				{
-					Name:  "test-name",
-					Datum: "name-field-test",
-				},
-				{
-					Name:  "test-value",
-					Datum: "value-field-test",
-				},
-				{
-					Name:  "test-unit",
-					Datum: "unit-field-test",
-				},
+var (
+	testDatapoint = record{
+		Name: "dcos.metrics.Datapoint",
+		Fields: []field{
+			{
+				Name:  "test-name",
+				Datum: "name-field-test",
 			},
-		}
-
-		avroDatapoint = avroRecord{testRecord}
-		pmmTest       = producers.MetricsMessage{}
-	)
-
-	err := avroDatapoint.extract(&pmmTest)
-	if err != nil {
-		t.Errorf("Got %s, expected no errors.", err)
-	}
-
-	if len(pmmTest.Datapoints) != 1 {
-		t.Errorf("Got %s, expected 1 datapoint", len(pmmTest.Datapoints))
-	}
-
-	if pmmTest.Datapoints[0].Name != "name-field-test" {
-		t.Errorf("Got %s, expected name-field-test", pmmTest.Datapoints[0].Name)
-	}
-
-	if pmmTest.Datapoints[0].Value != "value-field-test" {
-		t.Errorf("Got %s, expected value-field-test", pmmTest.Datapoints[0].Value)
-	}
-
-	if pmmTest.Datapoints[0].Unit != "unit-field-test" {
-		t.Errorf("Got %s, expected unit-field-test", pmmTest.Datapoints[0].Value)
-	}
-}
-
-func TestAvroRecordExtractTags(t *testing.T) {
-	var (
-		testRecord = record{
-			Name: "dcos.metrics.Tag",
-			Fields: []field{
-				{
-					Name:  "test-tag-name",
-					Datum: "tag-name-field-test",
-				},
-				{
-					Name:  "test-tag-value",
-					Datum: "tag-value-field-test",
-				},
+			{
+				Name:  "test-unit",
+				Datum: "unit-field-test",
 			},
-		}
+			{
+				Name:  "test-value",
+				Datum: "value-field-test",
+			},
+		},
+	}
+	testTag = record{
+		Name: "dcos.metrics.Tag",
+		Fields: []field{
+			{
+				Name:  "test-tag-name",
+				Datum: "tag-name-field-test",
+			},
+			{
+				Name:  "test-tag-value",
+				Datum: "tag-value-field-test",
+			},
+		},
+	}
+)
 
-		avroDatapoint = avroRecord{testRecord}
-		pmmTest       = producers.MetricsMessage{
+func TestExtract(t *testing.T) {
+	Convey("When calling extract() on an avroRecord", t, func() {
+		Convey("Should return an error if length of ar is 0", func() {
+			ar := avroRecord{}
+			err := ar.extract(&producers.MetricsMessage{})
+			So(err, ShouldNotBeNil)
+		})
+	})
+
+	Convey("When extracting a datapoint from an Avro record", t, func() {
+		avroDatapoint := avroRecord{testDatapoint}
+		pmmTest := producers.MetricsMessage{}
+		err := avroDatapoint.extract(&pmmTest)
+
+		Convey("Should extract the datapoint without errors", func() {
+			So(err, ShouldBeNil)
+			So(len(pmmTest.Datapoints), ShouldEqual, 1)
+		})
+
+		// TODO(roger): the datapoint schema does not contain any fields
+		// allowing for the sender to specify units. Therefore we default
+		// to the zero value, an empty string.
+		Convey("Should return the expected name and values from the datapoint", func() {
+			So(pmmTest.Datapoints[0].Name, ShouldEqual, "name-field-test")
+			So(pmmTest.Datapoints[0].Value, ShouldEqual, "value-field-test")
+			So(pmmTest.Datapoints[0].Unit, ShouldEqual, "")
+		})
+	})
+
+	Convey("When extracting tags from an Avro record", t, func() {
+		avroDatapoint := avroRecord{testTag}
+		pmmTest := producers.MetricsMessage{
 			Dimensions: producers.Dimensions{
 				Labels: make(map[string]string),
 			},
 		}
-	)
 
-	err := avroDatapoint.extract(&pmmTest)
+		Convey("Should extract the tag without errors", func() {
+			err := avroDatapoint.extract(&pmmTest)
+			value, ok := pmmTest.Dimensions.Labels["tag-name-field-test"]
+
+			So(err, ShouldBeNil)
+			So(ok, ShouldBeTrue)
+			So(value, ShouldEqual, "tag-value-field-test")
+		})
+	})
+
+	Convey("When analyzing the field types in a record", t, func() {
+		Convey("Should return an error if the field type was empty", func() {
+			ar := avroRecord{record{Name: ""}}
+			err := ar.extract(&producers.MetricsMessage{})
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("Should return an error for an unknown field type", func() {
+			ar := avroRecord{record{Name: "not-dcos.not-metrics.not-Type"}}
+			err := ar.extract(&producers.MetricsMessage{})
+			So(err, ShouldNotBeNil)
+		})
+	})
+}
+
+func TestCreateObjectFromRecord(t *testing.T) {
+	// Create a test record
+	recDps, err := goavro.NewRecord(datapointNamespace, datapointSchema)
 	if err != nil {
-		t.Errorf("Got %s, expected no errors.", err)
+		panic(err)
 	}
+	recDps.Set("name", "some-name")
+	recDps.Set("time_ms", 1000)
+	recDps.Set("value", 42.0)
 
-	if value, ok := pmmTest.Dimensions.Labels["tag-name-field-test"]; !ok {
-		t.Errorf("Expected 'tag-name-field-test' label to exist, got %s", ok)
-	} else {
-		if value != "tag-value-field-test" {
-			t.Errorf("Got %s, expected 'tag-value-field-test", value)
-		}
+	recTags, err := goavro.NewRecord(tagNamespace, tagSchema)
+	if err != nil {
+		panic(err)
 	}
+	recTags.Set("key", "some-key")
+	recTags.Set("value", "some-val")
 
+	rec, err := goavro.NewRecord(metricListNamespace, metricListSchema)
+	if err != nil {
+		panic(err)
+	}
+	rec.Set("topic", "some-topic")
+	rec.Set("tags", []interface{}{recTags})
+	rec.Set("datapoints", []interface{}{recDps})
+
+	// Run the test
+	Convey("When creating an avroRecord object from an actual Avro record", t, func() {
+		Convey("Should return the provided data in the expected structure without errors", func() {
+			ar := avroRecord{}
+			tags, err := rec.Get("tags")
+			if err != nil {
+				panic(err)
+			}
+
+			err = ar.createObjectFromRecord(tags)
+			So(err, ShouldBeNil)
+			So(ar, ShouldResemble, avroRecord{
+				record{
+					Name: "dcos.metrics.Tag",
+					Fields: []field{
+						field{
+							Name:  "dcos.metrics.key",
+							Datum: "some-key",
+						},
+						field{
+							Name:  "dcos.metrics.value",
+							Datum: "some-val",
+						},
+					},
+				},
+			})
+		})
+
+		Convey("Should return an error if the transformation failed", func() {
+			type badData struct {
+				SomeKey string
+				SomeVal string
+			}
+			bd := badData{
+				SomeKey: "foo-key",
+				SomeVal: "foo-val",
+			}
+			ar := avroRecord{}
+			err := ar.createObjectFromRecord(bd)
+			So(err, ShouldNotBeNil)
+		})
+	})
 }

@@ -2,7 +2,6 @@ package framework
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -26,15 +25,15 @@ type avroRecord []record
 // avroRecord.extract() gets tags and datapoints from avro formatted data
 // and creates a MetricsMessage{}
 func (ar avroRecord) extract(pmm *producers.MetricsMessage) error {
-	fieldType := ""
+	var fieldType string
 	if len(ar) > 0 {
 		fieldType = ar[0].Name
 	} else {
 		return fmt.Errorf("no records found for extract")
 	}
 
-	// Extract tags
-	if fieldType == "dcos.metrics.Tag" {
+	switch fieldType {
+	case "dcos.metrics.Tag": // Extract tags
 		for _, field := range ar {
 			if len(field.Fields) != 2 {
 				return fmt.Errorf("tags must have 2 fields, got %d", len(field.Fields))
@@ -53,11 +52,11 @@ func (ar avroRecord) extract(pmm *producers.MetricsMessage) error {
 				// Assumes Labels has been initialized already.
 				pmm.Dimensions.Labels[tagName] = tagValue
 			}
+			pmm.Timestamp = time.Now().Unix()
 		}
-	}
+		return nil
 
-	// Extract datapoints
-	if fieldType == "dcos.metrics.Datapoint" {
+	case "dcos.metrics.Datapoint": // Extract datapoints
 		datapoints := []producers.Datapoint{}
 		for _, field := range ar {
 			if len(field.Fields) != 3 {
@@ -66,28 +65,28 @@ func (ar avroRecord) extract(pmm *producers.MetricsMessage) error {
 			fwColLog.Debugf("Adding datapoint %s", field)
 
 			var (
-				name  = field.Fields[0].Datum
-				value = field.Fields[1].Datum
-				unit  = field.Fields[2].Datum
+				name = field.Fields[0].Datum
+				//time_ms = field.Fields[1].Datum
+				value = field.Fields[2].Datum
 			)
 
+			// TODO(roger): the datapoint schema does not contain any fields
+			// allowing for the sender to specify units. Therefore we default
+			// to the zero value, an empty string.
 			dp := producers.Datapoint{
-				Name:      fmt.Sprintf("%v", name),
-				Unit:      fmt.Sprintf("%v", unit),
+				Name: fmt.Sprintf("%v", name),
+				//Unit:      fmt.Sprintf("%v", unit),
 				Value:     value,
-				Timestamp: fmt.Sprintf("%v", time.Now()),
+				Timestamp: time.Now().UTC().Format(time.RFC3339),
 			}
 
 			datapoints = append(datapoints, dp)
 		}
 		pmm.Datapoints = datapoints
+		return nil
 	}
 
-	if fieldType == "" {
-		return errors.New("Must have dcos.metrics.Tags or dcos.metrics.Datapoint in avro record to use .extract()")
-	}
-
-	return nil
+	return fmt.Errorf("must have dcos.metrics.Tags or dcos.metrics.Datapoint in avro record to use .extract()")
 }
 
 // *avroRecord.createObjectFromRecord creates a JSON implementation of the avro
