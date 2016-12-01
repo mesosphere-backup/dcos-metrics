@@ -30,6 +30,21 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
+func TestNew(t *testing.T) {
+	Convey("When creating a new instance of the framework collector", t, func() {
+		Convey("Should return a new Collector with the default config", func() {
+			f := New()
+			So(f, ShouldHaveSameTypeAs, Collector{})
+			So(f, ShouldResemble, Collector{
+				listenEndpointFlag:         "127.0.0.1:8124",
+				recordInputLogFlag:         false,
+				inputLimitAmountKBytesFlag: 20480,
+				inputLimitPeriodFlag:       60,
+			})
+		})
+	})
+}
+
 func TestTransform(t *testing.T) {
 	// Create a test record
 	recDps, err := goavro.NewRecord(datapointNamespace, datapointSchema)
