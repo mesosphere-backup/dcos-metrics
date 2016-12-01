@@ -19,6 +19,7 @@ package node
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/shirou/gopsutil/cpu"
 	. "github.com/smartystreets/goconvey/convey"
@@ -169,6 +170,45 @@ func TestRound(t *testing.T) {
 			for _, tc := range testCases {
 				So(round(tc.input), ShouldEqual, tc.expected)
 			}
+		})
+	})
+}
+
+func TestInit(t *testing.T) {
+	Convey("When initializing the node metrics collector", t, func() {
+		Convey("Should automatically set lastCPU times", func() {
+			So(lastCPU.times.CPU, ShouldNotEqual, "")
+		})
+	})
+}
+
+func TestGetCPUTimes(t *testing.T) {
+	Convey("When getting CPU times", t, func() {
+		Convey("Should return both the current times and last times (so that percentages can be calculated)", func() {
+			time.Sleep(1 * time.Second)
+			cur, last := getCPUTimes()
+			So(cur.User, ShouldBeGreaterThan, last.User)
+			So(cur.Idle, ShouldBeGreaterThan, last.Idle)
+		})
+	})
+}
+
+func TestGetFilesystems(t *testing.T) {
+	Convey("When getting filesystems", t, func() {
+		Convey("Should return a list containing nodeFilesystem{} structs", func() {
+			fs := getFilesystems()
+			So(len(fs), ShouldBeGreaterThan, 0)
+			So(fs, ShouldHaveSameTypeAs, []nodeFilesystem{})
+		})
+	})
+}
+
+func TestGetNetworkInterfaces(t *testing.T) {
+	Convey("When getting network interfaces", t, func() {
+		Convey("Should return a list containing nodeNetworkInterface{} structs", func() {
+			ifs := getNetworkInterfaces()
+			So(len(ifs), ShouldBeGreaterThan, 0)
+			So(ifs, ShouldHaveSameTypeAs, []nodeNetworkInterface{})
 		})
 	})
 }
