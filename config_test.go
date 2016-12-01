@@ -26,7 +26,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestDefaultConfig(t *testing.T) {
+func TestNewConfig(t *testing.T) {
 	Convey("Ensure default configuration is set properly", t, func() {
 		testConfig := newConfig()
 
