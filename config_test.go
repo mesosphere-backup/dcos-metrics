@@ -122,3 +122,11 @@ collector:
 		})
 	})
 }
+
+func TestGetNewConfig(t *testing.T) {
+	Convey("When getting the service configuration", t, func() {
+		Convey("Command-line flags should take precedence over the config file", nil)
+		Convey("Actual node configuration (from Mesos) should take precendence over command-line flags", nil)
+		Convey("The HTTP client should be initialized based on the provided configuration", nil)
+	})
+}
