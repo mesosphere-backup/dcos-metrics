@@ -83,7 +83,7 @@ func TestFetch(t *testing.T) {
 		t.Error("Error retreiving HTTP Client:", err)
 	}
 
-	Convey("Should fetch data UNAUTHENTICATED from the Mesos API and return", t, func() {
+	Convey("Should fetch data and return", t, func() {
 		var data map[string]string
 		host, err := extractHostFromURL(ts.URL)
 		if err != nil {
@@ -100,9 +100,6 @@ func TestFetch(t *testing.T) {
 		So(data["foo"], ShouldEqual, "bar")
 		So(err, ShouldBeNil)
 	})
-
-	// TODO(roger): write a test for the auth portion once it's implemented
-	Convey("Should fetch data AUTHENTICATED from the Mesos API and return", t, nil)
 }
 
 func extractHostFromURL(u string) (string, error) {
