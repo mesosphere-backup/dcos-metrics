@@ -19,6 +19,7 @@ package node
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/shirou/gopsutil/cpu"
 	. "github.com/smartystreets/goconvey/convey"
@@ -84,6 +85,22 @@ var (
 		},
 	}
 )
+
+func TestGetNodeMetrics(t *testing.T) {
+	Convey("When getting node metrics, should return nodeMetrics type", t, func() {
+		m, err := getNodeMetrics()
+		So(err, ShouldBeNil)
+		So(m, ShouldHaveSameTypeAs, nodeMetrics{})
+
+		// smoke test certain values that should always be > 0
+		So(m.Uptime, ShouldBeGreaterThan, 0)
+		So(m.ProcessCount, ShouldBeGreaterThan, 0)
+		So(m.NumCores, ShouldBeGreaterThan, 0)
+		So(m.MemTotalBytes, ShouldBeGreaterThan, 0)
+		So(len(m.Filesystems), ShouldBeGreaterThan, 0)
+		So(len(m.NetworkInterfaces), ShouldBeGreaterThan, 0)
+	})
+}
 
 func TestCalculatePcts(t *testing.T) {
 	lastTimes := cpu.TimesStat{
@@ -153,6 +170,45 @@ func TestRound(t *testing.T) {
 			for _, tc := range testCases {
 				So(round(tc.input), ShouldEqual, tc.expected)
 			}
+		})
+	})
+}
+
+func TestInit(t *testing.T) {
+	Convey("When initializing the node metrics collector", t, func() {
+		Convey("Should automatically set lastCPU times", func() {
+			So(lastCPU.times.CPU, ShouldNotEqual, "")
+		})
+	})
+}
+
+func TestGetCPUTimes(t *testing.T) {
+	Convey("When getting CPU times", t, func() {
+		Convey("Should return both the current times and last times (so that percentages can be calculated)", func() {
+			time.Sleep(1 * time.Second)
+			cur, last := getCPUTimes()
+			So(cur.User, ShouldBeGreaterThan, last.User)
+			So(cur.Idle, ShouldBeGreaterThan, last.Idle)
+		})
+	})
+}
+
+func TestGetFilesystems(t *testing.T) {
+	Convey("When getting filesystems", t, func() {
+		Convey("Should return a list containing nodeFilesystem{} structs", func() {
+			fs := getFilesystems()
+			So(len(fs), ShouldBeGreaterThan, 0)
+			So(fs, ShouldHaveSameTypeAs, []nodeFilesystem{})
+		})
+	})
+}
+
+func TestGetNetworkInterfaces(t *testing.T) {
+	Convey("When getting network interfaces", t, func() {
+		Convey("Should return a list containing nodeNetworkInterface{} structs", func() {
+			ifs := getNetworkInterfaces()
+			So(len(ifs), ShouldBeGreaterThan, 0)
+			So(ifs, ShouldHaveSameTypeAs, []nodeNetworkInterface{})
 		})
 	})
 }
