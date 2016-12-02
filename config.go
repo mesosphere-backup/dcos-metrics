@@ -92,7 +92,8 @@ func (c *Config) setFlags(fs *flag.FlagSet) {
 func (c *Config) loadConfig() error {
 	fileByte, err := ioutil.ReadFile(c.ConfigPath)
 	if err != nil {
-		return err
+		log.Warnf("%s not found. Using all defaults", c.ConfigPath)
+		return nil
 	}
 
 	if err = yaml.Unmarshal(fileByte, &c); err != nil {
@@ -147,18 +148,19 @@ func (c *Config) getNodeInfo() error {
 func newConfig() Config {
 	return Config{
 		Collector: CollectorConfig{
-			HTTPProfiler: true,
+			HTTPProfiler: false,
 			MesosAgent: &mesosAgent.Collector{
-				PollPeriod: 15,
-				Port:       5051,
+				PollPeriod:      60,
+				Port:            5051,
+				RequestProtocol: "http",
 			},
 			Node: &node.Collector{
-				PollPeriod: 15,
+				PollPeriod: 60,
 			},
 		},
 		Producers: ProducersConfig{
 			HTTPProducerConfig: httpProducer.Config{
-				Port: 8000,
+				Port: 9000,
 			},
 		},
 		ConfigPath: "dcos-metrics-config.yaml",
