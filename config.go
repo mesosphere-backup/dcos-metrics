@@ -18,12 +18,16 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"strings"
+	"time"
 
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
 	mesosAgent "github.com/dcos/dcos-metrics/collectors/mesos/agent"
 	"github.com/dcos/dcos-metrics/collectors/node"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
+	httpClient "github.com/dcos/dcos-metrics/util/http/client"
 	httpHelpers "github.com/dcos/dcos-metrics/util/http/helpers"
 
 	log "github.com/Sirupsen/logrus"
@@ -92,8 +96,7 @@ func (c *Config) setFlags(fs *flag.FlagSet) {
 func (c *Config) loadConfig() error {
 	fileByte, err := ioutil.ReadFile(c.ConfigPath)
 	if err != nil {
-		log.Warnf("%s not found. Using all defaults", c.ConfigPath)
-		return nil
+		return err
 	}
 
 	if err = yaml.Unmarshal(fileByte, &c); err != nil {
@@ -150,21 +153,21 @@ func newConfig() Config {
 		Collector: CollectorConfig{
 			HTTPProfiler: false,
 			MesosAgent: &mesosAgent.Collector{
-				PollPeriod:      60,
+				PollPeriod:      time.Duration(60 * time.Second),
 				Port:            5051,
 				RequestProtocol: "http",
 			},
 			Node: &node.Collector{
-				PollPeriod: 60,
+				PollPeriod: time.Duration(60 * time.Second),
 			},
 		},
 		Producers: ProducersConfig{
 			HTTPProducerConfig: httpProducer.Config{
-				Port: 9000,
+				CacheExpiry: time.Duration(120 * time.Second),
+				Port:        9000,
 			},
 		},
-		ConfigPath: "dcos-metrics-config.yaml",
-		LogLevel:   "info",
+		LogLevel: "info",
 	}
 }
 
@@ -174,14 +177,34 @@ func getNewConfig(args []string) (Config, error) {
 	c := newConfig()
 	thisFlagSet := flag.NewFlagSet("", flag.ExitOnError)
 	c.setFlags(thisFlagSet)
+
 	// Override default config with CLI flags if any
 	if err := thisFlagSet.Parse(args); err != nil {
 		fmt.Println("Errors encountered parsing flags.")
 		return c, err
 	}
 
-	if err := c.loadConfig(); err != nil {
-		return c, err
+	// If the -version flag was passed, ignore all other args, print the version, and exit
+	if c.VersionFlag {
+		fmt.Printf(strings.Join([]string{
+			"DC/OS Metrics Service",
+			fmt.Sprintf("Version: %s", VERSION),
+			fmt.Sprintf("Revision: %s", REVISION),
+			fmt.Sprintf("HTTP User-Agent: %s", httpClient.USERAGENT),
+		}, "\n"))
+		os.Exit(0)
+	}
+
+	if len(c.ConfigPath) > 0 {
+		if err := c.loadConfig(); err != nil {
+			return c, err
+		}
+	} else {
+		log.Warnf("No config file specified, using all defaults.")
+	}
+
+	if len(c.DCOSRole) != 1 {
+		log.Fatalf("Must specify exactly one DC/OS role (master or agent).")
 	}
 
 	// Note: .getNodeInfo() is last so we are sure we have all the

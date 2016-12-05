@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	. "github.com/smartystreets/goconvey/convey"
@@ -30,20 +31,24 @@ func TestNewConfig(t *testing.T) {
 	Convey("Ensure default configuration is set properly", t, func() {
 		testConfig := newConfig()
 
-		Convey("Default node polling period should be 15", func() {
-			So(testConfig.Collector.Node.PollPeriod, ShouldEqual, 15)
+		Convey("Default node polling period should be 60 seconds", func() {
+			So(testConfig.Collector.Node.PollPeriod, ShouldEqual, 60*time.Second)
 		})
 
-		Convey("Default mesos agent polling period should be 15", func() {
-			So(testConfig.Collector.MesosAgent.PollPeriod, ShouldEqual, 15)
+		Convey("Default mesos agent polling period should be 60 seconds", func() {
+			So(testConfig.Collector.MesosAgent.PollPeriod, ShouldEqual, 60*time.Second)
 		})
 
-		Convey("HTTP profiler should be enabled by default", func() {
-			So(testConfig.Collector.HTTPProfiler, ShouldBeTrue)
+		Convey("HTTP profiler should be disabled by default", func() {
+			So(testConfig.Collector.HTTPProfiler, ShouldBeFalse)
 		})
 
 		Convey("Default log level should be 'info'", func() {
 			So(testConfig.LogLevel, ShouldEqual, "info")
+		})
+
+		Convey("Default HTTP producer port should be 9000", func() {
+			So(testConfig.Producers.HTTPProducerConfig.Port, ShouldEqual, 9000)
 		})
 	})
 }
@@ -125,6 +130,9 @@ collector:
 
 func TestGetNewConfig(t *testing.T) {
 	Convey("When getting the service configuration", t, func() {
+		Convey("Should error if the user did not specify exactly one role (master or agent)", nil)
+		Convey("Should use all defaults if the -config flag wasn't passed", nil)
+		Convey("Should output only the collector version if -version was used", nil)
 		Convey("Command-line flags should take precedence over the config file", nil)
 		Convey("Actual node configuration (from Mesos) should take precendence over command-line flags", nil)
 		Convey("The HTTP client should be initialized based on the provided configuration", nil)
