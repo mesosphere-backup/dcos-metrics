@@ -120,19 +120,19 @@ func (c *Config) getNodeInfo() error {
 	}
 	nodeInfo, err := nodeutil.NewNodeInfo(client, nodeutil.OptionMesosStateURL(stateURL))
 	if err != nil {
-		log.Errorf("Error getting NodeInfo{}: err")
+		return fmt.Errorf("error: could not get nodeInfo: %s", err)
 	}
 
 	ip, err := nodeInfo.DetectIP()
 	if err != nil {
-		log.Error(err)
+		return fmt.Errorf("error: could not detect node IP: %s", err)
 	}
 	c.Collector.MesosAgent.NodeInfo.IPAddress = ip.String()
 	c.Collector.Node.NodeInfo.IPAddress = ip.String()
 
 	mid, err := nodeInfo.MesosID(nil)
 	if err != nil {
-		log.Error(err)
+		return fmt.Errorf("error: could not get Mesos node ID: %s", err)
 	}
 	c.Collector.MesosAgent.NodeInfo.MesosID = mid
 	c.Collector.Node.NodeInfo.MesosID = mid
@@ -203,8 +203,12 @@ func getNewConfig(args []string) (Config, error) {
 		log.Warnf("No config file specified, using all defaults.")
 	}
 
-	if len(c.DCOSRole) != 1 {
-		log.Fatalf("Must specify exactly one DC/OS role (master or agent).")
+	if len(strings.Split(c.DCOSRole, " ")) != 1 {
+		return c, fmt.Errorf("error: must specify exactly one DC/OS role (master or agent)")
+	}
+
+	if c.DCOSRole != dcos.RoleMaster && c.DCOSRole != dcos.RoleAgent {
+		return c, fmt.Errorf("error: expected role to be 'master' or 'agent, got: %s", c.DCOSRole)
 	}
 
 	// Note: .getNodeInfo() is last so we are sure we have all the
