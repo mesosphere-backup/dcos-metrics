@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.avro.AvroRuntimeException;
@@ -110,6 +111,7 @@ public class ConsumerRunner {
                 metricList = dataFileStream.next(metricList);
 
                 if (isFrameworkMatch(consumerConfig.frameworkWhitelist, metricList)) {
+                  metricList = addInjectedTags(metricList, consumerConfig);
                   if (consumerConfig.printRecords) {
                     LOGGER.info("Record: {}", metricList);
                   }
@@ -219,6 +221,16 @@ public class ConsumerRunner {
         }
       }
       return null;
+    }
+
+    private static MetricList addInjectedTags(MetricList metricList,
+                                              ClientConfigs.ConsumerConfig consumerConfig) {
+      List<Tag> tags = metricList.getTags();
+      for (Entry<String, Object> entry : consumerConfig.injectedTags.entrySet()) {
+        tags.add(new Tag(entry.getKey(), (String) entry.getValue()));
+      }
+      metricList.put("tags", tags);
+      return metricList;
     }
   }
 

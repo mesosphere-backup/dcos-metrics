@@ -79,6 +79,12 @@ public class ClientConfigs {
     /** Nullable */
     public final Pattern topicPattern;
     public final long topicPollPeriodMs;
+    public final Map<String, Object> injectedTags;
+    /**
+     * Starts with "INJECT_TAG_..." => tags injected by the user.
+     * The key is translated to lowercase, with underscores converted to periods.
+     */
+    private static final String INJECT_TAG_STARTS_WITH = "INJECT_TAG_";
 
     /**
      * Returns {@code null} if parsing fails.
@@ -99,18 +105,27 @@ public class ClientConfigs {
             frameworkWhitelist.add(frameworkName);
           }
         }
+        // Select all envvars which start with "INJECT_TAG_"
+        Map<String, Object> injectedTags = new TreeMap<>();
+        for (Entry<String, String> entry : System.getenv().entrySet()) {
+          if (entry.getKey().startsWith(INJECT_TAG_STARTS_WITH)) {
+            String injectedKey = entry.getKey().substring(
+                    INJECT_TAG_STARTS_WITH.length(), entry.getKey().length());
+            injectedTags.put(injectedKey.replace('_', '.').toLowerCase(), entry.getValue());
+          }
+        }
         List<String> exactTopics = ArgUtils.parseStrList("KAFKA_TOPICS");
         if (!exactTopics.isEmpty()) {
           // exact mode
           return new ConsumerConfig(
               pollTimeoutMs, printRecords, threads, frameworkWhitelist,
-              exactTopics);
+              exactTopics, injectedTags);
         }
         // regex mode
         return new ConsumerConfig(
             pollTimeoutMs, printRecords, threads, frameworkWhitelist,
             Pattern.compile(ArgUtils.parseStr("KAFKA_TOPIC_PATTERN", "metrics-.*")),
-            ArgUtils.parseLong("KAFKA_TOPIC_POLL_PERIOD_MS", 60000));
+            ArgUtils.parseLong("KAFKA_TOPIC_POLL_PERIOD_MS", 60000), injectedTags);
       } catch (Throwable e) {
         printFlagParseFailure(e);
         return null;
@@ -122,7 +137,8 @@ public class ClientConfigs {
         boolean printRecords,
         int threads,
         Set<String> frameworkWhitelist,
-        List<String> exactTopics) {
+        List<String> exactTopics,
+        Map<String, Object> injectedTags) {
       this.pollTimeoutMs = pollTimeoutMs;
       this.printRecords = printRecords;
       this.threads = threads;
@@ -130,6 +146,7 @@ public class ClientConfigs {
       this.exactTopics = exactTopics;
       this.topicPattern = null;
       this.topicPollPeriodMs = 0;
+      this.injectedTags = injectedTags;
     }
 
     private ConsumerConfig(
@@ -137,7 +154,8 @@ public class ClientConfigs {
         boolean printRecords,
         int threads,
         Set<String> frameworkWhitelist,
-        Pattern topicPattern, long topicPollPeriodMs) {
+        Pattern topicPattern, long topicPollPeriodMs,
+        Map<String, Object> injectedTags) {
       this.pollTimeoutMs = pollTimeoutMs;
       this.printRecords = printRecords;
       this.threads = threads;
@@ -148,6 +166,7 @@ public class ClientConfigs {
       if (topicPattern == null) {
         LOGGER.error("Null topic pattern");
       }
+      this.injectedTags = injectedTags;
     }
   }
 
