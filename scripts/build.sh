@@ -2,7 +2,7 @@
 set -e
 
 PLATFORM=$(uname | tr [:upper:] [:lower:])
-GIT_REF=$(git describe --always)
+GIT_REF=$(git describe --tags --always)
 SOURCE_DIR=$(git rev-parse --show-toplevel)
 VERSION=${GIT_REF}
 REVISION=$(git rev-parse --short HEAD)
