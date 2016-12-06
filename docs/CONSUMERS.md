@@ -54,6 +54,8 @@ Each consumer implementation shares the following settings from `metrics-consume
 
 In addition to the above values, any configuration variables defined by the Kafka Consumer client library can be configured via the environment. Any values of the form `KAFKA_OVERRIDE_X_Y` will be given to the Kafka library in the form `x.y`. For example, the value `KAFKA_OVERRIDE_BOOTSTRAP_SERVERS=broker1:1234,broker2:2345` will be given to Kafka as `bootstrap.servers=broker1:1234,broker2:2345`. This allows full customization of the underlying Kafka consumer.
 
+You may also inject arbitrary tags via the environment. Any values of the form `INJECT_TAG_X_Y` will be output as a tag with key `x.y`. For example, the value `INJECT_TAG_CLUSTER_TYPE=dcos` will be output as `cluster.type:dcos`.
+
 ### Graphite Consumer
 
 Sends data to a Graphite server.
