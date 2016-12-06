@@ -49,7 +49,7 @@ func (h *Collector) RunPoller() {
 		for _, m := range h.transform() {
 			h.MetricsChan <- m
 		}
-		time.Sleep(h.PollPeriod * time.Second)
+		time.Sleep(h.PollPeriod)
 	}
 }
 

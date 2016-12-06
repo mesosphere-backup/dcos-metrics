@@ -18,12 +18,16 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"strings"
+	"time"
 
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
 	mesosAgent "github.com/dcos/dcos-metrics/collectors/mesos/agent"
 	"github.com/dcos/dcos-metrics/collectors/node"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
+	httpClient "github.com/dcos/dcos-metrics/util/http/client"
 	httpHelpers "github.com/dcos/dcos-metrics/util/http/helpers"
 
 	log "github.com/Sirupsen/logrus"
@@ -116,19 +120,19 @@ func (c *Config) getNodeInfo() error {
 	}
 	nodeInfo, err := nodeutil.NewNodeInfo(client, nodeutil.OptionMesosStateURL(stateURL))
 	if err != nil {
-		log.Errorf("Error getting NodeInfo{}: err")
+		return fmt.Errorf("error: could not get nodeInfo: %s", err)
 	}
 
 	ip, err := nodeInfo.DetectIP()
 	if err != nil {
-		log.Error(err)
+		return fmt.Errorf("error: could not detect node IP: %s", err)
 	}
 	c.Collector.MesosAgent.NodeInfo.IPAddress = ip.String()
 	c.Collector.Node.NodeInfo.IPAddress = ip.String()
 
 	mid, err := nodeInfo.MesosID(nil)
 	if err != nil {
-		log.Error(err)
+		return fmt.Errorf("error: could not get Mesos node ID: %s", err)
 	}
 	c.Collector.MesosAgent.NodeInfo.MesosID = mid
 	c.Collector.Node.NodeInfo.MesosID = mid
@@ -147,22 +151,23 @@ func (c *Config) getNodeInfo() error {
 func newConfig() Config {
 	return Config{
 		Collector: CollectorConfig{
-			HTTPProfiler: true,
+			HTTPProfiler: false,
 			MesosAgent: &mesosAgent.Collector{
-				PollPeriod: 15,
-				Port:       5051,
+				PollPeriod:      time.Duration(60 * time.Second),
+				Port:            5051,
+				RequestProtocol: "http",
 			},
 			Node: &node.Collector{
-				PollPeriod: 15,
+				PollPeriod: time.Duration(60 * time.Second),
 			},
 		},
 		Producers: ProducersConfig{
 			HTTPProducerConfig: httpProducer.Config{
-				Port: 8000,
+				CacheExpiry: time.Duration(120 * time.Second),
+				Port:        9000,
 			},
 		},
-		ConfigPath: "dcos-metrics-config.yaml",
-		LogLevel:   "info",
+		LogLevel: "info",
 	}
 }
 
@@ -172,14 +177,38 @@ func getNewConfig(args []string) (Config, error) {
 	c := newConfig()
 	thisFlagSet := flag.NewFlagSet("", flag.ExitOnError)
 	c.setFlags(thisFlagSet)
+
 	// Override default config with CLI flags if any
 	if err := thisFlagSet.Parse(args); err != nil {
 		fmt.Println("Errors encountered parsing flags.")
 		return c, err
 	}
 
-	if err := c.loadConfig(); err != nil {
-		return c, err
+	// If the -version flag was passed, ignore all other args, print the version, and exit
+	if c.VersionFlag {
+		fmt.Printf(strings.Join([]string{
+			fmt.Sprintf("DC/OS Metrics Service (%s)", c.DCOSRole),
+			fmt.Sprintf("Version: %s", VERSION),
+			fmt.Sprintf("Revision: %s", REVISION),
+			fmt.Sprintf("HTTP User-Agent: %s", httpClient.USERAGENT),
+		}, "\n"))
+		os.Exit(0)
+	}
+
+	if len(c.ConfigPath) > 0 {
+		if err := c.loadConfig(); err != nil {
+			return c, err
+		}
+	} else {
+		log.Warnf("No config file specified, using all defaults.")
+	}
+
+	if len(strings.Split(c.DCOSRole, " ")) != 1 {
+		return c, fmt.Errorf("error: must specify exactly one DC/OS role (master or agent)")
+	}
+
+	if c.DCOSRole != dcos.RoleMaster && c.DCOSRole != dcos.RoleAgent {
+		return c, fmt.Errorf("error: expected role to be 'master' or 'agent, got: %s", c.DCOSRole)
 	}
 
 	// Note: .getNodeInfo() is last so we are sure we have all the

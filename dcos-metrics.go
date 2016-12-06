@@ -15,7 +15,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"reflect"
 	"strings"
@@ -26,7 +25,6 @@ import (
 	frameworkCollector "github.com/dcos/dcos-metrics/collectors/framework"
 	"github.com/dcos/dcos-metrics/producers"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
-	httpClient "github.com/dcos/dcos-metrics/util/http/client"
 	"github.com/dcos/dcos-metrics/util/http/profiler"
 	//kafkaProducer "github.com/dcos/dcos-metrics/producers/kafka"
 	//statsdProducer "github.com/dcos/dcos-metrics/producers/statsd"
@@ -38,15 +36,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 		os.Exit(1)
-	}
-	if cfg.VersionFlag {
-		fmt.Printf(strings.Join([]string{
-			"DC/OS Metrics Service",
-			fmt.Sprintf("Version: %s", VERSION),
-			fmt.Sprintf("Revision: %s", REVISION),
-			fmt.Sprintf("HTTP User-Agent: %s", httpClient.USERAGENT),
-		}, "\n"))
-		os.Exit(0)
 	}
 
 	// Set logging level
