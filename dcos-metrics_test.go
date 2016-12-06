@@ -18,7 +18,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"os/exec"
 	"testing"
 
@@ -31,11 +30,11 @@ func TestMain(t *testing.T) {
 	// This test assumes that `go build` was run before `go test`,
 	// preferably by running `make` at the root of this repo.
 	Convey("Version and revision should match Git", t, func() {
-		cmd := exec.Command("/bin/bash", "-c", "./build/collector/dcos-metrics-collector* -config /dev/null -version")
+		cmd := exec.Command("/bin/bash", "-c", "./build/collector/dcos-metrics-collector* -role agent -version")
 		stdout := bytes.Buffer{}
 		cmd.Stdout = &stdout
 		cmd.Run()
-		fmt.Println(stdout.String())
+		So(stdout.String(), ShouldContainSubstring, "DC/OS Metrics Service (agent)")
 		So(stdout.String(), ShouldContainSubstring, "Version: ")
 		So(stdout.String(), ShouldContainSubstring, "Revision: ")
 		So(stdout.String(), ShouldContainSubstring, "HTTP User-Agent: ")

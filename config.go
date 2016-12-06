@@ -187,7 +187,7 @@ func getNewConfig(args []string) (Config, error) {
 	// If the -version flag was passed, ignore all other args, print the version, and exit
 	if c.VersionFlag {
 		fmt.Printf(strings.Join([]string{
-			"DC/OS Metrics Service",
+			fmt.Sprintf("DC/OS Metrics Service (%s)", c.DCOSRole),
 			fmt.Sprintf("Version: %s", VERSION),
 			fmt.Sprintf("Revision: %s", REVISION),
 			fmt.Sprintf("HTTP User-Agent: %s", httpClient.USERAGENT),
