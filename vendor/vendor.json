@@ -3,6 +3,12 @@
 	"ignore": "test",
 	"package": [
 		{
+			"checksumSHA1": "h8+znAp5DYUBZ3ISwh15iuOm6o8=",
+			"path": "github.com/DataDog/datadog-go/statsd",
+			"revision": "426ff2e0daab1153de70993f85773d91302d50a0",
+			"revisionTime": "2016-11-11T21:52:24Z"
+		},
+		{
 			"checksumSHA1": "jwc+h9nKaQLjpuCB++c6Md19vpQ=",
 			"path": "github.com/Shopify/sarama",
 			"revision": "89bd629b50e1a69c40d40ded1c82a767b4859442",
