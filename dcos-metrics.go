@@ -24,6 +24,7 @@ import (
 
 	frameworkCollector "github.com/dcos/dcos-metrics/collectors/framework"
 	"github.com/dcos/dcos-metrics/producers"
+	datadogProducer "github.com/dcos/dcos-metrics/producers/datadog"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
 	"github.com/dcos/dcos-metrics/util/http/profiler"
 	//kafkaProducer "github.com/dcos/dcos-metrics/producers/kafka"
@@ -64,6 +65,14 @@ func main() {
 			cfg.Producers.HTTPProducerConfig)
 		producerChans = append(producerChans, httpProducerChan)
 		go hp.Run()
+	}
+
+	// DataDog producer
+	if producerIsConfigured("datadog", cfg) {
+		log.Info("DataDog producer enabled")
+		dog, dogChan := datadogProducer.New(cfg.Producers.DataDogProducerConfig)
+		producerChans = append(producerChans, dogChan)
+		go dog.Run()
 	}
 
 	// Initialize and run the host-poller
