@@ -1,47 +1,47 @@
-# Schemas
+# Metrics Schema
+This document refers to the schema used when transferring metrics from the
+[Mesos module](MESOS_MODULE.md) to the [metrics collector](COLLECTORS.md)
+running on every DC/OS node. Currently, this project uses JSON-formatted
+[Avro schemas](http://avro.apache.org/docs/current/spec.html#schemas) which are
+defined in the [schema](../schema/) directory.
 
-JSON-formatted [Avro schemas](http://avro.apache.org/docs/current/spec.html#schemas) which define the common format used for transferring metrics to/from the [Metrics Collector](../collector/) running on every DC/OS node.
-
-**THIS SCHEMA IS NOT FINAL AND CROSS-VERSION COMPATIBILITY IS NOT GUARANTEED**
+**NOTE:** this document does _not_ define the message format implemented
+internally in the DC/OS metrics service, nor does it define the JSON-formatted
+HTTP API.
 
 ## Usage
-
-The schema defines a `MetricsList` type, which is used for the following dataflows:
-
-- Sending metrics to the Collector from on-agent processes, including `mesos-agent` itself, via the [Metrics Module](../module/).
-- Sending metrics to Kafka from the Collector, and consuming those metrics from Kafka for publishing upstream.
-- Sending metrics to on-agent Partner services from the Collector.
+The schema defines a `MetricsList` type, which is used for the following
+dataflows:
+  - Sending metrics to the Collector from on-agent processes, including
+  `mesos-agent` itself, via the [metrics module](MESOS_MODULE.md).
 
 ## Transport
-
-[Avro's RPC standard](http://avro.apache.org/docs/current/spec.html#Protocol+Wire+Format) appears to suffer a stark lack of adoption across Avro library implementations (even the official Avro C/C++ libraries lack support), so we're foregoing it for now in favor of something much more rudimentary.
+[Avro's RPC standard](http://avro.apache.org/docs/current/spec.html#Protocol+Wire+Format)
+appears to suffer from a stark lack of adoption across Avro library implementations
+(even the official Avro C/C++ libraries lack support), so we're foregoing it for
+now in favor of something much more rudimentary.
 
 ### Over TCP
+This is effectively just streaming an [OCF file](http://avro.apache.org/docs/current/spec.html#Object+Container+Files)
+over a TCP session. The sender starts by sending the OCF header containing the
+schema, followed by one or more `MetricsList` records inside OCF blocks for as
+long as the socket remains open. If the connection is closed, the following
+connection must repeat the header information as if starting a new file.
 
-This is effectively just streaming an [OCF file](http://avro.apache.org/docs/current/spec.html#Object+Container+Files) over a TCP session. The sender starts by sending the OCF header containing the schema, followed by one or more `MetricsList` records inside OCF blocks for as long as the socket remains open. If the connection is closed, the following connection must repeat the header information as if starting a new file.
-
-The receiver doesn't have any explicit responses for acknowledging or refusing data from the sender, other than standard TCP ACKs. If the receiver encounters corrupt data (including lack of the required header information), it may simply close the connection in response, at which point the sender may reconnect and resume sending.
-
-### Over Kafka
-
-As with each TCP session, each Kafka message is effectively treated as a self-contained [OCF file](http://avro.apache.org/docs/current/spec.html#Object+Container+Files), where each message starts with a copy of the header/schema, followed by one or more `MetricsList` entries inside OCF blocks. This enables Kafka Consumers to quickly start successfully reading data, without needing to cross-reference with a schema retrieved elsewhere (which in turn has its own complexities). Header overhead may be reduced by increasing the number of `MetricsList` records per Kafka message.
+The receiver doesn't have any explicit responses for acknowledging or refusing
+data from the sender, other than standard TCP ACKs. If the receiver encounters
+corrupt data (including lack of the required header information), it may simply
+close the connection in response, at which point the sender may reconnect and
+resume sending.
 
 ## Code generation
-
-Whenever the schema is changed, clients which use preprocessed code MUST be updated to reflect the changes.
-
-### Java
-
-Java code can be generated using [avro-tools.jar](http://www.apache.org/dyn/closer.cgi/avro/avro-1.8.0/java/avro-tools-1.8.0.jar), or via the [gradle avro plugin](https://github.com/commercehub-oss/gradle-avro-plugin). See usage of the latter in the [metrics consumer gradle config](https://github.com/mesosphere/dcos-stats/blob/master/consumer/build.gradle).
-
-```bash
-java -jar avro-tools-1.8.0.jar compile schema metrics.avsc java/
-find java/
-```
+Whenever the schema is changed, clients which use preprocessed code MUST be
+updated to reflect the changes.
 
 ### C++
-
-C++ code, such as the [Agent Module](../module), is generated using `avrogencpp`, which may be built from [avro-cpp.tar.gz](http://www.apache.org/dyn/closer.cgi/avro/avro-1.8.0/cpp/avro-cpp-1.8.0.tar.gz).
+C++ code, such as the [Agent Module](../module), is generated using `avrogencpp`,
+which may be built from
+[avro-cpp.tar.gz](http://www.apache.org/dyn/closer.cgi/avro/avro-1.8.0/cpp/avro-cpp-1.8.0.tar.gz).
 
 ```bash
 avrogencpp -i metrics.avsc -n avro -o metrics.hpp
@@ -49,29 +49,10 @@ cat metrics.hpp
 ```
 
 ### Go
-
-Go code, such as the [Collector](../collector) or the [Example Collector Client](../examples/collector-emitter/), is generated using `go generate`:
-
-```bash
-cd go/
-go run generator.go -infile ../metrics.avsc -outfile schema.go
-cat schema.go
-```
-
-## Demo/Validation
-
-Convert sample metrics JSON to a binary file, then view info about the file:
+Go code, such as the [collector](../collector) or the [examples](../examples/),
+is generated at build time by running `make` in the root of this repo.
 
 ```bash
-java -jar avro-tools-1.8.0.jar fromjson --schema-file metrics.avsc --codec deflate sample.json > sample.avro
-java -jar avro-tools-1.8.0.jar getschema sample.avro
-java -jar avro-tools-1.8.0.jar tojson --pretty sample.avro
-```
-
-Generate records containing random data:
-
-```bash
-java -jar avro-tools-1.8.0.jar random --schema-file metrics.avsc --codec deflate --count 10 random.avro
-java -jar avro-tools-1.8.0.jar getschema random.avro
-java -jar avro-tools-1.8.0.jar tojson --pretty random.avro
+make
+cat schema/metrics_schema/schema.go
 ```
