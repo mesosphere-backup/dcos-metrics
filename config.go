@@ -26,6 +26,7 @@ import (
 	"github.com/dcos/dcos-go/dcos/nodeutil"
 	mesosAgent "github.com/dcos/dcos-metrics/collectors/mesos/agent"
 	"github.com/dcos/dcos-metrics/collectors/node"
+	datadogProducer "github.com/dcos/dcos-metrics/producers/datadog"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
 	httpClient "github.com/dcos/dcos-metrics/util/http/client"
 	httpHelpers "github.com/dcos/dcos-metrics/util/http/helpers"
@@ -81,7 +82,8 @@ type CollectorConfig struct {
 // 'producers/kafka/kafka.go'. It is then the responsibility of the individual producers to
 // validate the configuration the user has provided and panic if necessary.
 type ProducersConfig struct {
-	HTTPProducerConfig httpProducer.Config `yaml:"http,omitempty"`
+	DataDogProducerConfig datadogProducer.Config `yaml:"datadog,omitempty"`
+	HTTPProducerConfig    httpProducer.Config    `yaml:"http,omitempty"`
 	//KafkaProducerConfig  kafkaProducer.Config  `yaml:"kafka,omitempty"`
 	//StatsdProducerConfig statsdProducer.Config `yaml:"statsd,omitempty"`
 }
@@ -162,6 +164,11 @@ func newConfig() Config {
 			},
 		},
 		Producers: ProducersConfig{
+			DataDogProducerConfig: datadogProducer.Config{
+				Host:          "127.0.0.1",
+				Port:          8125,
+				RetryInterval: 60 * time.Second,
+			},
 			HTTPProducerConfig: httpProducer.Config{
 				CacheExpiry: time.Duration(120 * time.Second),
 				Port:        9000,
