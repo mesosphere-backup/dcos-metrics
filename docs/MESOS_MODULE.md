@@ -73,8 +73,8 @@ All configuration is within `/opt/mesosphere/etc/mesos-slave-modules.json`. The 
 - **"`dest_host`": Hostname/IP for where to forward data received from tasks.**
 - "`dest_refresh_seconds`": Duration in seconds between DNS lookups of dest_host. Automatically detects changes in the DNS record and redirects output to the new destination.
 - "`dest_port`": Port to use when connecting to `dest_host`.
-- "`annotation_mode`": How (or whether) to tag outgoing data with information about the Mesos task. Available modes are "key_prefix" (prefix statsd keys with the info), "tag_datadog" (use the datadog tag extension), or "none" (no tagging, data forwarded without modification). **If your statsd receiver doesn't support datadog-format statsd tags, this should be 'key_prefix' or 'none'.**
-- "`chunking`": Whether to group outgoing data into a smaller number of packets. **If your statsd receiver doesn't support multiple newline-separated statsd records in the same UDP packet, this should be 'false'.**
+- "`annotation_mode`": How (or whether) to tag outgoing data with information about the Mesos task. Available modes are "key_prefix" (prefix StatsD keys with the info), "tag_datadog" (use the datadog tag extension), or "none" (no tagging, data forwarded without modification). **If your StatsD receiver doesn't support datadog-format StatsD tags, this should be 'key_prefix' or 'none'.**
+- "`chunking`": Whether to group outgoing data into a smaller number of packets. **If your StatsD receiver doesn't support multiple newline-separated StatsD records in the same UDP packet, this should be 'false'.**
 - "`chunk_size_bytes`": Preferred chunk size for outgoing UDP packets, when "chunking" is enabled. This should be the UDP MTU.
 
 The full list of config options is in [params.hpp](params.hpp).
