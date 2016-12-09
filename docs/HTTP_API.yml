@@ -11,7 +11,7 @@ info:
     The first version of the DC/OS Metrics Service HTTP API.
 
     Note that the endpoints in this spec are all *service-specific*. dcos-metrics
-    is designed to be put behind adminrouter, which provides security for these
+    is designed to be put behind Admin Router, which provides security for these
     endpoints. Therefore, on a DC/OS cluster, the final URL to query will resemble:
 
         http://<host>/system/v1/metrics/v0/<endpoint>
