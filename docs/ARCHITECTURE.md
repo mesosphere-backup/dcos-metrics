@@ -117,7 +117,7 @@ Containers and App Endpoints
   * `/system/metrics/v0/containers/<id>/app/<metric-id>`
 
 ## Users
-The main user for metrics are DC/OS administrators. Although every user of DC/OS will inevitably consume metrics, whether directly from the API’s we implement here or by proxy via the dashboards, graphs and other metrics analysis stacks which administrators send the metrics to. 
+The main user for metrics are DC/OS administrators. Although every user of DC/OS will inevitably consume metrics, whether directly from the APIs we implement here or by proxy via the dashboards, graphs and other metrics analysis stacks which administrators send the metrics to. 
 
 ## Security Plan
 Because most metrics are sent to other service stacks and not consumed by DC/OS users, we will not implement any role based access control for them. However, the HTTP producer does expose and API endpoint, which can be consumed by DC/OS users. Because of this, Enterprise DC/OS provides coarse grained ACLs via the Admin Router proxy to ensure only DC/OS superusers have access to this HTTP API endpoint. 
