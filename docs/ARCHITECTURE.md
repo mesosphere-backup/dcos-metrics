@@ -5,27 +5,26 @@
   * Tech Lead: Roger Ignazio 
 
 ## Motivation
-As an end-user of DC/OS, I want to be able to pull discrete metrics about my application and my cluster infrastructure
-in order to make informative charts, dashboards and alerts in my metrics analysis stack of choice. Our primary goal with
+As an end-user of DC/OS, I want to pull discrete metrics about my application and my cluster infrastructure to make informative charts, dashboards and alerts in my metrics analysis stack of choice. Our primary goal with
 this MVP is give our end users this base which can be seamlessly integrated with any metrics analysis stack, whether
-that’s Data Dog with Kafka or Graphana on top of Influx, we aim to be un-opinionated about what you do with the metrics
-once they’re out of the system. Our goal, is to make getting those metrics mind numbingly simple. 
+that’s Datadog with Kafka or Graphana on top of Influx, we aim to be un-opinionated about what you do with the metrics
+once they’re out of the system. Our goal, is to make getting those metrics mind-numbingly simple. 
 
 ## Terminology
   * *Metric* - a discrete piece of telemetry
   * *DC/OS* - the Datacenter Operating System
-  * *Containerizer* - a method to contain a process using Linux cgroups & namespaces
+  * *Containerizer* - a method to contain a process using Linux cgroups and namespaces
   * *Mesos Module* - Mesos code loaded on demand, <http://mesos.apache.org/documentation/latest/modules/>
 
 ## Overview
-There are three layers of metrics identified in DC/OS: host, container and application.
+There are three layers of metrics identified in DC/OS: 
 
   * Host metrics are metrics about the specific node which is part of the DC/OS cluster. 
   * Container metrics are metrics regarding cgroup allocations from tasks running in Mesos or Docker containerizers. 
   * Application metrics are metrics which are part of a specific application running inside a Mesos or Docker containerizer.
 
 The first API that we’ll be building for DC/OS metrics is an HTTP API which is capable of exposing these three core
-areas. Further development will include a DataDog-style statsd "exhaust" or exports of metrics for other metrics stacks.
+areas. Further development will include a DataDog-style StatsD "exhaust" or exports of metrics for other metrics stacks.
 We’re really excited about enabling integration with everyone’s existing metrics tools.
 
 All three metrics layers (host, container and application) will be aggregated by a collector which is shipped as part of
@@ -33,15 +32,16 @@ the DC/OS distribution. This will enable us to run it on every host in the clust
 be the main entrypoint to the metrics ecosystem, aggregating metrics sent to it by the Metrics Mesos module, or
 gathering host and container level metrics on the box which is runs. 
 
-The Mesos Metrics module will be bundled with every Mesos agent in the cluster. This module will enable applications to
-publish metrics from applications running on top of DC/OS to the collector by exposing a statsd port and host
+The Mesos Metrics Module will be bundled with every Mesos agent in the cluster. This module will enable applications to
+publish metrics from applications running on top of DC/OS to the collector by exposing a StatsD port and host
 environment variable inside every container. We will then decorate these metrics with some structured data such as
 agent-id, framework-id and task-id.
 
 ![architecture diagram](https://www.lucidchart.com/publicSegments/view/30f4c23-b2f9-4db3-9954-a947f395eae5/image.png)
 
-Per-container metrics tags will enable you to arbitrarily group metrics on e.g. a per-framework or per-system/agent
+Per-container metrics tags enable you to arbitrarily group metrics, for example on a per-framework or per-system/agent
 basis. The full list is:
+
   * `agent_id`
   * `container_id`
   * `executor_id`
@@ -52,42 +52,43 @@ basis. The full list is:
   * `labels`
 
 Your applications will discover the endpoint via an environment variable (`STATSD_UDP_HOST` / `STATSD_UDP_PORT`). They
-will be able to leverage this statsd interface to send custom profiling metrics to the system.
+will leverage this StatsD interface to send custom profiling metrics to the system.
 
 In addition, we collect some metrics automatically for you. These are:
-  * Per-container resource resource utilization (metrics named 'usage.*')
-  * Agent/system-level resource utilization (metrics named 'node.*', not tied to a specific container, so only tagged with `agent_id`)
+
+  * Per-container resource resource utilization (metrics named `usage.*`)
+  * Agent and system-level resource utilization (metrics named `node.*`, not tied to a specific container, so only tagged with `agent_id`)
 
 ## Implementation Plan
 ### Mesos Metrics Module
-The Mesos Metrics Module shall provide the following push-based statsd UDP API for metrics:
+The Mesos Metrics Module provides the following push-based StatsD UDP API for metrics:
 
-  1. A per-task statsd UDP endpoint for the collection of task-generated metrics shall be opened by the module for each
-     Mesos-containerized container launched on the agents. This endpoint shall be advertised to the container via the
+  1. A per-task StatsD UDP endpoint for the collection of task-generated metrics will be opened by the module for each
+     Mesos-containerized container launched on the agents. This endpoint will be advertised to the container via the
      following environment variables: `STATSD_UDP_HOST` and `STATSD_UDP_PORT`.
   2. The task may emit well-formed metrics to this endpoint. The Mesos Metrics Module will ensure that it can map each
      incoming metric to its originating container. Any malformed metrics will be discarded. Multiple metrics may be sent
-     in a single packet provided they are delimited with a newline per the statsd convention. Metrics may be annotated
+     in a single packet provided they are delimited with a newline per the StatsD convention. Metrics may be annotated
      with Datadog-format tags, and those tags will be passed through to the module’s output.
-  3. Any metrics received by the Mesos Metrics Module shall be annotated (tagged) with the following basic information
+  3. Any metrics received by the Mesos Metrics Module will be annotated (tagged) with the following basic information
      to identify the originating container. Any additional annotations may be inserted downstream by the Collector:
       * `container_id`
       * `executor_id`
       * `framework_id`
-  4. The Mesos Metrics Module shall then forward the resulting annotated (tagged) metrics in the form of repeated Avro
+  4. The Mesos Metrics Module will then forward the resulting annotated (tagged) metrics in the form of repeated Avro
      MetricLists, serialized to follow the Avro OCF format. This data is sent to a well known, configurable TCP port
      (configured in `modules.json`). Exactly one Collector may listen on this port to ship metrics to an off-agent
      aggregator.
-  5. The Mesos agent shall not offer this host port for framework reservation.
+  5. The Mesos agent will not offer this host port for framework reservation.
 
 ## Metrics Collector 
-### Motivation & Reasoning
+### Motivation and Reasoning
 Our original prototype for this used Avro and Kafka for sending metrics out. This required that everyone run a Kafka
 cluster for integration. After listening to initial feedback, we decided to build an HTTP API to enable integration with
-existing tools. This was the easiest way for integrations to be built out. In time, we’d like to add statsd exhaust to
+existing tools. This was the easiest way for integrations to be built out. In time, we’d like to add StatsD exhaust to
 allow for something more push based.
 
-### Configuration & Installation
+### Configuration and Installation
 The metrics collector is the only configurable piece of the metrics system. The Mesos Module is not configurable at this
 time. The MVP will be configured as part of the normal DC/OS configuration process. The implications of this is that
 right now you’ll need to upgrade your cluster to change these configuration options.
@@ -116,20 +117,14 @@ Containers and App Endpoints
   * `/system/metrics/v0/containers/<id>/app/<metric-id>`
 
 ## Users
-The main user for metrics are cluster super users who are administering DC/OS. They will be the "front line" user for
-this feature, though every user of DC/OS will inevitably consume metrics, whether directly from the API’s we implement
-here or by proxy via the dashboards, graphs and other metrics analysis stacks which administrators send the metrics to. 
+The main user for metrics are DC/OS administrators. Although every user of DC/OS will inevitably consume metrics, whether directly from the APIs we implement here or by proxy via the dashboards, graphs and other metrics analysis stacks which administrators send the metrics to. 
 
 ## Security Plan
-Since metrics are mainly an "exhaust" from the cluster, i.e., most metrics are sent to other service stacks and not
-consumed by DC/OS users, we will not implement any role based access control for them. The caveat is that our HTTP
-producer does expose and API endpoint, which can be consumed by DC/OS users. In this case and this case only, we will
-implement coarse grained ACLs via the adminrouter proxy to ensure only DC/OS super users have access to this HTTP API
-endpoint. 
+Because most metrics are sent to other service stacks and not consumed by DC/OS users, we will not implement any role based access control for them. However, the HTTP producer does expose and API endpoint, which can be consumed by DC/OS users. Because of this, Enterprise DC/OS provides coarse grained ACLs via the Admin Router proxy to ensure only DC/OS superusers have access to this HTTP API endpoint. 
 
 ## Upgrade/Downgrade Plan
 This is an additional feature which does not touch any currently working DC/OS code. In the future we’ll need to ensure
-our API is reverse compatible or implement a notion of cababilities. 
+our API is reverse compatible or implement a notion of capabilities. 
 
 ## Third-Party Integration Plan
 We will POC a few integrations with metrics stacks which are widely used, mainly, InfluxDB/Grafana and Kafka/DataDog to

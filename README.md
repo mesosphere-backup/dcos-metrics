@@ -13,9 +13,7 @@
   8. [Acknowledgements](#acknowledgements)
 
 ## Overview
-As a user of DC/OS, you want to be able to retrieve discrete metrics about your applications and cluster(s) in order to
-gain operational insight. This might include charts, dashboards, and alerts based on cluster, node, container, and
-application-level statistics. The goal of the dcos-metrics project is to allow you to do just that.
+The metrics component provides operational insight to your DC/OS cluster, providing discrete metrics about your applications and deployments. This can include charts, dashboards, and alerts based on cluster, node, container, and application-level statistics. 
 
 This project provides a metrics service for all DC/OS clusters which can be integrated with any timeseries data store or
 hosted metrics service. We aim to be un-opinionated about what you do with the metrics once they’re out of the system.
@@ -50,20 +48,13 @@ However you look at it, getting those metrics should be mind-numbingly simple.
 
 
 ## Getting Started
-dcos-metrics is included in DC/OS clusters beginning with version 1.9. No additional setup is required. However, there
-are a couple additional steps if you'd like to use the DataDog integration or ship application-level metrics into this
-service.
+The dcos-metrics component is natively integrated with DC/OS version 1.9 and later. No additional setup is required. If you want to use the DataDog integration or ship application-level metrics into dcos-metrics, there are a couple additional steps.
 
 ### DataDog integration
-Install the DataDog agent on every node in the DC/OS cluster by installing the package from the
-[Mesosphere Universe][github-universe]. Be sure to configure the package with the correct
-information for connecting to your DataDog account.
+Install the DataDog agent on every node in the DC/OS cluster by installing the package from the [Mesosphere Universe][github-universe]. Be sure to configure the package with the correct information for connecting to your DataDog account.
 
 ### Application-level metrics
-This service exposes two new environment variables to every Mesos container: `STATSD_UDP_HOST` and `STATSD_UDP_PORT`.
-Simply ship StatsD-formatted metrics to the host and port provided to your container via those environment variables,
-and the metrics service will take it from there. Incoming metrics are automatically decorated with dimensions about
-the host and cluster that the container / application is running on.
+This service exposes two new environment variables to every Mesos container: `STATSD_UDP_HOST` and `STATSD_UDP_PORT`. The process is to simply send StatsD-formatted metrics to the host and port provided to your container via those environment variables, and the metrics service will take it from there. Incoming metrics are automatically decorated with dimensions about the host and cluster that the container or application is running on.
 
 
 ## Documentation
