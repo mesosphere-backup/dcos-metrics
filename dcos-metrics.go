@@ -27,8 +27,6 @@ import (
 	"github.com/dcos/dcos-metrics/producers"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
 	"github.com/dcos/dcos-metrics/util/http/profiler"
-	//kafkaProducer "github.com/dcos/dcos-metrics/producers/kafka"
-	//statsdProducer "github.com/dcos/dcos-metrics/producers/statsd"
 )
 
 func main() {
