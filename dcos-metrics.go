@@ -23,6 +23,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	frameworkCollector "github.com/dcos/dcos-metrics/collectors/framework"
+	nodeCollector "github.com/dcos/dcos-metrics/collectors/node"
 	"github.com/dcos/dcos-metrics/producers"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
 	"github.com/dcos/dcos-metrics/util/http/profiler"
@@ -67,8 +68,8 @@ func main() {
 	}
 
 	// Initialize and run the host-poller
-	cfg.Collector.Node.MetricsChan = make(chan producers.MetricsMessage)
-	go cfg.Collector.Node.RunPoller()
+	node, nodeChan := nodeCollector.New(*cfg.Collector.Node, cfg.nodeInfo)
+	go node.RunPoller()
 
 	// Initialize agent specific channels and run agent specific pollers
 	// if role is of type agent
@@ -93,7 +94,7 @@ func main() {
 				producer <- pmm
 			}
 
-		case nodeCollectorMetric := <-cfg.Collector.Node.MetricsChan:
+		case nodeCollectorMetric := <-nodeChan:
 			for _, producer := range producerChans {
 				producer <- nodeCollectorMetric
 			}
