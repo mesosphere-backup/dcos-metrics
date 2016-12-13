@@ -25,6 +25,7 @@ import (
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
 	"github.com/dcos/dcos-metrics/collectors"
+	"github.com/dcos/dcos-metrics/collectors/framework"
 	mesosAgent "github.com/dcos/dcos-metrics/collectors/mesos/agent"
 	"github.com/dcos/dcos-metrics/collectors/node"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
@@ -68,6 +69,7 @@ type Config struct {
 // et. al to gather metrics and send them to a "producer".
 type CollectorConfig struct {
 	HTTPProfiler bool                  `yaml:"http_profiler"`
+	Framework    *framework.Collector  `yaml:"framework,omitempty"`
 	Node         *node.Collector       `yaml:"node,omitempty"`
 	MesosAgent   *mesosAgent.Collector `yaml:"mesos_agent,omitempty"`
 }
@@ -152,6 +154,12 @@ func newConfig() Config {
 	return Config{
 		Collector: CollectorConfig{
 			HTTPProfiler: false,
+			Framework: &framework.Collector{
+				ListenEndpointFlag:         "127.0.0.1:8124",
+				RecordInputLogFlag:         false,
+				InputLimitAmountKBytesFlag: 20480,
+				InputLimitPeriodFlag:       60,
+			},
 			MesosAgent: &mesosAgent.Collector{
 				PollPeriod:      time.Duration(60 * time.Second),
 				Port:            5051,

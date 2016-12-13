@@ -65,17 +65,16 @@ func main() {
 		go hp.Run()
 	}
 
-	// Initialize and run the host-poller
+	// Initialize and run the node poller
 	node, nodeChan := nodeCollector.New(*cfg.Collector.Node, cfg.nodeInfo)
 	go node.RunPoller()
 
-	// Initialize agent specific channels and run agent specific pollers
-	// if role is of type agent
-	frameworkCollectorChan := make(chan *frameworkCollector.AvroDatum)
-	framework := frameworkCollector.New()
+	// Initialize and run the StatsD collector
+	framework, frameworkChan := frameworkCollector.New(*cfg.Collector.Framework, cfg.nodeInfo)
+
 	cfg.Collector.MesosAgent.MetricsChan = make(chan producers.MetricsMessage)
 	if cfg.DCOSRole == "agent" {
-		go framework.RunFrameworkTCPListener(frameworkCollectorChan)
+		go framework.RunFrameworkTCPListener()
 		go cfg.Collector.MesosAgent.RunPoller()
 	}
 
@@ -83,13 +82,9 @@ func main() {
 	for {
 		select {
 
-		case frameworkMessage := <-frameworkCollectorChan:
-			pmm, err := frameworkMessage.Transform(cfg.MesosID, cfg.ClusterID, cfg.IPAddress)
-			if err != nil {
-				log.Error(err)
-			}
+		case frameworkCollectorMetric := <-frameworkChan:
 			for _, producer := range producerChans {
-				producer <- pmm
+				producer <- frameworkCollectorMetric
 			}
 
 		case nodeCollectorMetric := <-nodeChan:
