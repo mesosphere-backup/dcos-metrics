@@ -31,7 +31,13 @@ type Collector struct {
 	PollPeriod  time.Duration `yaml:"poll_period,omitempty"`
 	MetricsChan chan producers.MetricsMessage
 
-	log         *log.Entry
+	// Specifying a field of type *logrus.Entry allows us to create a single
+	// logger for this struct, such as logrus.WithFields(). This way, instead of
+	// using a global variable for a logger instance, we can do something like
+	// c.log.Errorf(). For more info, see the upstream docs at
+	// https://godoc.org/github.com/sirupsen/logrus#Entry
+	log *log.Entry
+
 	nodeInfo    collectors.NodeInfo
 	nodeMetrics nodeMetrics
 	timestamp   int64

@@ -47,10 +47,17 @@ type Collector struct {
 
 	agentState       agentState
 	containerMetrics []agentContainer
-	log              *logrus.Entry
-	metricsChan      chan producers.MetricsMessage
-	nodeInfo         collectors.NodeInfo
-	timestamp        int64
+
+	// Specifying a field of type *logrus.Entry allows us to create a single
+	// logger for this struct, such as logrus.WithFields(). This way, instead of
+	// using a global variable for a logger instance, we can do something like
+	// c.log.Errorf(). For more info, see the upstream docs at
+	// https://godoc.org/github.com/sirupsen/logrus#Entry
+	log *logrus.Entry
+
+	metricsChan chan producers.MetricsMessage
+	nodeInfo    collectors.NodeInfo
+	timestamp   int64
 }
 
 // agentContainer defines the structure of the response expected from Mesos
