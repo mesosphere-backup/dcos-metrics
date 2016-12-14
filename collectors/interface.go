@@ -14,6 +14,21 @@
 
 package collectors
 
+// MetricsCollector defines an interface that the various collectors must
+// implement in order to collector, process, and present metrics to the caller
+// or client. All collectors must use the MetricsMessage structure to receive
+// metrics, and they must implement their own struct for handling configuration.
+//
+// Further, although it isn't defined in this interface, it is recommended that
+// producers must also create their own MetricsMessage channel to be
+// used both in the implementation (e.g., &collectorImpl{}) and to be returned
+// to the caller. Doing so ensures that we don't end up implementing too much
+// in main(), instead opting to push the complexity down into the individual
+// collectors.
+type MetricsCollector interface {
+	Run() error
+}
+
 // NodeInfo represents information about the node, such as the IP address,
 // hostname, Mesos ID, and the cluster ID that the node belongs to.
 type NodeInfo struct {
