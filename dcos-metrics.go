@@ -23,6 +23,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	frameworkCollector "github.com/dcos/dcos-metrics/collectors/framework"
+	mesosAgentCollector "github.com/dcos/dcos-metrics/collectors/mesos/agent"
 	nodeCollector "github.com/dcos/dcos-metrics/collectors/node"
 	"github.com/dcos/dcos-metrics/producers"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
@@ -69,34 +70,32 @@ func main() {
 	node, nodeChan := nodeCollector.New(*cfg.Collector.Node, cfg.nodeInfo)
 	go node.RunPoller()
 
-	// Initialize and run the StatsD collector
+	// Initialize and run the StatsD collector and the Mesos agent poller
 	framework, frameworkChan := frameworkCollector.New(*cfg.Collector.Framework, cfg.nodeInfo)
+	mesosAgent, mesosAgentChan := mesosAgentCollector.New(*cfg.Collector.MesosAgent, cfg.nodeInfo)
 
-	cfg.Collector.MesosAgent.MetricsChan = make(chan producers.MetricsMessage)
 	if cfg.DCOSRole == "agent" {
 		go framework.RunFrameworkTCPListener()
-		go cfg.Collector.MesosAgent.RunPoller()
+		go mesosAgent.RunPoller()
 	}
 
 	// Broadcast (many-to-many) messages from the collector to the various producers.
 	for {
 		select {
-
-		case frameworkCollectorMetric := <-frameworkChan:
-			for _, producer := range producerChans {
-				producer <- frameworkCollectorMetric
-			}
-
-		case nodeCollectorMetric := <-nodeChan:
-			for _, producer := range producerChans {
-				producer <- nodeCollectorMetric
-			}
-
-		case mesosAgentCollectorMetric := <-cfg.Collector.MesosAgent.MetricsChan:
-			for _, producer := range producerChans {
-				producer <- mesosAgentCollectorMetric
-			}
+		case metric := <-frameworkChan:
+			broadcast(metric, producerChans)
+		case metric := <-nodeChan:
+			broadcast(metric, producerChans)
+		case metric := <-mesosAgentChan:
+			broadcast(metric, producerChans)
 		}
+	}
+}
+
+// broadcast sends a MetricsMessage to a range of producer chans
+func broadcast(msg producers.MetricsMessage, producers []chan<- producers.MetricsMessage) {
+	for _, producer := range producers {
+		producer <- msg
 	}
 }
 
