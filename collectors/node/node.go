@@ -26,65 +26,78 @@ import (
 	"github.com/dcos/dcos-metrics/producers"
 )
 
-var nodeColLog = log.WithFields(log.Fields{
-	"collector": "node",
-})
-
 // Collector defines the collector type for system-level metrics.
 type Collector struct {
-	PollPeriod time.Duration `yaml:"poll_period,omitempty"`
-
+	PollPeriod  time.Duration `yaml:"poll_period,omitempty"`
 	MetricsChan chan producers.MetricsMessage
-	NodeInfo    collectors.NodeInfo
 
+	// Specifying a field of type *logrus.Entry allows us to create a single
+	// logger for this struct, such as logrus.WithFields(). This way, instead of
+	// using a global variable for a logger instance, we can do something like
+	// c.log.Errorf(). For more info, see the upstream docs at
+	// https://godoc.org/github.com/sirupsen/logrus#Entry
+	log *log.Entry
+
+	nodeInfo    collectors.NodeInfo
 	nodeMetrics nodeMetrics
 	timestamp   int64
 }
 
+// New returns a new instance of the node metrics collector and a metrics chan.
+func New(cfg Collector, nodeInfo collectors.NodeInfo) (Collector, chan producers.MetricsMessage) {
+	c := Collector{
+		PollPeriod:  cfg.PollPeriod,
+		MetricsChan: make(chan producers.MetricsMessage),
+		log:         log.WithFields(log.Fields{"collector": "node"}),
+		nodeInfo:    nodeInfo,
+	}
+	return c, c.MetricsChan
+}
+
 // RunPoller periodiclly polls the HTTP APIs of a Mesos agent. This function
 // should be run in its own goroutine.
-func (h *Collector) RunPoller() {
+func (c *Collector) RunPoller() {
 	for {
-		h.pollHost()
-		for _, m := range h.transform() {
-			h.MetricsChan <- m
+		c.pollHost()
+		for _, m := range c.transform() {
+			c.MetricsChan <- m
 		}
-		time.Sleep(h.PollPeriod)
+		time.Sleep(c.PollPeriod)
 	}
 }
 
 // pollHost queries the DC/OS hsot for metrics and returns.
-func (h *Collector) pollHost() {
+func (c *Collector) pollHost() {
 	now := time.Now().UTC()
-	h.timestamp = now.Unix()
+	c.timestamp = now.Unix()
 
 	// Fetch node-level metrics for all DC/OS roles
-	nodeColLog.Debugf("Fetching node-level metrics from DC/OS host %s", h.NodeInfo.Hostname)
+	c.log.Debugf("Fetching node-level metrics from DC/OS host %s", c.nodeInfo.Hostname)
 	nm, err := getNodeMetrics()
 	if err != nil {
-		nodeColLog.Errorf("Failed to get node-level metrics. %s", err)
+		c.log.Errorf("Failed to get node-level metrics. %s", err)
 	} else {
-		h.nodeMetrics = nm
+		c.nodeMetrics = nm
 	}
 
-	nodeColLog.Infof("Finished polling DC/OS host %s, took %f seconds.", h.NodeInfo.Hostname, time.Since(now).Seconds())
+	c.log.Infof("Finished polling DC/OS host %s, took %f seconds.", c.nodeInfo.Hostname, time.Since(now).Seconds())
 }
 
 // transform will take metrics retrieved from the agent and perform any
 // transformations necessary to make the data fit the output expected by
 // producers.MetricsMessage.
-func (h *Collector) transform() (out []producers.MetricsMessage) {
+func (c *Collector) transform() (out []producers.MetricsMessage) {
 	var msg producers.MetricsMessage
-	t := time.Unix(h.timestamp, 0)
+	t := time.Unix(c.timestamp, 0)
 
 	// Produce node metrics
 	msg = producers.MetricsMessage{
 		Name:       producers.NodeMetricPrefix,
-		Datapoints: buildDatapoints(h.nodeMetrics, t),
+		Datapoints: c.buildDatapoints(c.nodeMetrics, t),
 		Dimensions: producers.Dimensions{
-			MesosID:   h.NodeInfo.MesosID,
-			ClusterID: h.NodeInfo.ClusterID,
-			Hostname:  h.NodeInfo.IPAddress,
+			MesosID:   c.nodeInfo.MesosID,
+			ClusterID: c.nodeInfo.ClusterID,
+			Hostname:  c.nodeInfo.Hostname,
 		},
 		Timestamp: t.UTC().Unix(),
 	}
@@ -96,7 +109,7 @@ func (h *Collector) transform() (out []producers.MetricsMessage) {
 // buildDatapoints takes an incoming structure and builds Datapoints
 // for a MetricsMessage. It uses a normalized version of the JSON tag
 // as the datapoint name.
-func buildDatapoints(in interface{}, t time.Time) []producers.Datapoint {
+func (c *Collector) buildDatapoints(in interface{}, t time.Time) []producers.Datapoint {
 	pts := []producers.Datapoint{}
 	v := reflect.Indirect(reflect.ValueOf(in))
 
@@ -106,20 +119,20 @@ func buildDatapoints(in interface{}, t time.Time) []producers.Datapoint {
 
 		switch f.Kind() { // Handle nested data
 		case reflect.Ptr:
-			pts = append(pts, buildDatapoints(f.Elem().Interface(), t)...)
+			pts = append(pts, c.buildDatapoints(f.Elem().Interface(), t)...)
 			continue
 		case reflect.Map:
 			// Ignore maps when building datapoints
 			continue
 		case reflect.Slice:
 			for j := 0; j < f.Len(); j++ {
-				for _, ndp := range buildDatapoints(f.Index(j).Interface(), t) {
+				for _, ndp := range c.buildDatapoints(f.Index(j).Interface(), t) {
 					pts = append(pts, ndp)
 				}
 			}
 			continue
 		case reflect.Struct:
-			pts = append(pts, buildDatapoints(f.Interface(), t)...)
+			pts = append(pts, c.buildDatapoints(f.Interface(), t)...)
 			continue
 		}
 
@@ -141,11 +154,11 @@ func buildDatapoints(in interface{}, t time.Time) []producers.Datapoint {
 		jsonName := strings.Join([]string{strings.Split(typ.Tag.Get("json"), ",")[0]}, producers.MetricNamespaceSep)
 		tmpl, err := template.New("_nodeMetricName").Parse(jsonName)
 		if err != nil {
-			nodeColLog.Warn("Unable to build datapoint for metric with name %s, skipping", jsonName)
+			c.log.Warn("Unable to build datapoint for metric with name %s, skipping", jsonName)
 			continue
 		}
 		if err := tmpl.Execute(&parsed, v.Interface()); err != nil {
-			nodeColLog.Warn("Unable to build datapoint for metric with name %s, skipping", jsonName)
+			c.log.Warn("Unable to build datapoint for metric with name %s, skipping", jsonName)
 			continue
 		}
 

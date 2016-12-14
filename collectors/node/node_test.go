@@ -36,7 +36,8 @@ func TestBuildDatapoints(t *testing.T) {
 
 	Convey("When building a slice of producers.Datapoint for a MetricsMessage", t, func() {
 		Convey("Should return the node's datapoints with valid tags and values", func() {
-			result := buildDatapoints(mockNodeMetrics, testTime)
+			c := Collector{}
+			result := c.buildDatapoints(mockNodeMetrics, testTime)
 			So(len(result), ShouldEqual, 46)
 			So(result[0].Name, ShouldEqual, "uptime")
 			So(result[0].Unit, ShouldEqual, "") // TODO(roger): no easy way to get units
@@ -56,7 +57,7 @@ func TestTransform(t *testing.T) {
 		nc := Collector{
 			PollPeriod:  60,
 			MetricsChan: make(chan producers.MetricsMessage),
-			NodeInfo: collectors.NodeInfo{
+			nodeInfo: collectors.NodeInfo{
 				MesosID:   "test-mesos-id",
 				ClusterID: "test-cluster-id",
 			},

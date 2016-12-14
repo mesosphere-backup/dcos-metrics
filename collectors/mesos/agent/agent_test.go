@@ -110,16 +110,16 @@ func TestGetContainerMetrics(t *testing.T) {
 	}
 
 	mac := Collector{
-		Port:        port,
-		PollPeriod:  60,
-		MetricsChan: make(chan producers.MetricsMessage),
-		NodeInfo: collectors.NodeInfo{
+		Port:            port,
+		PollPeriod:      60,
+		HTTPClient:      testClient,
+		RequestProtocol: "http",
+		metricsChan:     make(chan producers.MetricsMessage),
+		nodeInfo: collectors.NodeInfo{
 			IPAddress: "127.0.0.1",
 			MesosID:   "test-mesos-id",
 			ClusterID: "test-cluster-id",
 		},
-		HTTPClient:      testClient,
-		RequestProtocol: "http",
 	}
 
 	Convey("When fetching container metrics", t, func() {
@@ -159,16 +159,16 @@ func TestGetAgentState(t *testing.T) {
 	}
 
 	mac := Collector{
-		Port:        port,
-		PollPeriod:  60,
-		MetricsChan: make(chan producers.MetricsMessage),
-		NodeInfo: collectors.NodeInfo{
+		Port:            port,
+		PollPeriod:      60,
+		HTTPClient:      testClient,
+		RequestProtocol: "http",
+		metricsChan:     make(chan producers.MetricsMessage),
+		nodeInfo: collectors.NodeInfo{
 			IPAddress: "127.0.0.1",
 			MesosID:   "test-mesos-id",
 			ClusterID: "test-cluster-id",
 		},
-		HTTPClient:      testClient,
-		RequestProtocol: "http",
 	}
 
 	Convey("When fetching the agent state", t, func() {
@@ -207,9 +207,10 @@ func TestBuildDatapoints(t *testing.T) {
 					panic(err)
 				}
 
+				coll := Collector{}
 				result := []producers.Datapoint{}
 				for _, c := range thisContainerMetrics {
-					pts := buildDatapoints(c, testTime)
+					pts := coll.buildDatapoints(c, testTime)
 					result = append(result, pts...)
 				}
 				So(len(result), ShouldEqual, 16)
@@ -223,8 +224,8 @@ func TestTransform(t *testing.T) {
 	Convey("When transforming agent metrics to fit producers.MetricsMessage", t, func() {
 		mac := Collector{
 			PollPeriod:  60,
-			MetricsChan: make(chan producers.MetricsMessage),
-			NodeInfo: collectors.NodeInfo{
+			metricsChan: make(chan producers.MetricsMessage),
+			nodeInfo: collectors.NodeInfo{
 				MesosID:   "test-mesos-id",
 				ClusterID: "test-cluster-id",
 			},

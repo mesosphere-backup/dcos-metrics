@@ -17,30 +17,46 @@
 package framework
 
 import (
-	"fmt"
 	"net"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/dcos/dcos-metrics/collectors"
 	"github.com/dcos/dcos-metrics/producers"
 	"github.com/dcos/dcos-metrics/schema/metrics_schema"
 	"github.com/linkedin/goavro"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
+var (
+	mockCollectorConfig = Collector{
+		ListenEndpointFlag:         "127.0.0.1:8124",
+		RecordInputLogFlag:         false,
+		InputLimitAmountKBytesFlag: 20480,
+		InputLimitPeriodFlag:       60,
+	}
+
+	mockNodeInfo = collectors.NodeInfo{
+		MesosID:   "some-mesos-id",
+		ClusterID: "some-cluster-id",
+		Hostname:  "some-hostname",
+		IPAddress: "1.2.3.4",
+	}
+)
+
 func TestNew(t *testing.T) {
 	Convey("When creating a new instance of the framework collector", t, func() {
 		Convey("Should return a new Collector with the default config", func() {
-			f := New()
+			f, fc := New(mockCollectorConfig, mockNodeInfo)
 			So(f, ShouldHaveSameTypeAs, Collector{})
-			So(f, ShouldResemble, Collector{
-				listenEndpointFlag:         "127.0.0.1:8124",
-				recordInputLogFlag:         false,
-				inputLimitAmountKBytesFlag: 20480,
-				inputLimitPeriodFlag:       60,
-			})
+			So(fc, ShouldHaveSameTypeAs, make(chan producers.MetricsMessage))
+			So(f.InputLimitAmountKBytesFlag, ShouldEqual, mockCollectorConfig.InputLimitAmountKBytesFlag)
+			So(f.InputLimitPeriodFlag, ShouldEqual, mockCollectorConfig.InputLimitPeriodFlag)
+			So(f.ListenEndpointFlag, ShouldEqual, mockCollectorConfig.ListenEndpointFlag)
+			So(f.RecordInputLogFlag, ShouldEqual, mockCollectorConfig.RecordInputLogFlag)
+			So(f.nodeInfo, ShouldResemble, mockNodeInfo)
 		})
 	})
 }
@@ -74,7 +90,7 @@ func TestTransform(t *testing.T) {
 			rec.Set("datapoints", []interface{}{recDps})
 
 			a := AvroDatum{Record: rec, Topic: "some-topic"}
-			pmm, err := a.Transform("some-mesos-id", "some-cluster-id", "1.2.3.4")
+			pmm, err := a.transform(mockNodeInfo)
 			So(pmm, ShouldHaveSameTypeAs, producers.MetricsMessage{})
 
 			// If we could mock the time here, we could do a single assertion
@@ -91,13 +107,13 @@ func TestTransform(t *testing.T) {
 			So(pmm.Datapoints[0].Timestamp, ShouldNotEqual, "")
 			So(pmm.Dimensions.MesosID, ShouldEqual, "some-mesos-id")
 			So(pmm.Dimensions.ClusterID, ShouldEqual, "some-cluster-id")
-			So(pmm.Dimensions.Hostname, ShouldEqual, "1.2.3.4")
+			So(pmm.Dimensions.Hostname, ShouldEqual, "some-hostname")
 			So(pmm.Dimensions.Labels, ShouldResemble, map[string]string{"some-key": "some-val"})
 		})
 
 		Convey("Should return an error if AvroDatum didn't contain a goavro.Record", func() {
 			a := AvroDatum{Record: make(map[string]string), Topic: "some-topic"}
-			_, err = a.Transform("some-mesos-id", "some-cluster-id", "1.2.3.4")
+			_, err = a.transform(mockNodeInfo)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -110,7 +126,7 @@ func TestTransform(t *testing.T) {
 			rec.Set("datapoints", []interface{}{recDps})
 
 			a := AvroDatum{Record: rec, Topic: "some-topic"}
-			_, err = a.Transform("some-mesos-id", "some-cluster-id", "1.2.3.4")
+			_, err = a.transform(mockNodeInfo)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -123,7 +139,7 @@ func TestTransform(t *testing.T) {
 			rec.Set("tags", []interface{}{recTags})
 
 			a := AvroDatum{Record: rec, Topic: "some-topic"}
-			_, err = a.Transform("some-mesos-id", "some-cluster-id", "1.2.3.4")
+			_, err = a.transform(mockNodeInfo)
 			So(err, ShouldNotBeNil)
 		})
 	})
@@ -138,12 +154,12 @@ func TestRunFrameworkTCPListener(t *testing.T) {
 
 		Convey("Should run the listener without errors if valid configuration was given", func() {
 			c := Collector{
-				listenEndpointFlag:         net.JoinHostPort("localhost", strconv.Itoa(port)),
-				recordInputLogFlag:         false,
-				inputLimitAmountKBytesFlag: 20480,
-				inputLimitPeriodFlag:       60,
+				ListenEndpointFlag:         net.JoinHostPort("localhost", strconv.Itoa(port)),
+				RecordInputLogFlag:         false,
+				InputLimitAmountKBytesFlag: 20480,
+				InputLimitPeriodFlag:       60,
 			}
-			go c.RunFrameworkTCPListener(make(chan *AvroDatum))
+			go c.RunFrameworkTCPListener()
 			time.Sleep(1 * time.Second) // brief delay to allow the tcp listener to start
 
 			_, err := net.Dial("tcp", net.JoinHostPort("localhost", strconv.Itoa(port)))
@@ -160,7 +176,7 @@ func TestGetTopic(t *testing.T) {
 
 	Convey("When extracting the topic value from the provided Avro record", t, func() {
 		Convey("Should return UNKNOWN_RECORD_TYPE if the record wasn't valid", func() {
-			ts, ok := GetTopic([]string{"foo"})
+			ts, ok := getTopic([]string{"foo"})
 			So(ts, ShouldEqual, "UNKNOWN_RECORD_TYPE")
 			So(ok, ShouldBeFalse)
 		})
@@ -173,7 +189,7 @@ func TestGetTopic(t *testing.T) {
 			if err != nil {
 				panic(err)
 			}
-			ts, ok := GetTopic(r)
+			ts, ok := getTopic(r)
 			So(ts, ShouldEqual, "UNKNOWN_TOPIC_VAL")
 			So(ok, ShouldBeFalse)
 		})
@@ -185,7 +201,7 @@ func TestGetTopic(t *testing.T) {
 			if err != nil {
 				panic(err)
 			}
-			ts, ok := GetTopic(r)
+			ts, ok := getTopic(r)
 			So(ts, ShouldEqual, "UNKNOWN_TOPIC_TYPE")
 			So(ok, ShouldBeFalse)
 		})
@@ -196,7 +212,7 @@ func TestGetTopic(t *testing.T) {
 			if err != nil {
 				panic(err)
 			}
-			ts, ok := GetTopic(r)
+			ts, ok := getTopic(r)
 			So(ts, ShouldEqual, "some-topic")
 			So(ok, ShouldBeTrue)
 		})
@@ -216,8 +232,7 @@ func TestHandleConnection(t *testing.T) {
 		defer ln.Close()
 		time.Sleep(1 * time.Second)
 
-		c := Collector{}
-		recordsChan := make(chan *AvroDatum)
+		c, cc := New(mockCollectorConfig, mockNodeInfo)
 
 		// This goroutine runs in the background waiting for a TCP connection
 		// from the test below. Once the connection has been accepted,
@@ -236,7 +251,7 @@ func TestHandleConnection(t *testing.T) {
 					panic(err)
 				}
 				defer conn.Close()
-				c.handleConnection(conn, recordsChan) // blocks
+				c.handleConnection(conn) // blocks
 				break
 			}
 		}()
@@ -285,21 +300,13 @@ func TestHandleConnection(t *testing.T) {
 			// Test
 			avroWriter.Write(rec)
 			avroWriter.Close()
-			records := <-recordsChan // blocks
+			msg := <-cc // blocks
 
-			tags, err := records.Record.(*goavro.Record).Get("tags")
-			if err != nil {
-				panic(err)
-			}
-			dps, err := records.Record.(*goavro.Record).Get("datapoints")
-			if err != nil {
-				panic(err)
-			}
-
-			So(records.ApproxBytes, ShouldBeGreaterThan, 0)
-			So(records.Topic, ShouldEqual, "some-topic")
-			So(fmt.Sprintf("%+v", tags), ShouldEqual, "[{dcos.metrics.Tag: [dcos.metrics.key: some-key, dcos.metrics.value: some-val]}]")
-			So(fmt.Sprintf("%+v", dps), ShouldEqual, "[{dcos.metrics.Datapoint: [dcos.metrics.name: some-name, dcos.metrics.time_ms: 1000, dcos.metrics.value: 42]}]")
+			So(msg, ShouldHaveSameTypeAs, producers.MetricsMessage{})
+			So(len(msg.Datapoints), ShouldEqual, 1)
+			So(msg.Dimensions.ClusterID, ShouldEqual, mockNodeInfo.ClusterID)
+			So(msg.Dimensions.MesosID, ShouldEqual, mockNodeInfo.MesosID)
+			So(msg.Dimensions.Hostname, ShouldEqual, mockNodeInfo.Hostname)
 		})
 	})
 

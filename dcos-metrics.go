@@ -23,11 +23,11 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	frameworkCollector "github.com/dcos/dcos-metrics/collectors/framework"
+	mesosAgentCollector "github.com/dcos/dcos-metrics/collectors/mesos/agent"
+	nodeCollector "github.com/dcos/dcos-metrics/collectors/node"
 	"github.com/dcos/dcos-metrics/producers"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
 	"github.com/dcos/dcos-metrics/util/http/profiler"
-	//kafkaProducer "github.com/dcos/dcos-metrics/producers/kafka"
-	//statsdProducer "github.com/dcos/dcos-metrics/producers/statsd"
 )
 
 func main() {
@@ -66,43 +66,36 @@ func main() {
 		go hp.Run()
 	}
 
-	// Initialize and run the host-poller
-	cfg.Collector.Node.MetricsChan = make(chan producers.MetricsMessage)
-	go cfg.Collector.Node.RunPoller()
+	// Initialize and run the node poller
+	node, nodeChan := nodeCollector.New(*cfg.Collector.Node, cfg.nodeInfo)
+	go node.RunPoller()
 
-	// Initialize agent specific channels and run agent specific pollers
-	// if role is of type agent
-	frameworkCollectorChan := make(chan *frameworkCollector.AvroDatum)
-	framework := frameworkCollector.New()
-	cfg.Collector.MesosAgent.MetricsChan = make(chan producers.MetricsMessage)
+	// Initialize and run the StatsD collector and the Mesos agent poller
+	framework, frameworkChan := frameworkCollector.New(*cfg.Collector.Framework, cfg.nodeInfo)
+	mesosAgent, mesosAgentChan := mesosAgentCollector.New(*cfg.Collector.MesosAgent, cfg.nodeInfo)
+
 	if cfg.DCOSRole == "agent" {
-		go framework.RunFrameworkTCPListener(frameworkCollectorChan)
-		go cfg.Collector.MesosAgent.RunPoller()
+		go framework.RunFrameworkTCPListener()
+		go mesosAgent.RunPoller()
 	}
 
 	// Broadcast (many-to-many) messages from the collector to the various producers.
 	for {
 		select {
-
-		case frameworkMessage := <-frameworkCollectorChan:
-			pmm, err := frameworkMessage.Transform(cfg.MesosID, cfg.ClusterID, cfg.IPAddress)
-			if err != nil {
-				log.Error(err)
-			}
-			for _, producer := range producerChans {
-				producer <- pmm
-			}
-
-		case nodeCollectorMetric := <-cfg.Collector.Node.MetricsChan:
-			for _, producer := range producerChans {
-				producer <- nodeCollectorMetric
-			}
-
-		case mesosAgentCollectorMetric := <-cfg.Collector.MesosAgent.MetricsChan:
-			for _, producer := range producerChans {
-				producer <- mesosAgentCollectorMetric
-			}
+		case metric := <-frameworkChan:
+			broadcast(metric, producerChans)
+		case metric := <-nodeChan:
+			broadcast(metric, producerChans)
+		case metric := <-mesosAgentChan:
+			broadcast(metric, producerChans)
 		}
+	}
+}
+
+// broadcast sends a MetricsMessage to a range of producer chans
+func broadcast(msg producers.MetricsMessage, producers []chan<- producers.MetricsMessage) {
+	for _, producer := range producers {
+		producer <- msg
 	}
 }
 

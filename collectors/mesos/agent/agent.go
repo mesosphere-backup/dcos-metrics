@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-metrics/collectors"
 	"github.com/dcos/dcos-metrics/producers"
 	"github.com/dcos/dcos-metrics/util/http/client"
@@ -36,11 +36,6 @@ const (
 	HTTPTIMEOUT = 2 * time.Second
 )
 
-var (
-	maColLog = log.WithFields(log.Fields{
-		"collector": "mesos-agent"})
-)
-
 // Collector defines the collector type for Mesos agent. It is
 // configured from main from config file options and pass a new instance of HTTP
 // client and a channel for dropping metrics onto.
@@ -48,14 +43,21 @@ type Collector struct {
 	Port            int           `yaml:"port"`
 	PollPeriod      time.Duration `yaml:"poll_period"`
 	RequestProtocol string        `yaml:"request_protocol"`
-
-	MetricsChan chan producers.MetricsMessage
-	NodeInfo    collectors.NodeInfo
-	HTTPClient  *http.Client
+	HTTPClient      *http.Client
 
 	agentState       agentState
 	containerMetrics []agentContainer
-	timestamp        int64
+
+	// Specifying a field of type *logrus.Entry allows us to create a single
+	// logger for this struct, such as logrus.WithFields(). This way, instead of
+	// using a global variable for a logger instance, we can do something like
+	// c.log.Errorf(). For more info, see the upstream docs at
+	// https://godoc.org/github.com/sirupsen/logrus#Entry
+	log *logrus.Entry
+
+	metricsChan chan producers.MetricsMessage
+	nodeInfo    collectors.NodeInfo
+	timestamp   int64
 }
 
 // agentContainer defines the structure of the response expected from Mesos
@@ -148,96 +150,105 @@ type resourceStatistics struct {
 	NetTxDropped uint64 `json:"net_tx_dropped,omitempty"`
 }
 
-// RunPoller continually polls the agent on a set interval.
-func (h *Collector) RunPoller() {
+// New creates a new instance of the Mesos agent collector (poller).
+func New(cfg Collector, nodeInfo collectors.NodeInfo) (Collector, chan producers.MetricsMessage) {
+	c := cfg
+	c.log = logrus.WithFields(logrus.Fields{"collector": "mesos-agent"})
+	c.nodeInfo = nodeInfo
+	c.metricsChan = make(chan producers.MetricsMessage)
+	return c, c.metricsChan
+}
+
+// RunPoller continually polls the agent on a set interval. This should be run in its own goroutine.
+func (c *Collector) RunPoller() {
 	for {
-		h.pollMesosAgent()
-		for _, m := range h.transformContainerMetrics() {
-			h.MetricsChan <- m
+		c.pollMesosAgent()
+		for _, m := range c.transformContainerMetrics() {
+			c.metricsChan <- m
 		}
-		time.Sleep(h.PollPeriod)
+		time.Sleep(c.PollPeriod)
 	}
 }
 
-func (h *Collector) pollMesosAgent() {
+func (c *Collector) pollMesosAgent() {
 	now := time.Now().UTC()
-	h.timestamp = now.Unix()
+	c.timestamp = now.Unix()
 
-	host := net.JoinHostPort(h.NodeInfo.IPAddress, strconv.Itoa(h.Port))
+	host := net.JoinHostPort(c.nodeInfo.IPAddress, strconv.Itoa(c.Port))
 
 	// always fetch/emit agent state first: downstream will use it for tagging metrics
-	maColLog.Debugf("Fetching state from DC/OS host %s", host)
-	if err := h.getAgentState(); err != nil {
-		maColLog.Errorf("Failed to get agent state from %s. Error: %s", host, err)
+	c.log.Debugf("Fetching state from DC/OS host %s", host)
+	if err := c.getAgentState(); err != nil {
+		c.log.Errorf("Failed to get agent state from %s. Error: %s", host, err)
 	}
 
-	maColLog.Debugf("Fetching container metrics from DC/OS host %s", host)
-	if err := h.getContainerMetrics(); err != nil {
-		maColLog.Errorf("Failed to get container metrics from %s. Error: %s", host, err)
+	c.log.Debugf("Fetching container metrics from DC/OS host %s", host)
+	if err := c.getContainerMetrics(); err != nil {
+		c.log.Errorf("Failed to get container metrics from %s. Error: %s", host, err)
 	}
 }
 
 // getContainerMetrics queries an agent for container-level metrics, such as
 // CPU, memory, disk, and network usage.
-func (h *Collector) getContainerMetrics() error {
-	h.containerMetrics = []agentContainer{}
+func (c *Collector) getContainerMetrics() error {
+	c.containerMetrics = []agentContainer{}
 	u := url.URL{
-		Scheme: h.RequestProtocol,
-		Host:   net.JoinHostPort(h.NodeInfo.IPAddress, strconv.Itoa(h.Port)),
+		Scheme: c.RequestProtocol,
+		Host:   net.JoinHostPort(c.nodeInfo.IPAddress, strconv.Itoa(c.Port)),
 		Path:   "/containers",
 	}
 
-	h.HTTPClient.Timeout = HTTPTIMEOUT
+	c.HTTPClient.Timeout = HTTPTIMEOUT
 
-	return client.Fetch(h.HTTPClient, u, &h.containerMetrics)
+	return client.Fetch(c.HTTPClient, u, &c.containerMetrics)
 }
 
 // getAgentState fetches the state JSON from the Mesos agent, which contains
 // info such as framework names and IDs, the current leader, config flags,
 // container (executor) labels, and more.
-func (h *Collector) getAgentState() error {
-	h.agentState = agentState{}
+func (c *Collector) getAgentState() error {
+	c.agentState = agentState{}
 
 	u := url.URL{
-		Scheme: h.RequestProtocol,
-		Host:   net.JoinHostPort(h.NodeInfo.IPAddress, strconv.Itoa(h.Port)),
+		Scheme: c.RequestProtocol,
+		Host:   net.JoinHostPort(c.nodeInfo.IPAddress, strconv.Itoa(c.Port)),
 		Path:   "/state",
 	}
 
-	h.HTTPClient.Timeout = HTTPTIMEOUT
+	c.HTTPClient.Timeout = HTTPTIMEOUT
 
-	return client.Fetch(h.HTTPClient, u, &h.agentState)
+	return client.Fetch(c.HTTPClient, u, &c.agentState)
 }
 
-func (h *Collector) transformContainerMetrics() (out []producers.MetricsMessage) {
+func (c *Collector) transformContainerMetrics() (out []producers.MetricsMessage) {
 	var msg producers.MetricsMessage
-	t := time.Unix(h.timestamp, 0)
+	t := time.Unix(c.timestamp, 0)
 
 	// Produce container metrics
-	for _, c := range h.containerMetrics {
+	for _, cm := range c.containerMetrics {
 		msg = producers.MetricsMessage{
 			Name:       producers.ContainerMetricPrefix,
-			Datapoints: buildDatapoints(c, t),
+			Datapoints: c.buildDatapoints(cm, t),
 			Timestamp:  t.UTC().Unix(),
 		}
 
-		fi, ok := getFrameworkInfoByFrameworkID(c.FrameworkID, h.agentState.Frameworks)
+		fi, ok := getFrameworkInfoByFrameworkID(cm.FrameworkID, c.agentState.Frameworks)
 		if !ok {
-			maColLog.Warnf("Did not find FrameworkInfo for framework ID %s, skipping!", fi.ID)
+			c.log.Warnf("Did not find FrameworkInfo for framework ID %s, skipping!", fi.ID)
 			continue
 		}
 
 		msg.Dimensions = producers.Dimensions{
-			MesosID:            h.NodeInfo.MesosID,
-			ClusterID:          h.NodeInfo.ClusterID,
-			Hostname:           h.NodeInfo.Hostname,
-			ContainerID:        c.ContainerID,
-			ExecutorID:         c.ExecutorID,
-			FrameworkID:        c.FrameworkID,
+			MesosID:            c.nodeInfo.MesosID,
+			ClusterID:          c.nodeInfo.ClusterID,
+			Hostname:           c.nodeInfo.Hostname,
+			ContainerID:        cm.ContainerID,
+			ExecutorID:         cm.ExecutorID,
+			FrameworkID:        cm.FrameworkID,
 			FrameworkName:      fi.Name,
 			FrameworkRole:      fi.Role,
 			FrameworkPrincipal: fi.Principal,
-			Labels:             getLabelsByContainerID(c.ContainerID, h.agentState.Frameworks),
+			Labels:             getLabelsByContainerID(cm.ContainerID, c.agentState.Frameworks),
 		}
 		out = append(out, msg)
 	}
@@ -275,7 +286,7 @@ func getLabelsByContainerID(containerID string, frameworks []frameworkInfo) map[
 // buildDatapoints takes an incoming structure and builds Datapoints
 // for a MetricsMessage. It uses a normalized version of the JSON tag
 // as the datapoint name.
-func buildDatapoints(in interface{}, t time.Time) []producers.Datapoint {
+func (c *Collector) buildDatapoints(in interface{}, t time.Time) []producers.Datapoint {
 	pts := []producers.Datapoint{}
 	v := reflect.Indirect(reflect.ValueOf(in))
 
@@ -285,20 +296,20 @@ func buildDatapoints(in interface{}, t time.Time) []producers.Datapoint {
 
 		switch f.Kind() { // Handle nested data
 		case reflect.Ptr:
-			pts = append(pts, buildDatapoints(f.Elem().Interface(), t)...)
+			pts = append(pts, c.buildDatapoints(f.Elem().Interface(), t)...)
 			continue
 		case reflect.Map:
 			// Ignore maps when building datapoints
 			continue
 		case reflect.Slice:
 			for j := 0; j < f.Len(); j++ {
-				for _, ndp := range buildDatapoints(f.Index(j).Interface(), t) {
+				for _, ndp := range c.buildDatapoints(f.Index(j).Interface(), t) {
 					pts = append(pts, ndp)
 				}
 			}
 			continue
 		case reflect.Struct:
-			pts = append(pts, buildDatapoints(f.Interface(), t)...)
+			pts = append(pts, c.buildDatapoints(f.Interface(), t)...)
 			continue
 		}
 
@@ -320,11 +331,11 @@ func buildDatapoints(in interface{}, t time.Time) []producers.Datapoint {
 		jsonName := strings.Join([]string{strings.Split(typ.Tag.Get("json"), ",")[0]}, producers.MetricNamespaceSep)
 		tmpl, err := template.New("_nodeMetricName").Parse(jsonName)
 		if err != nil {
-			maColLog.Warn("Unable to build datapoint for metric with name %s, skipping", jsonName)
+			c.log.Warn("Unable to build datapoint for metric with name %s, skipping", jsonName)
 			continue
 		}
 		if err := tmpl.Execute(&parsed, v.Interface()); err != nil {
-			maColLog.Warn("Unable to build datapoint for metric with name %s, skipping", jsonName)
+			c.log.Warn("Unable to build datapoint for metric with name %s, skipping", jsonName)
 			continue
 		}
 
