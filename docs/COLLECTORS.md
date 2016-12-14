@@ -51,20 +51,20 @@ type MyConfig struct {
     SomeOtherConfigKey string
 }
 
-type collectorImpl struct {
+type myCollectorImpl struct {
     cfg MyConfig
     mc chan producers.MetricsMessage
 }
 
 func New(cfg MyConfig, nodeInfo collectors.NodeInfo) (collectors.MetricsCollector, chan producers.MetricsMessage) {
-    p := myProducerImpl{
+    p := myCollectorImpl{
         cfg: cfg,
         mc: make(chan producers.MetricsMessage),
     }
     return &p, p.mc
 }
 
-func (c *collectorImpl) Run() error {
+func (c *myCollectorImpl) Run() error {
     for {
         // collector logic
     }

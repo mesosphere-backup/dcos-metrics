@@ -20,10 +20,10 @@ package collectors
 // metrics, and they must implement their own struct for handling configuration.
 //
 // Further, although it isn't defined in this interface, it is recommended that
-// producers must also create their own MetricsMessage channel to be
-// used both in the implementation (e.g., &collectorImpl{}) and to be returned
-// to the caller. Doing so ensures that we don't end up implementing too much
-// in main(), instead opting to push the complexity down into the individual
+// collectors also create their own MetricsMessage channel to be used both in
+// the implementation (e.g., &collectorImpl{}) and to be returned to the caller.
+// Doing so ensures that we don't end up implementing too much in main(),
+// instead opting to push the complexity down into the individual
 // collectors.
 type MetricsCollector interface {
 	Run() error
