@@ -355,17 +355,9 @@ func (d *dcosInfo) MesosID(ctx context.Context) (string, error) {
 	return "", ErrNodeInfo{fmt.Sprintf("Local node's IP %s not found in mesos state response %+v", localIP, state)}
 }
 
-// ClusterID returns a UUID of a specific cluster.
+// ClusterID returns a UUID of a specific cluster. The file containing the UUID
+// is available on every node at d.clusterIDLocation.
 func (d *dcosInfo) ClusterID() (string, error) {
-	role, err := d.Role()
-	if err != nil {
-		return "", err
-	}
-
-	if role != dcos.RoleMaster {
-		return "", ErrNodeInfo{"cluster ID info supported on master nodes only. Current node's role " + role}
-	}
-
 	d.Lock()
 	defer d.Unlock()
 
