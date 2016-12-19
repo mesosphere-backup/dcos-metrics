@@ -46,6 +46,7 @@ type Collector struct {
 	HTTPClient      *http.Client
 
 	agentState       agentState
+	clusterState     clusterState
 	containerMetrics []agentContainer
 
 	// Specifying a field of type *logrus.Entry allows us to create a single
@@ -93,12 +94,16 @@ type agentState struct {
 	Frameworks []frameworkInfo `json:"frameworks"`
 }
 
+type clusterState struct {
+	Frameworks []frameworkInfo `json:"frameworks"`
+}
+
 type frameworkInfo struct {
 	ID        string         `json:"id"`
 	Name      string         `json:"name"`
-	Principal string         `json:"principal"`
+	Principal string         `json:"principal,omitempty"`
 	Role      string         `json:"role"`
-	Executors []executorInfo `json:"executors"`
+	Executors []executorInfo `json:"executors,omitempty"`
 }
 
 type executorInfo struct {
@@ -182,6 +187,11 @@ func (c *Collector) pollMesosAgent() {
 		c.log.Errorf("Failed to get agent state from %s. Error: %s", host, err)
 	}
 
+	c.log.Debugf("Fetching state from DC/OS leader %s", c.nodeInfo.Leader)
+	if err := c.getClusterState(); err != nil {
+		c.log.Errorf("error: failed to get cluster state from %s: %s", c.nodeInfo.Leader, err)
+	}
+
 	c.log.Debugf("Fetching container metrics from DC/OS host %s", host)
 	if err := c.getContainerMetrics(); err != nil {
 		c.log.Errorf("Failed to get container metrics from %s. Error: %s", host, err)
@@ -220,6 +230,22 @@ func (c *Collector) getAgentState() error {
 	return client.Fetch(c.HTTPClient, u, &c.agentState)
 }
 
+// getClusterState fetches the state JSON from the leading Mesos master, which
+// contains additional info such as framework principal.
+func (c *Collector) getClusterState() error {
+	c.clusterState = clusterState{}
+
+	u := url.URL{
+		Scheme: c.RequestProtocol,
+		Host:   c.nodeInfo.Leader,
+		Path:   "/state",
+	}
+
+	c.HTTPClient.Timeout = HTTPTIMEOUT
+
+	return client.Fetch(c.HTTPClient, u, &c.clusterState)
+}
+
 func (c *Collector) transformContainerMetrics() (out []producers.MetricsMessage) {
 	var msg producers.MetricsMessage
 	t := time.Unix(c.timestamp, 0)
@@ -232,7 +258,7 @@ func (c *Collector) transformContainerMetrics() (out []producers.MetricsMessage)
 			Timestamp:  t.UTC().Unix(),
 		}
 
-		fi, ok := getFrameworkInfoByFrameworkID(cm.FrameworkID, c.agentState.Frameworks)
+		fi, ok := getFrameworkInfoByFrameworkID(cm.FrameworkID, c.clusterState.Frameworks)
 		if !ok {
 			c.log.Warnf("Did not find FrameworkInfo for framework ID %s, skipping!", fi.ID)
 			continue

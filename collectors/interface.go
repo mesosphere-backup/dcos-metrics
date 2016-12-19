@@ -36,4 +36,5 @@ type NodeInfo struct {
 	MesosID   string
 	ClusterID string
 	Hostname  string
+	Leader    string // leader.mesos:5050
 }
