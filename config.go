@@ -146,6 +146,9 @@ func (c *Config) getNodeInfo() error {
 	}
 	c.nodeInfo.ClusterID = cid
 
+	// Leader
+	c.nodeInfo.Leader = "leader.mesos:5050"
+
 	return nil
 }
 

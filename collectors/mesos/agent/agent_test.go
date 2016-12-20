@@ -72,6 +72,60 @@ var (
 			]
 		}`)
 
+	// For now, mockClusterState only includes framework infos and flags related to framework auth.
+	mockClusterState = []byte(`
+	{
+		"version": "1.2.0",
+		"flags": {
+			"authenticate_frameworks": "true"
+		},
+		"slaves": [],
+		"frameworks": [
+			{
+				"id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
+				"name": "marathon",
+				"pid": "scheduler-ec318492-5847-4c63-a527-100c35851838@10.10.0.231:43773",
+				"used_resources": {
+					"disk": 10,
+					"mem": 288,
+					"gpus": 0,
+					"cpus": 0.9,
+					"ports": "[1347-1347, 6303-6303, 8958-8958, 24846-24846, 26563-26563, 27062-27062, 27226-27226]"
+				},
+				"offered_resources": {
+					"disk": 0,
+					"mem": 0,
+					"gpus": 0,
+					"cpus": 0
+				},
+				"capabilities": [
+					"TASK_KILLING_STATE",
+					"PARTITION_AWARE"
+				],
+				"hostname": "10.10.0.231",
+				"webui_url": "https://10.10.0.231:8443",
+				"active": true,
+				"connected": true,
+				"recovered": false,
+				"user": "nobody",
+				"failover_timeout": 604800,
+				"checkpoint": true,
+				"registered_time": 1482179777.19633,
+				"unregistered_time": 0,
+				"principal": "dcos_marathon",
+				"resources": {
+					"disk": 10,
+					"mem": 288,
+					"gpus": 0,
+					"cpus": 0.9,
+					"ports": "[1347-1347, 6303-6303, 8958-8958, 24846-24846, 26563-26563, 27062-27062, 27226-27226]"
+				},
+				"role": "slave_public",
+				"tasks": []
+			}
+		]
+	}`)
+
 	mockContainerMetrics = []byte(`
 		[
 			{
@@ -237,6 +291,9 @@ func TestTransform(t *testing.T) {
 		if err := json.Unmarshal(mockAgentState, &mac.agentState); err != nil {
 			panic(err)
 		}
+		if err := json.Unmarshal(mockClusterState, &mac.clusterState); err != nil {
+			panic(err)
+		}
 		if err := json.Unmarshal(mockContainerMetrics, &mac.containerMetrics); err != nil {
 			panic(err)
 		}
@@ -248,6 +305,7 @@ func TestTransform(t *testing.T) {
 			// From the implementation of a.transform() and the mocks in this test file,
 			// result[0] will be agent metrics, and result[1] will be container metrics.
 			So(result[0].Dimensions.FrameworkName, ShouldEqual, "marathon")
+			So(result[0].Dimensions.FrameworkPrincipal, ShouldEqual, "dcos_marathon")
 		})
 	})
 }
