@@ -45,11 +45,16 @@ type producerImpl struct {
 }
 
 // server implements plugin.MetricsServer
-type metricsServerImpl struct{}
+type metricsServerImpl struct {
+	metricsChan chan producers.MetricsMessage
+}
 
+// TODO(malnick) AttachOutputStream should eventually implement a gRPC stream
+// type return. For now we are still testing functionality.
 func (s *metricsServerImpl) AttachOutputStream(ctx context.Context, in *pb.MetricsCollectorType) (*pb.MetricsMessage, error) {
+	message := <-s.metricsChan
 	return &pb.MetricsMessage{
-		Message: "metrics!",
+		Message: fmt.Sprintf("%v", message),
 	}, nil
 }
 
@@ -67,7 +72,9 @@ func (p *producerImpl) Run() error {
 		plugLog.Fatalf("Failed to start TCP listening")
 	}
 	s := grpc.NewServer()
-	pb.RegisterMetricsServer(s, &metricsServerImpl{})
+	pb.RegisterMetricsServer(s, &metricsServerImpl{
+		metricsChan: p.metricsChan,
+	})
 	reflection.Register(s)
 	if err := s.Serve(listener); err != nil {
 		plugLog.Fatalf("Failed to serve, %v", err)
