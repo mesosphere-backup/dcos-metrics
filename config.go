@@ -227,9 +227,9 @@ func getNewConfig(args []string) (Config, error) {
 	// Note: .getNodeInfo() is last so we are sure we have all the
 	// configuration we need from flags and config file to make
 	// this run correctly.
-	if err := c.getNodeInfo(); err != nil {
-		return c, err
-	}
+	//	if err := c.getNodeInfo(); err != nil {
+	//		return c, err
+	//	}
 
 	// Set the client for the collector to reuse in GET operations
 	// to local state and other HTTP sessions

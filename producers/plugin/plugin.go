@@ -67,9 +67,10 @@ func New(cfg Config) (producers.MetricsProducer, chan producers.MetricsMessage) 
 }
 
 func (p *producerImpl) Run() error {
-	listener, err := net.Listen("tcp", fmt.Sprintf("%d", p.config.Port))
+	plugLog.Info("Starting plugin gRPC/TCP listening service")
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", p.config.Port))
 	if err != nil {
-		plugLog.Fatalf("Failed to start TCP listening")
+		plugLog.Fatalf("Failed to start TCP listening, %v", err)
 	}
 	s := grpc.NewServer()
 	pb.RegisterMetricsServer(s, &metricsServerImpl{
