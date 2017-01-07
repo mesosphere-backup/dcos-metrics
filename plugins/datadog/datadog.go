@@ -64,7 +64,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Could not get metrics message from plugin producer: %v", err)
 	}
-	log.Printf("Metric Received: %s", r.Message)
+	log.Printf("Metric Received: %s", r.Name)
+	for _, dp := range r.Datapoints {
+		log.WithFields(log.Fields{
+			"Metric Collector": r.Name,
+		}).Infof("%s: %+v", dp.Name, dp.Value)
+	}
 }
 
 // Eventually send metrics to datadog

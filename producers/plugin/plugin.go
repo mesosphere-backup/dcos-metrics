@@ -76,7 +76,7 @@ func (s *metricsServerImpl) AttachOutputStream(ctx context.Context, in *pb.Metri
 			&pb.Datapoint{
 				Timestamp: datapoint.Timestamp,
 				Name:      datapoint.Name,
-				Value:     fmt.Sprintf("%s", datapoint.Value),
+				Value:     fmt.Sprintf("%v", datapoint.Value),
 			})
 	}
 
