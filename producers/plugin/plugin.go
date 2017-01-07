@@ -52,10 +52,35 @@ type metricsServerImpl struct {
 // TODO(malnick) AttachOutputStream should eventually implement a gRPC stream
 // type return. For now we are still testing functionality.
 func (s *metricsServerImpl) AttachOutputStream(ctx context.Context, in *pb.MetricsCollectorType) (*pb.MetricsMessage, error) {
-	message := <-s.metricsChan
-	return &pb.MetricsMessage{
-		Message: fmt.Sprintf("%v", message),
-	}, nil
+	metricReceived := <-s.metricsChan
+
+	metricMessage := &pb.MetricsMessage{
+		Name: metricReceived.Name,
+		Dimensions: &pb.Dimensions{
+			MesosID:            metricReceived.Dimensions.MesosID,
+			ClusterID:          metricReceived.Dimensions.ClusterID,
+			ContainerID:        metricReceived.Dimensions.ContainerID,
+			ExecutorID:         metricReceived.Dimensions.ExecutorID,
+			FrameworkName:      metricReceived.Dimensions.FrameworkName,
+			FrameworkID:        metricReceived.Dimensions.FrameworkID,
+			FrameworkRole:      metricReceived.Dimensions.FrameworkRole,
+			FrameworkPrincipal: metricReceived.Dimensions.FrameworkPrincipal,
+			Hostname:           metricReceived.Dimensions.Hostname,
+			Labels:             metricReceived.Dimensions.Labels,
+		},
+	}
+
+	for _, datapoint := range metricReceived.Datapoints {
+		metricMessage.Datapoints = append(
+			metricMessage.Datapoints,
+			&pb.Datapoint{
+				Timestamp: datapoint.Timestamp,
+				Name:      datapoint.Name,
+				Value:     fmt.Sprintf("%s", datapoint.Value),
+			})
+	}
+
+	return metricMessage, nil
 }
 
 func New(cfg Config) (producers.MetricsProducer, chan producers.MetricsMessage) {

@@ -59,7 +59,7 @@ func main() {
 	if producerIsConfigured("plugin", cfg) {
 		pp, pluginProducerChan := pluginProducer.New(cfg.Producers.PluginProducerConfig)
 		producerChans = append(producerChans, pluginProducerChan)
-		pp.Run()
+		go pp.Run()
 	}
 
 	// HTTP producer
