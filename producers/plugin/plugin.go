@@ -15,8 +15,6 @@
 package plugin
 
 import (
-	"golang.org/x/net/context"
-
 	"fmt"
 	"net"
 
@@ -51,41 +49,49 @@ type metricsServerImpl struct {
 
 // TODO(malnick) AttachOutputStream should eventually implement a gRPC stream
 // type return. For now we are still testing functionality.
-func (s *metricsServerImpl) AttachOutputStream(ctx context.Context, metricType *pb.MetricsCollectorType) (*pb.MetricsMessage, error) {
-	metricReceived := <-s.metricsChan
+func (s *metricsServerImpl) AttachOutputStream(metricType *pb.MetricsCollectorType, server pb.Metrics_AttachOutputStreamServer) error {
 
 	metricCollectorType := fmt.Sprintf("dcos.metrics.%s", metricType.Type)
 
-	if metricReceived.Name == metricCollectorType {
-		metricMessage := &pb.MetricsMessage{
-			Name: metricReceived.Name,
-			Dimensions: &pb.Dimensions{
-				MesosID:            metricReceived.Dimensions.MesosID,
-				ClusterID:          metricReceived.Dimensions.ClusterID,
-				ContainerID:        metricReceived.Dimensions.ContainerID,
-				ExecutorID:         metricReceived.Dimensions.ExecutorID,
-				FrameworkName:      metricReceived.Dimensions.FrameworkName,
-				FrameworkID:        metricReceived.Dimensions.FrameworkID,
-				FrameworkRole:      metricReceived.Dimensions.FrameworkRole,
-				FrameworkPrincipal: metricReceived.Dimensions.FrameworkPrincipal,
-				Hostname:           metricReceived.Dimensions.Hostname,
-				Labels:             metricReceived.Dimensions.Labels,
-			},
-		}
+	for {
+		select {
+		case metricReceived := <-s.metricsChan:
+			if metricReceived.Name == metricCollectorType {
+				metricMessage := &pb.MetricsMessage{
+					Name: metricReceived.Name,
+					Dimensions: &pb.Dimensions{
+						MesosID:            metricReceived.Dimensions.MesosID,
+						ClusterID:          metricReceived.Dimensions.ClusterID,
+						ContainerID:        metricReceived.Dimensions.ContainerID,
+						ExecutorID:         metricReceived.Dimensions.ExecutorID,
+						FrameworkName:      metricReceived.Dimensions.FrameworkName,
+						FrameworkID:        metricReceived.Dimensions.FrameworkID,
+						FrameworkRole:      metricReceived.Dimensions.FrameworkRole,
+						FrameworkPrincipal: metricReceived.Dimensions.FrameworkPrincipal,
+						Hostname:           metricReceived.Dimensions.Hostname,
+						Labels:             metricReceived.Dimensions.Labels,
+					},
+				}
 
-		for _, datapoint := range metricReceived.Datapoints {
-			metricMessage.Datapoints = append(
-				metricMessage.Datapoints,
-				&pb.Datapoint{
-					Timestamp: datapoint.Timestamp,
-					Name:      datapoint.Name,
-					Value:     fmt.Sprintf("%v", datapoint.Value),
-				})
-		}
+				for _, datapoint := range metricReceived.Datapoints {
+					metricMessage.Datapoints = append(
+						metricMessage.Datapoints,
+						&pb.Datapoint{
+							Timestamp: datapoint.Timestamp,
+							Name:      datapoint.Name,
+							Value:     fmt.Sprintf("%v", datapoint.Value),
+						})
+				}
 
-		return metricMessage, nil
+				err := server.Send(metricMessage)
+				return err
+			}
+			return fmt.Errorf("No metrics found for %s collector type.", metricCollectorType)
+		default:
+			return fmt.Errorf("No metrics available")
+		}
 	}
-	return nil, fmt.Errorf("No metrics found for %s collector type.", metricCollectorType)
+	return nil
 }
 
 func New(cfg Config) (producers.MetricsProducer, chan producers.MetricsMessage) {

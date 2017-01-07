@@ -60,15 +60,23 @@ func main() {
 	defer conn.Close()
 	c := pb.NewMetricsClient(conn)
 
-	r, err := c.AttachOutputStream(context.Background(), &pb.MetricsCollectorType{Type: "node"})
+	metricsStream, err := c.AttachOutputStream(context.Background(), &pb.MetricsCollectorType{Type: "node"})
 	if err != nil {
 		log.Fatalf("Could not get metrics message from plugin producer: %v", err)
 	}
-	log.Printf("Metric Received: %s", r.Name)
-	for _, dp := range r.Datapoints {
-		log.WithFields(log.Fields{
-			"Metric Collector": r.Name,
-		}).Infof("%s: %+v", dp.Name, dp.Value)
+
+	for {
+		if r, err := metricsStream.Recv(); err != nil {
+			log.Errorf("Error receiving metrics stream, %s", err.Error())
+			time.Sleep(15 * time.Second)
+		} else {
+			log.Printf("Metric Received: %s", r.Name)
+			for _, dp := range r.Datapoints {
+				log.WithFields(log.Fields{
+					"Metric Collector": r.Name,
+				}).Infof("%s: %+v", dp.Name, dp.Value)
+			}
+		}
 	}
 }
 

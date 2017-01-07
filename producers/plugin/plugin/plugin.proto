@@ -17,7 +17,7 @@ syntax = "proto3";
 package plugin;
 
 service Metrics {
-	rpc AttachOutputStream (MetricsCollectorType) returns (MetricsMessage) {}
+	rpc AttachOutputStream (MetricsCollectorType) returns (stream MetricsMessage) {}
 }
 
 // Specifies the type of metrics message to recieve. This is based on the 
