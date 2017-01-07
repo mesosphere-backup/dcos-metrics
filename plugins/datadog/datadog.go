@@ -60,7 +60,7 @@ func main() {
 	defer conn.Close()
 	c := pb.NewMetricsClient(conn)
 
-	r, err := c.AttachOutputStream(context.Background(), &pb.MetricsCollectorType{Type: "foo"})
+	r, err := c.AttachOutputStream(context.Background(), &pb.MetricsCollectorType{Type: "node"})
 	if err != nil {
 		log.Fatalf("Could not get metrics message from plugin producer: %v", err)
 	}
