@@ -28,7 +28,7 @@ import (
 	pb "github.com/dcos/dcos-metrics/producers/plugin/plugin"
 )
 
-var plugLog = log.WithFields(log.Fields{
+var plog = log.WithFields(log.Fields{
 	"producer": "plugin",
 })
 
@@ -54,9 +54,12 @@ func (s *metricsServerImpl) AttachOutputStream(metricType *pb.MetricsCollectorTy
 	metricCollectorType := fmt.Sprintf("dcos.metrics.%s", metricType.Type)
 
 	for {
+		plog.Debug("Checking channel for metrics of collector type %s", metricCollectorType)
 		select {
 		case metricReceived := <-s.metricsChan:
+			plog.Debug("Got metric on metric chan")
 			if metricReceived.Name == metricCollectorType {
+				plog.Debug("Found metric for collector type %s", metricCollectorType)
 				metricMessage := &pb.MetricsMessage{
 					Name: metricReceived.Name,
 					Dimensions: &pb.Dimensions{
@@ -74,6 +77,7 @@ func (s *metricsServerImpl) AttachOutputStream(metricType *pb.MetricsCollectorTy
 				}
 
 				for _, datapoint := range metricReceived.Datapoints {
+					plog.Debug("Adding datapoints from metric channel to protobuf message")
 					metricMessage.Datapoints = append(
 						metricMessage.Datapoints,
 						&pb.Datapoint{
@@ -83,7 +87,9 @@ func (s *metricsServerImpl) AttachOutputStream(metricType *pb.MetricsCollectorTy
 						})
 				}
 
+				plog.Debug("Attempting to send protobuf message")
 				err := server.Send(metricMessage)
+				plog.Debugf("Sent protobuf message, error returned is %s", err.Error())
 				return err
 			}
 			return fmt.Errorf("No metrics found for %s collector type.", metricCollectorType)
@@ -103,10 +109,10 @@ func New(cfg Config) (producers.MetricsProducer, chan producers.MetricsMessage) 
 }
 
 func (p *producerImpl) Run() error {
-	plugLog.Info("Starting plugin gRPC/TCP listening service")
+	plog.Info("Starting plugin gRPC/TCP listening service")
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", p.config.Port))
 	if err != nil {
-		plugLog.Fatalf("Failed to start TCP listening, %v", err)
+		plog.Fatalf("Failed to start TCP listening, %v", err)
 	}
 	s := grpc.NewServer()
 	pb.RegisterMetricsServer(s, &metricsServerImpl{
@@ -114,7 +120,7 @@ func (p *producerImpl) Run() error {
 	})
 	reflection.Register(s)
 	if err := s.Serve(listener); err != nil {
-		plugLog.Fatalf("Failed to serve, %v", err)
+		plog.Fatalf("Failed to serve, %v", err)
 	}
 	return nil
 }
