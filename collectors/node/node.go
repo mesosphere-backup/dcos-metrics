@@ -162,9 +162,69 @@ func (c *Collector) buildDatapoints(in interface{}, t time.Time) []producers.Dat
 			continue
 		}
 
+		// Get the unit for the metric
+		var un string
+		uSlice := strings.Split(parsed.String(), ".")
+
+		if len(uSlice) == 0 {
+			log.Error("Empty metric passed to buildDatapoints() function")
+			return pts
+		}
+
+		uName := uSlice[0]
+		if len(uSlice) > 1 {
+			uName = uSlice[len(uSlice)-1]
+		}
+
+		mName := uSlice[0]
+
+		const (
+			BYTES = "bytes"
+			COUNT = "count"
+		)
+
+		switch mName {
+		case "memory":
+
+			switch uName {
+			case "free", "buffers", "cached":
+				un = BYTES
+			default:
+				un = COUNT
+			}
+
+		case "swap":
+			un = BYTES
+
+		case "filesystem":
+			fsType := uName
+			if len(uSlice) >= 3 {
+				fsType = uSlice[len(uSlice)-2]
+			}
+
+			switch fsType {
+			case "capacity":
+				un = BYTES
+			default:
+				un = COUNT
+			}
+
+		case "network":
+
+			switch uName {
+			case "bytes":
+				un = BYTES
+			default:
+				un = COUNT
+			}
+
+		default:
+			un = COUNT
+		}
+
 		pts = append(pts, producers.Datapoint{
 			Name:      parsed.String(),
-			Unit:      "", // TODO(roger): not currently an easy way to get units
+			Unit:      un,
 			Value:     uv,
 			Timestamp: t.UTC().Format(time.RFC3339Nano),
 		})
