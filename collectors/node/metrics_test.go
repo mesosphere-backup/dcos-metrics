@@ -21,84 +21,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dcos/dcos-metrics/producers"
 	"github.com/shirou/gopsutil/cpu"
 	. "github.com/smartystreets/goconvey/convey"
-)
-
-var (
-	mockNodeMetrics = nodeMetrics{
-		Uptime:          uint64(7865),
-		ProcessCount:    3,
-		NumCores:        4,
-		Load1Min:        float64(0.42),
-		Load5Min:        float64(0.58),
-		Load15Min:       float64(0.57),
-		CPUTotalPct:     float64(12.50),
-		CPUUserPct:      float64(9.60),
-		CPUSystemPct:    float64(2.90),
-		CPUIdlePct:      float64(87.40),
-		CPUWaitPct:      float64(0.10),
-		MemTotalBytes:   uint64(16310888 * 1024),
-		MemFreeBytes:    uint64(9121592 * 1024),
-		MemBuffersBytes: uint64(101784 * 1024),
-		MemCachedBytes:  uint64(2909412 * 1024),
-		SwapTotalBytes:  uint64(16658428 * 1024),
-		SwapFreeBytes:   uint64(16658421 * 1024),
-		SwapUsedBytes:   uint64(1 * 1024),
-		Filesystems: []nodeFilesystem{
-			nodeFilesystem{
-				Name:               "/",
-				CapacityTotalBytes: uint64(449660412 * 1024),
-				CapacityUsedBytes:  uint64(25819220 * 1024),
-				CapacityFreeBytes:  uint64(423841192 * 1024),
-			},
-			nodeFilesystem{
-				Name:               "/boot",
-				CapacityTotalBytes: uint64(458961 * 1024),
-				CapacityUsedBytes:  uint64(191925 * 1024),
-				CapacityFreeBytes:  uint64(267036 * 1024),
-			},
-		},
-		NetworkInterfaces: []nodeNetworkInterface{
-			nodeNetworkInterface{
-				Name:      "eth0",
-				RxBytes:   uint64(260522667),
-				TxBytes:   uint64(10451619),
-				RxPackets: uint64(1058595),
-				TxPackets: uint64(62547),
-				RxDropped: uint64(99),
-				TxDropped: uint64(99),
-				RxErrors:  uint64(99),
-				TxErrors:  uint64(99),
-			},
-			nodeNetworkInterface{
-				Name:      "lo",
-				RxBytes:   uint64(7939933),
-				TxBytes:   uint64(8139647),
-				RxPackets: uint64(133276),
-				TxPackets: uint64(133002),
-				RxDropped: uint64(88),
-				TxDropped: uint64(88),
-				RxErrors:  uint64(88),
-				TxErrors:  uint64(88),
-			},
-		},
-	}
 )
 
 func TestGetNodeMetrics(t *testing.T) {
 	Convey("When getting node metrics, should return nodeMetrics type", t, func() {
 		m, err := getNodeMetrics()
 		So(err, ShouldBeNil)
-		So(m, ShouldHaveSameTypeAs, nodeMetrics{})
 
-		// smoke test certain values that should always be > 0
-		So(m.Uptime, ShouldBeGreaterThan, 0)
-		So(m.ProcessCount, ShouldBeGreaterThan, 0)
-		So(m.NumCores, ShouldBeGreaterThan, 0)
-		So(m.MemTotalBytes, ShouldBeGreaterThan, 0)
-		So(len(m.Filesystems), ShouldBeGreaterThan, 0)
-		So(len(m.NetworkInterfaces), ShouldBeGreaterThan, 0)
+		So(len(m), ShouldBeGreaterThan, 0)
+
+		for _, dp := range m {
+			So(dp, ShouldHaveSameTypeAs, producers.Datapoint{})
+		}
 	})
 }
 
@@ -193,22 +130,22 @@ func TestGetCPUTimes(t *testing.T) {
 	})
 }
 
-func TestGetFilesystems(t *testing.T) {
-	Convey("When getting filesystems", t, func() {
-		Convey("Should return a list containing nodeFilesystem{} structs", func() {
-			fs := getFilesystems()
-			So(len(fs), ShouldBeGreaterThan, 0)
-			So(fs, ShouldHaveSameTypeAs, []nodeFilesystem{})
-		})
-	})
-}
-
-func TestGetNetworkInterfaces(t *testing.T) {
-	Convey("When getting network interfaces", t, func() {
-		Convey("Should return a list containing nodeNetworkInterface{} structs", func() {
-			ifs := getNetworkInterfaces()
-			So(len(ifs), ShouldBeGreaterThan, 0)
-			So(ifs, ShouldHaveSameTypeAs, []nodeNetworkInterface{})
-		})
-	})
-}
+//func TestGetFilesystems(t *testing.T) {
+//	Convey("When getting filesystems", t, func() {
+//		Convey("Should return a list containing nodeFilesystem{} structs", func() {
+//			fs := getFilesystems()
+//			So(len(fs), ShouldBeGreaterThan, 0)
+//			So(fs, ShouldHaveSameTypeAs, []nodeFilesystem{})
+//		})
+//	})
+//}
+//
+//func TestGetNetworkInterfaces(t *testing.T) {
+//	Convey("When getting network interfaces", t, func() {
+//		Convey("Should return a list containing nodeNetworkInterface{} structs", func() {
+//			ifs := getNetworkInterfaces()
+//			So(len(ifs), ShouldBeGreaterThan, 0)
+//			So(ifs, ShouldHaveSameTypeAs, []nodeNetworkInterface{})
+//		})
+//	})
+//}
