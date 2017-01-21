@@ -17,9 +17,6 @@
 package node
 
 import (
-	"net/url"
-	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -28,26 +25,37 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestBuildDatapoints(t *testing.T) {
-	testTime, err := time.Parse(time.RFC3339Nano, "2009-11-10T23:00:00Z")
-	if err != nil {
-		panic(err)
+func TestNew(t *testing.T) {
+	cfg := Collector{
+		PollPeriod: 1,
 	}
 
-	Convey("When building a slice of producers.Datapoint for a MetricsMessage", t, func() {
-		Convey("Should return the node's datapoints with valid tags and values", func() {
-			c := Collector{}
-			result := c.buildDatapoints(mockNodeMetrics, testTime)
-			So(len(result), ShouldEqual, 46)
-			So(result[0].Name, ShouldEqual, "uptime")
-			So(result[0].Unit, ShouldEqual, "") // TODO(roger): no easy way to get units
-			So(result[0].Value, ShouldEqual, uint64(7865))
-			So(result[0].Timestamp, ShouldEqual, "2009-11-10T23:00:00Z")
-		})
-	})
+	c, chn := New(cfg, collectors.NodeInfo{})
+	if c.PollPeriod != 1 {
+		t.Error("Expected pollperiod to be 1, got", c.PollPeriod)
+	}
+
+	if len(chn) != 0 {
+		t.Error("expected empty channel, got", len(chn))
+	}
 }
 
 func TestTransform(t *testing.T) {
+	mockers := []nodeMetricPoller{
+		&mockProcess,
+		&mockUptime,
+		&mockCpuMetric,
+		&mockLoad,
+		&mockMemory,
+		&mockFS,
+		&mockNet,
+	}
+	mockNodeCollector := nodeCollector{}
+
+	for _, m := range mockers {
+		m.addDatapoints(&mockNodeCollector)
+	}
+
 	Convey("When transforming agent metrics to fit producers.MetricsMessage", t, func() {
 		testTime, err := time.Parse(time.RFC3339Nano, "2009-11-10T23:00:00Z")
 		if err != nil {
@@ -61,7 +69,7 @@ func TestTransform(t *testing.T) {
 				MesosID:   "test-mesos-id",
 				ClusterID: "test-cluster-id",
 			},
-			nodeMetrics: mockNodeMetrics,
+			nodeMetrics: mockNodeCollector.datapoints,
 			timestamp:   testTime.UTC().Unix(),
 		}
 
@@ -74,16 +82,4 @@ func TestTransform(t *testing.T) {
 			So(result[0].Datapoints[0].Timestamp, ShouldEqual, "2009-11-10T23:00:00Z")
 		})
 	})
-}
-
-func extractPortFromURL(u string) (int, error) {
-	parsed, err := url.Parse(u)
-	if err != nil {
-		return 0, err
-	}
-	port, err := strconv.Atoi(strings.Split(parsed.Host, ":")[1])
-	if err != nil {
-		return 0, err
-	}
-	return port, nil
 }
