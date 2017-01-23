@@ -39,7 +39,12 @@ func (m *cpuCoresMetric) poll() error {
 		return err
 	}
 
-	cpuStatePcts := calculatePcts(getCPUTimes())
+	currentTime, lastTime, err := getCPUTimes()
+	if err != nil {
+		return err
+	}
+
+	cpuStatePcts := calculatePcts(currentTime, lastTime)
 
 	m.cpuCores = hi
 	m.timestamp = ts
@@ -92,10 +97,7 @@ func (m *cpuCoresMetric) addDatapoints(nc *nodeCollector) error {
 		},
 	}
 
-	for _, dp := range cpuDps {
-		nc.datapoints = append(nc.datapoints, dp)
-	}
-
+	nc.datapoints = append(nc.datapoints, cpuDps...)
 	return nil
 }
 
@@ -127,15 +129,19 @@ func init() {
 	lastCPU.Unlock()
 }
 
-func getCPUTimes() (cpu.TimesStat, cpu.TimesStat) {
-	currentTimes, _ := cpu.Times(false) // get totals, not per-cpu stats
+func getCPUTimes() (cpu.TimesStat, cpu.TimesStat, error) {
+	currentTimes, err := cpu.Times(false) // get totals, not per-cpu stats
+	if err != nil {
+		return cpu.TimesStat{}, cpu.TimesStat{}, err
+	}
+
 	lastTimes := lastCPU.times
 
 	lastCPU.Lock()
 	lastCPU.times = currentTimes[0] // update lastTimes to the currentTimes
 	lastCPU.Unlock()
 
-	return currentTimes[0], lastTimes
+	return currentTimes[0], lastTimes, nil
 }
 
 // calculatePct returns the percent utilization for CPU states. 100.00 => 100.00%
