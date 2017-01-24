@@ -25,13 +25,13 @@ func TestProcessAddDatapoints(t *testing.T) {
 
 	mockNc := nodeCollector{}
 
-	err := mockProcess.addDatapoints(&mockNc)
+	dps, err := mockProcess.getDatapoints()
 
 	if err != nil {
 		t.Errorf("Expected no errors getting datapoints from mockCPU, got %s", err.Error())
 	}
 
-	if len(mockNc.datapoints) != 1 {
+	if len(dps) != 1 {
 		t.Error("Expected 6 CPU metric datapoints, got", len(mockNc.datapoints))
 	}
 

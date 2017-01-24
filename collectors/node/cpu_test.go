@@ -35,17 +35,17 @@ var (
 	}
 )
 
-func TestCPUAddDatapoints(t *testing.T) {
+func TestCPUGetDatapoints(t *testing.T) {
 
 	mockNc := nodeCollector{}
 
-	err := mockCpuMetric.addDatapoints(&mockNc)
+	dps, err := mockCpuMetric.getDatapoints()
 
 	if err != nil {
 		t.Errorf("Expected no errors getting datapoints from mockCPU, got %s", err.Error())
 	}
 
-	if len(mockNc.datapoints) != 6 {
+	if len(dps) != 6 {
 		t.Error("Expected 6 CPU metric datapoints, got", len(mockNc.datapoints))
 	}
 
@@ -135,7 +135,10 @@ func TestGetCPUTimes(t *testing.T) {
 	Convey("When getting CPU times", t, func() {
 		Convey("Should return both the current times and last times (so that percentages can be calculated)", func() {
 			time.Sleep(1 * time.Second)
-			cur, last := getCPUTimes()
+			cur, last, err := getCPUTimes()
+			if err != nil {
+				t.Fatal(err)
+			}
 			So(cur.User, ShouldBeGreaterThan, last.User)
 			So(cur.Idle, ShouldBeGreaterThan, last.Idle)
 		})

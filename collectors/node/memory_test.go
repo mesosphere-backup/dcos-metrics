@@ -30,13 +30,13 @@ var mockMemory = memoryMetric{
 func TestMemoryAddDatapoints(t *testing.T) {
 	mockNc := nodeCollector{}
 
-	err := mockMemory.addDatapoints(&mockNc)
+	dps, err := mockMemory.getDatapoints()
 
 	if err != nil {
 		t.Errorf("Expected no errors getting datapoints from mockCPU, got %s", err.Error())
 	}
 
-	if len(mockNc.datapoints) != 7 {
+	if len(dps) != 7 {
 		t.Error("Expected 6 CPU metric datapoints, got", len(mockNc.datapoints))
 	}
 

@@ -50,13 +50,13 @@ var (
 func TestNetworkAddDatapoints(t *testing.T) {
 	mockNc := nodeCollector{}
 
-	err := mockNet.addDatapoints(&mockNc)
+	dps, err := mockNet.getDatapoints()
 
 	if err != nil {
 		t.Errorf("Expected no errors getting datapoints from mockCPU, got %s", err.Error())
 	}
 
-	if len(mockNc.datapoints) != 16 {
+	if len(dps) != 16 {
 		t.Error("Expected 6 CPU metric datapoints, got", len(mockNc.datapoints))
 	}
 

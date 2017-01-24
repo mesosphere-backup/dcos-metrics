@@ -44,13 +44,13 @@ var mockFS = filesystemMetrics{
 func TestFilesystemAddDatapoints(t *testing.T) {
 	mockNc := nodeCollector{}
 
-	err := mockFS.addDatapoints(&mockNc)
+	dps, err := mockFS.getDatapoints()
 
 	if err != nil {
 		t.Errorf("Expected no errors getting datapoints from mockCPU, got %s", err.Error())
 	}
 
-	if len(mockNc.datapoints) != 12 {
+	if len(dps) != 12 {
 		t.Error("Expected 6 CPU metric datapoints, got", len(mockNc.datapoints))
 	}
 
