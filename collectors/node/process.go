@@ -35,15 +35,14 @@ func (m *processMetrics) poll() error {
 	return nil
 }
 
-func (m *processMetrics) addDatapoints(nc *nodeCollector) error {
-	nc.datapoints = append(nc.datapoints, producers.Datapoint{
-		Name:      PROCESS_COUNT,
-		Unit:      COUNT,
-		Value:     m.processCount,
-		Timestamp: m.timestamp,
-	})
-
-	return nil
+func (m *processMetrics) getDatapoints() ([]producers.Datapoint, error) {
+	return []producers.Datapoint{
+		producers.Datapoint{
+			Name:      PROCESS_COUNT,
+			Unit:      COUNT,
+			Value:     m.processCount,
+			Timestamp: m.timestamp,
+		}}, nil
 }
 
 func getProcessCount() (uint64, error) {

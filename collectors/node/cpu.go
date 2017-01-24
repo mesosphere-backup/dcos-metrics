@@ -57,8 +57,8 @@ func (m *cpuCoresMetric) poll() error {
 	return nil
 }
 
-func (m *cpuCoresMetric) addDatapoints(nc *nodeCollector) error {
-	cpuDps := []producers.Datapoint{
+func (m *cpuCoresMetric) getDatapoints() ([]producers.Datapoint, error) {
+	return []producers.Datapoint{
 		producers.Datapoint{
 			Name:      CPU_CORES,
 			Unit:      COUNT,
@@ -95,10 +95,7 @@ func (m *cpuCoresMetric) addDatapoints(nc *nodeCollector) error {
 			Value:     m.cpuWait,
 			Timestamp: m.timestamp,
 		},
-	}
-
-	nc.datapoints = append(nc.datapoints, cpuDps...)
-	return nil
+	}, nil
 }
 
 // -- helpers

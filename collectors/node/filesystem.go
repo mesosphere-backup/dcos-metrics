@@ -65,12 +65,13 @@ func (m *filesystemMetrics) poll() error {
 	return nil
 }
 
-func (m *filesystemMetrics) addDatapoints(nc *nodeCollector) error {
+func (m *filesystemMetrics) getDatapoints() ([]producers.Datapoint, error) {
+	var fsDps []producers.Datapoint
 	/* Enumerate each filesystem found and add a datapoint object contining the
 	capacity and inode metrics plus a tag denoting the filesystem
 	path from which these came */
 	for _, fs := range m.fsMetrics {
-		nc.datapoints = append(nc.datapoints, producers.Datapoint{
+		fsDps = append(fsDps, producers.Datapoint{
 			Name:      FS_CAP_TOTAL,
 			Unit:      BYTES,
 			Value:     fs.capTotal,
@@ -79,7 +80,7 @@ func (m *filesystemMetrics) addDatapoints(nc *nodeCollector) error {
 				"path": fs.path,
 			},
 		})
-		nc.datapoints = append(nc.datapoints, producers.Datapoint{
+		fsDps = append(fsDps, producers.Datapoint{
 			Name:      FS_CAP_USED,
 			Unit:      BYTES,
 			Value:     fs.capUsed,
@@ -88,7 +89,7 @@ func (m *filesystemMetrics) addDatapoints(nc *nodeCollector) error {
 				"path": fs.path,
 			},
 		})
-		nc.datapoints = append(nc.datapoints, producers.Datapoint{
+		fsDps = append(fsDps, producers.Datapoint{
 			Name:      FS_CAP_FREE,
 			Unit:      BYTES,
 			Value:     fs.capFree,
@@ -97,7 +98,7 @@ func (m *filesystemMetrics) addDatapoints(nc *nodeCollector) error {
 				"path": fs.path,
 			},
 		})
-		nc.datapoints = append(nc.datapoints, producers.Datapoint{
+		fsDps = append(fsDps, producers.Datapoint{
 			Name:      FS_INODE_TOTAL,
 			Unit:      COUNT,
 			Value:     fs.inodesTotal,
@@ -106,7 +107,7 @@ func (m *filesystemMetrics) addDatapoints(nc *nodeCollector) error {
 				"path": fs.path,
 			},
 		})
-		nc.datapoints = append(nc.datapoints, producers.Datapoint{
+		fsDps = append(fsDps, producers.Datapoint{
 			Name:      FS_INODE_USED,
 			Unit:      COUNT,
 			Value:     fs.inodesUsed,
@@ -115,7 +116,7 @@ func (m *filesystemMetrics) addDatapoints(nc *nodeCollector) error {
 				"path": fs.path,
 			},
 		})
-		nc.datapoints = append(nc.datapoints, producers.Datapoint{
+		fsDps = append(fsDps, producers.Datapoint{
 			Name:      FS_INODE_FREE,
 			Unit:      COUNT,
 			Value:     fs.inodesFree,
@@ -125,5 +126,5 @@ func (m *filesystemMetrics) addDatapoints(nc *nodeCollector) error {
 			},
 		})
 	}
-	return nil
+	return fsDps, nil
 }

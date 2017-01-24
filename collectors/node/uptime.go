@@ -34,12 +34,12 @@ func (m *uptimeMetric) poll() error {
 	return nil
 }
 
-func (m *uptimeMetric) addDatapoints(nc *nodeCollector) error {
-	nc.datapoints = append(nc.datapoints, producers.Datapoint{
-		Name:      UPTIME,
-		Unit:      COUNT,
-		Value:     m.uptime,
-		Timestamp: m.timestamp,
-	})
-	return nil
+func (m *uptimeMetric) getDatapoints() ([]producers.Datapoint, error) {
+	return []producers.Datapoint{
+		producers.Datapoint{
+			Name:      UPTIME,
+			Unit:      COUNT,
+			Value:     m.uptime,
+			Timestamp: m.timestamp,
+		}}, nil
 }

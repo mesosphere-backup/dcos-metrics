@@ -80,7 +80,7 @@ type nodeCollector struct {
 
 type nodeMetricPoller interface {
 	poll() error
-	addDatapoints(*nodeCollector) error
+	getDatapoints() ([]producers.Datapoint, error)
 }
 
 func getNodeMetrics() ([]producers.Datapoint, error) {
@@ -104,8 +104,10 @@ func getNodeMetrics() ([]producers.Datapoint, error) {
 			return nc.datapoints, err
 		}
 
-		if err := mp.addDatapoints(&nc); err != nil {
+		if dps, err := mp.getDatapoints(); err != nil {
 			return nc.datapoints, err
+		} else {
+			nc.datapoints = append(nc.datapoints, dps...)
 		}
 	}
 

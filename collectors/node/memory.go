@@ -56,8 +56,8 @@ func (m *memoryMetric) poll() error {
 	return nil
 }
 
-func (m *memoryMetric) addDatapoints(nc *nodeCollector) error {
-	memDps := []producers.Datapoint{
+func (m *memoryMetric) getDatapoints() ([]producers.Datapoint, error) {
+	return []producers.Datapoint{
 		producers.Datapoint{
 			Name:      MEM_TOTAL,
 			Unit:      BYTES,
@@ -100,13 +100,7 @@ func (m *memoryMetric) addDatapoints(nc *nodeCollector) error {
 			Value:     m.swapUsed,
 			Timestamp: m.timestamp,
 		},
-	}
-
-	for _, dp := range memDps {
-		nc.datapoints = append(nc.datapoints, dp)
-	}
-
-	return nil
+	}, nil
 }
 
 /* Helpers */

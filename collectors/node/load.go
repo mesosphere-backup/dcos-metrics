@@ -41,8 +41,8 @@ func (m *loadMetric) poll() error {
 	return nil
 }
 
-func (m *loadMetric) addDatapoints(nc *nodeCollector) error {
-	loadDps := []producers.Datapoint{
+func (m *loadMetric) getDatapoints() ([]producers.Datapoint, error) {
+	return []producers.Datapoint{
 		producers.Datapoint{
 			Name:      LOAD_1MIN,
 			Unit:      COUNT,
@@ -61,10 +61,5 @@ func (m *loadMetric) addDatapoints(nc *nodeCollector) error {
 			Value:     m.load15Min,
 			Timestamp: m.timestamp,
 		},
-	}
-	for _, dp := range loadDps {
-		nc.datapoints = append(nc.datapoints, dp)
-	}
-
-	return nil
+	}, nil
 }

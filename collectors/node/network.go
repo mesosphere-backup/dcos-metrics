@@ -65,10 +65,10 @@ func (m *networkMetrics) poll() error {
 	return nil
 }
 
-func (m *networkMetrics) addDatapoints(nc *nodeCollector) error {
-
+func (m *networkMetrics) getDatapoints() ([]producers.Datapoint, error) {
+	var ncDps []producers.Datapoint
 	for _, nic := range m.interfaces {
-		nc.datapoints = append(nc.datapoints, producers.Datapoint{
+		ncDps = append(ncDps, producers.Datapoint{
 			Name:      NET_IN,
 			Unit:      BYTES,
 			Value:     nic.netIn,
@@ -78,7 +78,7 @@ func (m *networkMetrics) addDatapoints(nc *nodeCollector) error {
 			},
 		})
 
-		nc.datapoints = append(nc.datapoints, producers.Datapoint{
+		ncDps = append(ncDps, producers.Datapoint{
 			Name:      NET_OUT,
 			Unit:      BYTES,
 			Value:     nic.netOut,
@@ -88,7 +88,7 @@ func (m *networkMetrics) addDatapoints(nc *nodeCollector) error {
 			},
 		})
 
-		nc.datapoints = append(nc.datapoints, producers.Datapoint{
+		ncDps = append(ncDps, producers.Datapoint{
 			Name:      NET_IN_PACKETS,
 			Unit:      COUNT,
 			Value:     nic.netInPackets,
@@ -98,7 +98,7 @@ func (m *networkMetrics) addDatapoints(nc *nodeCollector) error {
 			},
 		})
 
-		nc.datapoints = append(nc.datapoints, producers.Datapoint{
+		ncDps = append(ncDps, producers.Datapoint{
 			Name:      NET_OUT_PACKETS,
 			Unit:      COUNT,
 			Value:     nic.netOutPackets,
@@ -108,7 +108,7 @@ func (m *networkMetrics) addDatapoints(nc *nodeCollector) error {
 			},
 		})
 
-		nc.datapoints = append(nc.datapoints, producers.Datapoint{
+		ncDps = append(ncDps, producers.Datapoint{
 			Name:      NET_IN_DROPPED,
 			Unit:      COUNT,
 			Value:     nic.netInDropped,
@@ -118,7 +118,7 @@ func (m *networkMetrics) addDatapoints(nc *nodeCollector) error {
 			},
 		})
 
-		nc.datapoints = append(nc.datapoints, producers.Datapoint{
+		ncDps = append(ncDps, producers.Datapoint{
 			Name:      NET_OUT_DROPPED,
 			Unit:      COUNT,
 			Value:     nic.netOutDropped,
@@ -128,7 +128,7 @@ func (m *networkMetrics) addDatapoints(nc *nodeCollector) error {
 			},
 		})
 
-		nc.datapoints = append(nc.datapoints, producers.Datapoint{
+		ncDps = append(ncDps, producers.Datapoint{
 			Name:      NET_IN_ERRORS,
 			Unit:      COUNT,
 			Value:     nic.netInErrors,
@@ -138,7 +138,7 @@ func (m *networkMetrics) addDatapoints(nc *nodeCollector) error {
 			},
 		})
 
-		nc.datapoints = append(nc.datapoints, producers.Datapoint{
+		ncDps = append(ncDps, producers.Datapoint{
 			Name:      NET_OUT_ERRORS,
 			Unit:      COUNT,
 			Value:     nic.netOutErrors,
@@ -149,5 +149,5 @@ func (m *networkMetrics) addDatapoints(nc *nodeCollector) error {
 		})
 	}
 
-	return nil
+	return ncDps, nil
 }
