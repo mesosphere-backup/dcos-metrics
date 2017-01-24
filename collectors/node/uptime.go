@@ -1,5 +1,3 @@
-//+build unit
-
 // Copyright 2016 Mesosphere, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,21 +15,31 @@
 package node
 
 import (
-	"testing"
-
 	"github.com/dcos/dcos-metrics/producers"
-	. "github.com/smartystreets/goconvey/convey"
+	"github.com/shirou/gopsutil/host"
 )
 
-func TestGetNodeMetrics(t *testing.T) {
-	Convey("When getting node metrics, should return nodeMetrics type", t, func() {
-		m, err := getNodeMetrics()
-		So(err, ShouldBeNil)
+type uptimeMetric struct {
+	uptime    uint64
+	timestamp string
+}
 
-		So(len(m), ShouldBeGreaterThan, 0)
+func (m *uptimeMetric) poll() error {
+	uptime, err := host.Uptime()
+	if err != nil {
+		return err
+	}
+	m.uptime = uptime
+	m.timestamp = thisTime()
+	return nil
+}
 
-		for _, dp := range m {
-			So(dp, ShouldHaveSameTypeAs, producers.Datapoint{})
-		}
-	})
+func (m *uptimeMetric) getDatapoints() ([]producers.Datapoint, error) {
+	return []producers.Datapoint{
+		producers.Datapoint{
+			Name:      UPTIME,
+			Unit:      COUNT,
+			Value:     m.uptime,
+			Timestamp: m.timestamp,
+		}}, nil
 }

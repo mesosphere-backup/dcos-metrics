@@ -1,5 +1,3 @@
-//+build unit
-
 // Copyright 2016 Mesosphere, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,22 +14,27 @@
 
 package node
 
-import (
-	"testing"
+import "testing"
 
-	"github.com/dcos/dcos-metrics/producers"
-	. "github.com/smartystreets/goconvey/convey"
-)
+var mockLoad = loadMetric{
+	load1Min:  float64(0.42),
+	load5Min:  float64(0.58),
+	load15Min: float64(0.57),
+	timestamp: "2009-11-10T23:00:00Z",
+}
 
-func TestGetNodeMetrics(t *testing.T) {
-	Convey("When getting node metrics, should return nodeMetrics type", t, func() {
-		m, err := getNodeMetrics()
-		So(err, ShouldBeNil)
+func TestLoadAddDatapoints(t *testing.T) {
 
-		So(len(m), ShouldBeGreaterThan, 0)
+	mockNc := nodeCollector{}
 
-		for _, dp := range m {
-			So(dp, ShouldHaveSameTypeAs, producers.Datapoint{})
-		}
-	})
+	dps, err := mockLoad.getDatapoints()
+
+	if err != nil {
+		t.Errorf("Expected no errors getting datapoints from mockCPU, got %s", err.Error())
+	}
+
+	if len(dps) != 3 {
+		t.Error("Expected 6 CPU metric datapoints, got", len(mockNc.datapoints))
+	}
+
 }

@@ -15,10 +15,6 @@
 package node
 
 import (
-	"bytes"
-	"reflect"
-	"strings"
-	"text/template"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -39,7 +35,7 @@ type Collector struct {
 	log *log.Entry
 
 	nodeInfo    collectors.NodeInfo
-	nodeMetrics nodeMetrics
+	nodeMetrics []producers.Datapoint
 	timestamp   int64
 }
 
@@ -93,7 +89,7 @@ func (c *Collector) transform() (out []producers.MetricsMessage) {
 	// Produce node metrics
 	msg = producers.MetricsMessage{
 		Name:       producers.NodeMetricPrefix,
-		Datapoints: c.buildDatapoints(c.nodeMetrics, t),
+		Datapoints: c.nodeMetrics,
 		Dimensions: producers.Dimensions{
 			MesosID:   c.nodeInfo.MesosID,
 			ClusterID: c.nodeInfo.ClusterID,
@@ -104,70 +100,4 @@ func (c *Collector) transform() (out []producers.MetricsMessage) {
 	out = append(out, msg)
 
 	return out
-}
-
-// buildDatapoints takes an incoming structure and builds Datapoints
-// for a MetricsMessage. It uses a normalized version of the JSON tag
-// as the datapoint name.
-func (c *Collector) buildDatapoints(in interface{}, t time.Time) []producers.Datapoint {
-	pts := []producers.Datapoint{}
-	v := reflect.Indirect(reflect.ValueOf(in))
-
-	for i := 0; i < v.NumField(); i++ { // Iterate over fields in the struct
-		f := v.Field(i)
-		typ := v.Type().Field(i)
-
-		switch f.Kind() { // Handle nested data
-		case reflect.Ptr:
-			pts = append(pts, c.buildDatapoints(f.Elem().Interface(), t)...)
-			continue
-		case reflect.Map:
-			// Ignore maps when building datapoints
-			continue
-		case reflect.Slice:
-			for j := 0; j < f.Len(); j++ {
-				for _, ndp := range c.buildDatapoints(f.Index(j).Interface(), t) {
-					pts = append(pts, ndp)
-				}
-			}
-			continue
-		case reflect.Struct:
-			pts = append(pts, c.buildDatapoints(f.Interface(), t)...)
-			continue
-		}
-
-		// Get the underlying value; see https://golang.org/pkg/reflect/#Kind
-		var uv interface{}
-		switch f.Kind() {
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			uv = f.Int()
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			uv = f.Uint()
-		case reflect.Float32, reflect.Float64:
-			uv = f.Float()
-		case reflect.String:
-			continue // strings aren't valid values for our metrics
-		}
-
-		// Parse JSON name (with or without templating)
-		var parsed bytes.Buffer
-		jsonName := strings.Join([]string{strings.Split(typ.Tag.Get("json"), ",")[0]}, producers.MetricNamespaceSep)
-		tmpl, err := template.New("_nodeMetricName").Parse(jsonName)
-		if err != nil {
-			c.log.Warn("Unable to build datapoint for metric with name %s, skipping", jsonName)
-			continue
-		}
-		if err := tmpl.Execute(&parsed, v.Interface()); err != nil {
-			c.log.Warn("Unable to build datapoint for metric with name %s, skipping", jsonName)
-			continue
-		}
-
-		pts = append(pts, producers.Datapoint{
-			Name:      parsed.String(),
-			Unit:      "", // TODO(roger): not currently an easy way to get units
-			Value:     uv,
-			Timestamp: t.UTC().Format(time.RFC3339Nano),
-		})
-	}
-	return pts
 }

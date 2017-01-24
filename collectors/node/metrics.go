@@ -15,225 +15,107 @@
 package node
 
 import (
-	"math"
-	"sync"
+	"time"
 
-	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/disk"
-	"github.com/shirou/gopsutil/host"
-	"github.com/shirou/gopsutil/load"
-	"github.com/shirou/gopsutil/mem"
-	"github.com/shirou/gopsutil/net"
+	"github.com/dcos/dcos-metrics/producers"
 )
 
-type nodeMetrics struct {
-	Uptime       uint64 `json:"uptime"`
-	ProcessCount uint64 `json:"processes"`
+const (
+	// Unit constants
+	COUNT = "count"
+	BYTES = "bytes"
 
-	NumCores  int32   `json:"cpu.cores"`
-	Load1Min  float64 `json:"load.1min"`
-	Load5Min  float64 `json:"load.5min"`
-	Load15Min float64 `json:"load.15min"`
+	/* Metric name constants */
+	UPTIME = "uptime"
 
-	CPUTotalPct  float64 `json:"cpu.total"`
-	CPUUserPct   float64 `json:"cpu.user"`
-	CPUSystemPct float64 `json:"cpu.system"`
-	CPUIdlePct   float64 `json:"cpu.idle"`
-	CPUWaitPct   float64 `json:"cpu.wait"`
+	/* process.<namespace> */
+	PROCESS_COUNT = "process.count"
 
-	MemTotalBytes   uint64 `json:"memory.total"`
-	MemFreeBytes    uint64 `json:"memory.free"`
-	MemBuffersBytes uint64 `json:"memory.buffers"`
-	MemCachedBytes  uint64 `json:"memory.cached"`
+	/* load.<namespace> */
+	LOAD_1MIN  = "load.1min"
+	LOAD_5MIN  = "load.5min"
+	LOAD_15MIN = "load.15min"
 
-	SwapTotalBytes uint64 `json:"swap.total"`
-	SwapFreeBytes  uint64 `json:"swap.free"`
-	SwapUsedBytes  uint64 `json:"swap.used"`
+	/* load.<namespace> */
+	CPU_CORES  = "cpu.cores"
+	CPU_TOTAL  = "cpu.total"
+	CPU_USER   = "cpu.user"
+	CPU_SYSTEM = "cpu.system"
+	CPU_IDLE   = "cpu.idle"
+	CPU_WAIT   = "cpu.wait"
 
-	Filesystems       []nodeFilesystem       `json:"filesystems"`
-	NetworkInterfaces []nodeNetworkInterface `json:"network_interfaces"`
+	/* filesystem.<namespace> */
+	FS_CAP_TOTAL   = "filesystem.capacity.total"
+	FS_CAP_USED    = "filesystem.capacity.used"
+	FS_CAP_FREE    = "filesystem.capacity.free"
+	FS_INODE_TOTAL = "filesystem.inode.total"
+	FS_INODE_USED  = "filesystem.inode.used"
+	FS_INODE_FREE  = "filesystem.inode.free"
+
+	/* network.<namespace> */
+	NET_IN          = "network.in"
+	NET_OUT         = "network.out"
+	NET_IN_PACKETS  = "network.in.packets"
+	NET_OUT_PACKETS = "network.out.packets"
+	NET_IN_DROPPED  = "network_in_dropped"
+	NET_OUT_DROPPED = "network_out_dropped"
+	NET_IN_ERRORS   = "network_in_errors"
+	NET_OUT_ERRORS  = "network_out_errors"
+
+	/* memory.<namespace> */
+	MEM_TOTAL   = "memory.total"
+	MEM_FREE    = "memory.free"
+	MEM_BUFFERS = "memory.buffers"
+	MEM_CACHED  = "memory.cached"
+
+	/* swap.<namespace> */
+	SWAP_TOTAL = "swap.total"
+	SWAP_FREE  = "swap.free"
+	SWAP_USED  = "swap.used"
+)
+
+type nodeCollector struct {
+	datapoints []producers.Datapoint
 }
 
-type nodeFilesystem struct {
-	Name               string `json:"name"`
-	CapacityTotalBytes uint64 `json:"filesystem.{{.Name}}.capacity.total"`
-	CapacityUsedBytes  uint64 `json:"filesystem.{{.Name}}.capacity.used"`
-	CapacityFreeBytes  uint64 `json:"filesystem.{{.Name}}.capacity.free"`
-	InodesTotal        uint64 `json:"filesystem.{{.Name}}.inodes.total"`
-	InodesUsed         uint64 `json:"filesystem.{{.Name}}.inodes.used"`
-	InodesFree         uint64 `json:"filesystem.{{.Name}}.inodes.free"`
+type nodeMetricPoller interface {
+	poll() error
+	getDatapoints() ([]producers.Datapoint, error)
 }
 
-type nodeNetworkInterface struct {
-	Name      string `json:"name"`
-	RxBytes   uint64 `json:"network.{{.Name}}.in.bytes"`
-	TxBytes   uint64 `json:"network.{{.Name}}.out.bytes"`
-	RxPackets uint64 `json:"network.{{.Name}}.in.packets"`
-	TxPackets uint64 `json:"network.{{.Name}}.out.packets"`
-	RxDropped uint64 `json:"network.{{.Name}}.in.dropped"`
-	TxDropped uint64 `json:"network.{{.Name}}.out.dropped"`
-	RxErrors  uint64 `json:"network.{{.Name}}.in.errors"`
-	TxErrors  uint64 `json:"network.{{.Name}}.out.errors"`
-}
+func getNodeMetrics() ([]producers.Datapoint, error) {
+	nc := nodeCollector{}
 
-func getNodeMetrics() (nodeMetrics, error) {
-	l := getLoadAvg()
-	cpuStatePcts := calculatePcts(getCPUTimes())
-	m := getMemory()
-	s := getSwap()
+	nodeMetricPollers := []nodeMetricPoller{
+		&uptimeMetric{},
+		&cpuCoresMetric{},
+		&loadMetric{},
+		&filesystemMetrics{},
+		&memoryMetric{},
+		&networkMetrics{},
+		&processMetrics{},
+	}
 
-	return nodeMetrics{
-		Uptime:       getUptime(),
-		ProcessCount: getProcessCount(),
+	// For each metric poller defined, execute .poll() to get the latest
+	// metric, check for errors, and iterate over the slice of producers.Datapoint
+	// returned by .poll(), adding them to our top scope nodeMetrics slice.
+	for _, mp := range nodeMetricPollers {
+		if err := mp.poll(); err != nil {
+			return nc.datapoints, err
+		}
 
-		NumCores:  getNumCores(),
-		Load1Min:  l.Load1,
-		Load5Min:  l.Load5,
-		Load15Min: l.Load15,
+		if dps, err := mp.getDatapoints(); err != nil {
+			return nc.datapoints, err
+		} else {
+			nc.datapoints = append(nc.datapoints, dps...)
+		}
+	}
 
-		// Percentages are calculated between the last poll of the CPU times
-		// and the current times, as stored in lastCPU. 100.00 => 100.00%
-		CPUTotalPct:  cpuStatePcts.User + cpuStatePcts.System,
-		CPUUserPct:   cpuStatePcts.User,
-		CPUSystemPct: cpuStatePcts.System,
-		CPUIdlePct:   cpuStatePcts.Idle,
-		CPUWaitPct:   cpuStatePcts.Iowait,
-
-		MemTotalBytes:   m.Total,
-		MemFreeBytes:    m.Free,
-		MemBuffersBytes: m.Buffers,
-		MemCachedBytes:  m.Cached,
-
-		SwapTotalBytes: s.Total,
-		SwapFreeBytes:  s.Free,
-		SwapUsedBytes:  s.Used,
-
-		Filesystems:       getFilesystems(),
-		NetworkInterfaces: getNetworkInterfaces(),
-	}, nil
+	return nc.datapoints, nil
 }
 
 // -- helpers
 
-type lastCPUTimes struct {
-	sync.Mutex
-	times cpu.TimesStat
-}
-
-var lastCPU lastCPUTimes
-
-func init() {
-	t, _ := cpu.Times(false) // get totals, not per-cpu stats
-	lastCPU.Lock()
-	lastCPU.times = t[0]
-	lastCPU.Unlock()
-}
-
-func getUptime() uint64 {
-	uptime, _ := host.Uptime()
-	return uptime
-}
-
-func getProcessCount() uint64 {
-	i, _ := host.Info()
-	return i.Procs
-}
-
-func getNumCores() int32 {
-	cores := int32(0)
-	cpus, _ := cpu.Info()
-	for _, c := range cpus {
-		cores += c.Cores
-	}
-	return cores
-}
-
-func getLoadAvg() *load.AvgStat {
-	l, _ := load.Avg()
-	return l
-}
-
-func getCPUTimes() (cpu.TimesStat, cpu.TimesStat) {
-	currentTimes, _ := cpu.Times(false) // get totals, not per-cpu stats
-	lastTimes := lastCPU.times
-
-	lastCPU.Lock()
-	lastCPU.times = currentTimes[0] // update lastTimes to the currentTimes
-	lastCPU.Unlock()
-
-	return currentTimes[0], lastTimes
-}
-
-func getMemory() *mem.VirtualMemoryStat {
-	m, _ := mem.VirtualMemory()
-	return m
-}
-
-func getSwap() *mem.SwapMemoryStat {
-	s, _ := mem.SwapMemory()
-	return s
-}
-
-func getFilesystems() []nodeFilesystem {
-	f := []nodeFilesystem{}
-	parts, _ := disk.Partitions(false) // only physical partitions
-	for _, part := range parts {
-		usage, _ := disk.Usage(part.Mountpoint)
-		f = append(f, nodeFilesystem{
-			Name:               usage.Path,
-			CapacityTotalBytes: usage.Total,
-			CapacityUsedBytes:  usage.Used,
-			CapacityFreeBytes:  usage.Free,
-			InodesTotal:        usage.InodesTotal,
-			InodesUsed:         usage.InodesUsed,
-			InodesFree:         usage.InodesFree,
-		})
-	}
-	return f
-}
-
-func getNetworkInterfaces() []nodeNetworkInterface {
-	n := []nodeNetworkInterface{}
-	ioc, _ := net.IOCounters(true) // per nic
-	for _, nic := range ioc {
-		n = append(n, nodeNetworkInterface{
-			Name:      nic.Name,
-			RxBytes:   nic.BytesRecv,
-			TxBytes:   nic.BytesSent,
-			RxPackets: nic.PacketsRecv,
-			TxPackets: nic.PacketsSent,
-			RxDropped: nic.Dropin,
-			TxDropped: nic.Dropout,
-			RxErrors:  nic.Errin,
-			TxErrors:  nic.Errout,
-		})
-	}
-	return n
-}
-
-// calculatePct returns the percent utilization for CPU states. 100.00 => 100.00%
-func calculatePcts(lastTimes cpu.TimesStat, curTimes cpu.TimesStat) cpu.TimesStat {
-	totalDelta := curTimes.Total() - lastTimes.Total()
-	if totalDelta == 0 {
-		totalDelta = 1 // can't divide by zero
-	}
-	return cpu.TimesStat{
-		User:      round(math.Dim(curTimes.User, lastTimes.User) / totalDelta * 100),
-		System:    round(math.Dim(curTimes.System, lastTimes.System) / totalDelta * 100),
-		Idle:      round(math.Dim(curTimes.Idle, lastTimes.Idle) / totalDelta * 100),
-		Nice:      round(math.Dim(curTimes.Nice, lastTimes.Nice) / totalDelta * 100),
-		Iowait:    round(math.Dim(curTimes.Iowait, lastTimes.Iowait) / totalDelta * 100),
-		Irq:       round(math.Dim(curTimes.Irq, lastTimes.Irq) / totalDelta * 100),
-		Softirq:   round(math.Dim(curTimes.Softirq, lastTimes.Softirq) / totalDelta * 100),
-		Steal:     round(math.Dim(curTimes.Steal, lastTimes.Steal) / totalDelta * 100),
-		Guest:     round(math.Dim(curTimes.Guest, lastTimes.Guest) / totalDelta * 100),
-		GuestNice: round(math.Dim(curTimes.GuestNice, lastTimes.GuestNice) / totalDelta * 100),
-		Stolen:    round(math.Dim(curTimes.Stolen, lastTimes.Stolen) / totalDelta * 100),
-	}
-}
-
-// Helper function for rounding to two decimal places
-func round(f float64) float64 {
-	shift := math.Pow(10, float64(2))
-	return math.Floor(f*shift+.5) / shift
+func thisTime() string {
+	return time.Now().UTC().Format(time.RFC3339Nano)
 }

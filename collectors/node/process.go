@@ -1,5 +1,3 @@
-//+build unit
-
 // Copyright 2016 Mesosphere, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,21 +15,41 @@
 package node
 
 import (
-	"testing"
-
 	"github.com/dcos/dcos-metrics/producers"
-	. "github.com/smartystreets/goconvey/convey"
+	"github.com/shirou/gopsutil/host"
 )
 
-func TestGetNodeMetrics(t *testing.T) {
-	Convey("When getting node metrics, should return nodeMetrics type", t, func() {
-		m, err := getNodeMetrics()
-		So(err, ShouldBeNil)
+type processMetrics struct {
+	processCount uint64
+	timestamp    string
+}
 
-		So(len(m), ShouldBeGreaterThan, 0)
+func (m *processMetrics) poll() error {
+	procs, err := getProcessCount()
+	if err != nil {
+		return err
+	}
 
-		for _, dp := range m {
-			So(dp, ShouldHaveSameTypeAs, producers.Datapoint{})
-		}
-	})
+	m.processCount = procs
+	m.timestamp = thisTime()
+	return nil
+}
+
+func (m *processMetrics) getDatapoints() ([]producers.Datapoint, error) {
+	return []producers.Datapoint{
+		producers.Datapoint{
+			Name:      PROCESS_COUNT,
+			Unit:      COUNT,
+			Value:     m.processCount,
+			Timestamp: m.timestamp,
+		}}, nil
+}
+
+func getProcessCount() (uint64, error) {
+	i, err := host.Info()
+	if err != nil {
+		return 0, err
+	}
+
+	return i.Procs, nil
 }
