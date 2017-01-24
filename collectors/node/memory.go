@@ -34,17 +34,17 @@ func (m *memoryMetric) poll() error {
 	ts := thisTime()
 	m.timestamp = ts
 
-	mem, err := getMemory()
+	virt, err := mem.VirtualMemory()
 	if err != nil {
 		return err
 	}
 
-	m.memTotal = mem.Total
-	m.memFree = mem.Free
-	m.memBuffers = mem.Buffers
-	m.memCached = mem.Cached
+	m.memTotal = virt.Total
+	m.memFree = virt.Free
+	m.memBuffers = virt.Buffers
+	m.memCached = virt.Cached
 
-	swap, err := getSwap()
+	swap, err := mem.SwapMemory()
 	if err != nil {
 		return err
 	}
@@ -101,16 +101,4 @@ func (m *memoryMetric) getDatapoints() ([]producers.Datapoint, error) {
 			Timestamp: m.timestamp,
 		},
 	}, nil
-}
-
-/* Helpers */
-
-func getMemory() (*mem.VirtualMemoryStat, error) {
-	m, err := mem.VirtualMemory()
-	return m, err
-}
-
-func getSwap() (*mem.SwapMemoryStat, error) {
-	s, err := mem.SwapMemory()
-	return s, err
 }
