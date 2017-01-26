@@ -30,6 +30,7 @@ const (
 
 	/* process.<namespace> */
 	PROCESS_COUNT = "process.count"
+	PROCESS_PID   = "process.pid"
 
 	/* load.<namespace> */
 	LOAD_1MIN  = "load.1min"
