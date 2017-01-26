@@ -19,6 +19,19 @@ import (
 	"github.com/shirou/gopsutil/mem"
 )
 
+const (
+	/* memory.<namespace> */
+	MEM_TOTAL   = "memory.total"
+	MEM_FREE    = "memory.free"
+	MEM_BUFFERS = "memory.buffers"
+	MEM_CACHED  = "memory.cached"
+
+	/* swap.<namespace> */
+	SWAP_TOTAL = "swap.total"
+	SWAP_FREE  = "swap.free"
+	SWAP_USED  = "swap.used"
+)
+
 type memoryMetric struct {
 	memTotal   uint64
 	memFree    uint64

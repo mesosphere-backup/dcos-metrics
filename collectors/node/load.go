@@ -19,6 +19,13 @@ import (
 	"github.com/shirou/gopsutil/load"
 )
 
+const (
+	/* load.<namespace> */
+	LOAD_1MIN  = "load.1min"
+	LOAD_5MIN  = "load.5min"
+	LOAD_15MIN = "load.15min"
+)
+
 type loadMetric struct {
 	load1Min  float64
 	load5Min  float64

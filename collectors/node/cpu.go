@@ -22,6 +22,16 @@ import (
 	"github.com/shirou/gopsutil/cpu"
 )
 
+const (
+	/* load.<namespace> */
+	CPU_CORES  = "cpu.cores"
+	CPU_TOTAL  = "cpu.total"
+	CPU_USER   = "cpu.user"
+	CPU_SYSTEM = "cpu.system"
+	CPU_IDLE   = "cpu.idle"
+	CPU_WAIT   = "cpu.wait"
+)
+
 type cpuCoresMetric struct {
 	cpuCores  int32
 	cpuTotal  float64

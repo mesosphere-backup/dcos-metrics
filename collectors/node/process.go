@@ -24,6 +24,12 @@ import (
 	"github.com/shirou/gopsutil/process"
 )
 
+const (
+	/* process.<namespace> */
+	PROCESS_COUNT = "process.count"
+	PROCESS_PID   = "process.pid"
+)
+
 type processMetrics struct {
 	processCount int
 	processes    []processMetric
@@ -73,6 +79,7 @@ func (m *processMetrics) getDatapoints() ([]producers.Datapoint, error) {
 	for _, proc := range m.processes {
 		dps = append(dps, producers.Datapoint{
 			Name:      PROCESS_PID,
+			Unit:      PID,
 			Value:     proc.pid,
 			Timestamp: m.timestamp,
 			Tags: map[string]string{
