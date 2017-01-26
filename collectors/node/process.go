@@ -21,12 +21,11 @@ import (
 	"strconv"
 
 	"github.com/dcos/dcos-metrics/producers"
-	"github.com/shirou/gopsutil/host"
 	"github.com/shirou/gopsutil/process"
 )
 
 type processMetrics struct {
-	processCount uint64
+	processCount int
 	processes    []processMetric
 	timestamp    string
 }
@@ -51,17 +50,12 @@ type processMetric struct {
 }
 
 func (m *processMetrics) poll() error {
-	numProcs, err := getProcessCount()
-	if err != nil {
-		return err
-	}
-	m.processCount = numProcs
-
 	processes, err := getProcMetrics()
 	if err != nil {
 		return err
 	}
 	m.processes = processes
+	m.processCount = len(processes)
 
 	m.timestamp = thisTime()
 	return nil
@@ -94,15 +88,6 @@ func (m *processMetrics) getDatapoints() ([]producers.Datapoint, error) {
 	}
 
 	return dps, nil
-}
-
-func getProcessCount() (uint64, error) {
-	i, err := host.Info()
-	if err != nil {
-		return 0, err
-	}
-
-	return i.Procs, nil
 }
 
 func getProcMetrics() ([]processMetric, error) {
