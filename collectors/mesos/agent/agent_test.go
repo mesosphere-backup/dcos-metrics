@@ -40,6 +40,7 @@ var (
 					"id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
 					"name": "marathon",
 					"role": "*",
+					"principal": "dcos_marathon",
 					"executors": [
 						{
 							"id": "foo.124b1048-a17a-11e6-9182-080027fb5b88",
@@ -289,9 +290,6 @@ func TestTransform(t *testing.T) {
 		// by the HTTP test server(s). So we need to unmarshal them here before
 		// they can be used by a.transform().
 		if err := json.Unmarshal(mockAgentState, &mac.agentState); err != nil {
-			panic(err)
-		}
-		if err := json.Unmarshal(mockClusterState, &mac.clusterState); err != nil {
 			panic(err)
 		}
 		if err := json.Unmarshal(mockContainerMetrics, &mac.containerMetrics); err != nil {
