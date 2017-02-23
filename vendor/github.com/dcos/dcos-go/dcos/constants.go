@@ -16,15 +16,6 @@ const (
 const (
 	// FileDetectIP is a shell script on every DC/OS node which provides IP address used by mesos.
 	FileDetectIP = "/opt/mesosphere/bin/detect_ip"
-
-	// FileMaster defines a master role in a cluster.
-	FileMaster = "/etc/mesosphere/roles/master"
-
-	// FileAgent defines an agent role in a cluster.
-	FileAgent = "/etc/mesosphere/roles/slave"
-
-	// FileAgentPublic defines a public agent role in a cluster.
-	FileAgentPublic = "/etc/mesosphere/roles/slave_public"
 )
 
 // DC/OS DNS records.

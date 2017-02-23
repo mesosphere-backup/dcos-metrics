@@ -119,7 +119,7 @@ func (c *Config) getNodeInfo() error {
 	if len(c.IAMConfigPath) > 0 {
 		stateURL = "https://leader.mesos:5050/state"
 	}
-	node, err := nodeutil.NewNodeInfo(client, nodeutil.OptionMesosStateURL(stateURL))
+	node, err := nodeutil.NewNodeInfo(client, c.DCOSRole, nodeutil.OptionMesosStateURL(stateURL))
 	if err != nil {
 		return fmt.Errorf("error: could not get nodeInfo: %s", err)
 	}

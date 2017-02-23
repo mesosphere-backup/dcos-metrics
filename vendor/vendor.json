@@ -39,16 +39,26 @@
 			"revisionTime": "2015-11-05T21:09:06Z"
 		},
 		{
-			"checksumSHA1": "f1GxOGUhIBljeiVVfLMPG33qAzY=",
-			"path": "github.com/dcos/dcos-go/dcos",
-			"revision": "78a50ee3f8678fd72bb97360c837ea22a7e85d43",
-			"revisionTime": "2016-12-15T02:36:14Z"
+			"path": "github.com/dcos-go",
+			"revision": "bedbcc6fcb03444c055a00c4d36c2f2783fb9973",
+			"version": "bedbcc6fcb03444c055a00c4d36c2f2783fb9973"
 		},
 		{
-			"checksumSHA1": "Jc/X2Gt+WoROa22+PMoMxA6v+1M=",
+			"path": "github.com/dcos-go/dcos",
+			"revision": "bedbcc6fcb03444c055a00c4d36c2f2783fb9973",
+			"version": "bedbcc6fcb03444c055a00c4d36c2f2783fb9973"
+		},
+		{
+			"checksumSHA1": "t+xHkFcaPuAVgec1W3MNTnSNhXg=",
+			"path": "github.com/dcos/dcos-go/dcos",
+			"revision": "bedbcc6fcb03444c055a00c4d36c2f2783fb9973",
+			"revisionTime": "2017-02-22T21:20:18Z"
+		},
+		{
+			"checksumSHA1": "3YuJZ1i8gW1ISvmXxCgkvIa7LkE=",
 			"path": "github.com/dcos/dcos-go/dcos/nodeutil",
-			"revision": "78a50ee3f8678fd72bb97360c837ea22a7e85d43",
-			"revisionTime": "2016-12-15T02:36:14Z"
+			"revision": "74526af763e046fdbcb9e2ac64fed0bdd9213e0f",
+			"revisionTime": "2017-02-23T00:15:14Z"
 		},
 		{
 			"checksumSHA1": "ZlJiS1RE06MscHhuI1kYNdJi+Tk=",
