@@ -36,39 +36,6 @@ func OptionDetectIPTimeout(timeout time.Duration) Option {
 	}
 }
 
-// OptionMasterRoleFile sets a file on a filesystem which describes that a node is a master.
-func OptionMasterRoleFile(path string) Option {
-	return func(d *dcosInfo) error {
-		if path == "" {
-			return ErrEmptyParam
-		}
-		d.roleMasterFile = path
-		return nil
-	}
-}
-
-// OptionAgentRoleFile sets a file on a filesystem which describes that a node is an agent.
-func OptionAgentRoleFile(path string) Option {
-	return func(d *dcosInfo) error {
-		if path == "" {
-			return ErrEmptyParam
-		}
-		d.roleAgentFile = path
-		return nil
-	}
-}
-
-// OptionAgentPublicRoleFile sets a file on a filesystem which describes that a node is a public agent.
-func OptionAgentPublicRoleFile(path string) Option {
-	return func(d *dcosInfo) error {
-		if path == "" {
-			return ErrEmptyParam
-		}
-		d.roleAgentPublicFile = path
-		return nil
-	}
-}
-
 // OptionMesosStateURL sets a domain name to make a get request to /mesos/state in order to retrieve mesos state.json.
 func OptionMesosStateURL(stateURL string) Option {
 	return func(d *dcosInfo) error {
