@@ -98,6 +98,13 @@ func TestCalculatePcts(t *testing.T) {
 				So(v.Field(i).Interface(), ShouldBeGreaterThanOrEqualTo, 0)
 			}
 		})
+		Convey("Negative percentages should be coerced to 0", func() {
+			lowCurrentTimes := currentTimes
+			lowCurrentTimes.User = 20000.0
+			lowPcts := calculatePcts(lastTimes, lowCurrentTimes)
+
+			So(lowPcts.User, ShouldEqual, 0)
+		})
 	})
 }
 

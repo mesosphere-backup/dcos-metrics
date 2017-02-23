@@ -148,17 +148,17 @@ func calculatePcts(lastTimes cpu.TimesStat, curTimes cpu.TimesStat) cpu.TimesSta
 		totalDelta = 1 // can't divide by zero
 	}
 	return cpu.TimesStat{
-		User:      round(math.Dim(curTimes.User, lastTimes.User) / totalDelta * 100),
-		System:    round(math.Dim(curTimes.System, lastTimes.System) / totalDelta * 100),
-		Idle:      round(math.Dim(curTimes.Idle, lastTimes.Idle) / totalDelta * 100),
-		Nice:      round(math.Dim(curTimes.Nice, lastTimes.Nice) / totalDelta * 100),
-		Iowait:    round(math.Dim(curTimes.Iowait, lastTimes.Iowait) / totalDelta * 100),
-		Irq:       round(math.Dim(curTimes.Irq, lastTimes.Irq) / totalDelta * 100),
-		Softirq:   round(math.Dim(curTimes.Softirq, lastTimes.Softirq) / totalDelta * 100),
-		Steal:     round(math.Dim(curTimes.Steal, lastTimes.Steal) / totalDelta * 100),
-		Guest:     round(math.Dim(curTimes.Guest, lastTimes.Guest) / totalDelta * 100),
-		GuestNice: round(math.Dim(curTimes.GuestNice, lastTimes.GuestNice) / totalDelta * 100),
-		Stolen:    round(math.Dim(curTimes.Stolen, lastTimes.Stolen) / totalDelta * 100),
+		User:      gtZero(round((curTimes.User - lastTimes.User) / totalDelta * 100)),
+		System:    gtZero(round((curTimes.System - lastTimes.System) / totalDelta * 100)),
+		Idle:      gtZero(round((curTimes.Idle - lastTimes.Idle) / totalDelta * 100)),
+		Nice:      gtZero(round((curTimes.Nice - lastTimes.Nice) / totalDelta * 100)),
+		Iowait:    gtZero(round((curTimes.Iowait - lastTimes.Iowait) / totalDelta * 100)),
+		Irq:       gtZero(round((curTimes.Irq - lastTimes.Irq) / totalDelta * 100)),
+		Softirq:   gtZero(round((curTimes.Softirq - lastTimes.Softirq) / totalDelta * 100)),
+		Steal:     gtZero(round((curTimes.Steal - lastTimes.Steal) / totalDelta * 100)),
+		Guest:     gtZero(round((curTimes.Guest - lastTimes.Guest) / totalDelta * 100)),
+		GuestNice: gtZero(round((curTimes.GuestNice - lastTimes.GuestNice) / totalDelta * 100)),
+		Stolen:    gtZero(round((curTimes.Stolen - lastTimes.Stolen) / totalDelta * 100)),
 	}
 }
 
@@ -166,4 +166,12 @@ func calculatePcts(lastTimes cpu.TimesStat, curTimes cpu.TimesStat) cpu.TimesSta
 func round(f float64) float64 {
 	shift := math.Pow(10, float64(2))
 	return math.Floor(f*shift+.5) / shift
+}
+
+// Helper function: replace all negative numbers with zero
+func gtZero(n float64) float64 {
+	if math.Signbit(n) {
+		return 0
+	}
+	return n
 }
