@@ -19,6 +19,18 @@ import (
 	"github.com/shirou/gopsutil/net"
 )
 
+const (
+	/* network.<namespace> */
+	NET_IN          = "network.in"
+	NET_OUT         = "network.out"
+	NET_IN_PACKETS  = "network.in.packets"
+	NET_OUT_PACKETS = "network.out.packets"
+	NET_IN_DROPPED  = "network_in_dropped"
+	NET_OUT_DROPPED = "network_out_dropped"
+	NET_IN_ERRORS   = "network_in_errors"
+	NET_OUT_ERRORS  = "network_out_errors"
+)
+
 type networkMetrics struct {
 	interfaces []networkMetric
 }

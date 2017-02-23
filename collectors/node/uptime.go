@@ -19,6 +19,8 @@ import (
 	"github.com/shirou/gopsutil/host"
 )
 
+const UPTIME = "uptime"
+
 type uptimeMetric struct {
 	uptime    uint64
 	timestamp string

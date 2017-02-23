@@ -32,7 +32,38 @@ func TestProcessAddDatapoints(t *testing.T) {
 	}
 
 	if len(dps) != 1 {
-		t.Error("Expected 6 CPU metric datapoints, got", len(mockNc.datapoints))
+		t.Error("Expected 1 process metric datapoint, got", len(mockNc.datapoints))
 	}
 
+}
+
+func TestGetProcMetric(t *testing.T) {
+	tpm, err := getProcMetrics()
+
+	if err != nil {
+		t.Error("expected no errors getting process metrics, got", err.Error())
+	}
+
+	if len(tpm) == 0 {
+		t.Error("expected more than one process metric, got", len(tpm))
+	}
+}
+
+func TestGetRunningProcesses(t *testing.T) {
+	rp, err := getRunningProcesses()
+
+	if err != nil {
+		t.Error("expected no errors getting running processes, got", err.Error())
+	}
+
+	if len(rp) == 0 {
+		t.Error("expected more than 0 running processes, got", len(rp))
+	}
+}
+
+func TestStringify(t *testing.T) {
+	s := stringify(float64(23.45))
+	if s != "23.45" {
+		t.Error("expected \"23.45\", got", s)
+	}
 }

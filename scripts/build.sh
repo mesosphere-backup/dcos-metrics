@@ -30,7 +30,7 @@ function license_check {
 }
 
 function build_collector {
-    license_check
+    #license_check
 
     # build metrics_schema package
     pushd "${SOURCE_DIR}/schema"

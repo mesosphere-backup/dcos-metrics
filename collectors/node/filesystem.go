@@ -19,6 +19,16 @@ import (
 	"github.com/shirou/gopsutil/disk"
 )
 
+const (
+	/* filesystem.<namespace> */
+	FS_CAP_TOTAL   = "filesystem.capacity.total"
+	FS_CAP_USED    = "filesystem.capacity.used"
+	FS_CAP_FREE    = "filesystem.capacity.free"
+	FS_INODE_TOTAL = "filesystem.inode.total"
+	FS_INODE_USED  = "filesystem.inode.used"
+	FS_INODE_FREE  = "filesystem.inode.free"
+)
+
 type filesystemMetrics struct {
 	fsMetrics []filesystemMetric
 }
