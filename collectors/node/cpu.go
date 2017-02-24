@@ -144,9 +144,6 @@ func getCPUTimes() (cpu.TimesStat, cpu.TimesStat, error) {
 // calculatePct returns the percent utilization for CPU states. 100.00 => 100.00%
 func calculatePcts(lastTimes cpu.TimesStat, curTimes cpu.TimesStat) cpu.TimesStat {
 	totalDelta := curTimes.Total() - lastTimes.Total()
-	if totalDelta == 0 {
-		totalDelta = 1 // can't divide by zero
-	}
 	return cpu.TimesStat{
 		User:      formatPct(curTimes.User-lastTimes.User, totalDelta),
 		System:    formatPct(curTimes.System-lastTimes.System, totalDelta),
@@ -164,6 +161,10 @@ func calculatePcts(lastTimes cpu.TimesStat, curTimes cpu.TimesStat) cpu.TimesSta
 
 // Helper function: derives percentage, rounds to 2dp and sanitises
 func formatPct(f float64, div float64) float64 {
+	// avoid division by 0
+	if div == 0 {
+		div = 1
+	}
 	rounded := math.Floor((f / div * 10000) + .5)
 	return math.Max(rounded/100, 0)
 }
