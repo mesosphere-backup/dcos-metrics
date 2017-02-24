@@ -67,31 +67,31 @@ func (m *cpuCoresMetric) getDatapoints() ([]producers.Datapoint, error) {
 		},
 		producers.Datapoint{
 			Name:      CPU_TOTAL,
-			Unit:      COUNT,
+			Unit:      PERCENT,
 			Value:     m.cpuTotal,
 			Timestamp: m.timestamp,
 		},
 		producers.Datapoint{
 			Name:      CPU_USER,
-			Unit:      COUNT,
+			Unit:      PERCENT,
 			Value:     m.cpuUser,
 			Timestamp: m.timestamp,
 		},
 		producers.Datapoint{
 			Name:      CPU_SYSTEM,
-			Unit:      COUNT,
+			Unit:      PERCENT,
 			Value:     m.cpuSystem,
 			Timestamp: m.timestamp,
 		},
 		producers.Datapoint{
 			Name:      CPU_IDLE,
-			Unit:      COUNT,
+			Unit:      PERCENT,
 			Value:     m.cpuIdle,
 			Timestamp: m.timestamp,
 		},
 		producers.Datapoint{
 			Name:      CPU_WAIT,
-			Unit:      COUNT,
+			Unit:      PERCENT,
 			Value:     m.cpuWait,
 			Timestamp: m.timestamp,
 		},
@@ -148,22 +148,22 @@ func calculatePcts(lastTimes cpu.TimesStat, curTimes cpu.TimesStat) cpu.TimesSta
 		totalDelta = 1 // can't divide by zero
 	}
 	return cpu.TimesStat{
-		User:      round(math.Dim(curTimes.User, lastTimes.User) / totalDelta * 100),
-		System:    round(math.Dim(curTimes.System, lastTimes.System) / totalDelta * 100),
-		Idle:      round(math.Dim(curTimes.Idle, lastTimes.Idle) / totalDelta * 100),
-		Nice:      round(math.Dim(curTimes.Nice, lastTimes.Nice) / totalDelta * 100),
-		Iowait:    round(math.Dim(curTimes.Iowait, lastTimes.Iowait) / totalDelta * 100),
-		Irq:       round(math.Dim(curTimes.Irq, lastTimes.Irq) / totalDelta * 100),
-		Softirq:   round(math.Dim(curTimes.Softirq, lastTimes.Softirq) / totalDelta * 100),
-		Steal:     round(math.Dim(curTimes.Steal, lastTimes.Steal) / totalDelta * 100),
-		Guest:     round(math.Dim(curTimes.Guest, lastTimes.Guest) / totalDelta * 100),
-		GuestNice: round(math.Dim(curTimes.GuestNice, lastTimes.GuestNice) / totalDelta * 100),
-		Stolen:    round(math.Dim(curTimes.Stolen, lastTimes.Stolen) / totalDelta * 100),
+		User:      formatPct(curTimes.User-lastTimes.User, totalDelta),
+		System:    formatPct(curTimes.System-lastTimes.System, totalDelta),
+		Idle:      formatPct(curTimes.Idle-lastTimes.Idle, totalDelta),
+		Nice:      formatPct(curTimes.Nice-lastTimes.Nice, totalDelta),
+		Iowait:    formatPct(curTimes.Iowait-lastTimes.Iowait, totalDelta),
+		Irq:       formatPct(curTimes.Irq-lastTimes.Irq, totalDelta),
+		Softirq:   formatPct(curTimes.Softirq-lastTimes.Softirq, totalDelta),
+		Steal:     formatPct(curTimes.Steal-lastTimes.Steal, totalDelta),
+		Guest:     formatPct(curTimes.Guest-lastTimes.Guest, totalDelta),
+		GuestNice: formatPct(curTimes.GuestNice-lastTimes.GuestNice, totalDelta),
+		Stolen:    formatPct(curTimes.Stolen-lastTimes.Stolen, totalDelta),
 	}
 }
 
-// Helper function for rounding to two decimal places
-func round(f float64) float64 {
-	shift := math.Pow(10, float64(2))
-	return math.Floor(f*shift+.5) / shift
+// Helper function: derives percentage, rounds to 2dp and sanitises
+func formatPct(f float64, div float64) float64 {
+	rounded := math.Floor((f / div * 10000) + .5)
+	return math.Max(rounded/100, 0)
 }

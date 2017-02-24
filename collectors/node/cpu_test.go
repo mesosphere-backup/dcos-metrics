@@ -98,26 +98,33 @@ func TestCalculatePcts(t *testing.T) {
 				So(v.Field(i).Interface(), ShouldBeGreaterThanOrEqualTo, 0)
 			}
 		})
+		Convey("Negative percentages should be coerced to 0", func() {
+			lowCurrentTimes := currentTimes
+			lowCurrentTimes.User = 20000.0
+			lowPcts := calculatePcts(lastTimes, lowCurrentTimes)
+
+			So(lowPcts.User, ShouldEqual, 0)
+		})
 	})
 }
 
-func TestRound(t *testing.T) {
-	Convey("When rounding float64 values to two decimal places", t, func() {
+func TestFormatPct(t *testing.T) {
+	Convey("When formatting float64 values to two decimal places", t, func() {
 		Convey("Should work on all numbers", func() {
 			testCases := []struct {
 				input    float64
 				expected float64
 			}{
-				{-123.456, -123.46},
+				{-123.456, 0.00},
 				{123.456, 123.46},
 				{0, 0.00},
-				{-1, -1.00},
+				{-1, 0.00},
 				{100.00000, 100.00},
 				{100, 100.00},
 			}
 
 			for _, tc := range testCases {
-				So(round(tc.input), ShouldEqual, tc.expected)
+				So(formatPct(tc.input, 100), ShouldEqual, tc.expected)
 			}
 		})
 	})
