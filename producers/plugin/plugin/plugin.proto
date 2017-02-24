@@ -1,0 +1,55 @@
+// Copyright 2016 Mesosphere, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package plugin;
+
+service Metrics {
+	rpc AttachOutputStream (MetricsCollectorType) returns (stream MetricsMessage) {}
+}
+
+// Specifies the type of metrics message to recieve. This is based on the 
+// collectors available. Currently we have `node` and `framework` collectors. 
+message MetricsCollectorType {
+	string type = 1;
+}
+
+message MetricsMessage {
+  string name = 1;
+	repeated Datapoint datapoints = 2;
+	Dimensions dimensions = 3;
+  int64 timestamp = 4;
+}
+
+message Datapoint {
+	string timestamp = 1;
+	string name = 2;
+	string value = 3;
+}
+
+message Dimensions{
+	string mesosID = 1;
+	string clusterID = 2;
+	string containerID = 3;
+	string executorID = 4;
+	string frameworkName = 5;
+	string frameworkID = 6;
+	string frameworkRole = 7;
+	string frameworkPrincipal = 8;
+	string hostname = 9;
+	map<string, string> labels = 10;
+}
+
+

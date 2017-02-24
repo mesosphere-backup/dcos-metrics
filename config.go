@@ -29,6 +29,7 @@ import (
 	mesosAgent "github.com/dcos/dcos-metrics/collectors/mesos/agent"
 	"github.com/dcos/dcos-metrics/collectors/node"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
+	pluginProducer "github.com/dcos/dcos-metrics/producers/plugin"
 	httpClient "github.com/dcos/dcos-metrics/util/http/client"
 	httpHelpers "github.com/dcos/dcos-metrics/util/http/helpers"
 
@@ -82,7 +83,8 @@ type CollectorConfig struct {
 // 'producers/kafka/kafka.go'. It is then the responsibility of the individual producers to
 // validate the configuration the user has provided and panic if necessary.
 type ProducersConfig struct {
-	HTTPProducerConfig httpProducer.Config `yaml:"http,omitempty"`
+	PluginProducerConfig pluginProducer.Config `yaml:"plugin,omitempty"`
+	HTTPProducerConfig   httpProducer.Config   `yaml:"http,omitempty"`
 	//KafkaProducerConfig  kafkaProducer.Config  `yaml:"kafka,omitempty"`
 	//StatsdProducerConfig statsdProducer.Config `yaml:"statsd,omitempty"`
 }
@@ -173,6 +175,9 @@ func newConfig() Config {
 			},
 		},
 		Producers: ProducersConfig{
+			PluginProducerConfig: pluginProducer.Config{
+				Port: 9001,
+			},
 			HTTPProducerConfig: httpProducer.Config{
 				CacheExpiry: time.Duration(120 * time.Second),
 				Port:        9000,
@@ -225,9 +230,9 @@ func getNewConfig(args []string) (Config, error) {
 	// Note: .getNodeInfo() is last so we are sure we have all the
 	// configuration we need from flags and config file to make
 	// this run correctly.
-	if err := c.getNodeInfo(); err != nil {
-		return c, err
-	}
+	//	if err := c.getNodeInfo(); err != nil {
+	//		return c, err
+	//	}
 
 	// Set the client for the collector to reuse in GET operations
 	// to local state and other HTTP sessions

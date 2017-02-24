@@ -27,6 +27,7 @@ import (
 	nodeCollector "github.com/dcos/dcos-metrics/collectors/node"
 	"github.com/dcos/dcos-metrics/producers"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
+	pluginProducer "github.com/dcos/dcos-metrics/producers/plugin"
 	"github.com/dcos/dcos-metrics/util/http/profiler"
 )
 
@@ -53,6 +54,13 @@ func main() {
 	}
 
 	var producerChans []chan<- producers.MetricsMessage
+
+	// gRPC Plugins Producer
+	if producerIsConfigured("plugin", cfg) {
+		pp, pluginProducerChan := pluginProducer.New(cfg.Producers.PluginProducerConfig)
+		producerChans = append(producerChans, pluginProducerChan)
+		go pp.Run()
+	}
 
 	// HTTP producer
 	if producerIsConfigured("http", cfg) {
