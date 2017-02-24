@@ -148,30 +148,22 @@ func calculatePcts(lastTimes cpu.TimesStat, curTimes cpu.TimesStat) cpu.TimesSta
 		totalDelta = 1 // can't divide by zero
 	}
 	return cpu.TimesStat{
-		User:      gtZero(round((curTimes.User - lastTimes.User) / totalDelta * 100)),
-		System:    gtZero(round((curTimes.System - lastTimes.System) / totalDelta * 100)),
-		Idle:      gtZero(round((curTimes.Idle - lastTimes.Idle) / totalDelta * 100)),
-		Nice:      gtZero(round((curTimes.Nice - lastTimes.Nice) / totalDelta * 100)),
-		Iowait:    gtZero(round((curTimes.Iowait - lastTimes.Iowait) / totalDelta * 100)),
-		Irq:       gtZero(round((curTimes.Irq - lastTimes.Irq) / totalDelta * 100)),
-		Softirq:   gtZero(round((curTimes.Softirq - lastTimes.Softirq) / totalDelta * 100)),
-		Steal:     gtZero(round((curTimes.Steal - lastTimes.Steal) / totalDelta * 100)),
-		Guest:     gtZero(round((curTimes.Guest - lastTimes.Guest) / totalDelta * 100)),
-		GuestNice: gtZero(round((curTimes.GuestNice - lastTimes.GuestNice) / totalDelta * 100)),
-		Stolen:    gtZero(round((curTimes.Stolen - lastTimes.Stolen) / totalDelta * 100)),
+		User:      formatPct(curTimes.User-lastTimes.User, totalDelta),
+		System:    formatPct(curTimes.System-lastTimes.System, totalDelta),
+		Idle:      formatPct(curTimes.Idle-lastTimes.Idle, totalDelta),
+		Nice:      formatPct(curTimes.Nice-lastTimes.Nice, totalDelta),
+		Iowait:    formatPct(curTimes.Iowait-lastTimes.Iowait, totalDelta),
+		Irq:       formatPct(curTimes.Irq-lastTimes.Irq, totalDelta),
+		Softirq:   formatPct(curTimes.Softirq-lastTimes.Softirq, totalDelta),
+		Steal:     formatPct(curTimes.Steal-lastTimes.Steal, totalDelta),
+		Guest:     formatPct(curTimes.Guest-lastTimes.Guest, totalDelta),
+		GuestNice: formatPct(curTimes.GuestNice-lastTimes.GuestNice, totalDelta),
+		Stolen:    formatPct(curTimes.Stolen-lastTimes.Stolen, totalDelta),
 	}
 }
 
-// Helper function for rounding to two decimal places
-func round(f float64) float64 {
-	shift := math.Pow(10, float64(2))
-	return math.Floor(f*shift+.5) / shift
-}
-
-// Helper function: replace all negative numbers with zero
-func gtZero(n float64) float64 {
-	if math.Signbit(n) {
-		return 0
-	}
-	return n
+// Helper function: derives percentage, rounds to 2dp and sanitises
+func formatPct(f float64, div float64) float64 {
+	rounded := math.Floor((f / div * 10000) + .5)
+	return math.Max(rounded/100, 0)
 }
