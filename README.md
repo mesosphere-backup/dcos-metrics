@@ -79,7 +79,7 @@ have a chance to keep up with community contributions, please follow the guideli
   * Original author: [Nicholas Parker][github-nickbp]
 
 
-[dcos-jira]: https://dcosjira.atlassian.net
+[dcos-jira]: https://jira.mesosphere.com
 [dcos-mailing-list]: https://groups.google.com/a/dcos.io/forum/#!forum/users
 [dcos-slack]: https://dcos-community.slack.com
 [github-dcos]: https://github.com/dcos/dcos
