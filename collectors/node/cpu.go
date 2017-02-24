@@ -148,30 +148,25 @@ func calculatePcts(lastTimes cpu.TimesStat, curTimes cpu.TimesStat) cpu.TimesSta
 		totalDelta = 1 // can't divide by zero
 	}
 	return cpu.TimesStat{
-		User:      gtZero(round((curTimes.User - lastTimes.User) / totalDelta * 100)),
-		System:    gtZero(round((curTimes.System - lastTimes.System) / totalDelta * 100)),
-		Idle:      gtZero(round((curTimes.Idle - lastTimes.Idle) / totalDelta * 100)),
-		Nice:      gtZero(round((curTimes.Nice - lastTimes.Nice) / totalDelta * 100)),
-		Iowait:    gtZero(round((curTimes.Iowait - lastTimes.Iowait) / totalDelta * 100)),
-		Irq:       gtZero(round((curTimes.Irq - lastTimes.Irq) / totalDelta * 100)),
-		Softirq:   gtZero(round((curTimes.Softirq - lastTimes.Softirq) / totalDelta * 100)),
-		Steal:     gtZero(round((curTimes.Steal - lastTimes.Steal) / totalDelta * 100)),
-		Guest:     gtZero(round((curTimes.Guest - lastTimes.Guest) / totalDelta * 100)),
-		GuestNice: gtZero(round((curTimes.GuestNice - lastTimes.GuestNice) / totalDelta * 100)),
-		Stolen:    gtZero(round((curTimes.Stolen - lastTimes.Stolen) / totalDelta * 100)),
+		User:      roundAboveZero((curTimes.User - lastTimes.User) / totalDelta * 100),
+		System:    roundAboveZero((curTimes.System - lastTimes.System) / totalDelta * 100),
+		Idle:      roundAboveZero((curTimes.Idle - lastTimes.Idle) / totalDelta * 100),
+		Nice:      roundAboveZero((curTimes.Nice - lastTimes.Nice) / totalDelta * 100),
+		Iowait:    roundAboveZero((curTimes.Iowait - lastTimes.Iowait) / totalDelta * 100),
+		Irq:       roundAboveZero((curTimes.Irq - lastTimes.Irq) / totalDelta * 100),
+		Softirq:   roundAboveZero((curTimes.Softirq - lastTimes.Softirq) / totalDelta * 100),
+		Steal:     roundAboveZero((curTimes.Steal - lastTimes.Steal) / totalDelta * 100),
+		Guest:     roundAboveZero((curTimes.Guest - lastTimes.Guest) / totalDelta * 100),
+		GuestNice: roundAboveZero((curTimes.GuestNice - lastTimes.GuestNice) / totalDelta * 100),
+		Stolen:    roundAboveZero((curTimes.Stolen - lastTimes.Stolen) / totalDelta * 100),
 	}
 }
 
-// Helper function for rounding to two decimal places
-func round(f float64) float64 {
-	shift := math.Pow(10, float64(2))
-	return math.Floor(f*shift+.5) / shift
-}
-
-// Helper function: replace all negative numbers with zero
-func gtZero(n float64) float64 {
-	if math.Signbit(n) {
+// Helper function for rounding to two decimal places. Coerces negative numbers to zero.
+func roundAboveZero(f float64) float64 {
+	if f < 0 {
 		return 0
 	}
-	return n
+	shift := math.Pow(10, float64(2))
+	return math.Floor(f*shift+.5) / shift
 }
