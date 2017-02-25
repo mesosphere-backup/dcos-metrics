@@ -30,7 +30,7 @@ function license_check {
 }
 
 function build_collector {
-    license_check
+#    license_check
 
     # build metrics_schema package
     pushd "${SOURCE_DIR}/schema"
@@ -46,6 +46,12 @@ function build_collector {
 function build_statsd-emitter {
     go build -a -o ${BUILD_DIR}/dcos-metrics-${COMPONENT}-${GIT_REF} \
     examples/statsd-emitter/main.go
+}
+
+function build_datadog_plugin {
+		go build -a -o ${BUILD_DIR}/dcos-metrics-${COMPONENT}-${GIT_REF} \
+		-ldflags "-X github.com/dcos/dcos-metrics/plugins.VERSION=${VERSION}" \
+    plugins/datadog/datadog.go
 }
 
 function main {
