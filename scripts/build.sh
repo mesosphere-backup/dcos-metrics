@@ -54,11 +54,18 @@ function build_datadog_plugin {
     plugins/datadog/datadog.go
 }
 
+function build_prometheus_plugin {
+    go build -a -o ${BUILD_DIR}/dcos-metrics-${COMPONENT}-${GIT_REF} \
+    -ldflags "-X github.com/dcos/dcos-metrics/plugins.VERSION=${VERSION}" \
+    plugins/prometheus/prometheus.go
+}
+
 function main {
     COMPONENT="$1"
     BUILD_DIR="${SOURCE_DIR}/build/${COMPONENT}"
 
     build_${COMPONENT} ${BUILD_DIR}
+		tree build/
 }
 
 main "$@"
