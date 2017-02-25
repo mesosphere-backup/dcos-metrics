@@ -48,6 +48,12 @@ function build_statsd-emitter {
     examples/statsd-emitter/main.go
 }
 
+function build_datadog_plugin {
+    go build -a -o ${BUILD_DIR}/dcos-metrics-${COMPONENT}-${GIT_REF} \
+    -ldflags "-X github.com/dcos/dcos-metrics/plugins.VERSION=${VERSION}" \
+    plugins/datadog/datadog.go
+}
+
 function main {
     COMPONENT="$1"
     BUILD_DIR="${SOURCE_DIR}/build/${COMPONENT}"

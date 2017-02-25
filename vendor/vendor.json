@@ -3,6 +3,12 @@
 	"ignore": "test",
 	"package": [
 		{
+			"checksumSHA1": "ckEen3vhU+2+XyPlvdop+BLNzQk=",
+			"path": "github.com/DataDog/datadog-go/statsd",
+			"revision": "6ea09a7540648568ce58b3d00eb1da133c2dcdd7",
+			"revisionTime": "2016-12-13T18:18:37Z"
+		},
+		{
 			"checksumSHA1": "jwc+h9nKaQLjpuCB++c6Md19vpQ=",
 			"path": "github.com/Shopify/sarama",
 			"revision": "89bd629b50e1a69c40d40ded1c82a767b4859442",
@@ -247,6 +253,12 @@
 			"path": "github.com/smartystreets/goconvey/convey/reporting",
 			"revision": "7befa7fd6e2e8ca28d2b94f2d39111929904b08d",
 			"revisionTime": "2016-09-28T20:55:23Z"
+		},
+		{
+			"checksumSHA1": "aoWugOOuw3EkP0qX0S9+xhDFjgg=",
+			"path": "github.com/urfave/cli",
+			"revision": "c723b19a84af34d905773672ffa1b8ead802e505",
+			"revisionTime": "2016-09-05T11:50:38Z"
 		},
 		{
 			"checksumSHA1": "Xz3hUrPvOYGWTuHrEryoYAj9zwg=",
