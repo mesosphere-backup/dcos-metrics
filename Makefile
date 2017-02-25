@@ -5,7 +5,6 @@ all: clean build test
 build:
 	bash -c "./scripts/build.sh collector"
 	bash -c "./scripts/build.sh statsd-emitter"
-	bash -c "./scripts/build.sh datadog_plugin"
 
 test:
 	bash -c "./scripts/test.sh collector unit"
