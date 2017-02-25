@@ -1,6 +1,6 @@
 .PHONY: all build test clean plugins
 
-all: clean build test
+all: clean build plugin test
 
 build:
 	bash -c "./scripts/build.sh collector"
