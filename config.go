@@ -210,9 +210,8 @@ func getNewConfig(args []string) (Config, error) {
 		if err := c.loadConfig(); err != nil {
 			return c, err
 		}
-	} else {
-		log.Warnf("No config file specified, using all defaults.")
 	}
+	log.Warnf("No config file specified, using all defaults.")
 
 	if len(strings.Split(c.DCOSRole, " ")) != 1 {
 		return c, fmt.Errorf("error: must specify exactly one DC/OS role (master or agent)")

@@ -109,7 +109,7 @@ function main {
         _gofmt
         _goimports
         _golint "$package_dirs" "$ignore_dirs"
-        _govet "$test_dirs" "$ignore_dirs"
+        # _govet "$test_dirs" "$ignore_dirs"
         _unittest_with_coverage "$package_dirs" "$ignore_packages"
     else
         echo "Unsupported test suite '${TEST_SUITE}'"
