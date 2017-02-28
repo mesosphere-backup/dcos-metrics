@@ -12,7 +12,7 @@ export CGO_ENABLED=0
 
 function license_check {
     retval=0
-    for source_file in $(find . -type f -name '*.go' -not -path './examples/**' -not -path './vendor/**'); do
+    for source_file in $(find . -type f -name '*.go' -not -path './examples/**' -not -path './vendor/**' -not -path './schema/**'); do
         if ! grep -E 'Copyright [0-9]{4} Mesosphere, Inc.' $source_file &> /dev/null; then
             echo "Missing copyright statement in ${source_file}"
             retval=$((retval + 1))
@@ -31,7 +31,6 @@ function license_check {
 
 function build_collector {
     license_check
-
     # build metrics_schema package
     pushd "${SOURCE_DIR}/schema"
     go run generator.go -infile metrics.avsc -outfile ./metrics_schema/schema.go
@@ -49,6 +48,7 @@ function build_statsd-emitter {
 }
 
 function build_datadog_plugin {
+    license_check
     go build -a -o ${BUILD_DIR}/dcos-metrics-${COMPONENT}-${GIT_REF} \
     -ldflags "-X github.com/dcos/dcos-metrics/plugins.VERSION=${VERSION}" \
     plugins/datadog/datadog.go
@@ -59,6 +59,7 @@ function main {
     BUILD_DIR="${SOURCE_DIR}/build/${COMPONENT}"
 
     build_${COMPONENT} ${BUILD_DIR}
+    tree build/
 }
 
 main "$@"
