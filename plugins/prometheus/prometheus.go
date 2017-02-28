@@ -17,11 +17,16 @@ package main
 import (
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/Sirupsen/logrus"
-	plugin "github.com/dcos/dcos-metrics/plugins"
+	"github.com/dcos/dcos-metrics/producers"
+
+	plugin "github.com/malnick/dcos-metrics-plugins"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/common/log"
 	"github.com/urfave/cli"
 )
 
@@ -40,24 +45,18 @@ func main() {
 	}
 
 	proPlugin.App.Action = func(c *cli.Context) {
+		metrics, err := proPlugin.Metrics()
+		if err != nil {
+			logrus.Fatal(err)
+		}
 
 		go func() {
 			for {
-				metrics, err := proPlugin.Metrics()
+				err = registerMetrics(metrics)
 				if err != nil {
 					logrus.Fatal(err)
 				}
-
-				for _, msg := range metrics {
-					for _, dp := range msg.Datapoints {
-						dpGauge := prometheus.NewGauge(prometheus.GaugeOpts{
-							Name: dp.Name,
-							Help: "DC/OS metric for " + dp.Name,
-						})
-
-						dpGauge.Set(dp.Value.(float64))
-					}
-				}
+				time.Sleep(time.Duration(proPlugin.PollingInterval) * time.Second)
 			}
 		}()
 
@@ -67,4 +66,105 @@ func main() {
 	}
 
 	proPlugin.App.Run(os.Args)
+}
+
+func makeProName(dpName string) string {
+	namedAry := strings.Split(dpName, ".")
+	return namedAry[0]
+}
+
+func makeCountVector(dp producers.Datapoint) (*prometheus.CounterVec, error) {
+	logrus.Infof("making count vector from %+v", dp)
+	name := makeProName(dp.Name)
+	options := prometheus.CounterOpts{
+		Name: name,
+		Help: "DC/OS metric for " + dp.Name,
+	}
+
+	tags := []string{}
+	if name == "filesystem" {
+		logrus.Info("making filesystem tag")
+		tags = append(tags, "device")
+	}
+
+	if name == "network" {
+		logrus.Info("making network tag")
+		tags = append(tags, "interface")
+	}
+
+	cv := prometheus.NewCounterVec(options, tags)
+
+	return cv, nil
+}
+
+func makeGauge(dp producers.Datapoint) (prometheus.Gauge, error) {
+	logrus.Info("making gauge from %+v", dp)
+	name := makeProName(dp.Name)
+	gaugeOptions := prometheus.GaugeOpts{
+		Name:      name,
+		Namespace: "dcos",
+		Help:      "DC/OS metric " + dp.Name,
+	}
+
+	return prometheus.NewGauge(gaugeOptions), nil
+}
+
+func registerMetrics(metrics []producers.MetricsMessage) error {
+
+	for _, msg := range metrics {
+		for _, dp := range msg.Datapoints {
+
+			if dp.Unit == "count" {
+				cv, err := makeCountVector(dp)
+				if err != nil {
+					return err
+				}
+
+				if err := registerCounterVec(cv); err != nil {
+					log.Error(err.Error())
+				}
+				// Need to add tags for fs or net
+			}
+
+			if dp.Unit == "byte" || dp.Unit == "percent" {
+				g, err := makeGauge(dp)
+				if err != nil {
+					return err
+				}
+				if err := registerGauges(g); err != nil {
+					log.Error(err.Error())
+				}
+
+				g.Set(dp.Value.(float64))
+			}
+		}
+	}
+
+	return nil
+}
+
+func registerCounterVec(c *prometheus.CounterVec) error {
+	logrus.Infof("registering counter vector %+v", c)
+	if err := prometheus.Register(c); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			logrus.Warnf("%s already registered", c)
+			c = are.ExistingCollector.(*prometheus.CounterVec)
+		} else {
+			return err
+		}
+	}
+	return nil
+}
+
+func registerGauges(g prometheus.Gauge) error {
+	logrus.Infof("registering gauge %+v", g)
+	if err := prometheus.Register(g); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			logrus.Warnf("%s already registered", g)
+			g = are.ExistingCollector.(prometheus.Gauge)
+		} else {
+			return err
+		}
+	}
+	return nil
 }
