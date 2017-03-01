@@ -163,6 +163,7 @@ func (p *Plugin) setEndpoints() error {
 
 	return errors.New("Role must be either 'master' or 'agent'")
 }
+
 func makeMetricsRequest(request *http.Request) (producers.MetricsMessage, error) {
 	logrus.Infof("Making request to %+v", request.URL)
 	client := &http.Client{}
@@ -182,7 +183,7 @@ func makeMetricsRequest(request *http.Request) (producers.MetricsMessage, error)
 
 	err = json.Unmarshal(body, &mm)
 	if err != nil {
-		logrus.Errorf("Encountered error parsing JSON, %s", err.Error())
+		logrus.Errorf("Encountered error parsing JSON, %s. JSON Content was: %s", err.Error(), body)
 		return mm, err
 	}
 

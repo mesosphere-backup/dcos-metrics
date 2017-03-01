@@ -36,13 +36,13 @@ func main() {
 	ddPluginFlags := []cli.Flag{
 		cli.StringFlag{
 			Name:  "datadog-host",
-			Value: "localhost",
-			Usage: "Datadog URL to query",
+			Value: "datadog-agent.marathon.mesos",
+			Usage: "Datadog output hostname",
 		},
 		cli.StringFlag{
 			Name:  "datadog-port",
 			Value: "8125",
-			Usage: "Datadog port",
+			Usage: "Datadog output UDP port",
 		},
 	}
 
@@ -123,22 +123,21 @@ func buildTags(msg producers.Dimensions) (tags []string, err error) {
 		// map[string]string for user-defined Labels
 		if v.Field(i).Kind() == reflect.Map {
 			for k, v := range v.Field(i).Interface().(map[string]string) {
-				tags = append(tags, strings.Join([]string{k, v}, "."))
+				tags = append(tags, strings.Join([]string{k, v}, ":"))
 			}
 			continue
 		}
 
 		fieldInfo := v.Type().Field(i)
-		fieldTag := strings.Split(fieldInfo.Tag.Get("json"), ",")[0] // remove "omitempty" if present
-		fieldVal := fmt.Sprintf("%v", v.Field(i).Interface())
 
+		fieldVal := fmt.Sprintf("%v", v.Field(i).Interface())
 		if fieldVal == reflect.Zero(fieldInfo.Type).String() {
 			// don't include keys without a value
 			continue
 		}
 
-		tag := strings.Join([]string{fieldTag, fieldVal}, ".")
-		tags = append(tags, tag)
+		fieldTag := strings.Split(fieldInfo.Tag.Get("json"), ",")[0] // remove "omitempty" if present
+		tags = append(tags, strings.Join([]string{fieldTag, fieldVal}, ":"))
 	}
 
 	return tags, nil
