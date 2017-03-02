@@ -17,6 +17,7 @@
 package node
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/dcos/dcos-metrics/producers"
@@ -32,6 +33,22 @@ func TestGetNodeMetrics(t *testing.T) {
 
 		for _, dp := range m {
 			So(dp, ShouldHaveSameTypeAs, producers.Datapoint{})
+		}
+	})
+}
+
+func TestDatapointNames(t *testing.T) {
+	Convey("All metric names should be namespaced by a period", t, func() {
+		m, _ := getNodeMetrics()
+
+		for _, dp := range m {
+			nameAry := strings.Split(dp.Name, ".")
+			So(nameAry, ShouldNotBeEmpty)
+
+			badSeparators := []string{"_", "-", ":", "/"}
+			for _, s := range badSeparators {
+				So(dp.Name, ShouldNotContainSubstring, s)
+			}
 		}
 	})
 }

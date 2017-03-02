@@ -26,7 +26,7 @@ const (
 	PERCENT = "percent"
 
 	/* Metric name constants */
-	UPTIME = "uptime"
+	UPTIME = "system.uptime"
 
 	/* process.<namespace> */
 	PROCESS_COUNT = "process.count"
