@@ -47,11 +47,14 @@ function build_statsd-emitter {
     examples/statsd-emitter/main.go
 }
 
-function build_datadog_plugin {
+function build_plugins {
     license_check
-    go build -a -o ${BUILD_DIR}/dcos-metrics-${COMPONENT}-${GIT_REF} \
-    -ldflags "-X github.com/dcos/dcos-metrics/plugins.VERSION=${VERSION}" \
-    plugins/datadog/datadog.go
+    for PLUGIN in $(cd plugins/ && ls -d */ | sed 's,/,,'); do
+        echo "Building plugin: $PLUGIN"
+        go build -a -o ${BUILD_DIR}/dcos-metrics-${PLUGIN}_plugin-${GIT_REF} \
+           -ldflags "-X github.com/dcos/dcos-metrics/plugins.VERSION=${VERSION}" \
+           plugins/${PLUGIN}/*.go
+    done
 }
 
 function main {
@@ -59,7 +62,9 @@ function main {
     BUILD_DIR="${SOURCE_DIR}/build/${COMPONENT}"
 
     build_${COMPONENT} ${BUILD_DIR}
-    tree build/
+    if [ -n "$(which tree)" ]; then
+        tree build/
+    fi
 }
 
 main "$@"

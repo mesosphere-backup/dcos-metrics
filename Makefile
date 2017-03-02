@@ -7,7 +7,7 @@ build:
 	bash -c "./scripts/build.sh statsd-emitter"
 
 plugin:
-	bash -c "./scripts/build.sh datadog_plugin"
+	bash -c "./scripts/build.sh plugins"
 
 test:
 	bash -c "./scripts/test.sh collector unit"
