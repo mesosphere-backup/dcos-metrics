@@ -111,6 +111,7 @@ func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
 	if err := p.setEndpoints(); err != nil {
 		log.Fatal(err)
 	}
+
 	for _, path := range p.Endpoints {
 		metricsURL := url.URL{
 			Scheme: p.MetricsProto,
@@ -156,8 +157,45 @@ func (p *Plugin) setEndpoints() error {
 	if p.Role == dcos.RoleAgent || p.Role == dcos.RoleAgentPublic {
 		p.Endpoints = []string{
 			"/system/v1/metrics/v0/node",
-			"/system/v1/metrics/v0/containers",
 		}
+
+		containers := []string{}
+		metricsURL := url.URL{
+			Scheme: p.MetricsProto,
+			Host:   net.JoinHostPort(p.MetricsHost, p.MetricsPort),
+			Path:   "/system/v1/metrics/v0/containers",
+		}
+
+		request := &http.Request{
+			Method: "GET",
+			URL:    &metricsURL,
+			Header: http.Header{
+				"Authorization": []string{fmt.Sprintf("token=%s", p.AuthToken)},
+			},
+		}
+
+		client := &http.Client{}
+		resp, err := client.Do(request)
+		if err != nil {
+			return err
+		}
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			logrus.Errorf("Encountered error reading response body, %s", err.Error())
+			return err
+		}
+
+		if err := json.Unmarshal(body, &containers); err != nil {
+			return err
+		}
+
+		for _, c := range containers {
+			e := "/system/v1/metrics/v0/containers/" + c
+			logrus.Infof("Discovered new container endpoint %s", e)
+			p.Endpoints = append(p.Endpoints, e)
+		}
+
 		return nil
 	}
 
