@@ -59,7 +59,7 @@ If you're new to Go, you might also find the [Effective Go][effective-go] docume
   * Update any outstanding tickets (if applicable) to mention that you've submitted a change,
   and provide a link to the pull request.
 
-[dcos-jira]: https://dcosjira.atlassian.net
+[dcos-jira]: https://jira.mesosphere.com
 [dcos-metrics-github]: https://github.com/dcos/dcos-metrics
 [dcos-metrics-readme]: README.md
 [effective-go]: https://golang.org/doc/effective_go.html
