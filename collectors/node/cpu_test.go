@@ -127,6 +127,9 @@ func TestFormatPct(t *testing.T) {
 				So(formatPct(tc.input, 100), ShouldEqual, tc.expected)
 			}
 		})
+		Convey("Should ignore attempts to divide by 0", func() {
+			So(formatPct(0.01, 0), ShouldEqual, 1)
+		})
 	})
 }
 
