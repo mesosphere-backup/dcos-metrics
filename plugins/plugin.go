@@ -45,7 +45,7 @@ var VERSION = "UNSET"
 
 // New returns a mandatory plugin config which every plugin for
 // metrics will need
-func New(extFlags []cli.Flag) (*Plugin, error) {
+func New(options ...Option) (*Plugin, error) {
 	newPlugin := &Plugin{
 		Role:            "",
 		PollingInterval: 10,
@@ -97,8 +97,10 @@ func New(extFlags []cli.Flag) (*Plugin, error) {
 		},
 	}
 
-	for _, f := range extFlags {
-		newPlugin.App.Flags = append(newPlugin.App.Flags, f)
+	for _, o := range options {
+		if err := o(newPlugin); err != nil {
+			return newPlugin, err
+		}
 	}
 
 	return newPlugin, nil
