@@ -46,7 +46,7 @@ func main() {
 		},
 	}
 
-	datadogPlugin, err := plugin.New(ddPluginFlags)
+	datadogPlugin, err := plugin.New(plugin.ExtraFlags(ddPluginFlags))
 	if err != nil {
 		log.Fatal(err)
 	}
