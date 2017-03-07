@@ -49,9 +49,11 @@ function build_statsd-emitter {
 
 function build_plugins {
     license_check
+		
     for PLUGIN in $(cd plugins/ && ls -d */ | sed 's,/,,'); do
+				pluginPath=${BUILD_DIR}/dcos-metrics-${PLUGIN}-plugin@${GIT_REF}
         echo "Building plugin: $PLUGIN"
-        go build -a -o ${BUILD_DIR}/dcos-metrics-${PLUGIN}_plugin-${GIT_REF} \
+        go build -a -o  $pluginPath \
            -ldflags "-X github.com/dcos/dcos-metrics/plugins.VERSION=${VERSION}" \
            plugins/${PLUGIN}/*.go
     done

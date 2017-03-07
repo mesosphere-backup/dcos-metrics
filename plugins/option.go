@@ -48,7 +48,7 @@ func PollingInterval(i int) Option {
 
 func MetricsProtocol(proto string) Option {
 	return func(p *Plugin) error {
-		if proto != "http" || proto != "https" {
+		if proto == "http" || proto == "https" {
 			p.MetricsProto = proto
 			return nil
 		}

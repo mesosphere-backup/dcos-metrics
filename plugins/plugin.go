@@ -28,7 +28,6 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-metrics/producers"
-	"github.com/prometheus/common/log"
 	"github.com/urfave/cli"
 )
 
@@ -141,7 +140,7 @@ func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
 	metricsMessages := []producers.MetricsMessage{}
 
 	if err := p.setEndpoints(); err != nil {
-		log.Fatal(err)
+		p.Log.Fatal(err)
 	}
 
 	for _, path := range p.Endpoints {
