@@ -28,10 +28,6 @@ import (
 const (
 	// HTTPTIMEOUT defines the maximum duration for all requests
 	HTTPTIMEOUT = 2 * time.Second
-
-	SECONDS = "seconds"
-	COUNT   = "count"
-	BYTES   = "bytes"
 )
 
 // Collector defines the collector type for Mesos agent. It is
@@ -71,7 +67,8 @@ func New(cfg Collector, nodeInfo collectors.NodeInfo) (Collector, chan producers
 func (c *Collector) RunPoller() {
 	for {
 		c.pollMesosAgent()
-		for _, m := range c.transformContainerMetrics() {
+		for _, m := range c.metricsMessages() {
+			c.log.Debugf("Sending container metrics to metric chan:\n%+v", m)
 			c.metricsChan <- m
 		}
 		time.Sleep(c.PollPeriod)
@@ -96,15 +93,17 @@ func (c *Collector) pollMesosAgent() {
 	}
 }
 
-func (c *Collector) transformContainerMetrics() (out []producers.MetricsMessage) {
+// metricsMessages() transforms the []agentContainer slice into a slice of
+// producers.MetricsMessage{} for ingestion by our larger metrics gathering
+// system
+func (c *Collector) metricsMessages() (out []producers.MetricsMessage) {
 	var msg producers.MetricsMessage
 	t := time.Unix(c.timestamp, 0)
 
-	// Produce container metrics
 	for _, cm := range c.containerMetrics {
 		msg = producers.MetricsMessage{
 			Name:       producers.ContainerMetricPrefix,
-			Datapoints: c.createDatapoints(),
+			Datapoints: c.createContainerDatapoints(),
 			Timestamp:  t.UTC().Unix(),
 		}
 
@@ -124,7 +123,7 @@ func (c *Collector) transformContainerMetrics() (out []producers.MetricsMessage)
 			FrameworkName:      fi.Name,
 			FrameworkRole:      fi.Role,
 			FrameworkPrincipal: fi.Principal,
-			Labels:             getLabelsByContainerID(cm.ContainerID, c.agentState.Frameworks),
+			Labels:             getLabelsByContainerID(cm.ContainerID, c.agentState.Frameworks, c.log),
 		}
 		out = append(out, msg)
 	}
@@ -144,12 +143,16 @@ func getFrameworkInfoByFrameworkID(frameworkID string, frameworks []frameworkInf
 // getLabelsByContainerID returns a map of labels, as specified by the framework
 // that created the executor. In the case of Marathon, the framework allows the
 // user to specify their own arbitrary labels per application.
-func getLabelsByContainerID(containerID string, frameworks []frameworkInfo) map[string]string {
+func getLabelsByContainerID(containerID string, frameworks []frameworkInfo, log *logrus.Entry) map[string]string {
 	labels := map[string]string{}
 	for _, framework := range frameworks {
+		log.Debugf("Attemping to add labels to %v framework", framework)
 		for _, executor := range framework.Executors {
+			log.Debugf("Found executor %v for framework %v", framework, executor)
 			if executor.Container == containerID {
+				log.Debugf("ContainerID %v for executor %v is a match, adding labels", containerID, executor)
 				for _, pair := range executor.Labels {
+					log.Debugf("Adding label for containerID %v: %v = %+v", containerID, pair.Key, pair.Value)
 					labels[pair.Key] = pair.Value
 				}
 				return labels

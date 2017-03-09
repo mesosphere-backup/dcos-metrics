@@ -84,6 +84,8 @@ func containerHandler(p *producerImpl) http.HandlerFunc {
 			return
 		}
 
+		httpLog.Debugf("Encoding container metrics:\n%+v", containerMetrics)
+
 		encode(containerMetrics, w)
 	}
 }

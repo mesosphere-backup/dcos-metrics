@@ -20,110 +20,137 @@ import (
 	"github.com/dcos/dcos-metrics/producers"
 )
 
-func (c *Collector) createDatapoints() []producers.Datapoint {
+const (
+	// Container tagging constants
+	CONTAINERID  = "container_id"
+	SOURCE       = "source"
+	FRAMEWORKID  = "framework_id"
+	EXECUTORID   = "executor_id"
+	EXECUTORNAME = "executor_name"
+
+	// Container unit constants
+	SECONDS = "seconds"
+	COUNT   = "count"
+	BYTES   = "bytes"
+)
+
+func (c *Collector) createContainerDatapoints() []producers.Datapoint {
 	ts := thisTime()
 	dps := []producers.Datapoint{}
+
 	for _, container := range c.containerMetrics {
+
+		dpTags := map[string]string{
+			CONTAINERID:  container.ContainerID,
+			SOURCE:       container.Source,
+			FRAMEWORKID:  container.FrameworkID,
+			EXECUTORID:   container.ExecutorID,
+			EXECUTORNAME: container.ExecutorName,
+		}
+
+		c.log.Debugf("Adding tags for container %s:\n%+v", container.ContainerID, dpTags)
+
 		addDps := []producers.Datapoint{
 			producers.Datapoint{
-				Name:      "cpus.user.time",
-				Value:     container.Statistics.CpusUserTimeSecs,
-				Unit:      SECONDS,
-				Timestamp: ts,
+				Name:  "cpus.user.time",
+				Value: container.Statistics.CpusUserTimeSecs,
+				Unit:  SECONDS,
+				Tags:  dpTags,
 			},
 			producers.Datapoint{
-				Name:      "cpus.system.time",
-				Value:     container.Statistics.CpusSystemTimeSecs,
-				Unit:      SECONDS,
-				Timestamp: ts,
+				Name:  "cpus.system.time",
+				Value: container.Statistics.CpusSystemTimeSecs,
+				Unit:  SECONDS,
+				Tags:  dpTags,
 			},
 			producers.Datapoint{
-				Name:      "cpus.limit",
-				Value:     container.Statistics.CpusLimit,
-				Unit:      COUNT,
-				Timestamp: ts,
+				Name:  "cpus.limit",
+				Value: container.Statistics.CpusLimit,
+				Unit:  COUNT,
+				Tags:  dpTags,
 			},
 			producers.Datapoint{
-				Name:      "cpus.throttled.time",
-				Value:     container.Statistics.CpusThrottledTimeSecs,
-				Unit:      SECONDS,
-				Timestamp: ts,
+				Name:  "cpus.throttled.time",
+				Value: container.Statistics.CpusThrottledTimeSecs,
+				Unit:  SECONDS,
+				Tags:  dpTags,
 			},
 			producers.Datapoint{
-				Name:      "mem.total",
-				Value:     container.Statistics.MemTotalBytes,
-				Unit:      BYTES,
-				Timestamp: ts,
+				Name:  "mem.total",
+				Value: container.Statistics.MemTotalBytes,
+				Unit:  BYTES,
+				Tags:  dpTags,
 			},
 			producers.Datapoint{
-				Name:      "mem.limit",
-				Value:     container.Statistics.MemLimitBytes,
-				Unit:      BYTES,
-				Timestamp: ts,
+				Name:  "mem.limit",
+				Value: container.Statistics.MemLimitBytes,
+				Unit:  BYTES,
+				Tags:  dpTags,
 			},
 			producers.Datapoint{
-				Name:      "disk.limit",
-				Value:     container.Statistics.DiskLimitBytes,
-				Unit:      BYTES,
-				Timestamp: ts,
+				Name:  "disk.limit",
+				Value: container.Statistics.DiskLimitBytes,
+				Unit:  BYTES,
+				Tags:  dpTags,
 			},
 			producers.Datapoint{
-				Name:      "disk.used",
-				Value:     container.Statistics.DiskUsedBytes,
-				Unit:      BYTES,
-				Timestamp: ts,
+				Name:  "disk.used",
+				Value: container.Statistics.DiskUsedBytes,
+				Unit:  BYTES,
+				Tags:  dpTags,
 			},
 			producers.Datapoint{
-				Name:      "net.rx.packets",
-				Value:     container.Statistics.NetRxPackets,
-				Unit:      COUNT,
-				Timestamp: ts,
+				Name:  "net.rx.packets",
+				Value: container.Statistics.NetRxPackets,
+				Unit:  COUNT,
+				Tags:  dpTags,
 			},
 			producers.Datapoint{
-				Name:      "net.rx.bytes",
-				Value:     container.Statistics.NetRxBytes,
-				Unit:      BYTES,
-				Timestamp: ts,
+				Name:  "net.rx.bytes",
+				Value: container.Statistics.NetRxBytes,
+				Unit:  BYTES,
+				Tags:  dpTags,
 			},
 			producers.Datapoint{
-				Name:      "net.rx.errors",
-				Value:     container.Statistics.NetRxErrors,
-				Unit:      COUNT,
-				Timestamp: ts,
+				Name:  "net.rx.errors",
+				Value: container.Statistics.NetRxErrors,
+				Unit:  COUNT,
+				Tags:  dpTags,
 			},
 			producers.Datapoint{
-				Name:      "net.rx.dropped",
-				Value:     container.Statistics.NetRxDropped,
-				Unit:      COUNT,
-				Timestamp: ts,
+				Name:  "net.rx.dropped",
+				Value: container.Statistics.NetRxDropped,
+				Unit:  COUNT,
+				Tags:  dpTags,
 			},
 			producers.Datapoint{
-				Name:      "net.tx.packets",
-				Value:     container.Statistics.NetRxPackets,
-				Unit:      COUNT,
-				Timestamp: ts,
+				Name:  "net.tx.packets",
+				Value: container.Statistics.NetRxPackets,
+				Unit:  COUNT,
+				Tags:  dpTags,
 			},
 			producers.Datapoint{
-				Name:      "net.tx.bytes",
-				Value:     container.Statistics.NetRxBytes,
-				Unit:      BYTES,
-				Timestamp: ts,
+				Name:  "net.tx.bytes",
+				Value: container.Statistics.NetRxBytes,
+				Unit:  BYTES,
+				Tags:  dpTags,
 			},
 			producers.Datapoint{
-				Name:      "net.tx.errors",
-				Value:     container.Statistics.NetRxErrors,
-				Unit:      COUNT,
-				Timestamp: ts,
+				Name:  "net.tx.errors",
+				Value: container.Statistics.NetRxErrors,
+				Unit:  COUNT,
+				Tags:  dpTags,
 			},
 			producers.Datapoint{
-				Name:      "net.tx.dropped",
-				Value:     container.Statistics.NetRxDropped,
-				Unit:      COUNT,
-				Timestamp: ts,
+				Name:  "net.tx.dropped",
+				Value: container.Statistics.NetRxDropped,
+				Unit:  COUNT,
+				Tags:  dpTags,
 			},
 		}
 
 		for _, dp := range addDps {
+			dp.Timestamp = ts
 			dps = append(dps, dp)
 		}
 	}
