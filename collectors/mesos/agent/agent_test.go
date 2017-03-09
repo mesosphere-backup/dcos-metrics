@@ -24,8 +24,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-metrics/collectors"
 	"github.com/dcos/dcos-metrics/producers"
 	httpHelpers "github.com/dcos/dcos-metrics/util/http/helpers"
@@ -249,11 +249,6 @@ func TestGetAgentState(t *testing.T) {
 }
 
 func TestBuildDatapoints(t *testing.T) {
-	testTime, err := time.Parse(time.RFC3339Nano, "2009-11-10T23:00:00Z")
-	if err != nil {
-		panic(err)
-	}
-
 	Convey("When building a slice of producers.Datapoint for a MetricsMessage", t, func() {
 		Convey("Should return the node's datapoints with valid tags and values", func() {
 			Convey("Should return a container's datapoints with valid tags and values", func() {
@@ -262,14 +257,27 @@ func TestBuildDatapoints(t *testing.T) {
 					panic(err)
 				}
 
-				coll := Collector{}
-				result := []producers.Datapoint{}
-				for _, c := range thisContainerMetrics {
-					pts := coll.buildDatapoints(c, testTime)
-					result = append(result, pts...)
+				coll := Collector{
+					log:              logrus.WithFields(logrus.Fields{"test": "datapoints"}),
+					containerMetrics: thisContainerMetrics,
 				}
+
+				result := coll.createContainerDatapoints()
 				So(len(result), ShouldEqual, 16)
-				So(result[0].Timestamp, ShouldEqual, "2009-11-10T23:00:00Z")
+				for _, dp := range result {
+					So(len(dp.Tags), ShouldEqual, 5)
+					So(dp.Tags, ShouldContainKey, "container_id")
+					So(dp.Tags, ShouldContainKey, "source")
+					So(dp.Tags, ShouldContainKey, "framework_id")
+					So(dp.Tags, ShouldContainKey, "executor_id")
+					So(dp.Tags, ShouldContainKey, "executor_name")
+
+					So(len(dp.Tags["container_id"]), ShouldBeGreaterThan, 0)
+					So(len(dp.Tags["source"]), ShouldBeGreaterThan, 0)
+					So(len(dp.Tags["framework_id"]), ShouldBeGreaterThan, 0)
+					So(len(dp.Tags["executor_id"]), ShouldBeGreaterThan, 0)
+					So(len(dp.Tags["executor_name"]), ShouldBeGreaterThan, 0)
+				}
 			})
 		})
 	})
@@ -279,6 +287,7 @@ func TestTransform(t *testing.T) {
 	Convey("When transforming agent metrics to fit producers.MetricsMessage", t, func() {
 		mac := Collector{
 			PollPeriod:  60,
+			log:         logrus.WithFields(logrus.Fields{"test": "this"}),
 			metricsChan: make(chan producers.MetricsMessage),
 			nodeInfo: collectors.NodeInfo{
 				MesosID:   "test-mesos-id",
@@ -297,7 +306,7 @@ func TestTransform(t *testing.T) {
 		}
 
 		Convey("Should return a []producers.MetricsMessage without errors", func() {
-			result := mac.transformContainerMetrics()
+			result := mac.metricsMessages()
 			So(len(result), ShouldEqual, 1) // one container message
 
 			// From the implementation of a.transform() and the mocks in this test file,
@@ -337,6 +346,7 @@ func TestGetFrameworkInfoByFrameworkID(t *testing.T) {
 }
 
 func TestGetLabelsByContainerID(t *testing.T) {
+	tl := logrus.WithFields(logrus.Fields{"test": "this"})
 	Convey("When getting the labels for a container, given its ID", t, func() {
 		fi := []frameworkInfo{
 			frameworkInfo{
@@ -357,12 +367,12 @@ func TestGetLabelsByContainerID(t *testing.T) {
 		}
 
 		Convey("Should return a map of key/value pairs", func() {
-			result := getLabelsByContainerID("someContainerID", fi)
+			result := getLabelsByContainerID("someContainerID", fi, tl)
 			So(result, ShouldResemble, map[string]string{"somekey": "someval"})
 		})
 
 		Convey("Should return an empty map if no labels were present", func() {
-			result := getLabelsByContainerID("someOtherContainerID", fi)
+			result := getLabelsByContainerID("someOtherContainerID", fi, tl)
 			So(result, ShouldResemble, map[string]string{})
 		})
 	})
