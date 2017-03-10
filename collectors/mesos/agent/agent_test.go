@@ -249,6 +249,16 @@ func TestGetAgentState(t *testing.T) {
 }
 
 func TestBuildDatapoints(t *testing.T) {
+
+	checkCIDRegistry := func(registry []string) {
+		if len(registry) <= 1 {
+			return
+		}
+		if registry[len(registry)-1] != registry[len(registry)-2] {
+			t.Errorf("all container ID's for a datapoint set must be the same, got %+v", registry)
+		}
+	}
+
 	Convey("When building a slice of producers.Datapoint for a MetricsMessage", t, func() {
 		Convey("Should return the node's datapoints with valid tags and values", func() {
 			Convey("Should return a container's datapoints with valid tags and values", func() {
@@ -262,21 +272,28 @@ func TestBuildDatapoints(t *testing.T) {
 					containerMetrics: thisContainerMetrics,
 				}
 
-				result := coll.createContainerDatapoints()
-				So(len(result), ShouldEqual, 16)
-				for _, dp := range result {
-					So(len(dp.Tags), ShouldEqual, 5)
-					So(dp.Tags, ShouldContainKey, "container_id")
-					So(dp.Tags, ShouldContainKey, "source")
-					So(dp.Tags, ShouldContainKey, "framework_id")
-					So(dp.Tags, ShouldContainKey, "executor_id")
-					So(dp.Tags, ShouldContainKey, "executor_name")
+				for _, container := range thisContainerMetrics {
+					result := coll.createContainerDatapoints(container)
+					So(len(result), ShouldEqual, 16)
 
-					So(len(dp.Tags["container_id"]), ShouldBeGreaterThan, 0)
-					So(len(dp.Tags["source"]), ShouldBeGreaterThan, 0)
-					So(len(dp.Tags["framework_id"]), ShouldBeGreaterThan, 0)
-					So(len(dp.Tags["executor_id"]), ShouldBeGreaterThan, 0)
-					So(len(dp.Tags["executor_name"]), ShouldBeGreaterThan, 0)
+					cidRegistry := []string{}
+					for _, dp := range result {
+						So(len(dp.Tags), ShouldEqual, 5)
+						So(dp.Tags, ShouldContainKey, "container_id")
+						So(dp.Tags, ShouldContainKey, "source")
+						So(dp.Tags, ShouldContainKey, "framework_id")
+						So(dp.Tags, ShouldContainKey, "executor_id")
+						So(dp.Tags, ShouldContainKey, "executor_name")
+
+						So(len(dp.Tags["container_id"]), ShouldBeGreaterThan, 0)
+						So(len(dp.Tags["source"]), ShouldBeGreaterThan, 0)
+						So(len(dp.Tags["framework_id"]), ShouldBeGreaterThan, 0)
+						So(len(dp.Tags["executor_id"]), ShouldBeGreaterThan, 0)
+						So(len(dp.Tags["executor_name"]), ShouldBeGreaterThan, 0)
+
+						cidRegistry = append(cidRegistry, dp.Tags["container_id"])
+						checkCIDRegistry(cidRegistry)
+					}
 				}
 			})
 		})
