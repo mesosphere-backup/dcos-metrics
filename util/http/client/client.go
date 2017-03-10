@@ -46,7 +46,6 @@ func Fetch(client *http.Client, url url.URL, target interface{}) error {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		clientLog.Error(err)
 		return err
 	}
 	defer resp.Body.Close()
@@ -71,9 +70,8 @@ func Fetch(client *http.Client, url url.URL, target interface{}) error {
 	}
 
 	if err := json.Unmarshal(b, &target); err != nil {
-		e := fmt.Errorf("unmarshal error: %s: %v", b, err)
-		clientLog.Error(e)
-		return e
+		clientLog.Errorf("Failed to unmarshal JSON from %+v", url)
+		return err
 	}
 
 	return nil

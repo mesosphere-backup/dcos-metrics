@@ -103,7 +103,7 @@ func (c *Collector) metricsMessages() (out []producers.MetricsMessage) {
 	for _, cm := range c.containerMetrics {
 		msg = producers.MetricsMessage{
 			Name:       producers.ContainerMetricPrefix,
-			Datapoints: c.createContainerDatapoints(),
+			Datapoints: c.createContainerDatapoints(cm),
 			Timestamp:  t.UTC().Unix(),
 		}
 
