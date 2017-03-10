@@ -55,7 +55,12 @@ func getTransport(caCertificatePath string) (*http.Transport, error) {
 		log.Infof("Loading CA cert: %s", caCertificatePath)
 		caPool, err := loadCAPool(caCertificatePath)
 		if err != nil {
-			return tr, err
+			log.Errorf("Error loading CA: %s", err.Error())
+			log.Warn("Skipping certificate verification.")
+			tr.TLSClientConfig = &tls.Config{
+				InsecureSkipVerify: true,
+			}
+			return tr, nil
 		}
 
 		tr.TLSClientConfig = &tls.Config{
