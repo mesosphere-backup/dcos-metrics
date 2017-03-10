@@ -19,10 +19,11 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-go/dcos"
@@ -32,6 +33,7 @@ import (
 
 type Plugin struct {
 	App             *cli.App
+	Name            string
 	Endpoints       []string
 	Role            string
 	PollingInterval int
@@ -39,14 +41,17 @@ type Plugin struct {
 	MetricsProto    string
 	MetricsHost     string
 	AuthToken       string
+	Log             *logrus.Entry
+	ConnectorFunc   func([]producers.MetricsMessage, *cli.Context) error
 }
 
 var VERSION = "UNSET"
 
 // New returns a mandatory plugin config which every plugin for
 // metrics will need
-func New(extFlags []cli.Flag) (*Plugin, error) {
+func New(options ...Option) (*Plugin, error) {
 	newPlugin := &Plugin{
+		Name:            "default",
 		Role:            "",
 		PollingInterval: 10,
 		MetricsProto:    "http",
@@ -97,19 +102,45 @@ func New(extFlags []cli.Flag) (*Plugin, error) {
 		},
 	}
 
-	for _, f := range extFlags {
-		newPlugin.App.Flags = append(newPlugin.App.Flags, f)
+	for _, o := range options {
+		if err := o(newPlugin); err != nil {
+			return newPlugin, err
+		}
 	}
+
+	newPlugin.Log = logrus.WithFields(logrus.Fields{"plugin": newPlugin.Name})
 
 	return newPlugin, nil
 }
 
+func (p *Plugin) StartPlugin() error {
+	p.App.Action = func(c *cli.Context) error {
+		for {
+			metrics, err := p.Metrics()
+			if err != nil {
+				return err
+			}
+
+			if err := p.ConnectorFunc(metrics, c); err != nil {
+				return err
+			}
+
+			p.Log.Infof("Polling complete, sleeping for %d seconds", p.PollingInterval)
+			time.Sleep(time.Duration(p.PollingInterval) * time.Second)
+		}
+
+		return nil
+	}
+
+	return p.App.Run(os.Args)
+}
+
 func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
-	logrus.Info("Getting metrics from metrics service")
+	p.Log.Info("Getting metrics from metrics service")
 	metricsMessages := []producers.MetricsMessage{}
 
 	if err := p.setEndpoints(); err != nil {
-		log.Fatal(err)
+		p.Log.Fatal(err)
 	}
 
 	for _, path := range p.Endpoints {
@@ -137,7 +168,7 @@ func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
 		}
 
 		metricsMessages = append(metricsMessages, metricMessage)
-		logrus.Infof("Received data from metrics service endpoint %s, success!", request.URL.Path)
+		p.Log.Infof("Received data from metrics service endpoint %s, success!", request.URL.Path)
 	}
 
 	return metricsMessages, nil
@@ -146,7 +177,7 @@ func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
 // SetEndpoints uses the role passed as a flag to generate the metrics endpoints
 // this instance should use.
 func (p *Plugin) setEndpoints() error {
-	logrus.Infof("Setting plugin endpoints for role %s", p.Role)
+	p.Log.Infof("Setting plugin endpoints for role %s", p.Role)
 	if p.Role == dcos.RoleMaster {
 		p.Endpoints = []string{
 			"/system/v1/metrics/v0/node",
@@ -182,7 +213,7 @@ func (p *Plugin) setEndpoints() error {
 
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			logrus.Errorf("Encountered error reading response body, %s", err.Error())
+			p.Log.Errorf("Encountered error reading response body, %s", err.Error())
 			return err
 		}
 
@@ -192,7 +223,7 @@ func (p *Plugin) setEndpoints() error {
 
 		for _, c := range containers {
 			e := "/system/v1/metrics/v0/containers/" + c
-			logrus.Infof("Discovered new container endpoint %s", e)
+			p.Log.Infof("Discovered new container endpoint %s", e)
 			p.Endpoints = append(p.Endpoints, e)
 		}
 
@@ -202,26 +233,29 @@ func (p *Plugin) setEndpoints() error {
 	return errors.New("Role must be either 'master' or 'agent'")
 }
 
+/*** Helpers ***/
 func makeMetricsRequest(request *http.Request) (producers.MetricsMessage, error) {
-	logrus.Infof("Making request to %+v", request.URL)
+	l := logrus.WithFields(logrus.Fields{"plugin": "http-helper"})
+
+	l.Infof("Making request to %+v", request.URL)
 	client := &http.Client{}
 	mm := producers.MetricsMessage{}
 
 	resp, err := client.Do(request)
 	if err != nil {
-		logrus.Errorf("Encountered error requesting data, %s", err.Error())
+		l.Errorf("Encountered error requesting data, %s", err.Error())
 		return mm, err
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		logrus.Errorf("Encountered error reading response body, %s", err.Error())
+		l.Errorf("Encountered error reading response body, %s", err.Error())
 		return mm, err
 	}
 
 	err = json.Unmarshal(body, &mm)
 	if err != nil {
-		logrus.Errorf("Encountered error parsing JSON, %s. JSON Content was: %s", err.Error(), body)
+		l.Errorf("Encountered error parsing JSON, %s. JSON Content was: %s", err.Error(), body)
 		return mm, err
 	}
 

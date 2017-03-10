@@ -18,10 +18,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
 	log "github.com/Sirupsen/logrus"
@@ -30,57 +28,55 @@ import (
 	"github.com/urfave/cli"
 )
 
-func main() {
-	log.Info("Starting datadog DC/OS metrics plugin")
-
-	ddPluginFlags := []cli.Flag{
+var (
+	datadogHost   = "datadog-agent.marathon.mesos"
+	datadogPort   = "8125"
+	ddPluginFlags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "datadog-host",
-			Value: "datadog-agent.marathon.mesos",
+			Value: datadogHost,
 			Usage: "Datadog output hostname",
 		},
 		cli.StringFlag{
 			Name:  "datadog-port",
-			Value: "8125",
+			Value: datadogPort,
 			Usage: "Datadog output UDP port",
 		},
 	}
+	datadogConnector = func(metrics []producers.MetricsMessage, c *cli.Context) error {
+		if len(metrics) == 0 {
+			log.Error("No messages received from metrics service")
+		} else {
 
-	datadogPlugin, err := plugin.New(ddPluginFlags)
+			for _, m := range metrics {
+				log.Info("Sending metrics to datadog...")
+				datadogAgent := net.JoinHostPort(c.String("datadog-host"), c.String("datadog-port"))
+
+				if err := toStats(m, datadogAgent); err != nil {
+					log.Errorf("Errors encountered sending metrics to Datadog: %s", err.Error())
+					continue
+				}
+			}
+		}
+		return nil
+	}
+)
+
+func main() {
+	log.Info("Starting datadog DC/OS metrics plugin")
+
+	datadogPlugin, err := plugin.New(
+		plugin.PluginName("datadog"),
+		plugin.ExtraFlags(ddPluginFlags),
+		plugin.ConnectorFunc(datadogConnector))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	datadogPlugin.App.Action = func(c *cli.Context) error {
-		for {
-			messages, err := datadogPlugin.Metrics()
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			if len(messages) == 0 {
-				log.Error("No messages received from metrics service")
-			} else {
-				for _, msg := range messages {
-					// Send the data on to datadog
-					log.Info("Sending metrics to datadog...")
-					datadogAgent := net.JoinHostPort(c.String("datadog-host"), c.String("datadog-port"))
-					if err := toStats(msg, datadogAgent); err != nil {
-						log.Errorf("Errors encountered sending metrics to Datadog: %s", err.Error())
-						continue
-					}
-				}
-			}
-
-			log.Infof("Polling complete, sleeping for %d seconds", datadogPlugin.PollingInterval)
-			time.Sleep(time.Duration(datadogPlugin.PollingInterval) * time.Second)
-		}
-		return nil
-	}
-
-	datadogPlugin.App.Run(os.Args)
+	log.Fatal(datadogPlugin.StartPlugin())
 }
 
+/*** Helpers ***/
 func toStats(mm producers.MetricsMessage, ddURL string) error {
 	c, err := statsd.New(ddURL)
 	if err != nil {

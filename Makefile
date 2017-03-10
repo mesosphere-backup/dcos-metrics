@@ -1,4 +1,4 @@
-.PHONY: all build test clean
+.PHONY: all build test clean plugins
 
 all: clean build test
 
@@ -6,7 +6,7 @@ build:
 	bash -c "./scripts/build.sh collector"
 	bash -c "./scripts/build.sh statsd-emitter"
 
-plugin:
+plugins: clean
 	bash -c "./scripts/build.sh plugins"
 
 test:
