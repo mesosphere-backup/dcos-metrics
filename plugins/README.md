@@ -4,7 +4,7 @@
 Though your mileage may vary, if there is a plugin missing that you need, please feel free to file an issue so we can poll what services our users want the most.
 
 ## Developing
-To develop a new plugin in preparation for a pull requet to this project:
+To develop a new plugin in preparation for a pull request to this project:
 
 ### Plugin Development
 1. Create a new package for your `cool` plugin `mkdir plugins/cool/`
