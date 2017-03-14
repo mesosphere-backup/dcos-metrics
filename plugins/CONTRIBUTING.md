@@ -28,7 +28,7 @@ myFlags = []cli.Flag{
 ``` 
 
 #### 2. Define a connection function 
-This is for transformating metrics from the DC/OS metrics service `[]producers.MetricsMessage{}` type to your 3rd party provider. Your connector func must accept a `[]producers.MetricsMessage{}' type and a urfave/cli `*cli.Context{}` and return an `error`. The connector func is ran in a for loop on the interval specified by `plugin.Plugin.PollingInterval`, an example looks like:
+This is for transformating metrics from the DC/OS metrics service `[]producers.MetricsMessage{}` type to your 3rd party provider. Your connector func must accept a `[]producers.MetricsMessage{}' type and a urfave/cli `*cli.Context{}` and return an `error`. The connector func runs in a for loop on the interval specified by `plugin.Plugin.PollingInterval`, an example looks like:
 ```
 datadogConnector = func(metrics []producers.MetricsMessage, c *cli.Context) error {
 		if len(metrics) == 0 {
