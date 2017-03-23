@@ -210,6 +210,7 @@ func (p *Plugin) setEndpoints() error {
 		if err != nil {
 			return err
 		}
+		defer resp.Body.Close()
 
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
@@ -246,7 +247,7 @@ func makeMetricsRequest(request *http.Request) (producers.MetricsMessage, error)
 		l.Errorf("Encountered error requesting data, %s", err.Error())
 		return mm, err
 	}
-
+	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		l.Errorf("Encountered error reading response body, %s", err.Error())
