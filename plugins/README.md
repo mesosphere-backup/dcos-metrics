@@ -11,7 +11,7 @@ To develop a new plugin in preparation for a pull request to this project:
 1. Make a go file named after your package `touch plugins/cool/cool.go`
 
 #### Get a new plugin.Plugin{}
-1. Create flags: `myFalgs := []cli.Flag{}`
+1. Create flags: `myFlags := []cli.Flag{}`
 1. `myPlugin := plugin.New(myFlags)` -> `plugin.Plugin{}`
 1. Use `myPlugin.App.Action` and pass it a [cli.ActionFunc()](https://github.com/urfave/cli/blob/master/app.go#L66) which has all the `main()` logic your plugin needs.
 1. Call `myPlugin.Metrics()` which returns a slice of `producers.MetricsMessage{}` from the metrics HTTP API.
