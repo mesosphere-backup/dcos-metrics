@@ -26,6 +26,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/dcos/dcos-metrics/plugins"
 	"github.com/dcos/dcos-metrics/producers"
 )
 
@@ -79,7 +80,7 @@ func (p *postRequest) add(messages []producers.MetricsMessage) {
 		for _, datapoint := range message.Datapoints {
 			measurement := newMeasurement()
 			measurement.Name = datapoint.Name
-			timestamp, err := p.parseTimestamp(datapoint.Timestamp)
+			timestamp, err := plugin.ParseDatapointTimestamp(datapoint.Timestamp)
 			if err != nil {
 				log.Errorf("Could not parse timestamp '%s': %v", datapoint.Timestamp, err)
 				continue
@@ -120,17 +121,6 @@ func (p *postRequest) add(messages []producers.MetricsMessage) {
 	if oldDatapoints > 0 {
 		log.Warnf("Rejected %d datapoints because they were too old", oldDatapoints)
 	}
-}
-
-func (p *postRequest) parseTimestamp(timestamp string) (*time.Time, error) {
-	if timestamp == "" {
-		return nil, errors.New("Received an empty timestamp")
-	}
-	parsed, err := time.Parse(time.RFC3339, timestamp)
-	if err != nil {
-		return nil, err
-	}
-	return &parsed, nil
 }
 
 func (p *postRequest) setTag(m *measurement, name string, value string) {
