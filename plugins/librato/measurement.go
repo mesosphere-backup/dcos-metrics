@@ -17,9 +17,9 @@ package main
 import (
 	"errors"
 	"fmt"
-	"math"
 	"regexp"
-	"strconv"
+
+	"github.com/dcos/dcos-metrics/plugins"
 )
 
 // measurement represents each point in a time series
@@ -45,7 +45,7 @@ func (m *measurement) String() string {
 }
 
 func (m *measurement) setValue(value interface{}) error {
-	val, err := m.toFloat64(value)
+	val, err := plugin.DatapointValueToFloat64(value)
 	if err != nil {
 		return fmt.Errorf("Could not set value: %v", err)
 	}
@@ -70,24 +70,6 @@ func (m *measurement) addTag(name string, value string) error {
 	}
 	m.Tags[name] = value
 	return nil
-}
-
-func (m *measurement) toFloat64(value interface{}) (float64, error) {
-	switch value := value.(type) {
-	case float64:
-		return value, nil
-	case float32:
-		return float64(value), nil
-	case int64:
-		return float64(value), nil
-	case int32:
-		return float64(value), nil
-	case int:
-		return float64(value), nil
-	case string:
-		return strconv.ParseFloat(value, 64)
-	}
-	return math.NaN(), fmt.Errorf("Could not convert %+v (%T) to float64", value, value)
 }
 
 func (m *measurement) validate() error {
