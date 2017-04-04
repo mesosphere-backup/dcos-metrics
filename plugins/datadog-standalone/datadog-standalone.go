@@ -17,11 +17,9 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"time"
 
 	log "github.com/Sirupsen/logrus"
 	plugin "github.com/dcos/dcos-metrics/plugins"
@@ -153,7 +151,8 @@ func messagesToSeries(messages []producers.MetricsMessage) *DDSeries {
 		addMessageTag("hostname", dimensions.Hostname)
 
 		for _, datapoint := range message.Datapoints {
-			t, err := parseTimestamp(datapoint.Timestamp)
+			t, err := plugin.ParseDatapointTimestamp(datapoint.Timestamp)
+
 			if err != nil {
 				log.Errorf("Could not parse timestamp '%s': %v", datapoint.Timestamp, err)
 				continue
@@ -184,15 +183,4 @@ func messagesToSeries(messages []producers.MetricsMessage) *DDSeries {
 	}
 
 	return series
-}
-
-func parseTimestamp(timestamp string) (*time.Time, error) {
-	if timestamp == "" {
-		return nil, errors.New("Received an empty timestamp")
-	}
-	parsed, err := time.Parse(time.RFC3339, timestamp)
-	if err != nil {
-		return nil, err
-	}
-	return &parsed, nil
 }
