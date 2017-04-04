@@ -20,9 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"net/http"
-	"strconv"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -160,7 +158,7 @@ func messagesToSeries(messages []producers.MetricsMessage) *DDSeries {
 				log.Errorf("Could not parse timestamp '%s': %v", datapoint.Timestamp, err)
 				continue
 			}
-			v, err := toFloat64(datapoint.Value)
+			v, err := plugin.DatapointValueToFloat64(datapoint.Value)
 			if err != nil {
 				log.Error(err)
 				continue
@@ -186,24 +184,6 @@ func messagesToSeries(messages []producers.MetricsMessage) *DDSeries {
 	}
 
 	return series
-}
-
-func toFloat64(value interface{}) (float64, error) {
-	switch value := value.(type) {
-	case float64:
-		return value, nil
-	case float32:
-		return float64(value), nil
-	case int64:
-		return float64(value), nil
-	case int32:
-		return float64(value), nil
-	case int:
-		return float64(value), nil
-	case string:
-		return strconv.ParseFloat(value, 64)
-	}
-	return math.NaN(), fmt.Errorf("Could not convert %+v (%T) to float64", value, value)
 }
 
 func parseTimestamp(timestamp string) (*time.Time, error) {
