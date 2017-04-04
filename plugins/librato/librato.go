@@ -22,10 +22,11 @@ import (
 )
 
 var (
-	libratoEmailFlagName = "librato-email"
-	libratoTokenFlagName = "librato-token"
-	libratoUrl           = "https://metrics-api.librato.com"
-	pluginFlags          = []cli.Flag{
+	libratoEmailFlagName  = "librato-email"
+	libratoTokenFlagName  = "librato-token"
+	libratoPrefixFlagName = "librato-metric-prefix"
+	libratoUrl            = "https://metrics-api.librato.com"
+	pluginFlags           = []cli.Flag{
 		cli.StringFlag{
 			Name:  libratoEmailFlagName,
 			Usage: "Librato user email address",
@@ -33,6 +34,11 @@ var (
 		cli.StringFlag{
 			Name:  libratoTokenFlagName,
 			Usage: "Librato user API token (must have record access)",
+		},
+		cli.StringFlag{
+			Name:  libratoPrefixFlagName,
+			Usage: "Metric name prefix applied to all metrics sent to Librato",
+			Value: "dcos",
 		},
 	}
 )
@@ -49,6 +55,7 @@ func main() {
 				libratoEmail:    context.String(libratoEmailFlagName),
 				libratoToken:    context.String(libratoTokenFlagName),
 				pollingInterval: context.Int64("polling-interval"),
+				metricPrefix:    context.String(libratoPrefixFlagName),
 			}
 			post, err := newPostRequest(opts)
 			if err != nil {

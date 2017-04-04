@@ -48,6 +48,7 @@ type postRequestOpts struct {
 	libratoUrl      string
 	libratoEmail    string
 	libratoToken    string
+	metricPrefix    string
 	pollingInterval int64
 }
 
@@ -79,7 +80,7 @@ func (p *postRequest) add(messages []producers.MetricsMessage) {
 		dimensions := message.Dimensions
 		for _, datapoint := range message.Datapoints {
 			measurement := newMeasurement()
-			measurement.Name = datapoint.Name
+			measurement.Name = p.metricName(datapoint.Name)
 			timestamp, err := plugin.ParseDatapointTimestamp(datapoint.Timestamp)
 			if err != nil {
 				log.Errorf("Could not parse timestamp '%s': %v", datapoint.Timestamp, err)
@@ -121,6 +122,13 @@ func (p *postRequest) add(messages []producers.MetricsMessage) {
 	if oldDatapoints > 0 {
 		log.Warnf("Rejected %d datapoints because they were too old", oldDatapoints)
 	}
+}
+
+func (p *postRequest) metricName(name string) string {
+	if p.opts.metricPrefix != "" {
+		return p.opts.metricPrefix + "." + name
+	}
+	return name
 }
 
 func (p *postRequest) setTag(m *measurement, name string, value string) {

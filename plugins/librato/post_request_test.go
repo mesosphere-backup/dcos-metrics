@@ -48,6 +48,7 @@ var (
 	testLibratoEmail    = "test@example.com"
 	testLibratoToken    = "testToken"
 	testPollingInterval = int64(10)
+	testMetricPrefix    = "dcos"
 )
 
 func TestPostRequest(t *testing.T) {
@@ -74,7 +75,7 @@ func TestPostRequest(t *testing.T) {
 		if measurement.Value != 42 {
 			t.Fatalf("Measure should have been 42 but was %f", measurement.Value)
 		}
-		if measurement.Name != "my-metric" {
+		if measurement.Name != "dcos.my-metric" {
 			t.Fatalf("Measure name should have been 'my-metric' but was %s", measurement.Name)
 		}
 		// verify that the measure time was floored to the polling interval
@@ -140,6 +141,7 @@ func newTestPostRequest(server *httptest.Server) (*postRequest, error) {
 		libratoEmail:    testLibratoEmail,
 		libratoToken:    testLibratoToken,
 		pollingInterval: testPollingInterval,
+		metricPrefix:    testMetricPrefix,
 	})
 }
 
