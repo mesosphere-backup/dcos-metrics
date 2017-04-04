@@ -96,14 +96,14 @@ func (p *postRequest) add(messages []producers.MetricsMessage) {
 			for k, v := range datapoint.Tags {
 				p.setTag(measurement, k, v)
 			}
-			p.setTag(measurement, "mesosId", dimensions.MesosID)
-			p.setTag(measurement, "clusterId", dimensions.ClusterID)
-			p.setTag(measurement, "containerId", dimensions.ContainerID)
-			p.setTag(measurement, "executorId", dimensions.ExecutorID)
-			p.setTag(measurement, "frameworkName", dimensions.FrameworkName)
-			p.setTag(measurement, "frameworkId", dimensions.FrameworkID)
-			p.setTag(measurement, "frameworkRole", dimensions.FrameworkRole)
-			p.setTag(measurement, "frameworkPrincipal", dimensions.FrameworkPrincipal)
+			p.setTag(measurement, "mesos_id", dimensions.MesosID)
+			p.setTag(measurement, "cluster_id", dimensions.ClusterID)
+			p.setTag(measurement, "container_id", dimensions.ContainerID)
+			p.setTag(measurement, "executor_id", dimensions.ExecutorID)
+			p.setTag(measurement, "framework_name", dimensions.FrameworkName)
+			p.setTag(measurement, "framework_id", dimensions.FrameworkID)
+			p.setTag(measurement, "framework_role", dimensions.FrameworkRole)
+			p.setTag(measurement, "framework_principal", dimensions.FrameworkPrincipal)
 			p.setTag(measurement, "hostname", dimensions.Hostname)
 			for k, v := range dimensions.Labels {
 				p.setTag(measurement, fmt.Sprintf("label:%s", k), v)
