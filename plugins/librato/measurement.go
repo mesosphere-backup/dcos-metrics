@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"regexp"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-metrics/plugins"
 )
 
@@ -67,6 +68,9 @@ func (m *measurement) addTag(name string, value string) error {
 	}
 	if !matched {
 		return fmt.Errorf("Tag value '%s' is not valid", value)
+	}
+	if found, ok := m.Tags[name]; ok && found != value {
+		log.Warnf("Existing tag '%s'='%s' being overwritten with '%s", name, found, value)
 	}
 	m.Tags[name] = value
 	return nil
