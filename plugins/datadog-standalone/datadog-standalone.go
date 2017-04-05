@@ -43,7 +43,13 @@ var (
 
 			s := messagesToSeries(metrics)
 			b := new(bytes.Buffer)
-			json.NewEncoder(b).Encode(s)
+
+			err := json.NewEncoder(b).Encode(s)
+			if err != nil {
+				log.Errorf("Could not encode metrics to JSON: %v", err)
+				return nil
+			}
+
 			res, err := http.Post(datadogURL, "application/json; charset=utf-8", b)
 			if err != nil {
 				log.Error(err)
