@@ -36,7 +36,7 @@ var (
 	}
 	datadogConnector = func(metrics []producers.MetricsMessage, c *cli.Context) error {
 		if len(metrics) == 0 {
-			log.Error("No messages received from metrics service")
+			log.Info("No messages received from metrics service")
 		} else {
 			log.Info("Transmitting metrics to DataDog")
 			datadogURL := fmt.Sprintf("https://app.datadoghq.com/api/v1/series?api_key=%s", c.String("datadog-key"))
@@ -58,7 +58,7 @@ var (
 			defer res.Body.Close()
 			body, err := ioutil.ReadAll(res.Body)
 			if err != nil {
-				log.Fatal(err)
+				log.Error(err)
 				return nil
 			}
 			result := DDResult{}
