@@ -52,15 +52,17 @@ var (
 
 			res, err := http.Post(datadogURL, "application/json; charset=utf-8", b)
 			if err != nil {
-				log.Error(err)
+				log.Errorf("Could not post payload to DataDog: %v", err)
 				return nil
 			}
+
 			defer res.Body.Close()
 			body, err := ioutil.ReadAll(res.Body)
 			if err != nil {
-				log.Error(err)
+				log.Errorf("Could not read response: %v", err)
 				return nil
 			}
+
 			result := DDResult{}
 			err = json.Unmarshal(body, &result)
 			if err != nil {
