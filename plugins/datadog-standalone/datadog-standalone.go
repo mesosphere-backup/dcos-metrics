@@ -90,11 +90,11 @@ var (
 	}
 )
 
-// DataPoint is a tuple of [UNIX timestamp, value]. This has to use floats
+// DDDataPoint is a tuple of [UNIX timestamp, value]. This has to use floats
 // because the value could be non-integer.
 type DDDataPoint [2]float64
 
-// Metric represents a collection of data points that we might send or receive
+// DDMetric represents a collection of data points that we might send or receive
 // on one single metric line.
 type DDMetric struct {
 	Metric string        `json:"metric,omitempty"`
@@ -105,12 +105,12 @@ type DDMetric struct {
 	Unit   string        `json:"unit,omitempty"`
 }
 
-// Series represents a collection of data points we get when we query for timeseries data
+// DDSeries represents a collection of data points we get when we query for timeseries data
 type DDSeries struct {
 	Series []DDMetric `json:"series"`
 }
 
-// A successful metrics API result
+// DDResult represents the result from a DataDog API Query
 type DDResult struct {
 	Status   string   `json:"status,omitempty"`
 	Errors   []string `json:"errors,omitempty"`
