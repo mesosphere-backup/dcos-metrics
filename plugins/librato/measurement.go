@@ -38,6 +38,10 @@ func newMeasurement() *measurement {
 }
 
 func (m *measurement) floorTime(interval int64) {
+	if interval <= 0 {
+		log.Errorf("Attempted to floor measurement time with interval %d", interval)
+		return
+	}
 	m.Time = m.Time / interval * interval
 }
 

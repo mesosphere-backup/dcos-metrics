@@ -19,6 +19,27 @@ import (
 	"testing"
 )
 
+func TestFloorTime(t *testing.T) {
+	type testCase struct {
+		time     int64
+		interval int64
+		expected int64
+	}
+	testCases := []testCase{
+		{time: 1024, interval: 1000, expected: 1000},
+		{time: 1024, interval: 0, expected: 1024},
+		{time: 1024, interval: -52, expected: 1024},
+	}
+	for _, tc := range testCases {
+		measurement := newMeasurement()
+		measurement.Time = tc.time
+		measurement.floorTime(tc.interval)
+		if measurement.Time != tc.expected {
+			t.Fatalf("Test case %+v got unexpected value %d", tc, tc.expected)
+		}
+	}
+}
+
 func TestMeasurementTags(t *testing.T) {
 	type testCase struct {
 		name        string
