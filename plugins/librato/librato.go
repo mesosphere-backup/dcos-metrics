@@ -59,12 +59,12 @@ func main() {
 			}
 			post, err := newPostRequest(opts)
 			if err != nil {
-				log.Errorf("Could not build post request: %v", err)
+				log.Errorf("Could not build post request: %s", err)
 				return nil
 			}
 			post.add(metrics)
 			if err := post.send(); err != nil {
-				log.Errorf("Could not post to Librato: %v", err)
+				log.Errorf("Could not post to Librato: %s", err)
 				return nil
 			}
 			return nil

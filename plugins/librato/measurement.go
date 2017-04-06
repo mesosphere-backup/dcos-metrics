@@ -52,7 +52,7 @@ func (m *measurement) String() string {
 func (m *measurement) setValue(value interface{}) error {
 	val, err := plugin.DatapointValueToFloat64(value)
 	if err != nil {
-		return fmt.Errorf("Could not set value: %v", err)
+		return fmt.Errorf("Could not set value: %s", err)
 	}
 	m.Value = val
 	return nil
@@ -61,14 +61,14 @@ func (m *measurement) setValue(value interface{}) error {
 func (m *measurement) addTag(name string, value string) error {
 	matched, err := regexp.MatchString(`^[-.:_\w]+\z{1,64}$`, name)
 	if err != nil {
-		return fmt.Errorf("Error occurred matching tag name: %v", err)
+		return fmt.Errorf("Error occurred matching tag name: %s", err)
 	}
 	if !matched {
 		return fmt.Errorf("Tag name '%s' is not valid", name)
 	}
 	matched, err = regexp.MatchString(`^[-.:_\\/\w ]{1,255}$`, value)
 	if err != nil {
-		return fmt.Errorf("Error occurred matching tag value: %v", err)
+		return fmt.Errorf("Error occurred matching tag value: %s", err)
 	}
 	if !matched {
 		return fmt.Errorf("Tag value '%s' is not valid", value)

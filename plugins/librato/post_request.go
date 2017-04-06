@@ -83,7 +83,7 @@ func (p *postRequest) add(messages []producers.MetricsMessage) {
 			measurement.Name = p.metricName(datapoint.Name)
 			timestamp, err := plugin.ParseDatapointTimestamp(datapoint.Timestamp)
 			if err != nil {
-				log.Errorf("Could not parse timestamp '%s': %v", datapoint.Timestamp, err)
+				log.Errorf("Could not parse timestamp '%s': %s", datapoint.Timestamp, err)
 				continue
 			}
 			if timestamp.Before(time.Now().Add(-10 * time.Minute)) {
@@ -109,11 +109,11 @@ func (p *postRequest) add(messages []producers.MetricsMessage) {
 				p.setTag(measurement, fmt.Sprintf("label:%s", k), v)
 			}
 			if err := measurement.setValue(datapoint.Value); err != nil {
-				log.Errorf("Skipping datapoint '%s' due to an invalid value: %v", measurement, err)
+				log.Errorf("Skipping datapoint '%s' due to an invalid value: %s", measurement, err)
 				continue
 			}
 			if err := measurement.validate(); err != nil {
-				log.Errorf("Skipping datapoint '%s' due to a validation error: %v", measurement, err)
+				log.Errorf("Skipping datapoint '%s' due to a validation error: %s", measurement, err)
 				continue
 			}
 			p.Measurements = append(p.Measurements, measurement)
@@ -138,7 +138,7 @@ func (p *postRequest) setTag(m *measurement, name string, value string) {
 	}
 	if err := m.addTag(name, value); err != nil {
 		// some tags cannot be used, this will get noisy if on the warn level
-		log.Debugf("Invalid tag '%s'='%s' for measurement '%s': %v", name, value, m, err)
+		log.Debugf("Invalid tag '%s'='%s' for measurement '%s': %s", name, value, m, err)
 	}
 }
 
@@ -153,16 +153,16 @@ func (p *postRequest) floorTime(value int64) int64 {
 func (p *postRequest) send() error {
 	encoded, err := json.Marshal(p)
 	if err != nil {
-		return fmt.Errorf("Could not marshal request: %v", err)
+		return fmt.Errorf("Could not marshal request: %s", err)
 	}
 	url := p.opts.libratoURL + "/v1/measurements"
 	req, err := http.NewRequest("POST", url, bytes.NewReader(encoded))
 	if err != nil {
-		return fmt.Errorf("Could not build request: %v", err)
+		return fmt.Errorf("Could not build request: %s", err)
 	}
 	authHeader, err := p.authHeader()
 	if err != nil {
-		return fmt.Errorf("Could not create authentication header: %v", err)
+		return fmt.Errorf("Could not create authentication header: %s", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", authHeader)
@@ -177,12 +177,12 @@ func (p *postRequest) send() error {
 func (p *postRequest) checkResponse(resp *http.Response) error {
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("Got response code %d but could not read body: %v", resp.StatusCode, err)
+		return fmt.Errorf("Got response code %d but could not read body: %s", resp.StatusCode, err)
 	}
 	if resp.StatusCode == http.StatusAccepted {
 		var libratoResponse libratoResponse
 		if err := json.Unmarshal(respBody, &libratoResponse); err != nil {
-			return fmt.Errorf("Got response code %d but could not decode response body: %v", resp.StatusCode, err)
+			return fmt.Errorf("Got response code %d but could not decode response body: %s", resp.StatusCode, err)
 		}
 		if libratoResponse.Measurements.Summary.Failed == 0 {
 			return nil

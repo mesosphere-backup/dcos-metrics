@@ -62,7 +62,7 @@ func TestPostRequest(t *testing.T) {
 		}
 		b, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			t.Fatalf("Could not read request body: %v", err)
+			t.Fatalf("Could not read request body: %s", err)
 		}
 		var postRequest postRequest
 		if err := json.Unmarshal(b, &postRequest); err != nil {

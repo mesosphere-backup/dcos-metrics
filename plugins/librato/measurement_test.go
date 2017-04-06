@@ -62,7 +62,7 @@ func TestMeasurementTags(t *testing.T) {
 			t.Fatalf("Test case %+v should have failed", tc)
 		}
 		if !tc.expectError && err != nil {
-			t.Fatalf("Test case %+v should not have failed but did: %v", tc, err)
+			t.Fatalf("Test case %+v should not have failed but did: %s", tc, err)
 		}
 	}
 }
@@ -94,7 +94,7 @@ func TestMeasurementSetValue(t *testing.T) {
 			t.Fatalf("Test case %+v should have failed", tc)
 		}
 		if !tc.expectError && err != nil {
-			t.Fatalf("Test case %+v should not have failed but did: %v", tc, err)
+			t.Fatalf("Test case %+v should not have failed but did: %s", tc, err)
 		}
 	}
 }
