@@ -69,8 +69,8 @@ func (m *networkMetrics) getDatapoints() ([]producers.Datapoint, error) {
 	var ncDps []producers.Datapoint
 	for _, nic := range m.interfaces {
 		ncDps = append(ncDps, producers.Datapoint{
-			Name:      NET_IN,
-			Unit:      BYTES,
+			Name:      netIn,
+			Unit:      bytesUnit,
 			Value:     nic.netIn,
 			Timestamp: nic.timestamp,
 			Tags: map[string]string{
@@ -79,8 +79,8 @@ func (m *networkMetrics) getDatapoints() ([]producers.Datapoint, error) {
 		})
 
 		ncDps = append(ncDps, producers.Datapoint{
-			Name:      NET_OUT,
-			Unit:      BYTES,
+			Name:      netOut,
+			Unit:      bytesUnit,
 			Value:     nic.netOut,
 			Timestamp: nic.timestamp,
 			Tags: map[string]string{
@@ -89,8 +89,8 @@ func (m *networkMetrics) getDatapoints() ([]producers.Datapoint, error) {
 		})
 
 		ncDps = append(ncDps, producers.Datapoint{
-			Name:      NET_IN_PACKETS,
-			Unit:      COUNT,
+			Name:      netInPackets,
+			Unit:      countUnit,
 			Value:     nic.netInPackets,
 			Timestamp: nic.timestamp,
 			Tags: map[string]string{
@@ -99,8 +99,8 @@ func (m *networkMetrics) getDatapoints() ([]producers.Datapoint, error) {
 		})
 
 		ncDps = append(ncDps, producers.Datapoint{
-			Name:      NET_OUT_PACKETS,
-			Unit:      COUNT,
+			Name:      netOutPackets,
+			Unit:      countUnit,
 			Value:     nic.netOutPackets,
 			Timestamp: nic.timestamp,
 			Tags: map[string]string{
@@ -109,8 +109,8 @@ func (m *networkMetrics) getDatapoints() ([]producers.Datapoint, error) {
 		})
 
 		ncDps = append(ncDps, producers.Datapoint{
-			Name:      NET_IN_DROPPED,
-			Unit:      COUNT,
+			Name:      netInDropped,
+			Unit:      countUnit,
 			Value:     nic.netInDropped,
 			Timestamp: nic.timestamp,
 			Tags: map[string]string{
@@ -119,8 +119,8 @@ func (m *networkMetrics) getDatapoints() ([]producers.Datapoint, error) {
 		})
 
 		ncDps = append(ncDps, producers.Datapoint{
-			Name:      NET_OUT_DROPPED,
-			Unit:      COUNT,
+			Name:      netOutDropped,
+			Unit:      countUnit,
 			Value:     nic.netOutDropped,
 			Timestamp: nic.timestamp,
 			Tags: map[string]string{
@@ -129,8 +129,8 @@ func (m *networkMetrics) getDatapoints() ([]producers.Datapoint, error) {
 		})
 
 		ncDps = append(ncDps, producers.Datapoint{
-			Name:      NET_IN_ERRORS,
-			Unit:      COUNT,
+			Name:      netInErrors,
+			Unit:      countUnit,
 			Value:     nic.netInErrors,
 			Timestamp: nic.timestamp,
 			Tags: map[string]string{
@@ -139,8 +139,8 @@ func (m *networkMetrics) getDatapoints() ([]producers.Datapoint, error) {
 		})
 
 		ncDps = append(ncDps, producers.Datapoint{
-			Name:      NET_OUT_ERRORS,
-			Unit:      COUNT,
+			Name:      netOutErrors,
+			Unit:      countUnit,
 			Value:     nic.netOutErrors,
 			Timestamp: nic.timestamp,
 			Tags: map[string]string{

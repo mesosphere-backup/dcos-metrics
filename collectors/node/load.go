@@ -44,20 +44,20 @@ func (m *loadMetric) poll() error {
 func (m *loadMetric) getDatapoints() ([]producers.Datapoint, error) {
 	return []producers.Datapoint{
 		producers.Datapoint{
-			Name:      LOAD_1MIN,
-			Unit:      COUNT,
+			Name:      load1Min,
+			Unit:      countUnit,
 			Value:     m.load1Min,
 			Timestamp: m.timestamp,
 		},
 		producers.Datapoint{
-			Name:      LOAD_5MIN,
-			Unit:      COUNT,
+			Name:      load5Min,
+			Unit:      countUnit,
 			Value:     m.load5Min,
 			Timestamp: m.timestamp,
 		},
 		producers.Datapoint{
-			Name:      LOAD_15MIN,
-			Unit:      COUNT,
+			Name:      load15Min,
+			Unit:      countUnit,
 			Value:     m.load15Min,
 			Timestamp: m.timestamp,
 		},
