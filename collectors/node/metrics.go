@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package node
 
 import (
@@ -21,57 +22,57 @@ import (
 
 const (
 	// Unit constants
-	COUNT   = "count"
-	BYTES   = "bytes"
-	PERCENT = "percent"
+	countUnit   = "count"
+	bytesUnit   = "bytes"
+	percentUnit = "percent"
 
 	/* Metric name constants */
-	UPTIME = "system.uptime"
+	uptimeMetricName = "system.uptime"
 
 	/* process.<namespace> */
-	PROCESS_COUNT = "process.count"
+	processCount = "process.count"
 
 	/* load.<namespace> */
-	LOAD_1MIN  = "load.1min"
-	LOAD_5MIN  = "load.5min"
-	LOAD_15MIN = "load.15min"
+	load1Min  = "load.1min"
+	load5Min  = "load.5min"
+	load15Min = "load.15min"
 
 	/* load.<namespace> */
-	CPU_CORES  = "cpu.cores"
-	CPU_TOTAL  = "cpu.total"
-	CPU_USER   = "cpu.user"
-	CPU_SYSTEM = "cpu.system"
-	CPU_IDLE   = "cpu.idle"
-	CPU_WAIT   = "cpu.wait"
+	cpuCores  = "cpu.cores"
+	cpuTotal  = "cpu.total"
+	cpuUser   = "cpu.user"
+	cpuSystem = "cpu.system"
+	cpuIdle   = "cpu.idle"
+	cpuWait   = "cpu.wait"
 
 	/* filesystem.<namespace> */
-	FS_CAP_TOTAL   = "filesystem.capacity.total"
-	FS_CAP_USED    = "filesystem.capacity.used"
-	FS_CAP_FREE    = "filesystem.capacity.free"
-	FS_INODE_TOTAL = "filesystem.inode.total"
-	FS_INODE_USED  = "filesystem.inode.used"
-	FS_INODE_FREE  = "filesystem.inode.free"
+	fsCapTotal   = "filesystem.capacity.total"
+	fsCapUsed    = "filesystem.capacity.used"
+	fsCapFree    = "filesystem.capacity.free"
+	fsInodeTotal = "filesystem.inode.total"
+	fsInodeUsed  = "filesystem.inode.used"
+	fsInodeFree  = "filesystem.inode.free"
 
 	/* network.<namespace> */
-	NET_IN          = "network.in"
-	NET_OUT         = "network.out"
-	NET_IN_PACKETS  = "network.in.packets"
-	NET_OUT_PACKETS = "network.out.packets"
-	NET_IN_DROPPED  = "network.in.dropped"
-	NET_OUT_DROPPED = "network.out.dropped"
-	NET_IN_ERRORS   = "network.in.errors"
-	NET_OUT_ERRORS  = "network.out.errors"
+	netIn         = "network.in"
+	netOut        = "network.out"
+	netInPackets  = "network.in.packets"
+	netOutPackets = "network.out.packets"
+	netInDropped  = "network.in.dropped"
+	netOutDropped = "network.out.dropped"
+	netInErrors   = "network.in.errors"
+	netOutErrors  = "network.out.errors"
 
 	/* memory.<namespace> */
-	MEM_TOTAL   = "memory.total"
-	MEM_FREE    = "memory.free"
-	MEM_BUFFERS = "memory.buffers"
-	MEM_CACHED  = "memory.cached"
+	memTotal   = "memory.total"
+	memFree    = "memory.free"
+	memBuffers = "memory.buffers"
+	memCached  = "memory.cached"
 
 	/* swap.<namespace> */
-	SWAP_TOTAL = "swap.total"
-	SWAP_FREE  = "swap.free"
-	SWAP_USED  = "swap.used"
+	swapTotal = "swap.total"
+	swapFree  = "swap.free"
+	swapUsed  = "swap.used"
 )
 
 type nodeCollector struct {
@@ -104,11 +105,11 @@ func getNodeMetrics() ([]producers.Datapoint, error) {
 			return nc.datapoints, err
 		}
 
-		if dps, err := mp.getDatapoints(); err != nil {
+		dps, err := mp.getDatapoints()
+		if err != nil {
 			return nc.datapoints, err
-		} else {
-			nc.datapoints = append(nc.datapoints, dps...)
 		}
+		nc.datapoints = append(nc.datapoints, dps...)
 	}
 
 	return nc.datapoints, nil

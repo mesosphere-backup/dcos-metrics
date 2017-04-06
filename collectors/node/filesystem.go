@@ -72,8 +72,8 @@ func (m *filesystemMetrics) getDatapoints() ([]producers.Datapoint, error) {
 	path from which these came */
 	for _, fs := range m.fsMetrics {
 		fsDps = append(fsDps, producers.Datapoint{
-			Name:      FS_CAP_TOTAL,
-			Unit:      BYTES,
+			Name:      fsCapTotal,
+			Unit:      bytesUnit,
 			Value:     fs.capTotal,
 			Timestamp: fs.timestamp,
 			Tags: map[string]string{
@@ -81,8 +81,8 @@ func (m *filesystemMetrics) getDatapoints() ([]producers.Datapoint, error) {
 			},
 		})
 		fsDps = append(fsDps, producers.Datapoint{
-			Name:      FS_CAP_USED,
-			Unit:      BYTES,
+			Name:      fsCapUsed,
+			Unit:      bytesUnit,
 			Value:     fs.capUsed,
 			Timestamp: fs.timestamp,
 			Tags: map[string]string{
@@ -90,8 +90,8 @@ func (m *filesystemMetrics) getDatapoints() ([]producers.Datapoint, error) {
 			},
 		})
 		fsDps = append(fsDps, producers.Datapoint{
-			Name:      FS_CAP_FREE,
-			Unit:      BYTES,
+			Name:      fsCapFree,
+			Unit:      bytesUnit,
 			Value:     fs.capFree,
 			Timestamp: fs.timestamp,
 			Tags: map[string]string{
@@ -99,8 +99,8 @@ func (m *filesystemMetrics) getDatapoints() ([]producers.Datapoint, error) {
 			},
 		})
 		fsDps = append(fsDps, producers.Datapoint{
-			Name:      FS_INODE_TOTAL,
-			Unit:      COUNT,
+			Name:      fsInodeTotal,
+			Unit:      countUnit,
 			Value:     fs.inodesTotal,
 			Timestamp: fs.timestamp,
 			Tags: map[string]string{
@@ -108,8 +108,8 @@ func (m *filesystemMetrics) getDatapoints() ([]producers.Datapoint, error) {
 			},
 		})
 		fsDps = append(fsDps, producers.Datapoint{
-			Name:      FS_INODE_USED,
-			Unit:      COUNT,
+			Name:      fsInodeUsed,
+			Unit:      countUnit,
 			Value:     fs.inodesUsed,
 			Timestamp: fs.timestamp,
 			Tags: map[string]string{
@@ -117,8 +117,8 @@ func (m *filesystemMetrics) getDatapoints() ([]producers.Datapoint, error) {
 			},
 		})
 		fsDps = append(fsDps, producers.Datapoint{
-			Name:      FS_INODE_FREE,
-			Unit:      COUNT,
+			Name:      fsInodeFree,
+			Unit:      countUnit,
 			Value:     fs.inodesFree,
 			Timestamp: fs.timestamp,
 			Tags: map[string]string{

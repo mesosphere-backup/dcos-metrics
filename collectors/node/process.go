@@ -38,8 +38,8 @@ func (m *processMetrics) poll() error {
 func (m *processMetrics) getDatapoints() ([]producers.Datapoint, error) {
 	return []producers.Datapoint{
 		producers.Datapoint{
-			Name:      PROCESS_COUNT,
-			Unit:      COUNT,
+			Name:      processCount,
+			Unit:      countUnit,
 			Value:     m.processCount,
 			Timestamp: m.timestamp,
 		}}, nil

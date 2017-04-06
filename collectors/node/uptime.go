@@ -37,8 +37,8 @@ func (m *uptimeMetric) poll() error {
 func (m *uptimeMetric) getDatapoints() ([]producers.Datapoint, error) {
 	return []producers.Datapoint{
 		producers.Datapoint{
-			Name:      UPTIME,
-			Unit:      COUNT,
+			Name:      uptimeMetricName,
+			Unit:      countUnit,
 			Value:     m.uptime,
 			Timestamp: m.timestamp,
 		}}, nil
