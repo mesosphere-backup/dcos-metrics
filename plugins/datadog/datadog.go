@@ -66,7 +66,7 @@ func main() {
 	log.Info("Starting datadog DC/OS metrics plugin")
 
 	datadogPlugin, err := plugin.New(
-		plugin.PluginName("datadog"),
+		plugin.Name("datadog"),
 		plugin.ExtraFlags(ddPluginFlags),
 		plugin.ConnectorFunc(datadogConnector))
 	if err != nil {
