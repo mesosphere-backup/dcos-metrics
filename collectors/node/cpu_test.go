@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	mockCpuMetric = cpuCoresMetric{
+	mockCPUMetric = cpuCoresMetric{
 		cpuCores:  4,
 		cpuTotal:  float64(12.50),
 		cpuUser:   float64(9.60),
@@ -39,7 +39,7 @@ func TestCPUGetDatapoints(t *testing.T) {
 
 	mockNc := nodeCollector{}
 
-	dps, err := mockCpuMetric.getDatapoints()
+	dps, err := mockCPUMetric.getDatapoints()
 
 	if err != nil {
 		t.Errorf("Expected no errors getting datapoints from mockCPU, got %s", err.Error())
