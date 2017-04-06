@@ -149,8 +149,8 @@ func TestGetCPUTimes(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			So(cur.User, ShouldBeGreaterThan, last.User)
-			So(cur.Idle, ShouldBeGreaterThan, last.Idle)
+			So(cur.User, ShouldBeGreaterThanOrEqualTo, last.User)
+			So(cur.Idle, ShouldBeGreaterThanOrEqualTo, last.Idle)
 		})
 	})
 }
