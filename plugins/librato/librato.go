@@ -25,7 +25,7 @@ var (
 	libratoEmailFlagName  = "librato-email"
 	libratoTokenFlagName  = "librato-token"
 	libratoPrefixFlagName = "librato-metric-prefix"
-	libratoUrl            = "https://metrics-api.librato.com"
+	libratoURL            = "https://metrics-api.librato.com"
 	pluginFlags           = []cli.Flag{
 		cli.StringFlag{
 			Name:  libratoEmailFlagName,
@@ -51,7 +51,7 @@ func main() {
 		plugin.ConnectorFunc(func(metrics []producers.MetricsMessage, context *cli.Context) error {
 			log.Infof("Processing %d metrics", len(metrics))
 			opts := &postRequestOpts{
-				libratoUrl:      libratoUrl,
+				libratoURL:      libratoURL,
 				libratoEmail:    context.String(libratoEmailFlagName),
 				libratoToken:    context.String(libratoTokenFlagName),
 				pollingInterval: context.Int64("polling-interval"),

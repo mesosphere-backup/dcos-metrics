@@ -45,7 +45,7 @@ type postRequest struct {
 
 // postRequestOpts are the configurable options for postRequest
 type postRequestOpts struct {
-	libratoUrl      string
+	libratoURL      string
 	libratoEmail    string
 	libratoToken    string
 	metricPrefix    string
@@ -56,7 +56,7 @@ func newPostRequest(opts *postRequestOpts) (*postRequest, error) {
 	isBlank := func(str string) bool {
 		return len(strings.TrimSpace(str)) == 0
 	}
-	if isBlank(opts.libratoUrl) {
+	if isBlank(opts.libratoURL) {
 		return nil, errors.New("Librato url must be specified")
 	}
 	if isBlank(opts.libratoEmail) {
@@ -155,7 +155,7 @@ func (p *postRequest) send() error {
 	if err != nil {
 		return fmt.Errorf("Could not marshal request: %v", err)
 	}
-	url := p.opts.libratoUrl + "/v1/measurements"
+	url := p.opts.libratoURL + "/v1/measurements"
 	req, err := http.NewRequest("POST", url, bytes.NewReader(encoded))
 	if err != nil {
 		return fmt.Errorf("Could not build request: %v", err)

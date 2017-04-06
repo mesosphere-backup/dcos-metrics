@@ -32,13 +32,13 @@ type libratoSummary struct {
 
 // for testing
 func (l *libratoResponse) addError(err string) {
-	l.Measurements.Summary.Failed += 1
-	l.Measurements.Summary.Total += 1
+	l.Measurements.Summary.Failed++
+	l.Measurements.Summary.Total++
 	l.Measurements.Errors = append(l.Measurements.Errors, err)
 }
 
 // for testing
 func (l *libratoResponse) addAccepted() {
-	l.Measurements.Summary.Accepted += 1
-	l.Measurements.Summary.Total += 1
+	l.Measurements.Summary.Accepted++
+	l.Measurements.Summary.Total++
 }

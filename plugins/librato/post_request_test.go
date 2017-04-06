@@ -137,7 +137,7 @@ func TestPostRequestFailure(t *testing.T) {
 
 func newTestPostRequest(server *httptest.Server) (*postRequest, error) {
 	return newPostRequest(&postRequestOpts{
-		libratoUrl:      server.URL,
+		libratoURL:      server.URL,
 		libratoEmail:    testLibratoEmail,
 		libratoToken:    testLibratoToken,
 		pollingInterval: testPollingInterval,
