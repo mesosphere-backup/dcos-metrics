@@ -46,7 +46,7 @@ var (
 func main() {
 	log.Info("Starting Librato DC/OS metrics plugin")
 	libratoPlugin, err := plugin.New(
-		plugin.PluginName("librato"),
+		plugin.Name("librato"),
 		plugin.ExtraFlags(pluginFlags),
 		plugin.ConnectorFunc(func(metrics []producers.MetricsMessage, context *cli.Context) error {
 			log.Infof("Processing %d metrics", len(metrics))
