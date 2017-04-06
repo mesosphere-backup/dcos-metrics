@@ -122,7 +122,7 @@ type DDResult struct {
 func main() {
 	log.Info("Starting Standalone DataDog DC/OS metrics plugin")
 	datadogPlugin, err := plugin.New(
-		plugin.PluginName("standalone-datadog"),
+		plugin.Name("standalone-datadog"),
 		plugin.ExtraFlags(pluginFlags),
 		plugin.ConnectorFunc(datadogConnector))
 
