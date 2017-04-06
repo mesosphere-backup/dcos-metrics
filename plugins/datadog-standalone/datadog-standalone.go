@@ -83,7 +83,7 @@ var (
 			}
 			if result.Status == "ok" {
 				log.Info("Successfully transmitted metrics")
-			} else if result.Status != nil {
+			} else if result.Status != "" {
 				log.Warnf("Expected status to be ok, actually: %v", result.Status)
 			}
 		}
