@@ -31,6 +31,8 @@ import (
 	"github.com/urfave/cli"
 )
 
+// Plugin is used to collect metrics and then send them to a remote system
+// (e.g. DataDog, Librato, etc.).  Use plugin.New(...) to build a new plugin.
 type Plugin struct {
 	App             *cli.App
 	Name            string
@@ -45,7 +47,7 @@ type Plugin struct {
 	ConnectorFunc   func([]producers.MetricsMessage, *cli.Context) error
 }
 
-var VERSION = "UNSET"
+var version = "UNSET"
 
 // New returns a mandatory plugin config which every plugin for
 // metrics will need
@@ -61,7 +63,7 @@ func New(options ...Option) (*Plugin, error) {
 	}
 
 	newPlugin.App = cli.NewApp()
-	newPlugin.App.Version = VERSION
+	newPlugin.App.Version = version
 	newPlugin.App.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:        "metrics-host",
@@ -113,6 +115,9 @@ func New(options ...Option) (*Plugin, error) {
 	return newPlugin, nil
 }
 
+// StartPlugin starts a (previously configured) Plugin. It will periodically
+// poll the system for metrics and send them to the ConnectorFunc.  This method
+// will block.
 func (p *Plugin) StartPlugin() error {
 	p.App.Action = func(c *cli.Context) error {
 		for {
@@ -135,6 +140,8 @@ func (p *Plugin) StartPlugin() error {
 	return p.App.Run(os.Args)
 }
 
+// Metrics polls the DC/OS components and returns a slice of
+// producers.MetricsMessage.
 func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
 	p.Log.Info("Getting metrics from metrics service")
 	metricsMessages := []producers.MetricsMessage{}
