@@ -17,6 +17,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -33,62 +34,6 @@ var (
 			Name:  "datadog-key",
 			Usage: "DataDog API Key",
 		},
-	}
-	datadogConnector = func(metrics []producers.MetricsMessage, c *cli.Context) error {
-		if len(metrics) == 0 {
-			log.Info("No messages received from metrics service")
-		} else {
-			log.Info("Transmitting metrics to DataDog")
-			datadogURL := fmt.Sprintf("https://app.datadoghq.com/api/v1/series?api_key=%s", c.String("datadog-key"))
-
-			s := messagesToSeries(metrics)
-			b := new(bytes.Buffer)
-
-			err := json.NewEncoder(b).Encode(s)
-			if err != nil {
-				log.Errorf("Could not encode metrics to JSON: %v", err)
-				return nil
-			}
-
-			res, err := http.Post(datadogURL, "application/json; charset=utf-8", b)
-			if err != nil {
-				log.Errorf("Could not post payload to DataDog: %v", err)
-				return nil
-			}
-
-			defer res.Body.Close()
-			body, err := ioutil.ReadAll(res.Body)
-			if err != nil {
-				log.Errorf("Could not read response: %v", err)
-				return nil
-			}
-
-			result := DDResult{}
-			err = json.Unmarshal(body, &result)
-			if err != nil {
-				log.Error(err)
-				return nil
-			}
-			if len(result.Errors) > 0 {
-				log.Error("Encountered errors:")
-				for _, err := range result.Errors {
-					log.Error(err)
-				}
-			}
-			if len(result.Warnings) > 0 {
-				log.Warn("Encountered warnings:")
-				for _, wrn := range result.Warnings {
-					log.Warn(wrn)
-				}
-			}
-			if result.Status == "ok" {
-				log.Info("Successfully transmitted metrics")
-			} else if result.Status != "" {
-				log.Warnf("Expected status to be ok, actually: %v", result.Status)
-			}
-		}
-
-		return nil
 	}
 )
 
@@ -133,8 +78,64 @@ func main() {
 	log.Fatal(datadogPlugin.StartPlugin())
 }
 
-func messagesToSeries(messages []producers.MetricsMessage) *DDSeries {
+func datadogConnector(metrics []producers.MetricsMessage, c *cli.Context) error {
+	if len(metrics) == 0 {
+		log.Info("No messages received from metrics service")
+	} else {
+		log.Info("Transmitting metrics to DataDog")
+		datadogURL := fmt.Sprintf("https://app.datadoghq.com/api/v1/series?api_key=%s", c.String("datadog-key"))
 
+		s := messagesToSeries(metrics)
+		b := new(bytes.Buffer)
+
+		err := json.NewEncoder(b).Encode(s)
+		if err != nil {
+			log.Errorf("Could not encode metrics to JSON: %v", err)
+			return nil
+		}
+
+		res, err := http.Post(datadogURL, "application/json; charset=utf-8", b)
+		if err != nil {
+			log.Errorf("Could not post payload to DataDog: %v", err)
+			return nil
+		}
+
+		defer res.Body.Close()
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			log.Errorf("Could not read response: %v", err)
+			return nil
+		}
+
+		result := DDResult{}
+		err = json.Unmarshal(body, &result)
+		if err != nil {
+			log.Error(err)
+			return nil
+		}
+		if len(result.Errors) > 0 {
+			log.Error("Encountered errors:")
+			for _, err := range result.Errors {
+				log.Error(err)
+			}
+		}
+		if len(result.Warnings) > 0 {
+			log.Warn("Encountered warnings:")
+			for _, wrn := range result.Warnings {
+				log.Warn(wrn)
+			}
+		}
+		if result.Status == "ok" {
+			log.Info("Successfully transmitted metrics")
+		} else if result.Status != "" {
+			log.Warnf("Expected status to be ok, actually: %v", result.Status)
+		}
+	}
+
+	return nil
+}
+
+func messagesToSeries(messages []producers.MetricsMessage) *DDSeries {
 	series := new(DDSeries)
 
 	for _, message := range messages {
@@ -161,36 +162,43 @@ func messagesToSeries(messages []producers.MetricsMessage) *DDSeries {
 		addMessageTag("hostname", dimensions.Hostname)
 
 		for _, datapoint := range message.Datapoints {
-			t, err := plugin.ParseDatapointTimestamp(datapoint.Timestamp)
-
-			if err != nil {
-				log.Errorf("Could not parse timestamp '%s': %v", datapoint.Timestamp, err)
-				continue
-			}
-			v, err := plugin.DatapointValueToFloat64(datapoint.Value)
+			m, err := datapointToDDMetric(datapoint, messageTags, host)
 			if err != nil {
 				log.Error(err)
 				continue
 			}
-
-			datapointTags := []string{}
-			addDatapointTag := func(key, value string) {
-				datapointTags = append(datapointTags, fmt.Sprintf("%s:%s", key, value))
-			}
-			for name, value := range datapoint.Tags {
-				addDatapointTag(name, value)
-			}
-
-			metric := DDMetric{
-				Metric: datapoint.Name,
-				Points: []DDDataPoint{{float64(t.Unix()), v}},
-				Tags:   append(messageTags, datapointTags...),
-				Unit:   datapoint.Unit,
-				Host:   host,
-			}
-			series.Series = append(series.Series, metric)
+			series.Series = append(series.Series, *m)
 		}
 	}
 
 	return series
+}
+
+func datapointToDDMetric(datapoint producers.Datapoint, messageTags []string, host *string) (*DDMetric, error) {
+	t, err := plugin.ParseDatapointTimestamp(datapoint.Timestamp)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Could not parse timestamp '%s': %v", datapoint.Timestamp, err))
+	}
+
+	v, err := plugin.DatapointValueToFloat64(datapoint.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	datapointTags := []string{}
+	addDatapointTag := func(key, value string) {
+		datapointTags = append(datapointTags, fmt.Sprintf("%s:%s", key, value))
+	}
+	for name, value := range datapoint.Tags {
+		addDatapointTag(name, value)
+	}
+
+	metric := DDMetric{
+		Metric: datapoint.Name,
+		Points: []DDDataPoint{{float64(t.Unix()), v}},
+		Tags:   append(messageTags, datapointTags...),
+		Unit:   datapoint.Unit,
+		Host:   host,
+	}
+	return &metric, nil
 }
