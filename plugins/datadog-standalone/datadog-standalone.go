@@ -85,34 +85,12 @@ func datadogConnector(metrics []producers.MetricsMessage, c *cli.Context) error 
 		log.Info("Transmitting metrics to DataDog")
 		datadogURL := fmt.Sprintf("https://app.datadoghq.com/api/v1/series?api_key=%s", c.String("datadog-key"))
 
-		s := messagesToSeries(metrics)
-		b := new(bytes.Buffer)
-
-		err := json.NewEncoder(b).Encode(s)
+		series := messagesToSeries(metrics)
+		result, err := postSeriesToDatadog(datadogURL, series)
 		if err != nil {
-			log.Errorf("Could not encode metrics to JSON: %v", err)
-			return nil
+			return err
 		}
 
-		res, err := http.Post(datadogURL, "application/json; charset=utf-8", b)
-		if err != nil {
-			log.Errorf("Could not post payload to DataDog: %v", err)
-			return nil
-		}
-
-		defer res.Body.Close()
-		body, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			log.Errorf("Could not read response: %v", err)
-			return nil
-		}
-
-		result := DDResult{}
-		err = json.Unmarshal(body, &result)
-		if err != nil {
-			log.Error(err)
-			return nil
-		}
 		if len(result.Errors) > 0 {
 			log.Error("Encountered errors:")
 			for _, err := range result.Errors {
@@ -201,4 +179,30 @@ func datapointToDDMetric(datapoint producers.Datapoint, messageTags []string, ho
 		Host:   host,
 	}
 	return &metric, nil
+}
+
+func postSeriesToDatadog(datadogURL string, series *DDSeries) (*DDResult, error) {
+	b := new(bytes.Buffer)
+	err := json.NewEncoder(b).Encode(series)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Could not encode metrics to JSON: %v", err))
+	}
+
+	res, err := http.Post(datadogURL, "application/json; charset=utf-8", b)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Could not post payload to DataDog: %v", err))
+	}
+
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Could not read response: %v", err))
+	}
+
+	result := DDResult{}
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
 }
