@@ -81,33 +81,34 @@ func main() {
 func datadogConnector(metrics []producers.MetricsMessage, c *cli.Context) error {
 	if len(metrics) == 0 {
 		log.Info("No messages received from metrics service")
-	} else {
-		log.Info("Transmitting metrics to DataDog")
-		datadogURL := fmt.Sprintf("https://app.datadoghq.com/api/v1/series?api_key=%s", c.String("datadog-key"))
+		return nil
+	}
 
-		series := messagesToSeries(metrics)
-		result, err := postSeriesToDatadog(datadogURL, series)
-		if err != nil {
-			return err
-		}
+	log.Info("Transmitting metrics to DataDog")
+	datadogURL := fmt.Sprintf("https://app.datadoghq.com/api/v1/series?api_key=%s", c.String("datadog-key"))
 
-		if len(result.Errors) > 0 {
-			log.Error("Encountered errors:")
-			for _, err := range result.Errors {
-				log.Error(err)
-			}
+	series := messagesToSeries(metrics)
+	result, err := postSeriesToDatadog(datadogURL, series)
+	if err != nil {
+		return err
+	}
+
+	if len(result.Errors) > 0 {
+		log.Error("Encountered errors:")
+		for _, err := range result.Errors {
+			log.Error(err)
 		}
-		if len(result.Warnings) > 0 {
-			log.Warn("Encountered warnings:")
-			for _, wrn := range result.Warnings {
-				log.Warn(wrn)
-			}
+	}
+	if len(result.Warnings) > 0 {
+		log.Warn("Encountered warnings:")
+		for _, wrn := range result.Warnings {
+			log.Warn(wrn)
 		}
-		if result.Status == "ok" {
-			log.Info("Successfully transmitted metrics")
-		} else if result.Status != "" {
-			log.Warnf("Expected status to be ok, actually: %v", result.Status)
-		}
+	}
+	if result.Status == "ok" {
+		log.Info("Successfully transmitted metrics")
+	} else if result.Status != "" {
+		log.Warnf("Expected status to be ok, actually: %v", result.Status)
 	}
 
 	return nil
