@@ -133,8 +133,6 @@ func (p *Plugin) StartPlugin() error {
 			p.Log.Infof("Polling complete, sleeping for %d seconds", p.PollingInterval)
 			time.Sleep(time.Duration(p.PollingInterval) * time.Second)
 		}
-
-		return nil
 	}
 
 	return p.App.Run(os.Args)
