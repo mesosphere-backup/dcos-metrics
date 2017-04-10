@@ -18,7 +18,6 @@ import "net/http"
 import (
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"net/http/httptest"
 	"testing"
 
@@ -83,12 +82,12 @@ func TestPostMetricsToDatadog(t *testing.T) {
 				}
 			}
 			if !tagWasFound {
-				log.Fatalf("Expected to find tag %s, but it was not present", expectedTag)
+				t.Fatalf("Expected to find tag %s, but it was not present", expectedTag)
 			}
 		}
 
 		if *uptime.Host != "192.168.65.90" {
-			log.Fatalf("Expected to find host 192.168.65.90, found %s", uptime.Host)
+			t.Fatalf("Expected to find host 192.168.65.90, found %s", uptime.Host)
 		}
 
 	}))
