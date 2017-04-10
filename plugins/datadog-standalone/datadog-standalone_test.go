@@ -41,8 +41,7 @@ var (
 
 func TestPostMetricsToDatadog(t *testing.T) {
 	nodeMetrics := producers.MetricsMessage{}
-	err := json.Unmarshal([]byte(nodeMetricsJSON), &nodeMetrics)
-	if err != nil {
+	if err := json.Unmarshal([]byte(nodeMetricsJSON), &nodeMetrics); err != nil {
 		t.Fatal("Bad test fixture; could not unmarshal JSON")
 	}
 
