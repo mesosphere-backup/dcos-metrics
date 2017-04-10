@@ -1,7 +1,7 @@
 # Standalone Datadog Metrics Service Plugin for DC/OS
 
-This plugin is an alternative to the [regular Datadog plugin](https://github.com/dcos/dcos-metrics/plugins/datadog) for
-those who do not wish to make use of the Datadog Agent.
+This plugin is an alternative to the [regular Datadog plugin](https://github.com/dcos/dcos-metrics/tree/master/plugins/datadog)
+for those who do not wish to make use of the Datadog Agent.
 
 ## Installation
 
