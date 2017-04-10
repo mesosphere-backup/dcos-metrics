@@ -17,7 +17,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -118,18 +117,18 @@ func postMetricsToDatadog(datadogURL string, metrics []producers.MetricsMessage)
 	b := new(bytes.Buffer)
 	err := json.NewEncoder(b).Encode(series)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not encode metrics to JSON: %v", err))
+		return nil, fmt.Errorf("Could not encode metrics to JSON: %v", err)
 	}
 
 	res, err := http.Post(datadogURL, "application/json; charset=utf-8", b)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not post payload to DataDog: %v", err))
+		return nil, fmt.Errorf("Could not post payload to DataDog: %v", err)
 	}
 
 	defer res.Body.Close()
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not read response: %v", err))
+		return nil, fmt.Errorf("Could not read response: %v", err)
 	}
 
 	result := DDResult{}
@@ -182,7 +181,7 @@ func messagesToSeries(messages []producers.MetricsMessage) *DDSeries {
 func datapointToDDMetric(datapoint producers.Datapoint, messageTags []string, host *string) (*DDMetric, error) {
 	t, err := plugin.ParseDatapointTimestamp(datapoint.Timestamp)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not parse timestamp '%s': %v", datapoint.Timestamp, err))
+		return nil, fmt.Errorf("Could not parse timestamp '%s': %v", datapoint.Timestamp, err)
 	}
 
 	v, err := plugin.DatapointValueToFloat64(datapoint.Value)
