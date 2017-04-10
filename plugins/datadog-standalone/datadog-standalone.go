@@ -87,8 +87,7 @@ func datadogConnector(metrics []producers.MetricsMessage, c *cli.Context) error 
 	log.Info("Transmitting metrics to DataDog")
 	datadogURL := fmt.Sprintf("https://app.datadoghq.com/api/v1/series?api_key=%s", c.String("datadog-key"))
 
-	series := messagesToSeries(metrics)
-	result, err := postSeriesToDatadog(datadogURL, series)
+	result, err := postMetricsToDatadog(datadogURL, metrics)
 	if err != nil {
 		return err
 	}
@@ -112,6 +111,33 @@ func datadogConnector(metrics []producers.MetricsMessage, c *cli.Context) error 
 	}
 
 	return nil
+}
+
+func postMetricsToDatadog(datadogURL string, metrics []producers.MetricsMessage) (*DDResult, error) {
+	series := messagesToSeries(metrics)
+	b := new(bytes.Buffer)
+	err := json.NewEncoder(b).Encode(series)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Could not encode metrics to JSON: %v", err))
+	}
+
+	res, err := http.Post(datadogURL, "application/json; charset=utf-8", b)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Could not post payload to DataDog: %v", err))
+	}
+
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Could not read response: %v", err))
+	}
+
+	result := DDResult{}
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
 }
 
 func messagesToSeries(messages []producers.MetricsMessage) *DDSeries {
@@ -180,30 +206,4 @@ func datapointToDDMetric(datapoint producers.Datapoint, messageTags []string, ho
 		Host:   host,
 	}
 	return &metric, nil
-}
-
-func postSeriesToDatadog(datadogURL string, series *DDSeries) (*DDResult, error) {
-	b := new(bytes.Buffer)
-	err := json.NewEncoder(b).Encode(series)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not encode metrics to JSON: %v", err))
-	}
-
-	res, err := http.Post(datadogURL, "application/json; charset=utf-8", b)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not post payload to DataDog: %v", err))
-	}
-
-	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not read response: %v", err))
-	}
-
-	result := DDResult{}
-	err = json.Unmarshal(body, &result)
-	if err != nil {
-		return nil, err
-	}
-	return &result, nil
 }
