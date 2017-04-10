@@ -41,7 +41,10 @@ var (
 
 func TestPostMetricsToDatadog(t *testing.T) {
 	nodeMetrics := producers.MetricsMessage{}
-	json.Unmarshal([]byte(nodeMetricsJSON), &nodeMetrics)
+	err := json.Unmarshal([]byte(nodeMetricsJSON), &nodeMetrics)
+	if err != nil {
+		t.Fatal("Bad test fixture; could not unmarshal JSON")
+	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
