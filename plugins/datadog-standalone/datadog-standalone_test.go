@@ -92,5 +92,7 @@ func TestPostMetricsToDatadog(t *testing.T) {
 		}
 
 	}))
+
+	defer server.Close()
 	postMetricsToDatadog(server.URL, []producers.MetricsMessage{nodeMetrics})
 }
