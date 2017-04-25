@@ -18,7 +18,6 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"time"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -58,7 +57,12 @@ func main() {
 	if producerIsConfigured("http", cfg) {
 		log.Info("HTTP producer enabled")
 		cfg.Producers.HTTPProducerConfig.DCOSRole = cfg.DCOSRole
-		cfg.Producers.HTTPProducerConfig.CacheExpiry = time.Duration(cfg.Collector.MesosAgent.PollPeriod) * time.Minute * 2
+
+		minCacheExpiry := cfg.Collector.MesosAgent.PollPeriod * 2
+		if cfg.Producers.HTTPProducerConfig.CacheExpiry < minCacheExpiry {
+			log.Warnf("Configured HTTPProducer.CacheExpiry value was too low. It has been overridden to %v", minCacheExpiry)
+			cfg.Producers.HTTPProducerConfig.CacheExpiry = minCacheExpiry
+		}
 
 		hp, httpProducerChan := httpProducer.New(
 			cfg.Producers.HTTPProducerConfig)
