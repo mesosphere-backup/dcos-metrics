@@ -7,10 +7,10 @@ collector:
   http_profiler: false
   
   node:
-    poll_period: 15 
+    poll_period: 15s
 
   mesos_agent:
-    poll_period: 15
+    poll_period: 15s
     port: 5051
     request_protocol: http
 
