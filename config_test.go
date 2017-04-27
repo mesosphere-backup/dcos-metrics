@@ -50,6 +50,10 @@ func TestNewConfig(t *testing.T) {
 		Convey("Default HTTP producer port should be 9000", func() {
 			So(testConfig.Producers.HTTPProducerConfig.Port, ShouldEqual, 9000)
 		})
+
+		Convey("Default cache expiry should be 2 minutes", func() {
+			So(testConfig.Producers.HTTPProducerConfig.CacheExpiry, ShouldEqual, 120*time.Second)
+		})
 	})
 }
 
