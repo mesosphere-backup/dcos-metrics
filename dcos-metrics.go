@@ -58,12 +58,6 @@ func main() {
 		log.Info("HTTP producer enabled")
 		cfg.Producers.HTTPProducerConfig.DCOSRole = cfg.DCOSRole
 
-		minCacheExpiry := cfg.Collector.MesosAgent.PollPeriod * 2
-		if cfg.Producers.HTTPProducerConfig.CacheExpiry < minCacheExpiry {
-			log.Warnf("Configured HTTPProducer.CacheExpiry value was too low. It has been overridden to %v", minCacheExpiry)
-			cfg.Producers.HTTPProducerConfig.CacheExpiry = minCacheExpiry
-		}
-
 		hp, httpProducerChan := httpProducer.New(
 			cfg.Producers.HTTPProducerConfig)
 		producerChans = append(producerChans, httpProducerChan)

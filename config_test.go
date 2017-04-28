@@ -133,6 +133,25 @@ collector:
 }
 
 func TestGetNewConfig(t *testing.T) {
+	// Mock out and create the config file
+	configContents := []byte(`
+---
+collector:
+  mesos_agent:
+    poll_period: 90s
+`)
+
+	tmpConfig, err := ioutil.TempFile("", "testConfig")
+	if err != nil {
+		panic(err)
+	}
+
+	defer os.Remove(tmpConfig.Name())
+
+	if _, err := tmpConfig.Write(configContents); err != nil {
+		panic(err)
+	}
+
 	Convey("When getting the service configuration", t, func() {
 		Convey("Should error if the user did not specify exactly one role (master or agent)", func() {
 			Convey("If the role flag is missing", func() {
@@ -142,6 +161,11 @@ func TestGetNewConfig(t *testing.T) {
 			Convey("If the provided value is not a valid role", func() {
 				_, err := getNewConfig([]string{"-role", "foo"})
 				So(err, ShouldNotBeNil)
+			})
+			Convey("Should ensure that the cache expiry is not less than twice the poll period", func() {
+				testConfig, err := getNewConfig([]string{"-role", "agent", "-config", tmpConfig.Name()})
+				So(err, ShouldNotBeNil)
+				So(testConfig.Producers.HTTPProducerConfig.CacheExpiry, ShouldEqual, 180*time.Second)
 			})
 		})
 
