@@ -50,6 +50,10 @@ func TestNewConfig(t *testing.T) {
 		Convey("Default HTTP producer port should be 9000", func() {
 			So(testConfig.Producers.HTTPProducerConfig.Port, ShouldEqual, 9000)
 		})
+
+		Convey("Default cache expiry should be 2 minutes", func() {
+			So(testConfig.Producers.HTTPProducerConfig.CacheExpiry, ShouldEqual, 120*time.Second)
+		})
 	})
 }
 
@@ -87,7 +91,7 @@ func TestSetFlags(t *testing.T) {
 
 func TestLoadConfig(t *testing.T) {
 	// Mock out and create the config file
-	configContents := []byte(`
+	tmpConfig, teardown := createMockConfigFile([]byte(`
 ---
 collector:
   mesos_agent:
@@ -97,18 +101,8 @@ collector:
   node:
     poll_period: 3
   http_profiler: false
-`)
-
-	tmpConfig, err := ioutil.TempFile("", "testConfig")
-	if err != nil {
-		panic(err)
-	}
-
-	defer os.Remove(tmpConfig.Name())
-
-	if _, err := tmpConfig.Write(configContents); err != nil {
-		panic(err)
-	}
+`))
+	defer teardown()
 
 	Convey("Ensure config can be loaded from a file on disk", t, func() {
 		testConfig := Config{
@@ -129,6 +123,16 @@ collector:
 }
 
 func TestGetNewConfig(t *testing.T) {
+	// Mock out and create the config file
+	tmpConfig, teardown := createMockConfigFile([]byte(`
+---
+collector:
+  mesos_agent:
+    poll_period: 90s
+`))
+	defer teardown()
+	testConfig, _ := getNewConfig([]string{"-role", "agent", "-config", tmpConfig.Name()})
+
 	Convey("When getting the service configuration", t, func() {
 		Convey("Should error if the user did not specify exactly one role (master or agent)", func() {
 			Convey("If the role flag is missing", func() {
@@ -139,6 +143,12 @@ func TestGetNewConfig(t *testing.T) {
 				_, err := getNewConfig([]string{"-role", "foo"})
 				So(err, ShouldNotBeNil)
 			})
+		})
+		Convey("Should ensure that the cache expiry is not less than twice the poll period", func() {
+			// Note that this returns an error in environments which are missing the
+			// /opt/mesosphere/bin/detect_ip script, eg CI
+			// TODO(philip) mock calls to FileDetctIP
+			So(testConfig.Producers.HTTPProducerConfig.CacheExpiry, ShouldEqual, 180*time.Second)
 		})
 
 		Convey("Should use all defaults if the -config flag wasn't passed", func() {
@@ -153,4 +163,22 @@ func TestGetNewConfig(t *testing.T) {
 			So(c.LogLevel, ShouldResemble, newConfig().LogLevel)
 		})
 	})
+}
+
+// makeTempConfigFile writes the specified file contents to a temporary file,
+// returning a pointer to the file and a teardown method which deletes it
+func createMockConfigFile(contents []byte) (*os.File, func()) {
+	// Mock out and create the config file
+	tmpConfig, err := ioutil.TempFile("", "testConfig")
+	if err != nil {
+		panic(err)
+	}
+
+	if _, err := tmpConfig.Write(contents); err != nil {
+		panic(err)
+	}
+
+	return tmpConfig, func() {
+		os.Remove(tmpConfig.Name())
+	}
 }

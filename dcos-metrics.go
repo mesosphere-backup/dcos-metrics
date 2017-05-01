@@ -18,7 +18,6 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"time"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -58,7 +57,6 @@ func main() {
 	if producerIsConfigured("http", cfg) {
 		log.Info("HTTP producer enabled")
 		cfg.Producers.HTTPProducerConfig.DCOSRole = cfg.DCOSRole
-		cfg.Producers.HTTPProducerConfig.CacheExpiry = time.Duration(cfg.Collector.MesosAgent.PollPeriod) * time.Minute * 2
 
 		hp, httpProducerChan := httpProducer.New(
 			cfg.Producers.HTTPProducerConfig)
