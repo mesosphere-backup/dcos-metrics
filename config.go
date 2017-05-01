@@ -222,6 +222,15 @@ func getNewConfig(args []string) (Config, error) {
 		return c, fmt.Errorf("error: expected role to be 'master' or 'agent, got: %s", c.DCOSRole)
 	}
 
+	// Ensure that data is collected from the Mesos Agent more
+	// regularly than it is evicted from the cache, to avoid
+	// missing data for long-running tasks
+	minCacheExpiry := c.Collector.MesosAgent.PollPeriod * 2
+	if c.Producers.HTTPProducerConfig.CacheExpiry < minCacheExpiry {
+		log.Warnf("Configured HTTPProducer.CacheExpiry value was too low. It has been overridden to %v", minCacheExpiry)
+		c.Producers.HTTPProducerConfig.CacheExpiry = minCacheExpiry
+	}
+
 	// Note: .getNodeInfo() is last so we are sure we have all the
 	// configuration we need from flags and config file to make
 	// this run correctly.
@@ -237,15 +246,5 @@ func getNewConfig(args []string) (Config, error) {
 	}
 
 	c.Collector.MesosAgent.HTTPClient = collectorClient
-
-	// Ensure that data is collected from the Mesos Agent more
-	// regularly than it is evicted from the cache, to avoid
-	// missing data for long-running tasks
-	minCacheExpiry := c.Collector.MesosAgent.PollPeriod * 2
-	if c.Producers.HTTPProducerConfig.CacheExpiry < minCacheExpiry {
-		log.Warnf("Configured HTTPProducer.CacheExpiry value was too low. It has been overridden to %v", minCacheExpiry)
-		c.Producers.HTTPProducerConfig.CacheExpiry = minCacheExpiry
-	}
-
 	return c, nil
 }
