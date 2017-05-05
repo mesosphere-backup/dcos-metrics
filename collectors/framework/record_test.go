@@ -17,6 +17,7 @@
 package framework
 
 import (
+	"math"
 	"testing"
 
 	"github.com/dcos/dcos-metrics/producers"
@@ -139,6 +140,14 @@ func TestCreateObjectFromRecord(t *testing.T) {
 	recDps.Set("time_ms", 1000)
 	recDps.Set("value", 42.0)
 
+	recNan, err := goavro.NewRecord(datapointNamespace, datapointSchema)
+	if err != nil {
+		panic(err)
+	}
+	recDps.Set("name", "nan-name")
+	recDps.Set("time_ms", 1000)
+	recDps.Set("value", math.NaN())
+
 	recTags, err := goavro.NewRecord(tagNamespace, tagSchema)
 	if err != nil {
 		panic(err)
@@ -194,6 +203,28 @@ func TestCreateObjectFromRecord(t *testing.T) {
 			ar := avroRecord{}
 			err := ar.createObjectFromRecord(bd)
 			So(err, ShouldNotBeNil)
+		})
+
+		Convey("Should drop well-formed datapoints with NaN values", func() {
+			ar := avroRecord{}
+			err = ar.createObjectFromRecord([]interface{}{recDps, recNan})
+
+			So(err, ShouldBeNil)
+			So(ar, ShouldResemble, avroRecord{
+				record{
+					Name: "dcos.metrics.Datapoint",
+					Fields: []field{
+						field{
+							Name:  "dcos.metrics.name",
+							Datum: "some-key",
+						},
+						field{
+							Name:  "dcos.metrics.value",
+							Datum: 42.0,
+						},
+					},
+				},
+			})
 		})
 	})
 }
