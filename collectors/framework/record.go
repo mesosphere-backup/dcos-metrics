@@ -106,11 +106,12 @@ func (ar avroRecord) extract(pmm *producers.MetricsMessage) error {
 // *avroRecord.createObjectFromRecord creates a JSON implementation of the avro
 // record, then serializes it to our known avroRecord type.
 func (ar *avroRecord) createObjectFromRecord(record interface{}) error {
-	jsonObj, err := json.MarshalIndent(record, "", "    ")
+	jsonObj, err := json.Marshal(record)
 	if err != nil {
+		fwColLog.Debugf("Bad record:\n%s", record)
 		return err
 	}
 
-	fwColLog.Debug("JSON Record:\n", string(jsonObj))
+	fwColLog.Debugf("JSON Record:\n%s", string(jsonObj))
 	return json.Unmarshal(jsonObj, &ar)
 }
