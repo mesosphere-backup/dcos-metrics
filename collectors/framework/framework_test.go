@@ -17,6 +17,7 @@
 package framework
 
 import (
+	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -141,6 +142,33 @@ func TestTransform(t *testing.T) {
 			a := AvroDatum{Record: rec, Topic: "some-topic"}
 			_, err = a.transform(mockNodeInfo)
 			So(err, ShouldNotBeNil)
+		})
+
+		Convey("Should safely update NaN values to \"NaN\" strings", func() {
+			recNan, err := goavro.NewRecord(datapointNamespace, datapointSchema)
+			if err != nil {
+				panic(err)
+			}
+			recNan.Set("name", "some-name")
+			recNan.Set("time_ms", 1000)
+			recNan.Set("value", math.NaN())
+
+			rec, err := goavro.NewRecord(metricListNamespace, metricListSchema)
+			if err != nil {
+				panic(err)
+			}
+			rec.Set("topic", "some-topic")
+			rec.Set("tags", []interface{}{recTags})
+			rec.Set("datapoints", []interface{}{recNan})
+
+			a := AvroDatum{Record: rec, Topic: "some-topic"}
+			pmm, err := a.transform(mockNodeInfo)
+			So(err, ShouldBeNil)
+			So(pmm, ShouldHaveSameTypeAs, producers.MetricsMessage{})
+
+			So(pmm.Datapoints[0].Name, ShouldEqual, "some-name")
+			So(pmm.Datapoints[0].Value, ShouldEqual, "NaN")
+			So(pmm.Datapoints[0].Timestamp, ShouldNotEqual, "")
 		})
 	})
 }
