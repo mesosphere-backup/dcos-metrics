@@ -164,11 +164,9 @@ func TestTransform(t *testing.T) {
 			a := AvroDatum{Record: rec, Topic: "some-topic"}
 			pmm, err := a.transform(mockNodeInfo)
 			So(err, ShouldBeNil)
-			So(pmm, ShouldHaveSameTypeAs, producers.MetricsMessage{})
 
 			So(pmm.Datapoints[0].Name, ShouldEqual, "nan-name")
 			So(pmm.Datapoints[0].Value, ShouldEqual, "NaN")
-			So(pmm.Datapoints[0].Timestamp, ShouldNotEqual, "")
 		})
 	})
 }
