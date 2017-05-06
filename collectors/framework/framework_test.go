@@ -149,7 +149,7 @@ func TestTransform(t *testing.T) {
 			if err != nil {
 				panic(err)
 			}
-			recNan.Set("name", "some-name")
+			recNan.Set("name", "nan-name")
 			recNan.Set("time_ms", 1000)
 			recNan.Set("value", math.NaN())
 
@@ -166,7 +166,7 @@ func TestTransform(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(pmm, ShouldHaveSameTypeAs, producers.MetricsMessage{})
 
-			So(pmm.Datapoints[0].Name, ShouldEqual, "some-name")
+			So(pmm.Datapoints[0].Name, ShouldEqual, "nan-name")
 			So(pmm.Datapoints[0].Value, ShouldEqual, "NaN")
 			So(pmm.Datapoints[0].Timestamp, ShouldNotEqual, "")
 		})
