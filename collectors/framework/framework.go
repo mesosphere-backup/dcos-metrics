@@ -227,13 +227,14 @@ func (a *AvroDatum) transform(nodeInfo collectors.NodeInfo) (producers.MetricsMe
 		return pmm, fmt.Errorf("Could not decode datapoints %v", dps)
 	}
 
+	const metricsValueKey = "dcos.metrics.value"
 	for _, dp := range decodedDps {
 		dpr, ok := dp.(*goavro.Record)
 		if !ok {
 			fwColLog.Debugf("Bad datapoint record encountered: %v", dp)
 			continue
 		}
-		value, err := dpr.Get("dcos.metrics.value")
+		value, err := dpr.Get(metricsValueKey)
 		if err != nil {
 			fwColLog.Debugf("Datum without value encountered: %v", dpr)
 			continue
@@ -242,7 +243,7 @@ func (a *AvroDatum) transform(nodeInfo collectors.NodeInfo) (producers.MetricsMe
 		// chokes the go json library.
 		if v, ok := value.(float64); ok {
 			if math.IsNaN(v) {
-				dpr.Set("dcos.metrics.value", "NaN")
+				dpr.Set(metricsValueKey, "NaN")
 			}
 		}
 	}
