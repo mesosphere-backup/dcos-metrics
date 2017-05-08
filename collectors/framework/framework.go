@@ -17,7 +17,9 @@ package framework
 import (
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
+	"math"
 	"net"
 	"time"
 
@@ -218,6 +220,32 @@ func (a *AvroDatum) transform(nodeInfo collectors.NodeInfo) (producers.MetricsMe
 	dps, err := record.Get("datapoints")
 	if err != nil {
 		return pmm, err
+	}
+
+	decodedDps, ok := dps.([]interface{})
+	if !ok {
+		return pmm, fmt.Errorf("Could not decode datapoints %v", dps)
+	}
+
+	const metricsValueKey = "dcos.metrics.value"
+	for _, dp := range decodedDps {
+		dpr, ok := dp.(*goavro.Record)
+		if !ok {
+			fwColLog.Debugf("Bad datapoint record encountered: %v", dp)
+			continue
+		}
+		value, err := dpr.Get(metricsValueKey)
+		if err != nil {
+			fwColLog.Debugf("Datum without value encountered: %v", dpr)
+			continue
+		}
+		// Avoid marshalling to JSON with NaN values, which
+		// chokes the go json library.
+		if v, ok := value.(float64); ok {
+			if math.IsNaN(v) {
+				dpr.Set(metricsValueKey, "NaN")
+			}
+		}
 	}
 
 	if err := datapointData.createObjectFromRecord(dps); err != nil {
