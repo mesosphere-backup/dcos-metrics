@@ -141,11 +141,11 @@ func (p *Plugin) StartPlugin() error {
 // Metrics polls the DC/OS components and returns a slice of
 // producers.MetricsMessage.
 func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
-	metricsMessages := []producers.MetricsMessage{}
 	if len(p.AuthToken) == 0 {
-		return metricsMessages, errors.New("Auth token must be set, use --auth-token <token>")
+		return nil, errors.New("Auth token must be set, use --auth-token <token>")
 	}
 
+	metricsMessages := []producers.MetricsMessage{}
 	p.Log.Info("Getting metrics from metrics service")
 	if err := p.setEndpoints(); err != nil {
 		p.Log.Fatal(err)
