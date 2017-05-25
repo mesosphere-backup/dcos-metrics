@@ -105,9 +105,12 @@ func New(extFlags []cli.Flag) (*Plugin, error) {
 }
 
 func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
-	logrus.Info("Getting metrics from metrics service")
-	metricsMessages := []producers.MetricsMessage{}
+	if len(p.AuthToken) == 0 {
+		return nil, errors.New("Auth token must be set, use --auth-token <token>")
+	}
 
+	metricsMessages := []producers.MetricsMessage{}
+	p.Log.Info("Getting metrics from metrics service")
 	if err := p.setEndpoints(); err != nil {
 		log.Fatal(err)
 	}
@@ -117,10 +120,6 @@ func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
 			Scheme: p.MetricsProto,
 			Host:   net.JoinHostPort(p.MetricsHost, p.MetricsPort),
 			Path:   path,
-		}
-
-		if len(p.AuthToken) == 0 {
-			return metricsMessages, errors.New("Auth token must be set, use --auth-token <token>")
 		}
 
 		request := &http.Request{
