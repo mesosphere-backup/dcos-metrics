@@ -88,7 +88,8 @@ func datadogConnector(metrics []producers.MetricsMessage, c *cli.Context) error 
 
 	result, err := postMetricsToDatadog(datadogURL, metrics)
 	if err != nil {
-		return err
+		log.Errorf("Unexpected error while processing DataDog response: %s", err)
+		return nil
 	}
 
 	if len(result.Errors) > 0 {
@@ -134,6 +135,7 @@ func postMetricsToDatadog(datadogURL string, metrics []producers.MetricsMessage)
 	result := DDResult{}
 	err = json.Unmarshal(body, &result)
 	if err != nil {
+		log.Warnf("Could not unmarshal datadog response %s: %s", body, err)
 		return nil, err
 	}
 	return &result, nil
