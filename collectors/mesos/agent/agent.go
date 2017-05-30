@@ -154,7 +154,7 @@ func getLabelsByContainerID(containerID string, frameworks []frameworkInfo, log 
 				log.Debugf("ContainerID %v for executor %v is a match, adding labels", containerID, executor)
 				for _, pair := range executor.Labels {
 					if len(pair.Value) > maxLabelLength {
-						log.Warnf("Label %s is longer than %d chars; discarding label", maxLabelLength, pair.Key)
+						log.Warnf("Label %s is longer than %d chars; discarding label", pair.Key, maxLabelLength)
 						log.Debugf("Discarded label value: %s", pair.Value)
 						continue
 					}
