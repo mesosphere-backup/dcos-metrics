@@ -379,6 +379,19 @@ func TestGetLabelsByContainerID(t *testing.T) {
 							},
 						},
 					},
+					executorInfo{
+						Container: "containerWithLongLabelID",
+						Labels: []executorLabels{
+							executorLabels{
+								Key:   "somekey",
+								Value: "someval",
+							},
+							executorLabels{
+								Key:   "longkey",
+								Value: "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+							},
+						},
+					},
 				},
 			},
 		}
@@ -391,6 +404,11 @@ func TestGetLabelsByContainerID(t *testing.T) {
 		Convey("Should return an empty map if no labels were present", func() {
 			result := getLabelsByContainerID("someOtherContainerID", fi, tl)
 			So(result, ShouldResemble, map[string]string{})
+		})
+
+		Convey("Should drop labels with overly long values", func() {
+			result := getLabelsByContainerID("containerWithLongLabelID", fi, tl)
+			So(result, ShouldResemble, map[string]string{"somekey": "someval"})
 		})
 	})
 }
