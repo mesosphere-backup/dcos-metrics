@@ -27,7 +27,8 @@ import (
 
 const (
 	// HTTPTIMEOUT defines the maximum duration for all requests
-	HTTPTIMEOUT = 2 * time.Second
+	HTTPTIMEOUT    = 2 * time.Second
+	maxLabelLength = 128
 )
 
 // Collector defines the collector type for Mesos agent. It is
@@ -152,8 +153,8 @@ func getLabelsByContainerID(containerID string, frameworks []frameworkInfo, log 
 			if executor.Container == containerID {
 				log.Debugf("ContainerID %v for executor %v is a match, adding labels", containerID, executor)
 				for _, pair := range executor.Labels {
-					if len(pair.Value) > 128 {
-						log.Warnf("Label %s is longer than 128 chars; discarding label", pair.Key)
+					if len(pair.Value) > maxLabelLength {
+						log.Warnf("Label %s is longer than %d chars; discarding label", maxLabelLength, pair.Key)
 						log.Debugf("Discarded label value: %s", pair.Value)
 					} else {
 						log.Debugf("Adding label for containerID %v: %v = %+v", containerID, pair.Key, pair.Value)
