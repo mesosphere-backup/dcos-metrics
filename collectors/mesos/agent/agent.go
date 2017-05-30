@@ -156,10 +156,10 @@ func getLabelsByContainerID(containerID string, frameworks []frameworkInfo, log 
 					if len(pair.Value) > maxLabelLength {
 						log.Warnf("Label %s is longer than %d chars; discarding label", maxLabelLength, pair.Key)
 						log.Debugf("Discarded label value: %s", pair.Value)
-					} else {
-						log.Debugf("Adding label for containerID %v: %v = %+v", containerID, pair.Key, pair.Value)
-						labels[pair.Key] = pair.Value
+						continue
 					}
+					log.Debugf("Adding label for containerID %v: %v = %+v", containerID, pair.Key, pair.Value)
+					labels[pair.Key] = pair.Value
 				}
 				return labels
 			}
