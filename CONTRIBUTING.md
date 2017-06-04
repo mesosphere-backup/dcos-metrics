@@ -7,6 +7,13 @@ like contributors to follow.
 If you have any questions on the below guidelines, please feel free to contact us by using
 any of the community resources listed in this project's [README.md][dcos-metrics-readme] file.
 
+## Building
+
+A Makefile is included with the project.
+
+If you are not running on Linux, a Dockerfile is also included that will be
+able to run the build.
+
 ## Getting Started
   * Make sure you have a [GitHub][github-join] account.
   * Submit a ticket for your issue in the [DC/OS JIRA][dcos-jira], using the component
