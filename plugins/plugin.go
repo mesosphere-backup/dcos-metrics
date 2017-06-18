@@ -17,7 +17,6 @@ package plugin
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -42,7 +41,6 @@ type Plugin struct {
 	MetricsPort     string
 	MetricsProto    string
 	MetricsHost     string
-	AuthToken       string
 	Log             *logrus.Entry
 	ConnectorFunc   func([]producers.MetricsMessage, *cli.Context) error
 }
@@ -59,7 +57,6 @@ func New(options ...Option) (*Plugin, error) {
 		MetricsProto:    "http",
 		MetricsHost:     "localhost",
 		MetricsPort:     "61001",
-		AuthToken:       "",
 	}
 
 	newPlugin.App = cli.NewApp()
@@ -90,12 +87,6 @@ func New(options ...Option) (*Plugin, error) {
 			Destination: &newPlugin.PollingInterval,
 		},
 
-		cli.StringFlag{
-			Name:        "auth-token",
-			Value:       newPlugin.AuthToken,
-			Usage:       "Valid authentication token for DC/OS services",
-			Destination: &newPlugin.AuthToken,
-		},
 		cli.StringFlag{
 			Name:        "dcos-role",
 			Value:       newPlugin.Role,
@@ -141,9 +132,6 @@ func (p *Plugin) StartPlugin() error {
 // Metrics polls the DC/OS components and returns a slice of
 // producers.MetricsMessage.
 func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
-	if len(p.AuthToken) == 0 {
-		return nil, errors.New("Auth token must be set, use --auth-token <token>")
-	}
 
 	metricsMessages := []producers.MetricsMessage{}
 	p.Log.Info("Getting metrics from metrics service")
@@ -161,9 +149,6 @@ func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
 		request := &http.Request{
 			Method: "GET",
 			URL:    &metricsURL,
-			Header: http.Header{
-				"Authorization": []string{fmt.Sprintf("token=%s", p.AuthToken)},
-			},
 		}
 
 		metricMessage, err := makeMetricsRequest(request)
@@ -204,9 +189,6 @@ func (p *Plugin) setEndpoints() error {
 		request := &http.Request{
 			Method: "GET",
 			URL:    &metricsURL,
-			Header: http.Header{
-				"Authorization": []string{fmt.Sprintf("token=%s", p.AuthToken)},
-			},
 		}
 
 		client := &http.Client{}
