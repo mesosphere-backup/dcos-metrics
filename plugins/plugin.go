@@ -179,7 +179,7 @@ func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
 			URL:    &metricsURL,
 		}
 
-		metricMessage, err := makeMetricsRequest(request)
+		metricMessage, err := makeMetricsRequest(p.Client, request)
 		if err != nil {
 			return metricsMessages, err
 		}
@@ -248,11 +248,10 @@ func (p *Plugin) setEndpoints() error {
 }
 
 /*** Helpers ***/
-func makeMetricsRequest(request *http.Request) (producers.MetricsMessage, error) {
+func makeMetricsRequest(client *http.Client, request *http.Request) (producers.MetricsMessage, error) {
 	l := logrus.WithFields(logrus.Fields{"plugin": "http-helper"})
 
 	l.Infof("Making request to %+v", request.URL)
-	client := &http.Client{}
 	mm := producers.MetricsMessage{}
 
 	resp, err := client.Do(request)
