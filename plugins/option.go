@@ -84,18 +84,6 @@ func MetricsPort(port int) Option {
 	}
 }
 
-// MetricsAuthToken allows the plugin to set a custom auth token for the
-// Authorization header for the http request that is used to gather metrics.
-func MetricsAuthToken(t string) Option {
-	return func(p *Plugin) error {
-		if len(t) != 0 {
-			p.AuthToken = t
-			return nil
-		}
-		return errBadToken
-	}
-}
-
 // ConnectorFunc is what the plugin framework will call once it has gathered
 // metrics. It is expected that this function will convert these messages to
 // a 3rd party format and then send the metrics to that service.
