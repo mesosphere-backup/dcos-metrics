@@ -33,16 +33,17 @@ import (
 // Plugin is used to collect metrics and then send them to a remote system
 // (e.g. DataDog, Librato, etc.).  Use plugin.New(...) to build a new plugin.
 type Plugin struct {
-	App             *cli.App
-	Name            string
-	Endpoints       []string
-	Role            string
-	PollingInterval int
-	MetricsPort     string
-	MetricsProto    string
-	MetricsHost     string
-	Log             *logrus.Entry
-	ConnectorFunc   func([]producers.MetricsMessage, *cli.Context) error
+	App               *cli.App
+	Name              string
+	Endpoints         []string
+	Role              string
+	PollingInterval   int
+	MetricsPort       string
+	MetricsProto      string
+	MetricsHost       string
+	Log               *logrus.Entry
+	ConnectorFunc     func([]producers.MetricsMessage, *cli.Context) error
+	ConfigPath        string
 }
 
 var version = "UNSET"
@@ -51,12 +52,13 @@ var version = "UNSET"
 // metrics will need
 func New(options ...Option) (*Plugin, error) {
 	newPlugin := &Plugin{
-		Name:            "default",
-		Role:            "",
-		PollingInterval: 10,
-		MetricsProto:    "http",
-		MetricsHost:     "localhost",
-		MetricsPort:     "61001",
+		Name:              "default",
+		Role:              "",
+		PollingInterval:   10,
+		MetricsProto:      "http",
+		MetricsHost:       "localhost",
+		MetricsPort:       "61001",
+		ConfigPath:        "",
 	}
 
 	newPlugin.App = cli.NewApp()
@@ -92,6 +94,12 @@ func New(options ...Option) (*Plugin, error) {
 			Value:       newPlugin.Role,
 			Usage:       "DC/OS role, either master or agent",
 			Destination: &newPlugin.Role,
+		},
+		cli.StringFlag{
+			Name:        "config",
+			Value:       newPlugin.ConfigPath,
+			Usage:       "The path to the config file.",
+			Destination: &newPlugin.ConfigPath,
 		},
 	}
 
