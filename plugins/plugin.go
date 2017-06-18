@@ -27,6 +27,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-metrics/producers"
+	httpHelpers "github.com/dcos/dcos-metrics/util/http/helpers"
 	"github.com/urfave/cli"
 
 	yaml "gopkg.in/yaml.v2"
@@ -45,6 +46,7 @@ type Plugin struct {
 	MetricsHost       string
 	Log               *logrus.Entry
 	ConnectorFunc     func([]producers.MetricsMessage, *cli.Context) error
+	Client            *http.Client
 	ConfigPath        string
 	IAMConfigPath     string `yaml:"iam_config_path"`
 	CACertificatePath string `yaml:"ca_certificate_path"`
@@ -281,5 +283,18 @@ func (p *Plugin) loadConfig() error {
 		return err
 	}
 
+	return nil
+}
+
+// createClient creates an HTTP Client with credentials (if available) and
+// attaches it to the plugin
+func (p *Plugin) createClient() error {
+	p.Log.Info("Creating an HTTP client to poll the local metrics API")
+	client, err := httpHelpers.NewMetricsClient(p.CACertificatePath, p.IAMConfigPath)
+	if err != nil {
+		return err
+	}
+
+	p.Client = client
 	return nil
 }
