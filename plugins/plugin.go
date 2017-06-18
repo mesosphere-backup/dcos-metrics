@@ -219,8 +219,7 @@ func (p *Plugin) setEndpoints() error {
 			URL:    &metricsURL,
 		}
 
-		client := &http.Client{}
-		resp, err := client.Do(request)
+		resp, err := p.Client.Do(request)
 		if err != nil {
 			return err
 		}
