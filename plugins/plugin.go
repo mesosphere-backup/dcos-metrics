@@ -266,6 +266,11 @@ func makeMetricsRequest(request *http.Request) (producers.MetricsMessage, error)
 // loadConfig loads the CACertPath and IAMConfig from the specified yaml file
 // into the corresponding Plugin struct fields
 func (p *Plugin) loadConfig() error {
+	// ConfigPath is optional; don't attempt to read it if not supplied
+	if p.ConfigPath == "" {
+		p.Log.Info("No --config flag was supplied; metrics requests will not be authenticated and may fail")
+		return nil
+	}
 	p.Log.Info("Loading optional authentication configuration")
 	fileByte, err := ioutil.ReadFile(p.ConfigPath)
 	if err != nil {
