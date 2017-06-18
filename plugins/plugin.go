@@ -28,6 +28,8 @@ import (
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-metrics/producers"
 	"github.com/urfave/cli"
+
+	yaml "gopkg.in/yaml.v2"
 )
 
 // Plugin is used to collect metrics and then send them to a remote system
@@ -44,6 +46,8 @@ type Plugin struct {
 	Log               *logrus.Entry
 	ConnectorFunc     func([]producers.MetricsMessage, *cli.Context) error
 	ConfigPath        string
+	IAMConfigPath     string `yaml:"iam_config_path"`
+	CACertificatePath string `yaml:"ca_certificate_path"`
 }
 
 var version = "UNSET"
@@ -59,6 +63,8 @@ func New(options ...Option) (*Plugin, error) {
 		MetricsHost:       "localhost",
 		MetricsPort:       "61001",
 		ConfigPath:        "",
+		IAMConfigPath:     "",
+		CACertificatePath: "",
 	}
 
 	newPlugin.App = cli.NewApp()
@@ -255,4 +261,20 @@ func makeMetricsRequest(request *http.Request) (producers.MetricsMessage, error)
 	}
 
 	return mm, nil
+}
+
+// loadConfig loads the CACertPath and IAMConfig from the specified yaml file
+// into the corresponding Plugin struct fields
+func (p *Plugin) loadConfig() error {
+	p.Log.Info("Loading optional authentication configuration")
+	fileByte, err := ioutil.ReadFile(p.ConfigPath)
+	if err != nil {
+		return err
+	}
+
+	if err = yaml.Unmarshal(fileByte, &p); err != nil {
+		return err
+	}
+
+	return nil
 }
