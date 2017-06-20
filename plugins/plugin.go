@@ -285,7 +285,7 @@ func (p *Plugin) loadConfig() error {
 		return err
 	}
 
-	if err = yaml.Unmarshal(fileByte, &p); err != nil {
+	if err = yaml.Unmarshal(fileByte, p); err != nil {
 		return err
 	}
 
