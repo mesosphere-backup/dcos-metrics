@@ -58,15 +58,11 @@ var version = "UNSET"
 // metrics will need
 func New(options ...Option) (*Plugin, error) {
 	newPlugin := &Plugin{
-		Name:              "default",
-		Role:              "",
-		PollingInterval:   10,
-		MetricsProto:      "http",
-		MetricsHost:       "localhost",
-		MetricsPort:       "61001",
-		ConfigPath:        "",
-		IAMConfigPath:     "",
-		CACertificatePath: "",
+		Name:            "default",
+		PollingInterval: 10,
+		MetricsProto:    "http",
+		MetricsHost:     "localhost",
+		MetricsPort:     "61001",
 	}
 
 	newPlugin.App = cli.NewApp()
