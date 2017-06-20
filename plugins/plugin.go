@@ -42,7 +42,7 @@ type Plugin struct {
 	Role              string
 	PollingInterval   int
 	MetricsPort       string
-	MetricsProto      string
+	MetricsScheme     string
 	MetricsHost       string
 	Log               *logrus.Entry
 	ConnectorFunc     func([]producers.MetricsMessage, *cli.Context) error
@@ -60,7 +60,7 @@ func New(options ...Option) (*Plugin, error) {
 	newPlugin := &Plugin{
 		Name:            "default",
 		PollingInterval: 10,
-		MetricsProto:    "http",
+		MetricsScheme:   "http",
 		MetricsHost:     "localhost",
 		MetricsPort:     "61001",
 	}
@@ -76,9 +76,9 @@ func New(options ...Option) (*Plugin, error) {
 		},
 		cli.StringFlag{
 			Name:        "metrics-proto",
-			Value:       newPlugin.MetricsProto,
+			Value:       newPlugin.MetricsScheme,
 			Usage:       "The HTTP protocol for the DC/OS metrics service",
-			Destination: &newPlugin.MetricsProto,
+			Destination: &newPlugin.MetricsScheme,
 		},
 		cli.StringFlag{
 			Name:        "metrics-port",
@@ -165,7 +165,7 @@ func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
 
 	for _, path := range p.Endpoints {
 		metricsURL := url.URL{
-			Scheme: p.MetricsProto,
+			Scheme: p.MetricsScheme,
 			Host:   net.JoinHostPort(p.MetricsHost, p.MetricsPort),
 			Path:   path,
 		}
@@ -205,7 +205,7 @@ func (p *Plugin) setEndpoints() error {
 
 		containers := []string{}
 		metricsURL := url.URL{
-			Scheme: p.MetricsProto,
+			Scheme: p.MetricsScheme,
 			Host:   net.JoinHostPort(p.MetricsHost, p.MetricsPort),
 			Path:   "/system/v1/metrics/v0/containers",
 		}
