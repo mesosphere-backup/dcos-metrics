@@ -17,34 +17,40 @@ package plugin
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-metrics/producers"
+	httpHelpers "github.com/dcos/dcos-metrics/util/http/helpers"
 	"github.com/urfave/cli"
+
+	yaml "gopkg.in/yaml.v2"
 )
 
 // Plugin is used to collect metrics and then send them to a remote system
 // (e.g. DataDog, Librato, etc.).  Use plugin.New(...) to build a new plugin.
 type Plugin struct {
-	App             *cli.App
-	Name            string
-	Endpoints       []string
-	Role            string
-	PollingInterval int
-	MetricsPort     string
-	MetricsProto    string
-	MetricsHost     string
-	AuthToken       string
-	Log             *logrus.Entry
-	ConnectorFunc   func([]producers.MetricsMessage, *cli.Context) error
+	App               *cli.App
+	Name              string
+	Endpoints         []string
+	Role              string
+	PollingInterval   int
+	MetricsPort       int
+	MetricsScheme     string
+	MetricsHost       string
+	Log               *logrus.Entry
+	ConnectorFunc     func([]producers.MetricsMessage, *cli.Context) error
+	Client            *http.Client
+	ConfigPath        string
+	IAMConfigPath     string `yaml:"iam_config_path"`
+	CACertificatePath string `yaml:"ca_certificate_path"`
 }
 
 var version = "UNSET"
@@ -54,12 +60,10 @@ var version = "UNSET"
 func New(options ...Option) (*Plugin, error) {
 	newPlugin := &Plugin{
 		Name:            "default",
-		Role:            "",
 		PollingInterval: 10,
-		MetricsProto:    "http",
+		MetricsScheme:   "http",
 		MetricsHost:     "localhost",
-		MetricsPort:     "61001",
-		AuthToken:       "",
+		MetricsPort:     61001,
 	}
 
 	newPlugin.App = cli.NewApp()
@@ -73,11 +77,11 @@ func New(options ...Option) (*Plugin, error) {
 		},
 		cli.StringFlag{
 			Name:        "metrics-proto",
-			Value:       newPlugin.MetricsProto,
+			Value:       newPlugin.MetricsScheme,
 			Usage:       "The HTTP protocol for the DC/OS metrics service",
-			Destination: &newPlugin.MetricsProto,
+			Destination: &newPlugin.MetricsScheme,
 		},
-		cli.StringFlag{
+		cli.IntFlag{
 			Name:        "metrics-port",
 			Value:       newPlugin.MetricsPort,
 			Usage:       "Port the DC/OS metrics service is running.Defaults to agent adminrouter port",
@@ -91,16 +95,16 @@ func New(options ...Option) (*Plugin, error) {
 		},
 
 		cli.StringFlag{
-			Name:        "auth-token",
-			Value:       newPlugin.AuthToken,
-			Usage:       "Valid authentication token for DC/OS services",
-			Destination: &newPlugin.AuthToken,
-		},
-		cli.StringFlag{
 			Name:        "dcos-role",
 			Value:       newPlugin.Role,
 			Usage:       "DC/OS role, either master or agent",
 			Destination: &newPlugin.Role,
+		},
+		cli.StringFlag{
+			Name:        "config",
+			Value:       newPlugin.ConfigPath,
+			Usage:       "The path to the config file.",
+			Destination: &newPlugin.ConfigPath,
 		},
 	}
 
@@ -141,11 +145,20 @@ func (p *Plugin) StartPlugin() error {
 // Metrics polls the DC/OS components and returns a slice of
 // producers.MetricsMessage.
 func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
-	if len(p.AuthToken) == 0 {
-		return nil, errors.New("Auth token must be set, use --auth-token <token>")
-	}
 
 	metricsMessages := []producers.MetricsMessage{}
+
+	// The first time Metrics() is called, the plugin client
+	// should be initialised
+	if p.Client == nil {
+		if err := p.loadConfig(); err != nil {
+			return metricsMessages, err
+		}
+		if err := p.createClient(); err != nil {
+			return metricsMessages, err
+		}
+	}
+
 	p.Log.Info("Getting metrics from metrics service")
 	if err := p.setEndpoints(); err != nil {
 		p.Log.Fatal(err)
@@ -153,20 +166,17 @@ func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
 
 	for _, path := range p.Endpoints {
 		metricsURL := url.URL{
-			Scheme: p.MetricsProto,
-			Host:   net.JoinHostPort(p.MetricsHost, p.MetricsPort),
+			Scheme: p.MetricsScheme,
+			Host:   net.JoinHostPort(p.MetricsHost, strconv.Itoa(p.MetricsPort)),
 			Path:   path,
 		}
 
 		request := &http.Request{
 			Method: "GET",
 			URL:    &metricsURL,
-			Header: http.Header{
-				"Authorization": []string{fmt.Sprintf("token=%s", p.AuthToken)},
-			},
 		}
 
-		metricMessage, err := makeMetricsRequest(request)
+		metricMessage, err := makeMetricsRequest(p.Client, request)
 		if err != nil {
 			return metricsMessages, err
 		}
@@ -196,21 +206,17 @@ func (p *Plugin) setEndpoints() error {
 
 		containers := []string{}
 		metricsURL := url.URL{
-			Scheme: p.MetricsProto,
-			Host:   net.JoinHostPort(p.MetricsHost, p.MetricsPort),
+			Scheme: p.MetricsScheme,
+			Host:   net.JoinHostPort(p.MetricsHost, strconv.Itoa(p.MetricsPort)),
 			Path:   "/system/v1/metrics/v0/containers",
 		}
 
 		request := &http.Request{
 			Method: "GET",
 			URL:    &metricsURL,
-			Header: http.Header{
-				"Authorization": []string{fmt.Sprintf("token=%s", p.AuthToken)},
-			},
 		}
 
-		client := &http.Client{}
-		resp, err := client.Do(request)
+		resp, err := p.Client.Do(request)
 		if err != nil {
 			return err
 		}
@@ -239,11 +245,10 @@ func (p *Plugin) setEndpoints() error {
 }
 
 /*** Helpers ***/
-func makeMetricsRequest(request *http.Request) (producers.MetricsMessage, error) {
+func makeMetricsRequest(client *http.Client, request *http.Request) (producers.MetricsMessage, error) {
 	l := logrus.WithFields(logrus.Fields{"plugin": "http-helper"})
 
 	l.Infof("Making request to %+v", request.URL)
-	client := &http.Client{}
 	mm := producers.MetricsMessage{}
 
 	resp, err := client.Do(request)
@@ -265,4 +270,38 @@ func makeMetricsRequest(request *http.Request) (producers.MetricsMessage, error)
 	}
 
 	return mm, nil
+}
+
+// loadConfig loads the CACertPath and IAMConfig from the specified yaml file
+// into the corresponding Plugin struct fields
+func (p *Plugin) loadConfig() error {
+	// ConfigPath is optional; don't attempt to read it if not supplied
+	if p.ConfigPath == "" {
+		p.Log.Info("No --config flag was supplied; metrics requests will not be authenticated and may fail")
+		return nil
+	}
+	p.Log.Info("Loading optional authentication configuration")
+	fileByte, err := ioutil.ReadFile(p.ConfigPath)
+	if err != nil {
+		return err
+	}
+
+	if err = yaml.Unmarshal(fileByte, p); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// createClient creates an HTTP Client with credentials (if available) and
+// attaches it to the plugin
+func (p *Plugin) createClient() error {
+	p.Log.Info("Creating an HTTP client to poll the local metrics API")
+	client, err := httpHelpers.NewMetricsClient(p.CACertificatePath, p.IAMConfigPath)
+	if err != nil {
+		return err
+	}
+
+	p.Client = client
+	return nil
 }

@@ -16,7 +16,6 @@ package plugin
 
 import (
 	"errors"
-	"strconv"
 
 	"github.com/dcos/dcos-metrics/producers"
 	"github.com/urfave/cli"
@@ -56,7 +55,7 @@ func PollingInterval(i int) Option {
 func MetricsProtocol(proto string) Option {
 	return func(p *Plugin) error {
 		if proto == "http" || proto == "https" {
-			p.MetricsProto = proto
+			p.MetricsScheme = proto
 			return nil
 		}
 		return errBadProto
@@ -77,22 +76,10 @@ func MetricsHost(h string) Option {
 func MetricsPort(port int) Option {
 	return func(p *Plugin) error {
 		if port <= 65535 {
-			p.MetricsPort = strconv.Itoa(port)
+			p.MetricsPort = port
 			return nil
 		}
 		return errBadPort
-	}
-}
-
-// MetricsAuthToken allows the plugin to set a custom auth token for the
-// Authorization header for the http request that is used to gather metrics.
-func MetricsAuthToken(t string) Option {
-	return func(p *Plugin) error {
-		if len(t) != 0 {
-			p.AuthToken = t
-			return nil
-		}
-		return errBadToken
 	}
 }
 
