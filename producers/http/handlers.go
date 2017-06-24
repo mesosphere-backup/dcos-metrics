@@ -98,14 +98,30 @@ func containerAppHandler(p *producerImpl) http.HandlerFunc {
 			producers.AppMetricPrefix, cid,
 		}, producers.MetricNamespaceSep)
 
-		containerMetrics, ok := p.store.Get(key)
-		if !ok {
+		containerMetrics, err := p.store.GetByRegex(key + ".*")
+		if err != nil {
+			httpLog.Errorf("/v0/containers/{id}/app - %s", err.Error())
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if len(containerMetrics) == 0 {
 			httpLog.Errorf("/v0/containers/{id}/app - not found in store: %s", key)
 			http.Error(w, "Key not found in store", http.StatusNoContent)
 			return
 		}
 
-		encode(containerMetrics, w)
+		var combinedMetrics producers.MetricsMessage
+		for _, c := range containerMetrics {
+			if _, ok := c.(producers.MetricsMessage); !ok {
+				httpLog.Errorf("/v0/containers/{id}/app - unsupported message type")
+				http.Error(w, "Got unsupported message type.", http.StatusInternalServerError)
+				return
+			}
+			metric := c.(producers.MetricsMessage)
+			combinedMetrics.Datapoints = append(combinedMetrics.Datapoints, metric.Datapoints...)
+			combinedMetrics.Dimensions = metric.Dimensions
+		}
+		encode(combinedMetrics, w)
 	}
 }
 
