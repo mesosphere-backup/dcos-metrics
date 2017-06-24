@@ -235,7 +235,7 @@ func (p *Plugin) setEndpoints() error {
 		for _, c := range containers {
 			e := "/system/v1/metrics/v0/containers/" + c
 			p.Log.Infof("Discovered new container endpoint %s", e)
-			p.Endpoints = append(p.Endpoints, e)
+			p.Endpoints = append(p.Endpoints, e, e+"/app")
 		}
 
 		return nil
