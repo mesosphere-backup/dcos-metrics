@@ -92,6 +92,7 @@ func (p *producerImpl) Run() error {
 				name = strings.Join([]string{
 					message.Name,
 					message.Dimensions.ContainerID,
+					message.Datapoints[0].Name,
 				}, producers.MetricNamespaceSep)
 			}
 			httpLog.Debugf("Setting store object '%s' with timestamp %s",
