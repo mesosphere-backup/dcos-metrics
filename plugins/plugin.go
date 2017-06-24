@@ -263,6 +263,12 @@ func makeMetricsRequest(client *http.Client, request *http.Request) (producers.M
 		return mm, err
 	}
 
+	// 204 No Content is not an error code; we handle it explicitly
+	if resp.StatusCode == http.StatusNoContent {
+		l.Warnf("Empty response received from endpoint: %+v", request.URL)
+		return mm, nil
+	}
+
 	err = json.Unmarshal(body, &mm)
 	if err != nil {
 		l.Errorf("Encountered error parsing JSON, %s. JSON Content was: %s", err.Error(), body)
