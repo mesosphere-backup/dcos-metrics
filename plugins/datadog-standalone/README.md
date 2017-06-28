@@ -6,8 +6,9 @@ for those who do not wish to make use of the Datadog Agent.
 ## Installation
 
 ### Build this plugin (requires a Golang environment)
-1. `git clone git@github.com:dcos/dcos-metrics`
-1. `cd dcos-metrics && make test && make plugins`
+1. `go get github.com/dcos/dcos-metrics`
+1. `cd $(go env GOPATH)/src/github.com/dcos/dcos-metrics`
+1. `make && make plugins`
 
 As detailed in the Datadog plugin docs, the resulting binary (dcos-metrics-datadog-standalone-plugin), which will be
 built to the `build/plugins` directory wth the dcos-metrics version appended to its filename, can then be installed on
