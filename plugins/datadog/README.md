@@ -3,9 +3,10 @@ This plugin supports sending metrics from the DC/OS metrics service on both mast
 
 ## Installation
 
-### Build this plugin (requires a Golang environment)
-1. `git clone git@github.com:dcos/dcos-metrics`
-1. `cd dcos-metrics && make`
+### Build this plugin (requires a [Golang environment](https://golang.org/doc/install))
+1. `go get github.com/dcos/dcos-metrics`
+1. `cd $(go env GOPATH)/src/github.com/dcos/dcos-metrics`
+1. `make && make plugins`
 
 Plugin is available in the build directory:
 ```
