@@ -37,7 +37,7 @@ namespace metrics {
       : container_assigner(container_assigner) { }
     virtual ~IsolatorProcess() { }
 
-    bool supportsNesting() {
+    virtual bool supportsNesting() {
       return true;
     }
 
