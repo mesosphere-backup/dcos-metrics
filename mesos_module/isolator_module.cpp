@@ -37,10 +37,6 @@ namespace metrics {
       : container_assigner(container_assigner) { }
     virtual ~IsolatorProcess() { }
 
-    bool supportsNesting() {
-      return true;
-    }
-
     process::Future<Nothing> recover(
         const std::list<mesos::slave::ContainerState>& states,
         const hashset<mesos::ContainerID>& orphans) {

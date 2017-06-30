@@ -30,6 +30,10 @@ namespace metrics {
     process::Future<Nothing> cleanup(
       const mesos::ContainerID& container_id);
 
+    bool supportsNesting() {
+        return true;
+    }
+
     // The following calls are unused by this implementation.
 
     process::Future<Option<int>> namespaces() {
