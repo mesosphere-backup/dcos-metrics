@@ -37,7 +37,7 @@ namespace metrics {
       : container_assigner(container_assigner) { }
     virtual ~IsolatorProcess() { }
 
-    virtual bool supportsNesting() {
+    bool supportsNesting() {
       return true;
     }
 
@@ -93,6 +93,12 @@ template <typename ContainerAssigner>
 metrics::IsolatorModule<ContainerAssigner>::~IsolatorModule() {
   process::terminate(*impl);
   process::wait(*impl);
+}
+
+template <typename ContainerAssigner>
+bool metrics::IsolatorModule<ContainerAssigner>::supportsNesting() {
+  return process::dispatch(*impl,
+      &IsolatorProcess<ContainerAssigner>::supportsNesting);
 }
 
 template <typename ContainerAssigner>
