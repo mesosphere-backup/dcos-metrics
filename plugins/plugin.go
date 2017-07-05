@@ -235,7 +235,7 @@ func (p *Plugin) setEndpoints() error {
 		for _, c := range containers {
 			e := "/system/v1/metrics/v0/containers/" + c
 			p.Log.Infof("Discovered new container endpoint %s", e)
-			p.Endpoints = append(p.Endpoints, e)
+			p.Endpoints = append(p.Endpoints, e, e+"/app")
 		}
 
 		return nil
@@ -261,6 +261,12 @@ func makeMetricsRequest(client *http.Client, request *http.Request) (producers.M
 	if err != nil {
 		l.Errorf("Encountered error reading response body, %s", err.Error())
 		return mm, err
+	}
+
+	// 204 No Content is not an error code; we handle it explicitly
+	if resp.StatusCode == http.StatusNoContent {
+		l.Warnf("Empty response received from endpoint: %+v", request.URL)
+		return mm, nil
 	}
 
 	err = json.Unmarshal(body, &mm)
