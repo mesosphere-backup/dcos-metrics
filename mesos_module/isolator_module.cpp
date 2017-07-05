@@ -96,6 +96,12 @@ metrics::IsolatorModule<ContainerAssigner>::~IsolatorModule() {
 }
 
 template <typename ContainerAssigner>
+bool metrics::IsolatorModule<ContainerAssigner>::supportsNesting() {
+  return process::dispatch(*impl,
+      &IsolatorProcess<ContainerAssigner>::supportsNesting);
+}
+
+template <typename ContainerAssigner>
 process::Future<Nothing> metrics::IsolatorModule<ContainerAssigner>::recover(
     const std::list<mesos::slave::ContainerState>& states,
     const hashset<mesos::ContainerID>& orphans) {
