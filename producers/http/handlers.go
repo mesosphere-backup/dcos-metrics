@@ -27,19 +27,15 @@ import (
 
 func nodeHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var am []interface{}
 		nodeMetrics, err := p.store.GetByRegex(producers.NodeMetricPrefix + ".*")
 		if err != nil {
 			httpLog.Errorf("/v0/node - %s", err.Error())
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		for _, v := range nodeMetrics {
-			am = append(am, v)
-		}
-
-		if len(am) != 0 {
-			encode(am[0], w)
+		if len(nodeMetrics) == 0 {
+			httpLog.Error("/v0/node - no content in store.")
+			http.Error(w, "No values found in store", http.StatusBadRequest)
 			return
 		}
 
