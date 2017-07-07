@@ -142,9 +142,9 @@ func containerAppMetricHandler(p *producerImpl) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 
-		if _, ok := appMetrics.(producers.MetricsMessage); !ok {
-			httpLog.Errorf("/v0/contianers - unsupported message type.")
-			http.Error(w, "Got unsupported message type.", http.StatusInternalServerError)
+		if len(appMetrics) == 0 {
+			httpLog.Errorf("/v0/containers/{id}/app/{metric-id} - not found in store, CID: %s / Metric-ID: %s", key, mid)
+			http.Error(w, "Key not found in store", http.StatusNoContent)
 			return
 		}
 
