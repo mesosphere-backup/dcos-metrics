@@ -136,11 +136,10 @@ func containerAppMetricHandler(p *producerImpl) http.HandlerFunc {
 			producers.AppMetricPrefix, cid,
 		}, producers.MetricNamespaceSep)
 
-		appMetrics, ok := p.store.Get(key)
-		if !ok {
-			httpLog.Errorf("/v0/containers/{id}/app/{metric-id} - not found in store: %s", key)
-			http.Error(w, "Key not found in store", http.StatusNoContent)
-			return
+		appMetrics, err := p.store.GetByRegex(key + ".*" + mid)
+		if err != nil {
+			httpLog.Errorf("/v0/containers/{id}/app/{metric-id} - %s", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 
 		if _, ok := appMetrics.(producers.MetricsMessage); !ok {
