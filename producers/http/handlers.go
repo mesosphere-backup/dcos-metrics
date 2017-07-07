@@ -16,6 +16,7 @@ package http
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -181,4 +182,17 @@ func encode(v interface{}, w http.ResponseWriter) {
 		httpLog.Errorf("Failed to encode value to JSON: %v", v)
 		http.Error(w, "Failed to encode value to JSON", http.StatusInternalServerError)
 	}
+}
+
+func combineMessages(mm map[string]interface{}) (producers.MetricsMessage, error) {
+	var combinedMetrics producers.MetricsMessage
+	for _, m := range mm {
+		if _, ok := m.(producers.MetricsMessage); !ok {
+			return combinedMetrics, fmt.Errorf("Unsupported message type %v", m)
+		}
+		metric := m.(producers.MetricsMessage)
+		combinedMetrics.Datapoints = append(combinedMetrics.Datapoints, metric.Datapoints...)
+		combinedMetrics.Dimensions = metric.Dimensions
+	}
+	return combinedMetrics, nil
 }
