@@ -106,10 +106,10 @@ func TestTransform(t *testing.T) {
 			So(pmm.Datapoints[0].Name, ShouldEqual, "some-name")
 			So(pmm.Datapoints[0].Value, ShouldEqual, 42.0)
 			So(pmm.Datapoints[0].Timestamp, ShouldNotEqual, "")
+			So(pmm.Datapoints[0].Tags, ShouldResemble, map[string]string{"some-key": "some-val"})
 			So(pmm.Dimensions.MesosID, ShouldEqual, "some-mesos-id")
 			So(pmm.Dimensions.ClusterID, ShouldEqual, "some-cluster-id")
 			So(pmm.Dimensions.Hostname, ShouldEqual, "some-hostname")
-			So(pmm.Dimensions.Labels, ShouldResemble, map[string]string{"some-key": "some-val"})
 		})
 
 		Convey("Should return an error if AvroDatum didn't contain a goavro.Record", func() {

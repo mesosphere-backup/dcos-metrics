@@ -256,6 +256,23 @@ func (a *AvroDatum) transform(nodeInfo collectors.NodeInfo) (producers.MetricsMe
 		return pmm, err
 	}
 
+	// Convert message-level labels to datapoint-level tags
+	labels := pmm.Dimensions.Labels
+	if labels != nil {
+		for n, d := range pmm.Datapoints {
+			tt := make(map[string]string)
+			// TODO(philip) account for tag/label collision
+			for k, v := range d.Tags {
+				tt[k] = v
+			}
+			for k, v := range labels {
+				tt[k] = v
+			}
+			pmm.Datapoints[n].Tags = tt
+		}
+	}
+	pmm.Dimensions.Labels = nil
+
 	return pmm, nil
 }
 
