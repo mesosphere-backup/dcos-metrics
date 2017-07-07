@@ -57,9 +57,15 @@ func TestRun(t *testing.T) {
 			go p.Run()
 			time.Sleep(1 * time.Second)
 
+			dps := []producers.Datapoint{
+				producers.Datapoint{
+					Name: "datapoint-one",
+				},
+			}
 			p.metricsChan <- producers.MetricsMessage{
-				Name:      "some-message",
-				Timestamp: time.Now().UTC().Unix(),
+				Name:       "some-message",
+				Datapoints: dps,
+				Timestamp:  time.Now().UTC().Unix(),
 			}
 			time.Sleep(250 * time.Millisecond)
 
