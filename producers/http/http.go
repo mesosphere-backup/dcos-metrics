@@ -94,10 +94,10 @@ func (p *producerImpl) Run() error {
 					message.Dimensions.ContainerID,
 				}, producers.MetricNamespaceSep)
 			}
-			httpLog.Debugf("Setting store object '%s' with timestamp %s",
-				name, time.Unix(message.Timestamp, 0).Format(time.RFC3339))
 
-			p.store.Set(name, message) // overwrite existing object with the same name
+			for _, d := range message.Datapoints {
+				p.writeObjectToStore(d, message, name)
+			}
 		}
 	}()
 
@@ -114,6 +114,21 @@ func (p *producerImpl) Run() error {
 	}
 	httpLog.Infof("http producer serving requests on tcp socket: %s", net.JoinHostPort(p.config.IP, strconv.Itoa(p.config.Port)))
 	return http.ListenAndServe(fmt.Sprintf("%s:%d", p.config.IP, p.config.Port), r)
+}
+
+// writeObjectToStore writes a prefixed datapoint into the store.
+func (p *producerImpl) writeObjectToStore(d producers.Datapoint, m producers.MetricsMessage, prefix string) {
+	newMessage := producers.MetricsMessage{
+		Name:       m.Name,
+		Datapoints: []producers.Datapoint{d},
+		Dimensions: m.Dimensions,
+		Timestamp:  m.Timestamp,
+	}
+	// e.g. dcos.metrics.app.kafka.server.ReplicaFetcherManager.MaxLag
+	qualifiedName := prefix + producers.MetricNamespaceSep + d.Name
+	httpLog.Debugf("Setting store object '%s' with timestamp %s",
+		qualifiedName, time.Unix(newMessage.Timestamp, 0).Format(time.RFC3339))
+	p.store.Set(qualifiedName, newMessage)
 }
 
 // janitor analyzes the objects in the store and removes stale objects. An
