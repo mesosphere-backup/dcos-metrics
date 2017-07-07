@@ -58,13 +58,18 @@ func containersHandler(p *producerImpl) http.HandlerFunc {
 			return
 		}
 
+		// There will be multiple messages per container ID
+		uniqueIDs := make(map[string]bool)
 		for _, c := range containerMetrics {
 			if _, ok := c.(producers.MetricsMessage); !ok {
 				httpLog.Errorf("/v0/containers - unsupported message type")
 				http.Error(w, "Got unsupported message type.", http.StatusInternalServerError)
 				return
 			}
-			cm = append(cm, c.(producers.MetricsMessage).Dimensions.ContainerID)
+			uniqueIDs[c.(producers.MetricsMessage).Dimensions.ContainerID] = true
+		}
+		for id := range uniqueIDs {
+			cm = append(cm, id)
 		}
 
 		encode(cm, w)
