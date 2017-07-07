@@ -78,8 +78,12 @@ func containerHandler(p *producerImpl) http.HandlerFunc {
 			producers.ContainerMetricPrefix, vars["id"],
 		}, producers.MetricNamespaceSep)
 
-		containerMetrics, ok := p.store.Get(key)
-		if !ok {
+		containerMetrics, err := p.store.GetByRegex(key + ".*")
+		if err != nil {
+			httpLog.Errorf("/v0/containers/{id} - %s", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		if len(containerMetrics) == 0 {
 			httpLog.Errorf("/v0/containers/{id} - not found in store: %s", key)
 			http.Error(w, "Key not found in store", http.StatusNoContent)
 			return
