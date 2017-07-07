@@ -148,18 +148,13 @@ func containerAppMetricHandler(p *producerImpl) http.HandlerFunc {
 			return
 		}
 
-		for _, dp := range appMetrics.(producers.MetricsMessage).Datapoints {
-			if dp.Name == mid {
-				m := producers.MetricsMessage{
-					Datapoints: []producers.Datapoint{dp},
-					Dimensions: appMetrics.(producers.MetricsMessage).Dimensions,
-				}
-				encode(m, w)
-				return
-			}
+		combinedMetrics, err := combineMessages(appMetrics)
+		if err != nil {
+			httpLog.Errorf("/v0/containers/{id}/app/{metric-id} - %s", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
-		httpLog.Errorf("/v0/containers/{id}/app/{metric-id} - not found in store, CID: %s / Metric-ID: %s", key, mid)
-		http.Error(w, "Metric not found in store", http.StatusNoContent)
+
+		encode(combinedMetrics, w)
 	}
 }
 
