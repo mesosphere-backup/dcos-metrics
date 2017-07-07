@@ -89,9 +89,12 @@ func containerHandler(p *producerImpl) http.HandlerFunc {
 			return
 		}
 
-		httpLog.Debugf("Encoding container metrics:\n%+v", containerMetrics)
-
-		encode(containerMetrics, w)
+		combinedMetrics, err := combineMessages(containerMetrics)
+		if err != nil {
+			httpLog.Errorf("/v0/containers/{id} - %s", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		encode(combinedMetrics, w)
 	}
 }
 
