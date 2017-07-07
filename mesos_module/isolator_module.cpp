@@ -1,11 +1,15 @@
 #include "isolator_module.hpp"
 
 #include <mesos/module/isolator.hpp>
+#include <mesos/slave/containerizer.hpp>
 #include <process/process.hpp>
 #include <stout/try.hpp>
 
 #include "container_assigner.hpp"
 #include "module_access_factory.hpp"
+
+
+using mesos::slave::ContainerClass;
 
 namespace {
   const std::string STATSD_ENV_NAME_HOST = "STATSD_UDP_HOST";
@@ -52,6 +56,14 @@ namespace metrics {
     process::Future<Option<mesos::slave::ContainerLaunchInfo>> prepare(
         const mesos::ContainerID& container_id,
         const mesos::slave::ContainerConfig& container_config) {
+      // If we are a nested container in the `DEBUG` class, then
+      // we don't want to emit metrics from this container.
+      if (container_id.has_parent() &&
+          container_config.has_container_class() &&
+          container_config.container_class() == ContainerClass::DEBUG) {
+        return None();
+      }
+
       LOG(INFO) << "Container prepare: "
                 << "container_id[" << container_id.ShortDebugString() << "] "
                 << "container_config[" << container_config.ShortDebugString() << "]";
