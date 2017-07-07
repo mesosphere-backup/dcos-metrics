@@ -111,16 +111,10 @@ func containerAppHandler(p *producerImpl) http.HandlerFunc {
 			return
 		}
 
-		var combinedMetrics producers.MetricsMessage
-		for _, c := range containerMetrics {
-			if _, ok := c.(producers.MetricsMessage); !ok {
-				httpLog.Errorf("/v0/containers/{id}/app - unsupported message type")
-				http.Error(w, "Got unsupported message type.", http.StatusInternalServerError)
-				return
-			}
-			metric := c.(producers.MetricsMessage)
-			combinedMetrics.Datapoints = append(combinedMetrics.Datapoints, metric.Datapoints...)
-			combinedMetrics.Dimensions = metric.Dimensions
+		combinedMetrics, err := combineMessages(containerMetrics)
+		if err != nil {
+			httpLog.Errorf("/v0/containers/{id}/app - %s", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 		encode(combinedMetrics, w)
 	}
