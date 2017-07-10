@@ -117,8 +117,9 @@ func (p *producerImpl) writeObjectToStore(d producers.Datapoint, m producers.Met
 	// e.g. dcos.metrics.app.[ContainerId].kafka.server.ReplicaFetcherManager.MaxLag
 	qualifiedName := joinMetricName(prefix, d.Name)
 	for k, v := range d.Tags {
-		// e.g. dcos.metrics.node.[MesosId].network.out.errors.interface.eth0
-		qualifiedName = joinMetricName(qualifiedName, k, v)
+		// e.g. dcos.metrics.node.[MesosId].network.out.errors.#interface:eth0
+		serializedTag := fmt.Sprintf("#%s:%s", k, v)
+		qualifiedName = joinMetricName(qualifiedName, serializedTag)
 	}
 	httpLog.Debugf("Setting store object '%s' with timestamp %s",
 		qualifiedName, time.Unix(newMessage.Timestamp, 0).Format(time.RFC3339))
