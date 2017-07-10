@@ -188,12 +188,13 @@ func encode(v interface{}, w http.ResponseWriter) {
 func combineMessages(mm map[string]interface{}) (producers.MetricsMessage, error) {
 	var combinedMetrics producers.MetricsMessage
 	for _, m := range mm {
-		if _, ok := m.(producers.MetricsMessage); !ok {
+		switch m := m.(type) {
+		case producers.MetricsMessage:
+			combinedMetrics.Datapoints = append(combinedMetrics.Datapoints, m.Datapoints...)
+			combinedMetrics.Dimensions = m.Dimensions
+		default:
 			return combinedMetrics, fmt.Errorf("Unsupported message type %v", m)
 		}
-		metric := m.(producers.MetricsMessage)
-		combinedMetrics.Datapoints = append(combinedMetrics.Datapoints, metric.Datapoints...)
-		combinedMetrics.Dimensions = metric.Dimensions
 	}
 	return combinedMetrics, nil
 }
