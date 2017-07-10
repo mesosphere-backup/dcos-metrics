@@ -75,29 +75,19 @@ func (p *producerImpl) Run() error {
 
 			var name string
 			switch message.Name {
-
 			case producers.NodeMetricPrefix:
-				name = strings.Join([]string{
-					message.Name,
-					message.Dimensions.MesosID,
-				}, producers.MetricNamespaceSep)
+				name = joinMetricName(message.Name, message.Dimensions.MesosID)
 
 			case producers.ContainerMetricPrefix:
-				name = strings.Join([]string{
-					message.Name,
-					message.Dimensions.ContainerID,
-				}, producers.MetricNamespaceSep)
+				name = joinMetricName(message.Name, message.Dimensions.ContainerID)
 
 			case producers.AppMetricPrefix:
-				name = strings.Join([]string{
-					message.Name,
-					message.Dimensions.ContainerID,
-				}, producers.MetricNamespaceSep)
+				name = joinMetricName(message.Name, message.Dimensions.ContainerID)
 			}
-			httpLog.Debugf("Setting store object '%s' with timestamp %s",
-				name, time.Unix(message.Timestamp, 0).Format(time.RFC3339))
 
-			p.store.Set(name, message) // overwrite existing object with the same name
+			for _, d := range message.Datapoints {
+				p.writeObjectToStore(d, message, name)
+			}
 		}
 	}()
 
@@ -114,6 +104,31 @@ func (p *producerImpl) Run() error {
 	}
 	httpLog.Infof("http producer serving requests on tcp socket: %s", net.JoinHostPort(p.config.IP, strconv.Itoa(p.config.Port)))
 	return http.ListenAndServe(fmt.Sprintf("%s:%d", p.config.IP, p.config.Port), r)
+}
+
+// writeObjectToStore writes a prefixed datapoint into the store.
+func (p *producerImpl) writeObjectToStore(d producers.Datapoint, m producers.MetricsMessage, prefix string) {
+	newMessage := producers.MetricsMessage{
+		Name:       m.Name,
+		Datapoints: []producers.Datapoint{d},
+		Dimensions: m.Dimensions,
+		Timestamp:  m.Timestamp,
+	}
+	// e.g. dcos.metrics.app.[ContainerId].kafka.server.ReplicaFetcherManager.MaxLag
+	qualifiedName := joinMetricName(prefix, d.Name)
+	for k, v := range d.Tags {
+		// e.g. dcos.metrics.node.[MesosId].network.out.errors.#interface:eth0
+		serializedTag := fmt.Sprintf("#%s:%s", k, v)
+		qualifiedName = joinMetricName(qualifiedName, serializedTag)
+	}
+	httpLog.Debugf("Setting store object '%s' with timestamp %s",
+		qualifiedName, time.Unix(newMessage.Timestamp, 0).Format(time.RFC3339))
+	p.store.Set(qualifiedName, newMessage)
+}
+
+// joinMetricName concatenates its arguments using the metric name separator
+func joinMetricName(segments ...string) string {
+	return strings.Join(segments, producers.MetricNamespaceSep)
 }
 
 // janitor analyzes the objects in the store and removes stale objects. An

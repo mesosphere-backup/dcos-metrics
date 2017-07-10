@@ -16,8 +16,9 @@ package http
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
-	"strings"
+	"regexp"
 	"time"
 
 	"github.com/dcos/dcos-metrics/producers"
@@ -26,44 +27,51 @@ import (
 
 func nodeHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var am []interface{}
-		nodeMetrics, err := p.store.GetByRegex(producers.NodeMetricPrefix + ".*")
+		nodeMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(producers.NodeMetricPrefix) + ".*")
 		if err != nil {
 			httpLog.Errorf("/v0/node - %s", err.Error())
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		for _, v := range nodeMetrics {
-			am = append(am, v)
-		}
-
-		if len(am) != 0 {
-			encode(am[0], w)
+		if len(nodeMetrics) == 0 {
+			httpLog.Error("/v0/node - no content in store.")
+			http.Error(w, "No values found in store", http.StatusNoContent)
 			return
 		}
 
-		httpLog.Error("/v0/node - no content in store.")
-		http.Error(w, "No values found in store", http.StatusBadRequest)
+		combinedMetrics, err := combineMessages(nodeMetrics)
+		if err != nil {
+			httpLog.Errorf("/v0/node - %s", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		encode(combinedMetrics, w)
 	}
 }
 
 func containersHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cm := []string{}
-		containerMetrics, err := p.store.GetByRegex(producers.ContainerMetricPrefix + ".*")
+		containerMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(producers.ContainerMetricPrefix) + ".*")
 		if err != nil {
 			httpLog.Errorf("/v0/containers - %s", err.Error())
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
+		// There will be multiple messages per container ID
+		uniqueIDs := make(map[string]bool)
 		for _, c := range containerMetrics {
-			if _, ok := c.(producers.MetricsMessage); !ok {
+			switch c := c.(type) {
+			case producers.MetricsMessage:
+				uniqueIDs[c.Dimensions.ContainerID] = true
+			default:
 				httpLog.Errorf("/v0/containers - unsupported message type")
 				http.Error(w, "Got unsupported message type.", http.StatusInternalServerError)
 				return
 			}
-			cm = append(cm, c.(producers.MetricsMessage).Dimensions.ContainerID)
+		}
+		for id := range uniqueIDs {
+			cm = append(cm, id)
 		}
 
 		encode(cm, w)
@@ -73,20 +81,25 @@ func containersHandler(p *producerImpl) http.HandlerFunc {
 func containerHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		key := strings.Join([]string{
-			producers.ContainerMetricPrefix, vars["id"],
-		}, producers.MetricNamespaceSep)
+		key := joinMetricName(producers.ContainerMetricPrefix, vars["id"])
 
-		containerMetrics, ok := p.store.Get(key)
-		if !ok {
+		containerMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(key) + ".*")
+		if err != nil {
+			httpLog.Errorf("/v0/containers/{id} - %s", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		if len(containerMetrics) == 0 {
 			httpLog.Errorf("/v0/containers/{id} - not found in store: %s", key)
 			http.Error(w, "Key not found in store", http.StatusNoContent)
 			return
 		}
 
-		httpLog.Debugf("Encoding container metrics:\n%+v", containerMetrics)
-
-		encode(containerMetrics, w)
+		combinedMetrics, err := combineMessages(containerMetrics)
+		if err != nil {
+			httpLog.Errorf("/v0/containers/{id} - %s", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		encode(combinedMetrics, w)
 	}
 }
 
@@ -94,18 +107,26 @@ func containerAppHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		cid := vars["id"]
-		key := strings.Join([]string{
-			producers.AppMetricPrefix, cid,
-		}, producers.MetricNamespaceSep)
+		key := joinMetricName(producers.AppMetricPrefix, cid)
 
-		containerMetrics, ok := p.store.Get(key)
-		if !ok {
+		containerMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(key) + ".*")
+		if err != nil {
+			httpLog.Errorf("/v0/containers/{id}/app - %s", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if len(containerMetrics) == 0 {
 			httpLog.Errorf("/v0/containers/{id}/app - not found in store: %s", key)
 			http.Error(w, "Key not found in store", http.StatusNoContent)
 			return
 		}
 
-		encode(containerMetrics, w)
+		combinedMetrics, err := combineMessages(containerMetrics)
+		if err != nil {
+			httpLog.Errorf("/v0/containers/{id}/app - %s", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		encode(combinedMetrics, w)
 	}
 }
 
@@ -114,35 +135,27 @@ func containerAppMetricHandler(p *producerImpl) http.HandlerFunc {
 		vars := mux.Vars(r)
 		cid := vars["id"]
 		mid := vars["metric-id"]
-		key := strings.Join([]string{
-			producers.AppMetricPrefix, cid,
-		}, producers.MetricNamespaceSep)
+		key := joinMetricName(producers.AppMetricPrefix, cid, mid)
 
-		appMetrics, ok := p.store.Get(key)
-		if !ok {
-			httpLog.Errorf("/v0/containers/{id}/app/{metric-id} - not found in store: %s", key)
+		appMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(key) + ".*")
+		if err != nil {
+			httpLog.Errorf("/v0/containers/{id}/app/{metric-id} - %s", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+
+		if len(appMetrics) == 0 {
+			httpLog.Errorf("/v0/containers/{id}/app/{metric-id} - not found in store, CID: %s / Metric-ID: %s", key, mid)
 			http.Error(w, "Key not found in store", http.StatusNoContent)
 			return
 		}
 
-		if _, ok := appMetrics.(producers.MetricsMessage); !ok {
-			httpLog.Errorf("/v0/contianers - unsupported message type.")
-			http.Error(w, "Got unsupported message type.", http.StatusInternalServerError)
-			return
+		combinedMetrics, err := combineMessages(appMetrics)
+		if err != nil {
+			httpLog.Errorf("/v0/containers/{id}/app/{metric-id} - %s", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 
-		for _, dp := range appMetrics.(producers.MetricsMessage).Datapoints {
-			if dp.Name == mid {
-				m := producers.MetricsMessage{
-					Datapoints: []producers.Datapoint{dp},
-					Dimensions: appMetrics.(producers.MetricsMessage).Dimensions,
-				}
-				encode(m, w)
-				return
-			}
-		}
-		httpLog.Errorf("/v0/containers/{id}/app/{metric-id} - not found in store, CID: %s / Metric-ID: %s", key, mid)
-		http.Error(w, "Metric not found in store", http.StatusNoContent)
+		encode(combinedMetrics, w)
 	}
 }
 
@@ -165,4 +178,18 @@ func encode(v interface{}, w http.ResponseWriter) {
 		httpLog.Errorf("Failed to encode value to JSON: %v", v)
 		http.Error(w, "Failed to encode value to JSON", http.StatusInternalServerError)
 	}
+}
+
+func combineMessages(mm map[string]interface{}) (producers.MetricsMessage, error) {
+	var combinedMetrics producers.MetricsMessage
+	for _, m := range mm {
+		switch m := m.(type) {
+		case producers.MetricsMessage:
+			combinedMetrics.Datapoints = append(combinedMetrics.Datapoints, m.Datapoints...)
+			combinedMetrics.Dimensions = m.Dimensions
+		default:
+			return combinedMetrics, fmt.Errorf("Unsupported message type %v", m)
+		}
+	}
+	return combinedMetrics, nil
 }

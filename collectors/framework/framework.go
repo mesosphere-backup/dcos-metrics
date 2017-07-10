@@ -256,6 +256,22 @@ func (a *AvroDatum) transform(nodeInfo collectors.NodeInfo) (producers.MetricsMe
 		return pmm, err
 	}
 
+	// Convert message-level labels to datapoint-level tags
+	for i, datapoint := range pmm.Datapoints {
+		tt := make(map[string]string)
+		for k, v := range pmm.Dimensions.Labels {
+			tt[k] = v
+		}
+		for k, v := range datapoint.Tags {
+			if tt[k] != "" {
+				fwColLog.Warnf("Datapoint label '%s' (%s) overridden to %s", k, tt[k], v)
+			}
+			tt[k] = v
+		}
+		pmm.Datapoints[i].Tags = tt
+	}
+	pmm.Dimensions.Labels = nil
+
 	return pmm, nil
 }
 
