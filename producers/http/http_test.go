@@ -72,6 +72,51 @@ func TestRun(t *testing.T) {
 			So(p.store.Size(), ShouldEqual, 1)
 		})
 
+		Convey("Shoud not overwrite metrics delivered in sequence", func() {
+			port, err := getEphemeralPort()
+			if err != nil {
+				panic(err)
+			}
+
+			p := producerImpl{
+				config:             Config{Port: port},
+				store:              store.New(),
+				metricsChan:        make(chan producers.MetricsMessage),
+				janitorRunInterval: 60 * time.Second,
+			}
+			go p.Run()
+			time.Sleep(1 * time.Second)
+
+			dp1 := []producers.Datapoint{
+				producers.Datapoint{Name: "datapoint-one"},
+			}
+			dp2 := []producers.Datapoint{
+				producers.Datapoint{Name: "datapoint-two"},
+			}
+
+			// Datapoint one is written
+			p.metricsChan <- producers.MetricsMessage{
+				Name:       "some-message",
+				Datapoints: dp1,
+				Timestamp:  time.Now().UTC().Unix(),
+			}
+			// Datapoint two is written
+			p.metricsChan <- producers.MetricsMessage{
+				Name:       "some-message",
+				Datapoints: dp2,
+				Timestamp:  time.Now().UTC().Unix(),
+			}
+			// Datapoint one is _overwritten_
+			p.metricsChan <- producers.MetricsMessage{
+				Name:       "some-message",
+				Datapoints: dp1,
+				Timestamp:  time.Now().UTC().Unix(),
+			}
+			time.Sleep(250 * time.Millisecond)
+
+			So(p.store.Size(), ShouldEqual, 2)
+		})
+
 		Convey("Should create a new router on a systemd socket (if it's available)", func() {
 			// Mock the systemd socket
 			if err := os.Setenv("LISTEN_PID", strconv.Itoa(os.Getpid())); err != nil {
