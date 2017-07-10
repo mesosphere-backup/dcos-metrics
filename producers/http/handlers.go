@@ -36,7 +36,7 @@ func nodeHandler(p *producerImpl) http.HandlerFunc {
 		}
 		if len(nodeMetrics) == 0 {
 			httpLog.Error("/v0/node - no content in store.")
-			http.Error(w, "No values found in store", http.StatusBadRequest)
+			http.Error(w, "No values found in store", http.StatusNoContent)
 			return
 		}
 
