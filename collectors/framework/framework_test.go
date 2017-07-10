@@ -110,6 +110,7 @@ func TestTransform(t *testing.T) {
 			So(pmm.Dimensions.MesosID, ShouldEqual, "some-mesos-id")
 			So(pmm.Dimensions.ClusterID, ShouldEqual, "some-cluster-id")
 			So(pmm.Dimensions.Hostname, ShouldEqual, "some-hostname")
+			So(pmm.Dimensions.Labels, ShouldEqual, nil)
 		})
 
 		Convey("Should return an error if AvroDatum didn't contain a goavro.Record", func() {
