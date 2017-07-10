@@ -75,24 +75,14 @@ func (p *producerImpl) Run() error {
 
 			var name string
 			switch message.Name {
-
 			case producers.NodeMetricPrefix:
-				name = strings.Join([]string{
-					message.Name,
-					message.Dimensions.MesosID,
-				}, producers.MetricNamespaceSep)
+				name = joinMetricName(message.Name, message.Dimensions.MesosID)
 
 			case producers.ContainerMetricPrefix:
-				name = strings.Join([]string{
-					message.Name,
-					message.Dimensions.ContainerID,
-				}, producers.MetricNamespaceSep)
+				name = joinMetricName(message.Name, message.Dimensions.ContainerID)
 
 			case producers.AppMetricPrefix:
-				name = strings.Join([]string{
-					message.Name,
-					message.Dimensions.ContainerID,
-				}, producers.MetricNamespaceSep)
+				name = joinMetricName(message.Name, message.Dimensions.ContainerID)
 			}
 
 			for _, d := range message.Datapoints {
@@ -125,14 +115,19 @@ func (p *producerImpl) writeObjectToStore(d producers.Datapoint, m producers.Met
 		Timestamp:  m.Timestamp,
 	}
 	// e.g. dcos.metrics.app.kafka.server.ReplicaFetcherManager.MaxLag
-	qualifiedName := prefix + producers.MetricNamespaceSep + d.Name
+	qualifiedName := joinMetricName(prefix, d.Name)
 	for k, v := range d.Tags {
 		// e.g. dcos.metrics.node.network.out.errors.interface.eth0
-		qualifiedName = qualifiedName + producers.MetricNamespaceSep + k + producers.MetricNamespaceSep + v
+		qualifiedName = joinMetricName(qualifiedName, k, v)
 	}
 	httpLog.Debugf("Setting store object '%s' with timestamp %s",
 		qualifiedName, time.Unix(newMessage.Timestamp, 0).Format(time.RFC3339))
 	p.store.Set(qualifiedName, newMessage)
+}
+
+// joinMetricName concatenates its arguments using the metric name separator
+func joinMetricName(segments ...string) string {
+	return strings.Join(segments, producers.MetricNamespaceSep)
 }
 
 // janitor analyzes the objects in the store and removes stale objects. An
