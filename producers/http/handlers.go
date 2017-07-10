@@ -31,7 +31,7 @@ func nodeHandler(p *producerImpl) http.HandlerFunc {
 		nodeMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(producers.NodeMetricPrefix) + ".*")
 		if err != nil {
 			httpLog.Errorf("/v0/node - %s", err.Error())
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		if len(nodeMetrics) == 0 {
@@ -55,7 +55,7 @@ func containersHandler(p *producerImpl) http.HandlerFunc {
 		containerMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(producers.ContainerMetricPrefix) + ".*")
 		if err != nil {
 			httpLog.Errorf("/v0/containers - %s", err.Error())
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -117,7 +117,7 @@ func containerAppHandler(p *producerImpl) http.HandlerFunc {
 		containerMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(key) + ".*")
 		if err != nil {
 			httpLog.Errorf("/v0/containers/{id}/app - %s", err.Error())
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		if len(containerMetrics) == 0 {
