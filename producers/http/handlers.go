@@ -141,10 +141,10 @@ func containerAppMetricHandler(p *producerImpl) http.HandlerFunc {
 		cid := vars["id"]
 		mid := vars["metric-id"]
 		key := strings.Join([]string{
-			producers.AppMetricPrefix, cid,
+			producers.AppMetricPrefix, cid, mid,
 		}, producers.MetricNamespaceSep)
 
-		appMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(key) + ".*" + regexp.QuoteMeta(mid))
+		appMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(key) + ".*")
 		if err != nil {
 			httpLog.Errorf("/v0/containers/{id}/app/{metric-id} - %s", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
