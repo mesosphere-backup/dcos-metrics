@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/dcos/dcos-metrics/producers"
@@ -82,9 +81,7 @@ func containersHandler(p *producerImpl) http.HandlerFunc {
 func containerHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		key := strings.Join([]string{
-			producers.ContainerMetricPrefix, vars["id"],
-		}, producers.MetricNamespaceSep)
+		key := joinMetricName(producers.ContainerMetricPrefix, vars["id"])
 
 		containerMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(key) + ".*")
 		if err != nil {
@@ -110,9 +107,7 @@ func containerAppHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		cid := vars["id"]
-		key := strings.Join([]string{
-			producers.AppMetricPrefix, cid,
-		}, producers.MetricNamespaceSep)
+		key := joinMetricName(producers.AppMetricPrefix, cid)
 
 		containerMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(key) + ".*")
 		if err != nil {
@@ -140,9 +135,7 @@ func containerAppMetricHandler(p *producerImpl) http.HandlerFunc {
 		vars := mux.Vars(r)
 		cid := vars["id"]
 		mid := vars["metric-id"]
-		key := strings.Join([]string{
-			producers.AppMetricPrefix, cid, mid,
-		}, producers.MetricNamespaceSep)
+		key := joinMetricName(producers.AppMetricPrefix, cid, mid)
 
 		appMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(key) + ".*")
 		if err != nil {
