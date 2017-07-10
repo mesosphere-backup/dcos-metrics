@@ -260,10 +260,10 @@ func (a *AvroDatum) transform(nodeInfo collectors.NodeInfo) (producers.MetricsMe
 	for i, datapoint := range pmm.Datapoints {
 		tt := make(map[string]string)
 		// TODO(philip) account for tag/label collision
-		for k, v := range datapoint.Tags {
+		for k, v := range pmm.Dimensions.Labels {
 			tt[k] = v
 		}
-		for k, v := range pmm.Dimensions.Labels {
+		for k, v := range datapoint.Tags {
 			tt[k] = v
 		}
 		pmm.Datapoints[i].Tags = tt
