@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -27,7 +28,7 @@ import (
 
 func nodeHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		nodeMetrics, err := p.store.GetByRegex(producers.NodeMetricPrefix + ".*")
+		nodeMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(producers.NodeMetricPrefix) + ".*")
 		if err != nil {
 			httpLog.Errorf("/v0/node - %s", err.Error())
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -51,7 +52,7 @@ func nodeHandler(p *producerImpl) http.HandlerFunc {
 func containersHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cm := []string{}
-		containerMetrics, err := p.store.GetByRegex(producers.ContainerMetricPrefix + ".*")
+		containerMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(producers.ContainerMetricPrefix) + ".*")
 		if err != nil {
 			httpLog.Errorf("/v0/containers - %s", err.Error())
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -83,7 +84,7 @@ func containerHandler(p *producerImpl) http.HandlerFunc {
 			producers.ContainerMetricPrefix, vars["id"],
 		}, producers.MetricNamespaceSep)
 
-		containerMetrics, err := p.store.GetByRegex(key + ".*")
+		containerMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(key) + ".*")
 		if err != nil {
 			httpLog.Errorf("/v0/containers/{id} - %s", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -111,7 +112,7 @@ func containerAppHandler(p *producerImpl) http.HandlerFunc {
 			producers.AppMetricPrefix, cid,
 		}, producers.MetricNamespaceSep)
 
-		containerMetrics, err := p.store.GetByRegex(key + ".*")
+		containerMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(key) + ".*")
 		if err != nil {
 			httpLog.Errorf("/v0/containers/{id}/app - %s", err.Error())
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -141,7 +142,7 @@ func containerAppMetricHandler(p *producerImpl) http.HandlerFunc {
 			producers.AppMetricPrefix, cid,
 		}, producers.MetricNamespaceSep)
 
-		appMetrics, err := p.store.GetByRegex(key + ".*" + mid)
+		appMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(key) + ".*" + regexp.QuoteMeta(mid))
 		if err != nil {
 			httpLog.Errorf("/v0/containers/{id}/app/{metric-id} - %s", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
