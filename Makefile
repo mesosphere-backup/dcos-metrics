@@ -12,6 +12,18 @@ plugins: clean
 test:
 	bash -c "./scripts/test.sh collector unit"
 
+.PHONY: module
+module:
+	docker run \
+		--rm \
+		-it \
+		-v $(PWD):/workspace/dcos-metrics \
+		-v $(PWD)/build_module.sh:/workspace/build_module.sh \
+		-w /workspace \
+		rusxg/ubuntu-cmake \
+		bash build_module.sh
+
+.PHONY: clean
 clean:
 	rm -rf ./build
 	rm -rf ./schema/metrics_schema
