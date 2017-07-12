@@ -12,6 +12,16 @@ plugins: clean
 test:
 	bash -c "./scripts/test.sh collector unit"
 
+module:
+	docker run \
+		--rm \
+		-it \
+		-v $(PWD):/workspace/dcos-metrics \
+		-v $(PWD)/build_module.sh:/workspace/build_module.sh \
+		-w /workspace \
+		kaskada/cmake-gcc5 \
+		bash build_module.sh
+
 clean:
 	rm -rf ./build
 	rm -rf ./schema/metrics_schema
