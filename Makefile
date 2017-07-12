@@ -17,6 +17,17 @@ plugins: docker clean
 test: docker clean build
 	$(call testIt,collector unit)
 
+.PHONY: module
+module:
+	docker run \
+		--rm \
+		-it \
+		-v $(PWD):/workspace/dcos-metrics \
+		-v $(PWD)/build_module.sh:/workspace/build_module.sh \
+		-w /workspace \
+		rusxg/ubuntu-cmake \
+		bash build_module.sh
+
 .PHONY: clean
 clean:
         # Clean from within the docker container to avoid issues with file permissions:
