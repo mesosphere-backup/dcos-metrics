@@ -93,7 +93,7 @@ have a chance to keep up with community contributions, please follow the guideli
 [github-govendor]: https://github.com/kardianos/govendor
 [github-malnick]: https://github.com/malnick
 [github-nickbp]: https://github.com/nickbp
-[github-philipnrmn]: httpds://github.com/philipnrmn
+[github-philipnrmn]: https://github.com/philipnrmn
 [github-rji]: https://github.com/rji
 [github-universe]: https://github.com/mesosphere/universe
 [go-report-card]: https://goreportcard.com/report/github.com/dcos/dcos-metrics]
