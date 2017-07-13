@@ -38,6 +38,11 @@ However you look at it, getting those metrics should be mind-numbingly simple.
     metrics to the `STATSD_UDP_HOST` / `STATSD_UDP_PORT` endpoint advertised by the mesos-agent module.
   - **[mesos_module](mesos_module/)**: Mesos module (written in C++) to support application-level metrics. Exposes
   two environment variables to each container: `STATSD_UDP_HOST` and `STATSD_UDP_PORT`.
+  - **[plugins](plugins/)**: A directory containing plugins for various
+    - **[datadog](plugins/datadog/)**: A plugin that uses the [dd-agent][dd-agent] to send stats from each node to DataDog.
+    - **[datadog-standalone](plugins/datadog-standalone/)**: A plugin that sends stats directly from each node to DataDog.
+    - **[librato](plugins/librato/)**: A plugin that sends stats from each node to Librato.
+    - **[stdout](plugins/stdout/)**: A simple example plugin that logs all stats as they are received. 
   - **[producers](producers/)**: The producer (output) portion of the metrics service that runs on every DC/OS node.
       - HTTP: exposes a JSON-formatted HTTP API on the local node to be queried by user-provided tooling.
   - **[schema](schema/)**: Schemas shared between the Mesos module and the collector daemon.
@@ -75,17 +80,20 @@ have a chance to keep up with community contributions, please follow the guideli
 
 
 ## Acknowledgements
-  * Current maintainer(s): [Jeff Malnick][github-malnick], [Roger Ignazio][github-rji]
+  * Current maintainer: [Philip Norman][github-philipnrmn]
+  * Former maintainers: [Jeff Malnick][github-malnick], [Roger Ignazio][github-rji]
   * Original author: [Nicholas Parker][github-nickbp]
 
 
 [dcos-jira]: https://jira.mesosphere.com
 [dcos-mailing-list]: https://groups.google.com/a/dcos.io/forum/#!forum/users
 [dcos-slack]: https://dcos-community.slack.com
+[dd-agent]: https://github.com/DataDog/dd-agent
 [github-dcos]: https://github.com/dcos/dcos
 [github-govendor]: https://github.com/kardianos/govendor
 [github-malnick]: https://github.com/malnick
 [github-nickbp]: https://github.com/nickbp
+[github-philipnrmn]: httpds://github.com/philipnrmn
 [github-rji]: https://github.com/rji
 [github-universe]: https://github.com/mesosphere/universe
 [go-report-card]: https://goreportcard.com/report/github.com/dcos/dcos-metrics]
