@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -124,6 +125,22 @@ func (p *producerImpl) writeObjectToStore(d producers.Datapoint, m producers.Met
 	httpLog.Debugf("Setting store object '%s' with timestamp %s",
 		qualifiedName, time.Unix(newMessage.Timestamp, 0).Format(time.RFC3339))
 	p.store.Set(qualifiedName, newMessage)
+}
+
+// sortTags turns a map[string]string into a slice of key/values, sorted by key.
+func sortTags(tags map[string]string) [][]string {
+	keys := make([]string, len(tags))
+	result := make([][]string, len(tags))
+	i := 0
+	for k := range tags {
+		keys[i] = k
+		i++
+	}
+	sort.Strings(keys)
+	for i, k := range keys {
+		result[i] = []string{k, tags[k]}
+	}
+	return result
 }
 
 // joinMetricName concatenates its arguments using the metric name separator
