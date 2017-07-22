@@ -117,6 +117,50 @@ func TestRun(t *testing.T) {
 			So(p.store.Size(), ShouldEqual, 2)
 		})
 
+		Convey("Should overwrite metrics with the same name and tags", func() {
+			port, err := getEphemeralPort()
+			if err != nil {
+				panic(err)
+			}
+
+			p := producerImpl{
+				config:             Config{Port: port},
+				store:              store.New(),
+				metricsChan:        make(chan producers.MetricsMessage),
+				janitorRunInterval: 60 * time.Second,
+			}
+			go p.Run()
+			time.Sleep(1 * time.Second)
+
+			dp1 := []producers.Datapoint{
+				producers.Datapoint{
+					Name: "datapoint",
+					Tags: map[string]string{"foo": "bar", "baz": "qux"},
+				},
+			}
+			dp2 := []producers.Datapoint{
+				producers.Datapoint{
+					Name: "datapoint",
+					Tags: map[string]string{"baz": "qux", "foo": "bar"},
+				},
+			}
+
+			p.metricsChan <- producers.MetricsMessage{
+				Name:       "some-message",
+				Datapoints: dp1,
+				Timestamp:  time.Now().UTC().Unix(),
+			}
+			time.Sleep(50 * time.Millisecond)
+			p.metricsChan <- producers.MetricsMessage{
+				Name:       "some-message",
+				Datapoints: dp2,
+				Timestamp:  time.Now().UTC().Unix(),
+			}
+			time.Sleep(250 * time.Millisecond)
+
+			So(p.store.Size(), ShouldEqual, 1)
+		})
+
 		Convey("Should create a new router on a systemd socket (if it's available)", func() {
 			// Mock the systemd socket
 			if err := os.Setenv("LISTEN_PID", strconv.Itoa(os.Getpid())); err != nil {

@@ -117,7 +117,8 @@ func (p *producerImpl) writeObjectToStore(d producers.Datapoint, m producers.Met
 	}
 	// e.g. dcos.metrics.app.[ContainerId].kafka.server.ReplicaFetcherManager.MaxLag
 	qualifiedName := joinMetricName(prefix, d.Name)
-	for k, v := range d.Tags {
+	for _, pair := range sortTags(d.Tags) {
+		k, v := pair[0], pair[1]
 		// e.g. dcos.metrics.node.[MesosId].network.out.errors.#interface:eth0
 		serializedTag := fmt.Sprintf("#%s:%s", k, v)
 		qualifiedName = joinMetricName(qualifiedName, serializedTag)
