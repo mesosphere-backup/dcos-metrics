@@ -102,9 +102,14 @@ func (c *Collector) metricsMessages() (out []producers.MetricsMessage) {
 	t := time.Unix(c.timestamp, 0)
 
 	for _, cm := range c.containerMetrics {
+		datapoints, err := c.createContainerDatapoints(cm)
+		if err != nil {
+			c.log.Warnf("Could not create datapoints for container ID %s: %s", cm.ContainerID, err)
+			continue
+		}
 		msg = producers.MetricsMessage{
 			Name:       producers.ContainerMetricPrefix,
-			Datapoints: c.createContainerDatapoints(cm),
+			Datapoints: datapoints,
 			Timestamp:  t.UTC().Unix(),
 		}
 
