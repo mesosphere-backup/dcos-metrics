@@ -15,6 +15,7 @@
 package agent
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/dcos/dcos-metrics/producers"
@@ -35,7 +36,7 @@ const (
 	bytes   = "bytes"
 )
 
-func (c *Collector) createContainerDatapoints(container agentContainer) []producers.Datapoint {
+func (c *Collector) createContainerDatapoints(container agentContainer) ([]producers.Datapoint, error) {
 	ts := thisTime()
 	dps := []producers.Datapoint{}
 
@@ -48,6 +49,11 @@ func (c *Collector) createContainerDatapoints(container agentContainer) []produc
 	}
 
 	c.log.Debugf("Adding tags for container %s:\n%+v", container.ContainerID, dpTags)
+
+	// It's possible for statistics to be missing
+	if container.Statistics == nil {
+		return dps, fmt.Errorf("Container %s supplied no statistics", container.ContainerID)
+	}
 
 	addDps := []producers.Datapoint{
 		producers.Datapoint{
@@ -153,7 +159,7 @@ func (c *Collector) createContainerDatapoints(container agentContainer) []produc
 		dps = append(dps, dp)
 	}
 
-	return dps
+	return dps, nil
 }
 
 // -- helpers
