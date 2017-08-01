@@ -107,6 +107,10 @@ func (c *Collector) metricsMessages() (out []producers.MetricsMessage) {
 			c.log.Warnf("Container ID %q did not supply any statistics; no metrics message will be sent", cm.ContainerID)
 			continue
 		}
+		if err != nil {
+			c.log.Errorf("Could not retrieve datapoints for container ID %q: %s", cm.ContainerID, err)
+			continue
+		}
 		msg = producers.MetricsMessage{
 			Name:       producers.ContainerMetricPrefix,
 			Datapoints: datapoints,
