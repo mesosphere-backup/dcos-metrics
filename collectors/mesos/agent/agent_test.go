@@ -303,7 +303,8 @@ func TestBuildDatapoints(t *testing.T) {
 				}
 
 				for _, container := range thisContainerMetrics {
-					result, _ := coll.createContainerDatapoints(container)
+					result, err := coll.createContainerDatapoints(container)
+					So(err, ShouldEqual, nil)
 					So(len(result), ShouldEqual, 16)
 
 					cidRegistry := []string{}
