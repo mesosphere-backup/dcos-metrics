@@ -15,7 +15,7 @@
 package agent
 
 import (
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/dcos/dcos-metrics/producers"
@@ -36,6 +36,11 @@ const (
 	bytes   = "bytes"
 )
 
+// ErrNoStatistics is a sentinel error for cases where the mesos /containers
+// endpoint returns a container member which has no statistics hash. It's
+// undesirable but not an error case, so we just warn.
+var ErrNoStatistics = errors.New("No statistics found")
+
 func (c *Collector) createContainerDatapoints(container agentContainer) ([]producers.Datapoint, error) {
 	ts := thisTime()
 	dps := []producers.Datapoint{}
@@ -50,9 +55,8 @@ func (c *Collector) createContainerDatapoints(container agentContainer) ([]produ
 
 	c.log.Debugf("Adding tags for container %s:\n%+v", container.ContainerID, dpTags)
 
-	// It's possible for statistics to be missing
 	if container.Statistics == nil {
-		return dps, fmt.Errorf("Container %s supplied no statistics", container.ContainerID)
+		return dps, ErrNoStatistics
 	}
 
 	addDps := []producers.Datapoint{

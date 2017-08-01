@@ -103,8 +103,8 @@ func (c *Collector) metricsMessages() (out []producers.MetricsMessage) {
 
 	for _, cm := range c.containerMetrics {
 		datapoints, err := c.createContainerDatapoints(cm)
-		if err != nil {
-			c.log.Warnf("Could not create datapoints for container ID %s: %s", cm.ContainerID, err)
+		if err == ErrNoStatistics {
+			c.log.Warnf("Container ID %q did not supply any statistics; no metrics message will be sent", cm.ContainerID)
 			continue
 		}
 		msg = producers.MetricsMessage{
