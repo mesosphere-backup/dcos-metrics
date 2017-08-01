@@ -102,9 +102,18 @@ func (c *Collector) metricsMessages() (out []producers.MetricsMessage) {
 	t := time.Unix(c.timestamp, 0)
 
 	for _, cm := range c.containerMetrics {
+		datapoints, err := c.createContainerDatapoints(cm)
+		if err == ErrNoStatistics {
+			c.log.Warnf("Container ID %q did not supply any statistics; no metrics message will be sent", cm.ContainerID)
+			continue
+		}
+		if err != nil {
+			c.log.Errorf("Could not retrieve datapoints for container ID %q: %s", cm.ContainerID, err)
+			continue
+		}
 		msg = producers.MetricsMessage{
 			Name:       producers.ContainerMetricPrefix,
-			Datapoints: c.createContainerDatapoints(cm),
+			Datapoints: datapoints,
 			Timestamp:  t.UTC().Unix(),
 		}
 
