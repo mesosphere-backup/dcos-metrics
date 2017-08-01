@@ -144,6 +144,36 @@ var (
 				}
 			}
 		]`)
+
+	deficientContainerMetrics = []byte(`
+		[
+			{
+				"container_id": "e4faacb2-f69f-4ea1-9d96-eb06fea75eef",
+				"executor_id": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
+				"executor_name": "Command Executor (Task: foo.adf2b6f4-a171-11e6-9182-080027fb5b88) (Command: sh -c 'sleep 900')",
+				"framework_id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
+				"source": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
+				"statistics": {
+					"cpus_limit": 1.1,
+					"cpus_system_time_secs": 0.31,
+					"cpus_user_time_secs": 0.22,
+					"mem_limit_bytes": 167772160,
+					"mem_total_bytes": 4476928
+				}
+			},
+			{
+				"container_id": "623cd286-0b5e-4d1b-895b-8ca30d1fbe05",
+				"executor_id": "boba_20170731215525xd01p.87bf554a-763f-11e7-90b8-70b3d5800001",
+				"executor_name": "Command Executor (Task: boba_20170731215525xd01p.87bf554a-763f-11e7-90b8-70b3d5800001) (Command: sh -c 'sleep 1')",
+				"framework_id": "378ac077-d22b-445f-8f6e-942956eb5ee4-0000",
+				"source": "boba_20170731215525xd01p.87bf554a-763f-11e7-90b8-70b3d5800001",
+				"status": {
+						"container_id": {
+						"value": "623cd286-0b5e-4d1b-895b-8ca30d1fbe05"
+					}
+				}
+			}
+		]`)
 )
 
 func TestGetContainerMetrics(t *testing.T) {
@@ -318,7 +348,7 @@ func TestTransform(t *testing.T) {
 		if err := json.Unmarshal(mockAgentState, &mac.agentState); err != nil {
 			panic(err)
 		}
-		if err := json.Unmarshal(mockContainerMetrics, &mac.containerMetrics); err != nil {
+		if err := json.Unmarshal(deficientContainerMetrics, &mac.containerMetrics); err != nil {
 			panic(err)
 		}
 
