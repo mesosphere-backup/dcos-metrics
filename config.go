@@ -107,16 +107,18 @@ func (c *Config) loadConfig() error {
 	return nil
 }
 
-func (c *Config) getNodeInfo() error {
+func (c *Config) getNodeInfo(attemptSSL bool) error {
 	log.Debug("Getting node info")
 	client, err := httpHelpers.NewMetricsClient(c.CACertificatePath, c.IAMConfigPath)
 	if err != nil {
 		return err
 	}
 
+	// If there is no available certificate, immediately drop back to HTTP
+	var useSSL = attemptSSL && len(c.IAMConfigPath) > 0
 	// Create a new DC/OS nodeutil instance
 	var stateURL = "http://leader.mesos:5050/state"
-	if len(c.IAMConfigPath) > 0 {
+	if useSSL {
 		stateURL = "https://leader.mesos:5050/state"
 	}
 	node, err := nodeutil.NewNodeInfo(client, c.DCOSRole, nodeutil.OptionMesosStateURL(stateURL))
@@ -135,6 +137,11 @@ func (c *Config) getNodeInfo() error {
 	// Get Mesos master/agent ID
 	mid, err := node.MesosID(nil)
 	if err != nil {
+		// It's possible that we encountered an SSL error
+		if useSSL {
+			log.Warnf("Received an error when attempting to get Mesos ID: %q; falling back to HTTP", err)
+			return c.getNodeInfo(false)
+		}
 		return fmt.Errorf("error: could not get Mesos node ID: %s", err)
 	}
 	c.nodeInfo.MesosID = mid
@@ -234,7 +241,7 @@ func getNewConfig(args []string) (Config, error) {
 	// Note: .getNodeInfo() is last so we are sure we have all the
 	// configuration we need from flags and config file to make
 	// this run correctly.
-	if err := c.getNodeInfo(); err != nil {
+	if err := c.getNodeInfo(true); err != nil {
 		return c, err
 	}
 
