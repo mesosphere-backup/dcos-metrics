@@ -150,6 +150,16 @@ func getFrameworkInfoByFrameworkID(frameworkID string, frameworks []frameworkInf
 	return frameworkInfo{}, false
 }
 
+// getExecutorInfoByExecutorID returns the ExecutorInfo struct given its ID.
+func getExecutorInfoByExecutorID(executorID string, executors []executorInfo) (executorInfo, bool) {
+	for _, executor := range executors {
+		if executor.ID == executorID {
+			return executor, true
+		}
+	}
+	return executorInfo{}, false
+}
+
 // getLabelsByContainerID returns a map of labels, as specified by the framework
 // that created the executor. In the case of Marathon, the framework allows the
 // user to specify their own arbitrary labels per application.

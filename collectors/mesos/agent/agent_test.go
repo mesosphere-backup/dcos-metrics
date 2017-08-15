@@ -393,6 +393,29 @@ func TestGetFrameworkInfoByFrameworkID(t *testing.T) {
 	})
 }
 
+func TestGetExecutorInfoByExecutorID(t *testing.T) {
+	Convey("When getting an executor's info, given its ID", t, func() {
+		ei := []executorInfo{
+			executorInfo{
+				Name:      "pierrepoint",
+				ID:        "pierrepoint.1234",
+				Container: "foo.container.1234556",
+			},
+		}
+		Convey("Should return the executor's info, given an executor ID", func() {
+			result, ok := getExecutorInfoByExecutorID("pierrepoint.1234", ei)
+			So(ok, ShouldBeTrue)
+			So(result.ID, ShouldEqual, "pierrepoint.1234")
+			So(result.Name, ShouldEqual, "pierrepoint")
+		})
+		Convey("Should return an empty executorInfo if no match was found", func() {
+			result, ok := getExecutorInfoByExecutorID("not-an-executor-id", ei)
+			So(ok, ShouldBeFalse)
+			So(result, ShouldResemble, executorInfo{})
+		})
+	})
+}
+
 func TestGetLabelsByContainerID(t *testing.T) {
 	tl := logrus.WithFields(logrus.Fields{"test": "this"})
 	Convey("When getting the labels for a container, given its ID", t, func() {
