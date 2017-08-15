@@ -416,6 +416,37 @@ func TestGetExecutorInfoByExecutorID(t *testing.T) {
 	})
 }
 
+func TestGetTaskInfoByContainerID(t *testing.T) {
+	Convey("When getting a task's info, given a container ID", t, func() {
+		ti := []taskInfo{
+			taskInfo{
+				Name: "foo",
+				ID:   "foo.123",
+				Statuses: []taskStatusInfo{
+					taskStatusInfo{
+						ContainerStatusInfo: containerStatusInfo{
+							ID: containerStatusID{
+								Value: "e4faacb2-f69f-4ea1-9d96-eb06fea75eef",
+							},
+						},
+					},
+				},
+			},
+		}
+		Convey("Should return the relevant task info without errors", func() {
+			result, ok := getTaskInfoByContainerID("e4faacb2-f69f-4ea1-9d96-eb06fea75eef", ti)
+			So(ok, ShouldBeTrue)
+			So(result.Name, ShouldEqual, "foo")
+			So(result.ID, ShouldEqual, "foo.123")
+		})
+		Convey("Should return an empty frameworkInfo if no match was found", func() {
+			result, ok := getTaskInfoByContainerID("not-a-real-container-id", ti)
+			So(ok, ShouldBeFalse)
+			So(result, ShouldResemble, taskInfo{})
+		})
+	})
+}
+
 func TestGetLabelsByContainerID(t *testing.T) {
 	tl := logrus.WithFields(logrus.Fields{"test": "this"})
 	Convey("When getting the labels for a container, given its ID", t, func() {

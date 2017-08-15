@@ -160,6 +160,16 @@ func getExecutorInfoByExecutorID(executorID string, executors []executorInfo) (e
 	return executorInfo{}, false
 }
 
+// getTaskInfoByContainerID returns the TaskInfo struct matching the given cID.
+func getTaskInfoByContainerID(containerID string, tasks []taskInfo) (taskInfo, bool) {
+	for _, task := range tasks {
+		if len(task.Statuses) > 0 && task.Statuses[0].ContainerStatusInfo.ID.Value == containerID {
+			return task, true
+		}
+	}
+	return taskInfo{}, false
+}
+
 // getLabelsByContainerID returns a map of labels, as specified by the framework
 // that created the executor. In the case of Marathon, the framework allows the
 // user to specify their own arbitrary labels per application.
