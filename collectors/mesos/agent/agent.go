@@ -123,6 +123,19 @@ func (c *Collector) metricsMessages() (out []producers.MetricsMessage) {
 			continue
 		}
 
+		ei, ok := getExecutorInfoByExecutorID(cm.ExecutorID, fi.Executors)
+		if !ok {
+			c.log.Warnf("Did not find ExecutorInfo for executor ID %s, skipping!", cm.ExecutorID)
+			continue
+		}
+
+		ti, ok := getTaskInfoByContainerID(cm.ContainerID, ei.Tasks)
+		if !ok {
+			// This is not a warning because task ID is not guaranteed to be set, eg
+			// a custom executor is a container with no associated task.
+			c.log.Debugf("Did not find TaskInfo for container ID %s, skipping!", cm.ContainerID)
+		}
+
 		msg.Dimensions = producers.Dimensions{
 			MesosID:            c.nodeInfo.MesosID,
 			ClusterID:          c.nodeInfo.ClusterID,
@@ -133,6 +146,8 @@ func (c *Collector) metricsMessages() (out []producers.MetricsMessage) {
 			FrameworkName:      fi.Name,
 			FrameworkRole:      fi.Role,
 			FrameworkPrincipal: fi.Principal,
+			TaskID:             ti.ID,
+			TaskName:           ti.Name,
 			Labels:             getLabelsByContainerID(cm.ContainerID, c.agentState.Frameworks, c.log),
 		}
 		out = append(out, msg)
