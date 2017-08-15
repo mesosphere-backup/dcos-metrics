@@ -403,8 +403,8 @@ func TestGetLabelsByContainerID(t *testing.T) {
 				Executors: []executorInfo{
 					executorInfo{
 						Container: "someContainerID",
-						Labels: []executorLabels{
-							executorLabels{
+						Labels: []stateLabel{
+							stateLabel{
 								Key:   "somekey",
 								Value: "someval",
 							},
@@ -412,12 +412,12 @@ func TestGetLabelsByContainerID(t *testing.T) {
 					},
 					executorInfo{
 						Container: "containerWithLongLabelID",
-						Labels: []executorLabels{
-							executorLabels{
+						Labels: []stateLabel{
+							stateLabel{
 								Key:   "somekey",
 								Value: "someval",
 							},
-							executorLabels{
+							stateLabel{
 								Key:   "longkey",
 								Value: "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
 							},
