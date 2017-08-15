@@ -64,6 +64,16 @@ var (
 											"key": "somekey",
 											"value": "someval"
 										}
+									],
+									"statuses": [
+										{
+											"state": "TASK_RUNNING",
+											"container_status": {
+												"container_id": {
+													"value": "e4faacb2-f69f-4ea1-9d96-eb06fea75eef"
+												}
+											}
+										}
 									]
 								}
 							]
