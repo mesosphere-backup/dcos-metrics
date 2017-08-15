@@ -54,10 +54,30 @@ type executorInfo struct {
 	Name      string           `json:"name"`
 	Container string           `json:"container"`
 	Labels    []executorLabels `json:"labels,omitempty"` // labels are optional
+	Tasks     []taskInfo       `json:"tasks,omitempty"`
 }
 
 type executorLabels struct {
 	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+type taskInfo struct {
+	ID       string           `json:"id"`
+	Name     string           `json:"name"`
+	Labels   []executorLabels `json:"labels,omitempty"` // re-using executor labels for now
+	Statuses []taskStatusInfo `json:"statuses,omitempty"`
+}
+
+type taskStatusInfo struct {
+	ContainerStatusInfo containerStatusInfo `json:"container_status"`
+}
+
+type containerStatusInfo struct {
+	ID containerStatusID `json:"container_id"`
+}
+
+type containerStatusID struct {
 	Value string `json:"value"`
 }
 
