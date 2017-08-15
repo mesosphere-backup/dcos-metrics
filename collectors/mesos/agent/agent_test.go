@@ -356,8 +356,6 @@ func TestTransform(t *testing.T) {
 			result := mac.metricsMessages()
 			So(len(result), ShouldEqual, 1) // one container message
 
-			// From the implementation of a.transform() and the mocks in this test file,
-			// result[0] will be agent metrics, and result[1] will be container metrics.
 			Convey("Should return a []producers.MetricsMessage without errors", func() {
 				So(result[0].Dimensions.FrameworkName, ShouldEqual, "marathon")
 				So(result[0].Dimensions.FrameworkPrincipal, ShouldEqual, "dcos_marathon")
