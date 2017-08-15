@@ -131,7 +131,7 @@ var (
 		[
 			{
 				"container_id": "e4faacb2-f69f-4ea1-9d96-eb06fea75eef",
-				"executor_id": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
+				"executor_id": "foo.124b1048-a17a-11e6-9182-080027fb5b88",
 				"executor_name": "Command Executor (Task: foo.adf2b6f4-a171-11e6-9182-080027fb5b88) (Command: sh -c 'sleep 900')",
 				"framework_id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
 				"source": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
@@ -149,7 +149,7 @@ var (
 		[
 			{
 				"container_id": "e4faacb2-f69f-4ea1-9d96-eb06fea75eef",
-				"executor_id": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
+				"executor_id": "foo.124b1048-a17a-11e6-9182-080027fb5b88",
 				"executor_name": "Command Executor (Task: foo.adf2b6f4-a171-11e6-9182-080027fb5b88) (Command: sh -c 'sleep 900')",
 				"framework_id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
 				"source": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
