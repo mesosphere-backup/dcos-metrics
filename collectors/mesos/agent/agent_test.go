@@ -370,6 +370,11 @@ func TestTransform(t *testing.T) {
 				So(result[0].Dimensions.FrameworkName, ShouldEqual, "marathon")
 				So(result[0].Dimensions.FrameworkPrincipal, ShouldEqual, "dcos_marathon")
 			})
+
+			Convey("Should return task ID and name with container metrics", func() {
+				So(result[0].Dimensions.TaskID, ShouldEqual, "foo.124b1048-a17a-11e6-9182-080027fb5b88")
+				So(result[0].Dimensions.TaskName, ShouldEqual, "foo")
+			})
 		})
 
 		Convey("Missing container metrics", func() {
