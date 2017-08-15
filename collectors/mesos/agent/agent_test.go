@@ -420,6 +420,11 @@ func TestGetTaskInfoByContainerID(t *testing.T) {
 	Convey("When getting a task's info, given a container ID", t, func() {
 		ti := []taskInfo{
 			taskInfo{
+				Name:     "should-not-error",
+				ID:       "should-not-error.123",
+				Statuses: []taskStatusInfo{},
+			},
+			taskInfo{
 				Name: "foo",
 				ID:   "foo.123",
 				Statuses: []taskStatusInfo{
