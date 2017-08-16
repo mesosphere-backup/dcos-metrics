@@ -18,6 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -115,13 +116,18 @@ func (c *Config) getNodeInfo(attemptSSL bool) error {
 	}
 
 	// If there is no available certificate, immediately drop back to HTTP
-	var useSSL = attemptSSL && len(c.IAMConfigPath) > 0
+	useSSL := attemptSSL && len(c.IAMConfigPath) > 0
 	// Create a new DC/OS nodeutil instance
-	var stateURL = "http://leader.mesos:5050/state"
-	if useSSL {
-		stateURL = "https://leader.mesos:5050/state"
+	stateURL := url.URL{
+		Scheme: "http",
+		Host:   "leader.mesos:5050",
+		Path:   "/state",
 	}
-	node, err := nodeutil.NewNodeInfo(client, c.DCOSRole, nodeutil.OptionMesosStateURL(stateURL))
+	if useSSL {
+		stateURL.Scheme = "https"
+	}
+
+	node, err := nodeutil.NewNodeInfo(client, c.DCOSRole, nodeutil.OptionMesosStateURL(stateURL.String()))
 	if err != nil {
 		return fmt.Errorf("error: could not get nodeInfo: %s", err)
 	}
