@@ -117,7 +117,6 @@ func (c *Config) getNodeInfo(attemptSSL bool) error {
 
 	// If there is no available certificate, immediately drop back to HTTP
 	useSSL := attemptSSL && len(c.IAMConfigPath) > 0
-	// Create a new DC/OS nodeutil instance
 	stateURL := url.URL{
 		Scheme: "http",
 		Host:   "leader.mesos:5050",
@@ -127,6 +126,7 @@ func (c *Config) getNodeInfo(attemptSSL bool) error {
 		stateURL.Scheme = "https"
 	}
 
+	// Create a new DC/OS nodeutil instance
 	node, err := nodeutil.NewNodeInfo(client, c.DCOSRole, nodeutil.OptionMesosStateURL(stateURL.String()))
 	if err != nil {
 		return fmt.Errorf("error: could not get nodeInfo: %s", err)
