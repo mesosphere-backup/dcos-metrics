@@ -64,6 +64,16 @@ var (
 											"key": "somekey",
 											"value": "someval"
 										}
+									],
+									"statuses": [
+										{
+											"state": "TASK_RUNNING",
+											"container_status": {
+												"container_id": {
+													"value": "e4faacb2-f69f-4ea1-9d96-eb06fea75eef"
+												}
+											}
+										}
 									]
 								}
 							]
@@ -131,7 +141,7 @@ var (
 		[
 			{
 				"container_id": "e4faacb2-f69f-4ea1-9d96-eb06fea75eef",
-				"executor_id": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
+				"executor_id": "foo.124b1048-a17a-11e6-9182-080027fb5b88",
 				"executor_name": "Command Executor (Task: foo.adf2b6f4-a171-11e6-9182-080027fb5b88) (Command: sh -c 'sleep 900')",
 				"framework_id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
 				"source": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
@@ -149,7 +159,7 @@ var (
 		[
 			{
 				"container_id": "e4faacb2-f69f-4ea1-9d96-eb06fea75eef",
-				"executor_id": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
+				"executor_id": "foo.124b1048-a17a-11e6-9182-080027fb5b88",
 				"executor_name": "Command Executor (Task: foo.adf2b6f4-a171-11e6-9182-080027fb5b88) (Command: sh -c 'sleep 900')",
 				"framework_id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
 				"source": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
@@ -349,18 +359,30 @@ func TestTransform(t *testing.T) {
 		if err := json.Unmarshal(mockAgentState, &mac.agentState); err != nil {
 			panic(err)
 		}
-		if err := json.Unmarshal(deficientContainerMetrics, &mac.containerMetrics); err != nil {
-			panic(err)
-		}
-
-		Convey("Should return a []producers.MetricsMessage without errors", func() {
+		Convey("With container metrics", func() {
+			if err := json.Unmarshal(mockContainerMetrics, &mac.containerMetrics); err != nil {
+				panic(err)
+			}
 			result := mac.metricsMessages()
 			So(len(result), ShouldEqual, 1) // one container message
 
-			// From the implementation of a.transform() and the mocks in this test file,
-			// result[0] will be agent metrics, and result[1] will be container metrics.
-			So(result[0].Dimensions.FrameworkName, ShouldEqual, "marathon")
-			So(result[0].Dimensions.FrameworkPrincipal, ShouldEqual, "dcos_marathon")
+			Convey("Should return a []producers.MetricsMessage without errors", func() {
+				So(result[0].Dimensions.FrameworkName, ShouldEqual, "marathon")
+				So(result[0].Dimensions.FrameworkPrincipal, ShouldEqual, "dcos_marathon")
+			})
+
+			Convey("Should return task ID and name with container metrics", func() {
+				So(result[0].Dimensions.TaskID, ShouldEqual, "foo.124b1048-a17a-11e6-9182-080027fb5b88")
+				So(result[0].Dimensions.TaskName, ShouldEqual, "foo")
+			})
+		})
+
+		Convey("Missing container metrics", func() {
+			if err := json.Unmarshal(deficientContainerMetrics, &mac.containerMetrics); err != nil {
+				panic(err)
+			}
+			result := mac.metricsMessages()
+			So(len(result), ShouldEqual, 1) // one container message
 		})
 	})
 }
@@ -377,18 +399,74 @@ func TestGetFrameworkInfoByFrameworkID(t *testing.T) {
 		}
 
 		Convey("Should return the framework name without errors", func() {
-			result, ok := getFrameworkInfoByFrameworkID("7", fi)
-			So(ok, ShouldBeTrue)
+			result := getFrameworkInfoByFrameworkID("7", fi)
+			So(result, ShouldNotBeNil)
 			So(result.Name, ShouldEqual, "fooframework")
 			So(result.ID, ShouldEqual, "7")
 			So(result.Role, ShouldEqual, "foorole")
 			So(result.Principal, ShouldEqual, "fooprincipal")
 		})
 
+		Convey("Should return nil if no match was found", func() {
+			result := getFrameworkInfoByFrameworkID("42", fi)
+			So(result, ShouldBeNil)
+		})
+	})
+}
+
+func TestGetExecutorInfoByExecutorID(t *testing.T) {
+	Convey("When getting an executor's info, given its ID", t, func() {
+		ei := []executorInfo{
+			executorInfo{
+				Name:      "pierrepoint",
+				ID:        "pierrepoint.1234",
+				Container: "foo.container.1234556",
+			},
+		}
+		Convey("Should return the executor's info, given an executor ID", func() {
+			result := getExecutorInfoByExecutorID("pierrepoint.1234", ei)
+			So(result, ShouldNotBeNil)
+			So(result.ID, ShouldEqual, "pierrepoint.1234")
+			So(result.Name, ShouldEqual, "pierrepoint")
+		})
+		Convey("Should return an empty executorInfo if no match was found", func() {
+			result := getExecutorInfoByExecutorID("not-an-executor-id", ei)
+			So(result, ShouldBeNil)
+		})
+	})
+}
+
+func TestGetTaskInfoByContainerID(t *testing.T) {
+	Convey("When getting a task's info, given a container ID", t, func() {
+		ti := []taskInfo{
+			taskInfo{
+				Name:     "should-not-error",
+				ID:       "should-not-error.123",
+				Statuses: []taskStatusInfo{},
+			},
+			taskInfo{
+				Name: "foo",
+				ID:   "foo.123",
+				Statuses: []taskStatusInfo{
+					taskStatusInfo{
+						ContainerStatusInfo: containerStatusInfo{
+							ID: containerStatusID{
+								Value: "e4faacb2-f69f-4ea1-9d96-eb06fea75eef",
+							},
+						},
+					},
+				},
+			},
+		}
+		Convey("Should return the relevant task info without errors", func() {
+			result := getTaskInfoByContainerID("e4faacb2-f69f-4ea1-9d96-eb06fea75eef", ti)
+			So(result, ShouldNotBeNil)
+			So(result.Name, ShouldEqual, "foo")
+			So(result.ID, ShouldEqual, "foo.123")
+		})
 		Convey("Should return an empty frameworkInfo if no match was found", func() {
-			result, ok := getFrameworkInfoByFrameworkID("42", fi)
-			So(result, ShouldResemble, frameworkInfo{})
-			So(ok, ShouldBeFalse)
+			result := getTaskInfoByContainerID("not-a-real-container-id", ti)
+			So(result, ShouldBeNil)
 		})
 	})
 }
@@ -403,8 +481,8 @@ func TestGetLabelsByContainerID(t *testing.T) {
 				Executors: []executorInfo{
 					executorInfo{
 						Container: "someContainerID",
-						Labels: []executorLabels{
-							executorLabels{
+						Labels: []keyValue{
+							keyValue{
 								Key:   "somekey",
 								Value: "someval",
 							},
@@ -412,12 +490,12 @@ func TestGetLabelsByContainerID(t *testing.T) {
 					},
 					executorInfo{
 						Container: "containerWithLongLabelID",
-						Labels: []executorLabels{
-							executorLabels{
+						Labels: []keyValue{
+							keyValue{
 								Key:   "somekey",
 								Value: "someval",
 							},
-							executorLabels{
+							keyValue{
 								Key:   "longkey",
 								Value: "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
 							},
