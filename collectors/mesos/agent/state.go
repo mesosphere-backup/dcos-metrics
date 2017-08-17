@@ -35,6 +35,17 @@ import (
 //   * Framework info: https://github.com/apache/mesos/blob/1.0.1/include/mesos/v1/mesos.proto#L207-L307
 //   * Executor info:  https://github.com/apache/mesos/blob/1.0.1/include/mesos/v1/mesos.proto#L474-L522
 //
+// An important note on the difference between master and agent state:
+//
+// On the agent, both `frameworks` and `completed_frameworks` will list both
+// `executors` and `completed_executors`, which each may list `tasks`,
+// `queued_tasks` (not yet started), and `completed_tasks` (although
+// completed frameworks/executors should only list completed tasks). On the
+// master, both `frameworks` and `completed_frameworks` will list `tasks`,
+// `unreachable_tasks` (agent unreachable), and `completed_tasks`.
+// `orphan_tasks` are no longer possible as of Mesos 1.2.
+//
+
 type agentState struct {
 	ID         string          `json:"id"`
 	Hostname   string          `json:"hostname"`
@@ -50,14 +61,34 @@ type frameworkInfo struct {
 }
 
 type executorInfo struct {
-	ID        string           `json:"id"`
-	Name      string           `json:"name"`
-	Container string           `json:"container"`
-	Labels    []executorLabels `json:"labels,omitempty"` // labels are optional
+	ID        string     `json:"id"`
+	Name      string     `json:"name"`
+	Container string     `json:"container"`
+	Labels    []keyValue `json:"labels,omitempty"` // labels are optional
+	Tasks     []taskInfo `json:"tasks,omitempty"`
 }
 
-type executorLabels struct {
+type keyValue struct {
 	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+type taskInfo struct {
+	ID       string           `json:"id"`
+	Name     string           `json:"name"`
+	Labels   []keyValue       `json:"labels,omitempty"`
+	Statuses []taskStatusInfo `json:"statuses,omitempty"`
+}
+
+type taskStatusInfo struct {
+	ContainerStatusInfo containerStatusInfo `json:"container_status"`
+}
+
+type containerStatusInfo struct {
+	ID containerStatusID `json:"container_id"`
+}
+
+type containerStatusID struct {
 	Value string `json:"value"`
 }
 

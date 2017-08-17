@@ -71,6 +71,8 @@ type Dimensions struct {
 	FrameworkID        string            `json:"framework_id,omitempty"`
 	FrameworkRole      string            `json:"framework_role,omitempty"`
 	FrameworkPrincipal string            `json:"framework_principal,omitempty"`
+	TaskName           string            `json:"task_name,omitempty"`
+	TaskID             string            `json:"task_id,omitempty"`
 	Hostname           string            `json:"hostname"`
 	Labels             map[string]string `json:"labels,omitempty"` // map of arbitrary key/value pairs (aka "labels")
 }
