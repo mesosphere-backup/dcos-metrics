@@ -61,14 +61,14 @@ type frameworkInfo struct {
 }
 
 type executorInfo struct {
-	ID        string       `json:"id"`
-	Name      string       `json:"name"`
-	Container string       `json:"container"`
-	Labels    []stateLabel `json:"labels,omitempty"` // labels are optional
-	Tasks     []taskInfo   `json:"tasks,omitempty"`
+	ID        string     `json:"id"`
+	Name      string     `json:"name"`
+	Container string     `json:"container"`
+	Labels    []keyValue `json:"labels,omitempty"` // labels are optional
+	Tasks     []taskInfo `json:"tasks,omitempty"`
 }
 
-type stateLabel struct {
+type keyValue struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
@@ -76,7 +76,7 @@ type stateLabel struct {
 type taskInfo struct {
 	ID       string           `json:"id"`
 	Name     string           `json:"name"`
-	Labels   []stateLabel     `json:"labels,omitempty"`
+	Labels   []keyValue       `json:"labels,omitempty"`
 	Statuses []taskStatusInfo `json:"statuses,omitempty"`
 }
 
