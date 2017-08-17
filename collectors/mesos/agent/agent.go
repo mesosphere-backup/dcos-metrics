@@ -165,7 +165,7 @@ func getFrameworkInfoByFrameworkID(frameworkID string, frameworks []frameworkInf
 	return frameworkInfo{}, false
 }
 
-// getExecutorInfoByExecutorID returns the ExecutorInfo struct given its ID.
+// getExecutorInfoByExecutorID returns the executorInfo struct given its ID.
 func getExecutorInfoByExecutorID(executorID string, executors []executorInfo) (executorInfo, bool) {
 	for _, executor := range executors {
 		if executor.ID == executorID {
