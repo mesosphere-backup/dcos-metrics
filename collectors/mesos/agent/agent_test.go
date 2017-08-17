@@ -399,18 +399,17 @@ func TestGetFrameworkInfoByFrameworkID(t *testing.T) {
 		}
 
 		Convey("Should return the framework name without errors", func() {
-			result, ok := getFrameworkInfoByFrameworkID("7", fi)
-			So(ok, ShouldBeTrue)
+			result := getFrameworkInfoByFrameworkID("7", fi)
+			So(result, ShouldNotBeNil)
 			So(result.Name, ShouldEqual, "fooframework")
 			So(result.ID, ShouldEqual, "7")
 			So(result.Role, ShouldEqual, "foorole")
 			So(result.Principal, ShouldEqual, "fooprincipal")
 		})
 
-		Convey("Should return an empty frameworkInfo if no match was found", func() {
-			result, ok := getFrameworkInfoByFrameworkID("42", fi)
-			So(result, ShouldResemble, frameworkInfo{})
-			So(ok, ShouldBeFalse)
+		Convey("Should return nil if no match was found", func() {
+			result := getFrameworkInfoByFrameworkID("42", fi)
+			So(result, ShouldBeNil)
 		})
 	})
 }
@@ -425,15 +424,14 @@ func TestGetExecutorInfoByExecutorID(t *testing.T) {
 			},
 		}
 		Convey("Should return the executor's info, given an executor ID", func() {
-			result, ok := getExecutorInfoByExecutorID("pierrepoint.1234", ei)
-			So(ok, ShouldBeTrue)
+			result := getExecutorInfoByExecutorID("pierrepoint.1234", ei)
+			So(result, ShouldNotBeNil)
 			So(result.ID, ShouldEqual, "pierrepoint.1234")
 			So(result.Name, ShouldEqual, "pierrepoint")
 		})
 		Convey("Should return an empty executorInfo if no match was found", func() {
-			result, ok := getExecutorInfoByExecutorID("not-an-executor-id", ei)
-			So(ok, ShouldBeFalse)
-			So(result, ShouldResemble, executorInfo{})
+			result := getExecutorInfoByExecutorID("not-an-executor-id", ei)
+			So(result, ShouldBeNil)
 		})
 	})
 }
@@ -461,15 +459,14 @@ func TestGetTaskInfoByContainerID(t *testing.T) {
 			},
 		}
 		Convey("Should return the relevant task info without errors", func() {
-			result, ok := getTaskInfoByContainerID("e4faacb2-f69f-4ea1-9d96-eb06fea75eef", ti)
-			So(ok, ShouldBeTrue)
+			result := getTaskInfoByContainerID("e4faacb2-f69f-4ea1-9d96-eb06fea75eef", ti)
+			So(result, ShouldNotBeNil)
 			So(result.Name, ShouldEqual, "foo")
 			So(result.ID, ShouldEqual, "foo.123")
 		})
 		Convey("Should return an empty frameworkInfo if no match was found", func() {
-			result, ok := getTaskInfoByContainerID("not-a-real-container-id", ti)
-			So(ok, ShouldBeFalse)
-			So(result, ShouldResemble, taskInfo{})
+			result := getTaskInfoByContainerID("not-a-real-container-id", ti)
+			So(result, ShouldBeNil)
 		})
 	})
 }

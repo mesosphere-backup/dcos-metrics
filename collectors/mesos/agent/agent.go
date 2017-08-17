@@ -117,23 +117,23 @@ func (c *Collector) metricsMessages() (out []producers.MetricsMessage) {
 			Timestamp:  t.UTC().Unix(),
 		}
 
-		fi, ok := getFrameworkInfoByFrameworkID(cm.FrameworkID, c.agentState.Frameworks)
-		if !ok {
+		fi := getFrameworkInfoByFrameworkID(cm.FrameworkID, c.agentState.Frameworks)
+		if fi == nil {
 			c.log.Warnf("Did not find FrameworkInfo for framework ID %s, skipping!", fi.ID)
 			continue
 		}
 
-		ei, ok := getExecutorInfoByExecutorID(cm.ExecutorID, fi.Executors)
-		if !ok {
+		ei := getExecutorInfoByExecutorID(cm.ExecutorID, fi.Executors)
+		if ei == nil {
 			c.log.Warnf("Did not find ExecutorInfo for executor ID %s, skipping!", cm.ExecutorID)
 			continue
 		}
 
-		ti, ok := getTaskInfoByContainerID(cm.ContainerID, ei.Tasks)
-		if !ok {
+		ti := getTaskInfoByContainerID(cm.ContainerID, ei.Tasks)
+		if ti == nil {
 			// This is not a warning because task ID is not guaranteed to be set, eg
 			// a custom executor is a container with no associated task.
-			c.log.Debugf("Did not find TaskInfo for container ID %s, skipping!", cm.ContainerID)
+			c.log.Debugf("Did not find TaskInfo for container ID %s.", cm.ContainerID)
 		}
 
 		msg.Dimensions = producers.Dimensions{
@@ -146,9 +146,12 @@ func (c *Collector) metricsMessages() (out []producers.MetricsMessage) {
 			FrameworkName:      fi.Name,
 			FrameworkRole:      fi.Role,
 			FrameworkPrincipal: fi.Principal,
-			TaskID:             ti.ID,
-			TaskName:           ti.Name,
 			Labels:             getLabelsByContainerID(cm.ContainerID, c.agentState.Frameworks, c.log),
+		}
+
+		if ti != nil {
+			msg.Dimensions.TaskID = ti.ID
+			msg.Dimensions.TaskName = ti.Name
 		}
 		out = append(out, msg)
 	}
@@ -156,33 +159,33 @@ func (c *Collector) metricsMessages() (out []producers.MetricsMessage) {
 }
 
 // getFrameworkInfoByFrameworkID returns the FrameworkInfo struct given its ID.
-func getFrameworkInfoByFrameworkID(frameworkID string, frameworks []frameworkInfo) (frameworkInfo, bool) {
+func getFrameworkInfoByFrameworkID(frameworkID string, frameworks []frameworkInfo) *frameworkInfo {
 	for _, framework := range frameworks {
 		if framework.ID == frameworkID {
-			return framework, true
+			return &framework
 		}
 	}
-	return frameworkInfo{}, false
+	return nil
 }
 
 // getExecutorInfoByExecutorID returns the executorInfo struct given its ID.
-func getExecutorInfoByExecutorID(executorID string, executors []executorInfo) (executorInfo, bool) {
+func getExecutorInfoByExecutorID(executorID string, executors []executorInfo) *executorInfo {
 	for _, executor := range executors {
 		if executor.ID == executorID {
-			return executor, true
+			return &executor
 		}
 	}
-	return executorInfo{}, false
+	return nil
 }
 
 // getTaskInfoByContainerID returns the TaskInfo struct matching the given cID.
-func getTaskInfoByContainerID(containerID string, tasks []taskInfo) (taskInfo, bool) {
+func getTaskInfoByContainerID(containerID string, tasks []taskInfo) *taskInfo {
 	for _, task := range tasks {
 		if len(task.Statuses) > 0 && task.Statuses[0].ContainerStatusInfo.ID.Value == containerID {
-			return task, true
+			return &task
 		}
 	}
-	return taskInfo{}, false
+	return nil
 }
 
 // getLabelsByContainerID returns a map of labels, as specified by the framework
