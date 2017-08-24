@@ -5,14 +5,16 @@
 # Collector configuration
 collector:
   http_profiler: false
-  
+
   node:
-    poll_period: 15 
+    poll_period: 15
 
   mesos_agent:
     poll_period: 15
     port: 5051
     request_protocol: http
+    principal: dcos-metrics
+    secret: dcos-metrics-secret
 
 # Producers configuration
 producers:
