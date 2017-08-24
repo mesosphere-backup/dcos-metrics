@@ -53,6 +53,10 @@ type Collector struct {
 	metricsChan chan producers.MetricsMessage
 	nodeInfo    collectors.NodeInfo
 	timestamp   int64
+
+	//basic auth
+	Principal string `yaml:"principal"`
+	Secret    string `yaml:"secret"`
 }
 
 // New creates a new instance of the Mesos agent collector (poller).

@@ -53,7 +53,6 @@ type Config struct {
 	Producers         ProducersConfig `yaml:"producers"`
 	IAMConfigPath     string          `yaml:"iam_config_path"`
 	CACertificatePath string          `yaml:"ca_certificate_path"`
-
 	// Node info
 	nodeInfo collectors.NodeInfo
 
@@ -118,6 +117,9 @@ func (c *Config) getNodeInfo() error {
 	var stateURL = "http://leader.mesos:5050/state"
 	if len(c.IAMConfigPath) > 0 {
 		stateURL = "https://leader.mesos:5050/state"
+	}
+	if len(c.Collector.MesosAgent.Principal) > 0 {
+		stateURL = "http://" + c.Collector.MesosAgent.Principal + ":" + c.Collector.MesosAgent.Secret + "@leader.mesos:5050/state"
 	}
 	node, err := nodeutil.NewNodeInfo(client, c.DCOSRole, nodeutil.OptionMesosStateURL(stateURL))
 	if err != nil {
@@ -205,13 +207,14 @@ func getNewConfig(args []string) (Config, error) {
 		}, "\n"))
 		os.Exit(0)
 	}
-
+	log.Info("Configpath: ", c.ConfigPath)
 	if len(c.ConfigPath) > 0 {
 		if err := c.loadConfig(); err != nil {
 			return c, err
 		}
+	} else {
+		log.Warnf("No config file specified, using all defaults.")
 	}
-	log.Warnf("No config file specified, using all defaults.")
 
 	if len(strings.Split(c.DCOSRole, " ")) != 1 {
 		return c, fmt.Errorf("error: must specify exactly one DC/OS role (master or agent)")
