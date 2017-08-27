@@ -161,6 +161,27 @@ func TestContainersHandler(t *testing.T) {
 			So(resp.StatusCode, ShouldEqual, http.StatusOK)
 			So(strings.TrimSpace(string(got)), ShouldEqual, strings.TrimSpace(string(expected)))
 		})
+		Convey("Should return container IDs when app metrics, but not container metrics, are present", func() {
+			port := setup([]producers.MetricsMessage{testNodeData, testAppData})
+			resp, err := http.Get(urlBuilder("localhost", port, "/v0/containers"))
+			if err != nil {
+				panic(err)
+			}
+			defer resp.Body.Close()
+
+			got, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				panic(err)
+			}
+			// Note that we didn't supply testContainerData in `setup` above.
+			expected, err := json.Marshal([]string{testContainerData.Dimensions.ContainerID})
+			if err != nil {
+				panic(err)
+			}
+
+			So(resp.StatusCode, ShouldEqual, http.StatusOK)
+			So(strings.TrimSpace(string(got)), ShouldEqual, strings.TrimSpace(string(expected)))
+		})
 	})
 }
 
