@@ -171,18 +171,14 @@ func TestContainersHandler(t *testing.T) {
 			}
 			defer resp.Body.Close()
 
-			got, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				panic(err)
-			}
 			// Note that we didn't supply testContainerData in `setup` above.
-			expected, err := json.Marshal([]string{testContainerData.Dimensions.ContainerID})
-			if err != nil {
+			var containerIDs []string
+			if err := json.NewDecoder(resp.Body).Decode(&containerIDs); err != nil {
 				panic(err)
 			}
 
 			So(resp.StatusCode, ShouldEqual, http.StatusOK)
-			So(strings.TrimSpace(string(got)), ShouldEqual, strings.TrimSpace(string(expected)))
+			So(containerIDs, ShouldResemble, []string{testContainerData.Dimensions.ContainerID})
 		})
 	})
 }
