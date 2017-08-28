@@ -87,7 +87,7 @@ var (
 		Timestamp: testTime.UTC().Unix(),
 	}
 
-	allTestData = []producers.MetricsMessage{
+	allTestMessages = []producers.MetricsMessage{
 		testNodeData,
 		testContainerData,
 		testAppData,
@@ -118,7 +118,7 @@ func setup(messages []producers.MetricsMessage) int {
 func TestNodeHandler(t *testing.T) {
 	Convey("When querying the /v0/node endpoint", t, func() {
 		Convey("Should return metrics in the expected structure", func() {
-			port := setup(allTestData)
+			port := setup(allTestMessages)
 			resp, err := http.Get(urlBuilder("localhost", port, "/v0/node"))
 			if err != nil {
 				panic(err)
@@ -144,7 +144,7 @@ func TestNodeHandler(t *testing.T) {
 func TestContainersHandler(t *testing.T) {
 	Convey("When querying the /v0/containers endpoint", t, func() {
 		Convey("Should return container IDs in the expected structure", func() {
-			port := setup(allTestData)
+			port := setup(allTestMessages)
 			resp, err := http.Get(urlBuilder("localhost", port, "/v0/containers"))
 			if err != nil {
 				panic(err)
@@ -190,7 +190,7 @@ func TestContainersHandler(t *testing.T) {
 func TestContainerHandler(t *testing.T) {
 	Convey("When querying the /v0/containers/{id} endpoint", t, func() {
 		Convey("Should return container metrics for the container ID given", func() {
-			port := setup(allTestData)
+			port := setup(allTestMessages)
 			resp, err := http.Get(urlBuilder("localhost", port, "/v0/containers/foo-container"))
 			if err != nil {
 				panic(err)
@@ -215,7 +215,7 @@ func TestContainerHandler(t *testing.T) {
 func TestContainerAppHandler(t *testing.T) {
 	Convey("When querying the /v0/containers/{id}/app endpoint", t, func() {
 		Convey("Should return app metrics in the expected structure", func() {
-			port := setup(allTestData)
+			port := setup(allTestMessages)
 			resp, err := http.Get(urlBuilder("localhost", port, "/v0/containers/foo-container/app"))
 			if err != nil {
 				panic(err)
@@ -240,7 +240,7 @@ func TestContainerAppHandler(t *testing.T) {
 func TestContainerAppMetricHandler(t *testing.T) {
 	Convey("When querying the /v0/containers/{id}/app/{metric-id} endpoint", t, func() {
 		Convey("Should return app metrics in the expected structure", func() {
-			port := setup(allTestData)
+			port := setup(allTestMessages)
 			resp, err := http.Get(urlBuilder("localhost", port, "/v0/containers/foo-container/app/some-app-metric"))
 			if err != nil {
 				panic(err)
@@ -265,7 +265,7 @@ func TestContainerAppMetricHandler(t *testing.T) {
 func TestPingHandler(t *testing.T) {
 	Convey("When querying the /v0/ping endpoint", t, func() {
 		Convey("Should return a message and a timestamp", func() {
-			port := setup(allTestData)
+			port := setup(allTestMessages)
 			resp, err := http.Get(urlBuilder("localhost", port, "/v0/ping"))
 			if err != nil {
 				panic(err)
