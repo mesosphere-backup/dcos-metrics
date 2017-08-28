@@ -51,7 +51,13 @@ func nodeHandler(p *producerImpl) http.HandlerFunc {
 func containersHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cm := []string{}
-		containerMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(producers.ContainerMetricPrefix) + ".*")
+		containerMetrics, err := p.store.GetByRegex(
+			fmt.Sprintf(
+				"(%s|%s).*",
+				regexp.QuoteMeta(producers.ContainerMetricPrefix),
+				regexp.QuoteMeta(producers.AppMetricPrefix),
+			),
+		)
 		if err != nil {
 			httpLog.Errorf("/v0/containers - %s", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -86,9 +86,15 @@ var (
 		},
 		Timestamp: testTime.UTC().Unix(),
 	}
+
+	allTestMessages = []producers.MetricsMessage{
+		testNodeData,
+		testContainerData,
+		testAppData,
+	}
 )
 
-func setup() int {
+func setup(messages []producers.MetricsMessage) int {
 	port, err := getEphemeralPort()
 	if err != nil {
 		panic(err)
@@ -102,9 +108,9 @@ func setup() int {
 	go pi.Run()
 	time.Sleep(1 * time.Second) // give the http server a chance to start before querying it
 
-	pc <- testNodeData
-	pc <- testContainerData
-	pc <- testAppData
+	for _, m := range messages {
+		pc <- m
+	}
 
 	return port
 }
@@ -112,7 +118,7 @@ func setup() int {
 func TestNodeHandler(t *testing.T) {
 	Convey("When querying the /v0/node endpoint", t, func() {
 		Convey("Should return metrics in the expected structure", func() {
-			port := setup()
+			port := setup(allTestMessages)
 			resp, err := http.Get(urlBuilder("localhost", port, "/v0/node"))
 			if err != nil {
 				panic(err)
@@ -138,7 +144,7 @@ func TestNodeHandler(t *testing.T) {
 func TestContainersHandler(t *testing.T) {
 	Convey("When querying the /v0/containers endpoint", t, func() {
 		Convey("Should return container IDs in the expected structure", func() {
-			port := setup()
+			port := setup(allTestMessages)
 			resp, err := http.Get(urlBuilder("localhost", port, "/v0/containers"))
 			if err != nil {
 				panic(err)
@@ -157,13 +163,30 @@ func TestContainersHandler(t *testing.T) {
 			So(resp.StatusCode, ShouldEqual, http.StatusOK)
 			So(strings.TrimSpace(string(got)), ShouldEqual, strings.TrimSpace(string(expected)))
 		})
+		Convey("Should return container IDs when app metrics, but not container metrics, are present", func() {
+			port := setup([]producers.MetricsMessage{testNodeData, testAppData})
+			resp, err := http.Get(urlBuilder("localhost", port, "/v0/containers"))
+			if err != nil {
+				panic(err)
+			}
+			defer resp.Body.Close()
+
+			// Note that we didn't supply testContainerData in `setup` above.
+			var containerIDs []string
+			if err := json.NewDecoder(resp.Body).Decode(&containerIDs); err != nil {
+				panic(err)
+			}
+
+			So(resp.StatusCode, ShouldEqual, http.StatusOK)
+			So(containerIDs, ShouldResemble, []string{testContainerData.Dimensions.ContainerID})
+		})
 	})
 }
 
 func TestContainerHandler(t *testing.T) {
 	Convey("When querying the /v0/containers/{id} endpoint", t, func() {
 		Convey("Should return container metrics for the container ID given", func() {
-			port := setup()
+			port := setup(allTestMessages)
 			resp, err := http.Get(urlBuilder("localhost", port, "/v0/containers/foo-container"))
 			if err != nil {
 				panic(err)
@@ -188,7 +211,7 @@ func TestContainerHandler(t *testing.T) {
 func TestContainerAppHandler(t *testing.T) {
 	Convey("When querying the /v0/containers/{id}/app endpoint", t, func() {
 		Convey("Should return app metrics in the expected structure", func() {
-			port := setup()
+			port := setup(allTestMessages)
 			resp, err := http.Get(urlBuilder("localhost", port, "/v0/containers/foo-container/app"))
 			if err != nil {
 				panic(err)
@@ -213,7 +236,7 @@ func TestContainerAppHandler(t *testing.T) {
 func TestContainerAppMetricHandler(t *testing.T) {
 	Convey("When querying the /v0/containers/{id}/app/{metric-id} endpoint", t, func() {
 		Convey("Should return app metrics in the expected structure", func() {
-			port := setup()
+			port := setup(allTestMessages)
 			resp, err := http.Get(urlBuilder("localhost", port, "/v0/containers/foo-container/app/some-app-metric"))
 			if err != nil {
 				panic(err)
@@ -238,7 +261,7 @@ func TestContainerAppMetricHandler(t *testing.T) {
 func TestPingHandler(t *testing.T) {
 	Convey("When querying the /v0/ping endpoint", t, func() {
 		Convey("Should return a message and a timestamp", func() {
-			port := setup()
+			port := setup(allTestMessages)
 			resp, err := http.Get(urlBuilder("localhost", port, "/v0/ping"))
 			if err != nil {
 				panic(err)
