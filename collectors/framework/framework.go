@@ -26,6 +26,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"github.com/dcos/dcos-metrics/collectors"
+	mesosAgent "github.com/dcos/dcos-metrics/collectors/mesos/agent"
 	"github.com/dcos/dcos-metrics/producers"
 	"github.com/linkedin/goavro"
 )
@@ -54,8 +55,9 @@ type Collector struct {
 	InputLimitAmountKBytesFlag int
 	InputLimitPeriodFlag       int
 
-	metricsChan chan producers.MetricsMessage
-	nodeInfo    collectors.NodeInfo
+	metricsChan       chan producers.MetricsMessage
+	nodeInfo          collectors.NodeInfo
+	containerTaskRels *mesosAgent.ContainerTaskRels
 }
 
 // countingReader is an io.Reader that provides counts of the number of bytes
@@ -66,10 +68,11 @@ type countingReader struct {
 }
 
 // New returns a new instance of the framework collector.
-func New(cfg Collector, nodeInfo collectors.NodeInfo) (Collector, chan producers.MetricsMessage) {
+func New(cfg Collector, nodeInfo collectors.NodeInfo, ctr *mesosAgent.ContainerTaskRels) (Collector, chan producers.MetricsMessage) {
 	c := cfg
 	c.nodeInfo = nodeInfo
 	c.metricsChan = make(chan producers.MetricsMessage)
+	c.containerTaskRels = ctr
 	return c, c.metricsChan
 }
 
