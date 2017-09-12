@@ -69,8 +69,8 @@ func main() {
 	go node.RunPoller()
 
 	// Initialize and run the StatsD collector and the Mesos agent poller
-	framework, frameworkChan := frameworkCollector.New(*cfg.Collector.Framework, cfg.nodeInfo)
 	mesosAgent, mesosAgentChan := mesosAgentCollector.New(*cfg.Collector.MesosAgent, cfg.nodeInfo)
+	framework, frameworkChan := frameworkCollector.New(*cfg.Collector.Framework, cfg.nodeInfo, &mesosAgent.ContainerTaskRels)
 
 	if cfg.DCOSRole == "agent" {
 		go framework.RunFrameworkTCPListener()
