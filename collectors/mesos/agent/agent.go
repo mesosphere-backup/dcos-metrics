@@ -51,9 +51,11 @@ type Collector struct {
 	// https://godoc.org/github.com/sirupsen/logrus#Entry
 	log *logrus.Entry
 
-	metricsChan chan producers.MetricsMessage
-	nodeInfo    collectors.NodeInfo
-	timestamp   int64
+	metricsChan       chan producers.MetricsMessage
+	nodeInfo          collectors.NodeInfo
+	timestamp         int64
+	ContainerTaskRels ContainerTaskRels
+}
 
 // ContainerTaskRels defines the relationship between containers and tasks.
 type ContainerTaskRels struct {
@@ -109,6 +111,7 @@ func New(cfg Collector, nodeInfo collectors.NodeInfo) (Collector, chan producers
 	c.log = logrus.WithFields(logrus.Fields{"collector": "mesos-agent"})
 	c.nodeInfo = nodeInfo
 	c.metricsChan = make(chan producers.MetricsMessage)
+	c.ContainerTaskRels = ContainerTaskRels{}
 	return c, c.metricsChan
 }
 
@@ -135,6 +138,9 @@ func (c *Collector) pollMesosAgent() {
 	if err := c.getAgentState(); err != nil {
 		c.log.Errorf("Failed to get agent state from %s. Error: %s", host, err)
 	}
+
+	c.log.Debug("Mapping containers to tasks")
+	c.ContainerTaskRels.update(c.agentState)
 
 	c.log.Debugf("Fetching container metrics from host %s", host)
 	if err := c.getContainerMetrics(); err != nil {
