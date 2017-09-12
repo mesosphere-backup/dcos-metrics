@@ -18,6 +18,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -53,6 +54,53 @@ type Collector struct {
 	metricsChan chan producers.MetricsMessage
 	nodeInfo    collectors.NodeInfo
 	timestamp   int64
+
+// ContainerTaskRels defines the relationship between containers and tasks.
+type ContainerTaskRels struct {
+	sync.Mutex
+	rels map[string]*TaskInfo
+}
+
+// Get is a utility method which handles the mutex lock and abstracts the inner
+// map in ContainerTaskRels away. If no task info is available for the supplied
+// key, returns nil.
+func (ctr *ContainerTaskRels) Get(key string) *TaskInfo {
+	ctr.Lock()
+	defer ctr.Unlock()
+	if ctr.rels != nil {
+		return ctr.rels[key]
+	}
+	// ContainerTaskRels was not yet available
+	return nil
+}
+
+// Set adds or updates an entry to ContainerTaskRels and, if necessary,
+// initiates the inner map. It is only currently used in tests.
+func (ctr *ContainerTaskRels) Set(key string, info *TaskInfo) {
+	ctr.Lock()
+	if ctr.rels == nil {
+		ctr.rels = map[string]*TaskInfo{}
+	}
+	ctr.rels[key] = info
+	ctr.Unlock()
+}
+
+// update denormalizes the (deeply nested) /state map from the local mesos
+// agent to a list of tasks mapped to container IDs.
+func (ctr *ContainerTaskRels) update(as agentState) {
+	rels := map[string]*TaskInfo{}
+	for _, f := range as.Frameworks {
+		for _, e := range f.Executors {
+			for _, t := range e.Tasks {
+				for _, s := range t.Statuses {
+					rels[s.ContainerStatusInfo.ID.Value] = &t
+				}
+			}
+		}
+	}
+	ctr.Lock()
+	ctr.rels = rels
+	ctr.Unlock()
 }
 
 // New creates a new instance of the Mesos agent collector (poller).
