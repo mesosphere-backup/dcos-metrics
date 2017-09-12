@@ -438,13 +438,13 @@ func TestGetExecutorInfoByExecutorID(t *testing.T) {
 
 func TestGetTaskInfoByContainerID(t *testing.T) {
 	Convey("When getting a task's info, given a container ID", t, func() {
-		ti := []taskInfo{
-			taskInfo{
+		ti := []TaskInfo{
+			TaskInfo{
 				Name:     "should-not-error",
 				ID:       "should-not-error.123",
 				Statuses: []taskStatusInfo{},
 			},
-			taskInfo{
+			TaskInfo{
 				Name: "foo",
 				ID:   "foo.123",
 				Statuses: []taskStatusInfo{

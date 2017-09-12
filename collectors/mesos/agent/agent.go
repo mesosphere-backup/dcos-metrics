@@ -179,7 +179,7 @@ func getExecutorInfoByExecutorID(executorID string, executors []executorInfo) *e
 }
 
 // getTaskInfoByContainerID returns the TaskInfo struct matching the given cID.
-func getTaskInfoByContainerID(containerID string, tasks []taskInfo) *taskInfo {
+func getTaskInfoByContainerID(containerID string, tasks []TaskInfo) *TaskInfo {
 	for _, task := range tasks {
 		if len(task.Statuses) > 0 && task.Statuses[0].ContainerStatusInfo.ID.Value == containerID {
 			return &task
