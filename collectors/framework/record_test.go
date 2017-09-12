@@ -66,6 +66,22 @@ var (
 			},
 		},
 	}
+	avroRecordWithDimensions = avroRecord{
+		record{
+			Name: "dcos.metrics.Tag",
+			Fields: []field{
+				{Name: "k", Datum: "container_id"},
+				{Name: "v", Datum: "foo-container-id"},
+			},
+		},
+		record{
+			Name: "dcos.metrics.Tag",
+			Fields: []field{
+				{Name: "k", Datum: "some-label"},
+				{Name: "v", Datum: "some-label-value"},
+			},
+		},
+	}
 )
 
 func TestExtract(t *testing.T) {
@@ -98,20 +114,36 @@ func TestExtract(t *testing.T) {
 	})
 
 	Convey("When extracting tags from an Avro record", t, func() {
-		avroDatapoint := avroRecord{testTag}
+		avroDatapoint := avroRecordWithDimensions
 		pmmTest := producers.MetricsMessage{
 			Dimensions: producers.Dimensions{
 				Labels: make(map[string]string),
 			},
 		}
+		testRels := mesosAgent.ContainerTaskRels{}
+		testRels.Set("foo-container-id", &mesosAgent.TaskInfo{
+			ID:   "foo.1234567890",
+			Name: "foo",
+		})
 
+		err := avroDatapoint.extract(&pmmTest, &testRels)
 		Convey("Should extract the tag without errors", func() {
-			err := avroDatapoint.extract(&pmmTest)
-			value, ok := pmmTest.Dimensions.Labels["tag-name-field-test"]
-
 			So(err, ShouldBeNil)
+		})
+
+		Convey("Should derive specific metadata from known tags", func() {
+			So(pmmTest.Dimensions.ContainerID, ShouldEqual, "foo-container-id")
+		})
+
+		Convey("Should derive task ID and task name with the container ID", func() {
+			So(pmmTest.Dimensions.TaskID, ShouldEqual, "foo.1234567890")
+			So(pmmTest.Dimensions.TaskName, ShouldEqual, "foo")
+		})
+
+		Convey("Should add other tags as labels", func() {
+			label, ok := pmmTest.Dimensions.Labels["some-label"]
 			So(ok, ShouldBeTrue)
-			So(value, ShouldEqual, "tag-value-field-test")
+			So(label, ShouldEqual, "some-label-value")
 		})
 	})
 
