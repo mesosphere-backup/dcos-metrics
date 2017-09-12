@@ -173,7 +173,7 @@ func (c *Collector) handleConnection(conn net.Conn) {
 		}
 
 		ad := &AvroDatum{datum, topic, approxBytesRead}
-		pmm, err := ad.transform(c.nodeInfo)
+		pmm, err := ad.transform(c.nodeInfo, c.containerTaskRels)
 		if err != nil {
 			fwColLog.Error(err)
 		}
@@ -182,7 +182,7 @@ func (c *Collector) handleConnection(conn net.Conn) {
 }
 
 // transform creates a MetricsMessage from the Avro data coming in on our TCP channel.
-func (a *AvroDatum) transform(nodeInfo collectors.NodeInfo) (producers.MetricsMessage, error) {
+func (a *AvroDatum) transform(nodeInfo collectors.NodeInfo, ctr *mesosAgent.ContainerTaskRels) (producers.MetricsMessage, error) {
 	var (
 		tagData       = avroRecord{}
 		datapointData = avroRecord{}
@@ -214,7 +214,7 @@ func (a *AvroDatum) transform(nodeInfo collectors.NodeInfo) (producers.MetricsMe
 		return pmm, err
 	}
 
-	if err := tagData.extract(&pmm); err != nil {
+	if err := tagData.extract(&pmm, ctr); err != nil {
 		return pmm, err
 	}
 
@@ -255,7 +255,7 @@ func (a *AvroDatum) transform(nodeInfo collectors.NodeInfo) (producers.MetricsMe
 		return pmm, err
 	}
 
-	if err := datapointData.extract(&pmm); err != nil {
+	if err := datapointData.extract(&pmm, ctr); err != nil {
 		return pmm, err
 	}
 

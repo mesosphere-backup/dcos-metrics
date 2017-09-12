@@ -92,7 +92,7 @@ func TestTransform(t *testing.T) {
 			rec.Set("datapoints", []interface{}{recDps})
 
 			a := AvroDatum{Record: rec, Topic: "some-topic"}
-			pmm, err := a.transform(mockNodeInfo)
+			pmm, err := a.transform(mockNodeInfo, &mesosAgent.ContainerTaskRels{})
 			So(pmm, ShouldHaveSameTypeAs, producers.MetricsMessage{})
 
 			// If we could mock the time here, we could do a single assertion
@@ -116,7 +116,7 @@ func TestTransform(t *testing.T) {
 
 		Convey("Should return an error if AvroDatum didn't contain a goavro.Record", func() {
 			a := AvroDatum{Record: make(map[string]string), Topic: "some-topic"}
-			_, err = a.transform(mockNodeInfo)
+			_, err = a.transform(mockNodeInfo, &mesosAgent.ContainerTaskRels{})
 			So(err, ShouldNotBeNil)
 		})
 
@@ -129,7 +129,7 @@ func TestTransform(t *testing.T) {
 			rec.Set("datapoints", []interface{}{recDps})
 
 			a := AvroDatum{Record: rec, Topic: "some-topic"}
-			_, err = a.transform(mockNodeInfo)
+			_, err = a.transform(mockNodeInfo, &mesosAgent.ContainerTaskRels{})
 			So(err, ShouldNotBeNil)
 		})
 
@@ -142,7 +142,7 @@ func TestTransform(t *testing.T) {
 			rec.Set("tags", []interface{}{recTags})
 
 			a := AvroDatum{Record: rec, Topic: "some-topic"}
-			_, err = a.transform(mockNodeInfo)
+			_, err = a.transform(mockNodeInfo, &mesosAgent.ContainerTaskRels{})
 			So(err, ShouldNotBeNil)
 		})
 
@@ -164,7 +164,7 @@ func TestTransform(t *testing.T) {
 			rec.Set("datapoints", []interface{}{recNan})
 
 			a := AvroDatum{Record: rec, Topic: "some-topic"}
-			pmm, err := a.transform(mockNodeInfo)
+			pmm, err := a.transform(mockNodeInfo, &mesosAgent.ContainerTaskRels{})
 			So(err, ShouldBeNil)
 
 			So(pmm.Datapoints[0].Name, ShouldEqual, "nan-name")
