@@ -70,6 +70,20 @@ var (
 		record{
 			Name: "dcos.metrics.Tag",
 			Fields: []field{
+				{Name: "k", Datum: "framework_id"},
+				{Name: "v", Datum: "marathon"},
+			},
+		},
+		record{
+			Name: "dcos.metrics.Tag",
+			Fields: []field{
+				{Name: "k", Datum: "executor_id"},
+				{Name: "v", Datum: "pierrepoint"},
+			},
+		},
+		record{
+			Name: "dcos.metrics.Tag",
+			Fields: []field{
 				{Name: "k", Datum: "container_id"},
 				{Name: "v", Datum: "foo-container-id"},
 			},
@@ -132,6 +146,8 @@ func TestExtract(t *testing.T) {
 		})
 
 		Convey("Should derive specific metadata from known tags", func() {
+			So(pmmTest.Dimensions.FrameworkID, ShouldEqual, "marathon")
+			So(pmmTest.Dimensions.ExecutorID, ShouldEqual, "pierrepoint")
 			So(pmmTest.Dimensions.ContainerID, ShouldEqual, "foo-container-id")
 		})
 
