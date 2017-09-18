@@ -80,11 +80,11 @@ func (ctr *ContainerTaskRels) Get(containerID string) *TaskInfo {
 // initiates the inner map. It is only currently used in tests.
 func (ctr *ContainerTaskRels) Set(containerID string, info *TaskInfo) {
 	ctr.Lock()
+	defer ctr.Unlock()
 	if ctr.rels == nil {
 		ctr.rels = map[string]*TaskInfo{}
 	}
 	ctr.rels[containerID] = info
-	ctr.Unlock()
 }
 
 // update denormalizes the (deeply nested) /state map from the local mesos
