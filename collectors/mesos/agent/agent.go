@@ -65,12 +65,12 @@ type ContainerTaskRels struct {
 
 // Get is a utility method which handles the mutex lock and abstracts the inner
 // map in ContainerTaskRels away. If no task info is available for the supplied
-// key, returns nil.
-func (ctr *ContainerTaskRels) Get(key string) *TaskInfo {
+// containerID, returns nil.
+func (ctr *ContainerTaskRels) Get(containerID string) *TaskInfo {
 	ctr.Lock()
 	defer ctr.Unlock()
 	if ctr.rels != nil {
-		return ctr.rels[key]
+		return ctr.rels[containerID]
 	}
 	// ContainerTaskRels was not yet available
 	return nil
@@ -78,12 +78,12 @@ func (ctr *ContainerTaskRels) Get(key string) *TaskInfo {
 
 // Set adds or updates an entry to ContainerTaskRels and, if necessary,
 // initiates the inner map. It is only currently used in tests.
-func (ctr *ContainerTaskRels) Set(key string, info *TaskInfo) {
+func (ctr *ContainerTaskRels) Set(containerID string, info *TaskInfo) {
 	ctr.Lock()
 	if ctr.rels == nil {
 		ctr.rels = map[string]*TaskInfo{}
 	}
-	ctr.rels[key] = info
+	ctr.rels[containerID] = info
 	ctr.Unlock()
 }
 
