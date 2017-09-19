@@ -74,11 +74,7 @@ func NewContainerTaskRels() *ContainerTaskRels {
 func (ctr *ContainerTaskRels) Get(containerID string) *TaskInfo {
 	ctr.Lock()
 	defer ctr.Unlock()
-	if ctr.rels != nil {
-		return ctr.rels[containerID]
-	}
-	// ContainerTaskRels was not yet available
-	return nil
+	return ctr.rels[containerID]
 }
 
 // Set adds or updates an entry to ContainerTaskRels and, if necessary,
