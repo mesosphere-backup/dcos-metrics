@@ -65,7 +65,7 @@ type executorInfo struct {
 	Name      string     `json:"name"`
 	Container string     `json:"container"`
 	Labels    []keyValue `json:"labels,omitempty"` // labels are optional
-	Tasks     []taskInfo `json:"tasks,omitempty"`
+	Tasks     []TaskInfo `json:"tasks,omitempty"`
 }
 
 type keyValue struct {
@@ -73,7 +73,8 @@ type keyValue struct {
 	Value string `json:"value"`
 }
 
-type taskInfo struct {
+// TaskInfo describes a Mesos task
+type TaskInfo struct {
 	ID       string           `json:"id"`
 	Name     string           `json:"name"`
 	Labels   []keyValue       `json:"labels,omitempty"`

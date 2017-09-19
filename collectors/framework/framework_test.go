@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/dcos/dcos-metrics/collectors"
+	mesosAgent "github.com/dcos/dcos-metrics/collectors/mesos/agent"
 	"github.com/dcos/dcos-metrics/producers"
 	"github.com/dcos/dcos-metrics/schema/metrics_schema"
 	"github.com/linkedin/goavro"
@@ -50,7 +51,7 @@ var (
 func TestNew(t *testing.T) {
 	Convey("When creating a new instance of the framework collector", t, func() {
 		Convey("Should return a new Collector with the default config", func() {
-			f, fc := New(mockCollectorConfig, mockNodeInfo)
+			f, fc := New(mockCollectorConfig, mockNodeInfo, &mesosAgent.ContainerTaskRels{})
 			So(f, ShouldHaveSameTypeAs, Collector{})
 			So(fc, ShouldHaveSameTypeAs, make(chan producers.MetricsMessage))
 			So(f.InputLimitAmountKBytesFlag, ShouldEqual, mockCollectorConfig.InputLimitAmountKBytesFlag)
@@ -91,7 +92,7 @@ func TestTransform(t *testing.T) {
 			rec.Set("datapoints", []interface{}{recDps})
 
 			a := AvroDatum{Record: rec, Topic: "some-topic"}
-			pmm, err := a.transform(mockNodeInfo)
+			pmm, err := a.transform(mockNodeInfo, &mesosAgent.ContainerTaskRels{})
 			So(pmm, ShouldHaveSameTypeAs, producers.MetricsMessage{})
 
 			// If we could mock the time here, we could do a single assertion
@@ -115,7 +116,7 @@ func TestTransform(t *testing.T) {
 
 		Convey("Should return an error if AvroDatum didn't contain a goavro.Record", func() {
 			a := AvroDatum{Record: make(map[string]string), Topic: "some-topic"}
-			_, err = a.transform(mockNodeInfo)
+			_, err = a.transform(mockNodeInfo, &mesosAgent.ContainerTaskRels{})
 			So(err, ShouldNotBeNil)
 		})
 
@@ -128,7 +129,7 @@ func TestTransform(t *testing.T) {
 			rec.Set("datapoints", []interface{}{recDps})
 
 			a := AvroDatum{Record: rec, Topic: "some-topic"}
-			_, err = a.transform(mockNodeInfo)
+			_, err = a.transform(mockNodeInfo, &mesosAgent.ContainerTaskRels{})
 			So(err, ShouldNotBeNil)
 		})
 
@@ -141,7 +142,7 @@ func TestTransform(t *testing.T) {
 			rec.Set("tags", []interface{}{recTags})
 
 			a := AvroDatum{Record: rec, Topic: "some-topic"}
-			_, err = a.transform(mockNodeInfo)
+			_, err = a.transform(mockNodeInfo, &mesosAgent.ContainerTaskRels{})
 			So(err, ShouldNotBeNil)
 		})
 
@@ -163,7 +164,7 @@ func TestTransform(t *testing.T) {
 			rec.Set("datapoints", []interface{}{recNan})
 
 			a := AvroDatum{Record: rec, Topic: "some-topic"}
-			pmm, err := a.transform(mockNodeInfo)
+			pmm, err := a.transform(mockNodeInfo, &mesosAgent.ContainerTaskRels{})
 			So(err, ShouldBeNil)
 
 			So(pmm.Datapoints[0].Name, ShouldEqual, "nan-name")
@@ -259,7 +260,7 @@ func TestHandleConnection(t *testing.T) {
 		defer ln.Close()
 		time.Sleep(1 * time.Second)
 
-		c, cc := New(mockCollectorConfig, mockNodeInfo)
+		c, cc := New(mockCollectorConfig, mockNodeInfo, &mesosAgent.ContainerTaskRels{})
 
 		// This goroutine runs in the background waiting for a TCP connection
 		// from the test below. Once the connection has been accepted,
