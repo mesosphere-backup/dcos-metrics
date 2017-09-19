@@ -19,6 +19,7 @@ package framework
 import (
 	"testing"
 
+	mesosAgent "github.com/dcos/dcos-metrics/collectors/mesos/agent"
 	"github.com/dcos/dcos-metrics/producers"
 	"github.com/dcos/dcos-metrics/schema/metrics_schema"
 	"github.com/linkedin/goavro"
@@ -65,13 +66,43 @@ var (
 			},
 		},
 	}
+	avroRecordWithDimensions = avroRecord{
+		record{
+			Name: "dcos.metrics.Tag",
+			Fields: []field{
+				{Name: "k", Datum: "framework_id"},
+				{Name: "v", Datum: "marathon"},
+			},
+		},
+		record{
+			Name: "dcos.metrics.Tag",
+			Fields: []field{
+				{Name: "k", Datum: "executor_id"},
+				{Name: "v", Datum: "pierrepoint"},
+			},
+		},
+		record{
+			Name: "dcos.metrics.Tag",
+			Fields: []field{
+				{Name: "k", Datum: "container_id"},
+				{Name: "v", Datum: "foo-container-id"},
+			},
+		},
+		record{
+			Name: "dcos.metrics.Tag",
+			Fields: []field{
+				{Name: "k", Datum: "some-label"},
+				{Name: "v", Datum: "some-label-value"},
+			},
+		},
+	}
 )
 
 func TestExtract(t *testing.T) {
 	Convey("When calling extract() on an avroRecord", t, func() {
 		Convey("Should return an error if length of ar is 0", func() {
 			ar := avroRecord{}
-			err := ar.extract(&producers.MetricsMessage{})
+			err := ar.extract(&producers.MetricsMessage{}, &mesosAgent.ContainerTaskRels{})
 			So(err, ShouldNotBeNil)
 		})
 	})
@@ -79,7 +110,7 @@ func TestExtract(t *testing.T) {
 	Convey("When extracting a datapoint from an Avro record", t, func() {
 		avroDatapoint := avroRecord{testDatapoint}
 		pmmTest := producers.MetricsMessage{}
-		err := avroDatapoint.extract(&pmmTest)
+		err := avroDatapoint.extract(&pmmTest, &mesosAgent.ContainerTaskRels{})
 
 		Convey("Should extract the datapoint without errors", func() {
 			So(err, ShouldBeNil)
@@ -97,33 +128,51 @@ func TestExtract(t *testing.T) {
 	})
 
 	Convey("When extracting tags from an Avro record", t, func() {
-		avroDatapoint := avroRecord{testTag}
+		avroDatapoint := avroRecordWithDimensions
 		pmmTest := producers.MetricsMessage{
 			Dimensions: producers.Dimensions{
 				Labels: make(map[string]string),
 			},
 		}
+		testRels := mesosAgent.NewContainerTaskRels()
+		testRels.Set("foo-container-id", &mesosAgent.TaskInfo{
+			ID:   "foo.1234567890",
+			Name: "foo",
+		})
 
+		err := avroDatapoint.extract(&pmmTest, testRels)
 		Convey("Should extract the tag without errors", func() {
-			err := avroDatapoint.extract(&pmmTest)
-			value, ok := pmmTest.Dimensions.Labels["tag-name-field-test"]
-
 			So(err, ShouldBeNil)
+		})
+
+		Convey("Should derive specific metadata from known tags", func() {
+			So(pmmTest.Dimensions.FrameworkID, ShouldEqual, "marathon")
+			So(pmmTest.Dimensions.ExecutorID, ShouldEqual, "pierrepoint")
+			So(pmmTest.Dimensions.ContainerID, ShouldEqual, "foo-container-id")
+		})
+
+		Convey("Should derive task ID and task name with the container ID", func() {
+			So(pmmTest.Dimensions.TaskID, ShouldEqual, "foo.1234567890")
+			So(pmmTest.Dimensions.TaskName, ShouldEqual, "foo")
+		})
+
+		Convey("Should add other tags as labels", func() {
+			label, ok := pmmTest.Dimensions.Labels["some-label"]
 			So(ok, ShouldBeTrue)
-			So(value, ShouldEqual, "tag-value-field-test")
+			So(label, ShouldEqual, "some-label-value")
 		})
 	})
 
 	Convey("When analyzing the field types in a record", t, func() {
 		Convey("Should return an error if the field type was empty", func() {
 			ar := avroRecord{record{Name: ""}}
-			err := ar.extract(&producers.MetricsMessage{})
+			err := ar.extract(&producers.MetricsMessage{}, &mesosAgent.ContainerTaskRels{})
 			So(err, ShouldNotBeNil)
 		})
 
 		Convey("Should return an error for an unknown field type", func() {
 			ar := avroRecord{record{Name: "not-dcos.not-metrics.not-Type"}}
-			err := ar.extract(&producers.MetricsMessage{})
+			err := ar.extract(&producers.MetricsMessage{}, &mesosAgent.ContainerTaskRels{})
 			So(err, ShouldNotBeNil)
 		})
 	})

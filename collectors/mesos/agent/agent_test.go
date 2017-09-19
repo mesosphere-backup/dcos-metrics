@@ -288,6 +288,37 @@ func TestGetAgentState(t *testing.T) {
 	})
 }
 
+func TestUpdateContainerRels(t *testing.T) {
+	var as agentState
+	if err := json.Unmarshal(mockAgentState, &as); err != nil {
+		panic(err)
+	}
+
+	Convey("Before the container relationships have been built", t, func() {
+		ctr := NewContainerTaskRels()
+		Convey("Attempting to get any task should yield nil", func() {
+			t := ctr.Get("e4faacb2-f69f-4ea1-9d96-eb06fea75eef")
+			So(t, ShouldBeNil)
+		})
+	})
+
+	Convey("After building container relationships from the updated agent state", t, func() {
+		ctr := NewContainerTaskRels()
+		ctr.update(as)
+		Convey("Each task should be available by container ID", func() {
+			So(len(ctr.rels), ShouldEqual, 1)
+			t := ctr.Get("e4faacb2-f69f-4ea1-9d96-eb06fea75eef")
+			So(t.ID, ShouldEqual, "foo.124b1048-a17a-11e6-9182-080027fb5b88")
+			So(t.Name, ShouldEqual, "foo")
+		})
+
+		Convey("Attempting to get a missing task should yield nil", func() {
+			t := ctr.Get("this-is-not-a-container-ID")
+			So(t, ShouldBeNil)
+		})
+	})
+}
+
 func TestBuildDatapoints(t *testing.T) {
 
 	checkCIDRegistry := func(registry []string) {
@@ -438,13 +469,13 @@ func TestGetExecutorInfoByExecutorID(t *testing.T) {
 
 func TestGetTaskInfoByContainerID(t *testing.T) {
 	Convey("When getting a task's info, given a container ID", t, func() {
-		ti := []taskInfo{
-			taskInfo{
+		ti := []TaskInfo{
+			TaskInfo{
 				Name:     "should-not-error",
 				ID:       "should-not-error.123",
 				Statuses: []taskStatusInfo{},
 			},
-			taskInfo{
+			TaskInfo{
 				Name: "foo",
 				ID:   "foo.123",
 				Statuses: []taskStatusInfo{
