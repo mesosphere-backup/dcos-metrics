@@ -69,11 +69,11 @@ func main() {
 	go node.RunPoller()
 
 	// Create a ContainerTaskRels object for collectors to rely on
-	containerTaskRels := mesosAgentCollector.ContainerTaskRels{}
+	containerTaskRels := mesosAgentCollector.NewContainerTaskRels()
 
 	// Initialize and run the StatsD collector and the Mesos agent poller
-	mesosAgent, mesosAgentChan := mesosAgentCollector.New(*cfg.Collector.MesosAgent, cfg.nodeInfo, &containerTaskRels)
-	framework, frameworkChan := frameworkCollector.New(*cfg.Collector.Framework, cfg.nodeInfo, &containerTaskRels)
+	mesosAgent, mesosAgentChan := mesosAgentCollector.New(*cfg.Collector.MesosAgent, cfg.nodeInfo, containerTaskRels)
+	framework, frameworkChan := frameworkCollector.New(*cfg.Collector.Framework, cfg.nodeInfo, containerTaskRels)
 
 	if cfg.DCOSRole == "agent" {
 		go framework.RunFrameworkTCPListener()

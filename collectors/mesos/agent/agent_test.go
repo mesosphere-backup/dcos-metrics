@@ -295,7 +295,7 @@ func TestUpdateContainerRels(t *testing.T) {
 	}
 
 	Convey("Before the container relationships have been built", t, func() {
-		ctr := ContainerTaskRels{}
+		ctr := NewContainerTaskRels()
 		Convey("Attempting to get any task should yield nil", func() {
 			t := ctr.Get("e4faacb2-f69f-4ea1-9d96-eb06fea75eef")
 			So(t, ShouldBeNil)
@@ -303,7 +303,7 @@ func TestUpdateContainerRels(t *testing.T) {
 	})
 
 	Convey("After building container relationships from the updated agent state", t, func() {
-		ctr := ContainerTaskRels{}
+		ctr := NewContainerTaskRels()
 		ctr.update(as)
 		Convey("Each task should be available by container ID", func() {
 			So(len(ctr.rels), ShouldEqual, 1)

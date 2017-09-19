@@ -63,6 +63,11 @@ type ContainerTaskRels struct {
 	rels map[string]*TaskInfo
 }
 
+// NewContainerTaskRels creates a new empty ContainerTaskRels
+func NewContainerTaskRels() *ContainerTaskRels {
+	return &ContainerTaskRels{rels: make(map[string]*TaskInfo)}
+}
+
 // Get is a utility method which handles the mutex lock and abstracts the inner
 // map in ContainerTaskRels away. If no task info is available for the supplied
 // containerID, returns nil.

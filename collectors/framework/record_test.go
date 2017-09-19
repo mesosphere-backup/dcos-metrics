@@ -134,13 +134,13 @@ func TestExtract(t *testing.T) {
 				Labels: make(map[string]string),
 			},
 		}
-		testRels := mesosAgent.ContainerTaskRels{}
+		testRels := mesosAgent.NewContainerTaskRels()
 		testRels.Set("foo-container-id", &mesosAgent.TaskInfo{
 			ID:   "foo.1234567890",
 			Name: "foo",
 		})
 
-		err := avroDatapoint.extract(&pmmTest, &testRels)
+		err := avroDatapoint.extract(&pmmTest, testRels)
 		Convey("Should extract the tag without errors", func() {
 			So(err, ShouldBeNil)
 		})
