@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	mesosAgent "github.com/dcos/dcos-metrics/collectors/mesos/agent"
 	"github.com/dcos/dcos-metrics/producers"
 )
 
@@ -38,7 +39,7 @@ type avroRecord []record
 
 // avroRecord.extract() gets tags and datapoints from avro formatted data
 // and creates a MetricsMessage{}
-func (ar avroRecord) extract(pmm *producers.MetricsMessage) error {
+func (ar avroRecord) extract(pmm *producers.MetricsMessage, ctr *mesosAgent.ContainerTaskRels) error {
 	var fieldType string
 	if len(ar) > 0 {
 		fieldType = ar[0].Name
@@ -58,6 +59,15 @@ func (ar avroRecord) extract(pmm *producers.MetricsMessage) error {
 
 			if tagName == "container_id" {
 				pmm.Dimensions.ContainerID = tagValue
+
+				info := ctr.Get(tagValue)
+				if info != nil {
+					pmm.Dimensions.TaskID = info.ID
+					pmm.Dimensions.TaskName = info.Name
+				} else {
+					fwColLog.Debugf("Container ID %s had no associated task", tagValue)
+				}
+
 			} else if tagName == "framework_id" {
 				pmm.Dimensions.FrameworkID = tagValue
 			} else if tagName == "executor_id" {

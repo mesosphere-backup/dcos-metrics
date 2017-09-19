@@ -18,6 +18,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -50,17 +51,68 @@ type Collector struct {
 	// https://godoc.org/github.com/sirupsen/logrus#Entry
 	log *logrus.Entry
 
-	metricsChan chan producers.MetricsMessage
-	nodeInfo    collectors.NodeInfo
-	timestamp   int64
+	metricsChan       chan producers.MetricsMessage
+	nodeInfo          collectors.NodeInfo
+	timestamp         int64
+	ContainerTaskRels *ContainerTaskRels
+}
+
+// ContainerTaskRels defines the relationship between containers and tasks.
+type ContainerTaskRels struct {
+	sync.Mutex
+	rels map[string]*TaskInfo
+}
+
+// NewContainerTaskRels creates a new empty ContainerTaskRels
+func NewContainerTaskRels() *ContainerTaskRels {
+	return &ContainerTaskRels{rels: make(map[string]*TaskInfo)}
+}
+
+// Get is a utility method which handles the mutex lock and abstracts the inner
+// map in ContainerTaskRels away. If no task info is available for the supplied
+// containerID, returns nil.
+func (ctr *ContainerTaskRels) Get(containerID string) *TaskInfo {
+	ctr.Lock()
+	defer ctr.Unlock()
+	return ctr.rels[containerID]
+}
+
+// Set adds or updates an entry to ContainerTaskRels and, if necessary,
+// initiates the inner map. It is only currently used in tests.
+func (ctr *ContainerTaskRels) Set(containerID string, info *TaskInfo) {
+	ctr.Lock()
+	defer ctr.Unlock()
+	ctr.rels[containerID] = info
+}
+
+// update denormalizes the (deeply nested) /state map from the local mesos
+// agent to a list of tasks mapped to container IDs.
+func (ctr *ContainerTaskRels) update(as agentState) {
+	rels := map[string]*TaskInfo{}
+	for _, f := range as.Frameworks {
+		for _, e := range f.Executors {
+			for _, t := range e.Tasks {
+				for _, s := range t.Statuses {
+					rels[s.ContainerStatusInfo.ID.Value] = &TaskInfo{
+						ID:   t.ID,
+						Name: t.Name,
+					}
+				}
+			}
+		}
+	}
+	ctr.Lock()
+	ctr.rels = rels
+	ctr.Unlock()
 }
 
 // New creates a new instance of the Mesos agent collector (poller).
-func New(cfg Collector, nodeInfo collectors.NodeInfo) (Collector, chan producers.MetricsMessage) {
+func New(cfg Collector, nodeInfo collectors.NodeInfo, rels *ContainerTaskRels) (Collector, chan producers.MetricsMessage) {
 	c := cfg
 	c.log = logrus.WithFields(logrus.Fields{"collector": "mesos-agent"})
 	c.nodeInfo = nodeInfo
 	c.metricsChan = make(chan producers.MetricsMessage)
+	c.ContainerTaskRels = rels
 	return c, c.metricsChan
 }
 
@@ -87,6 +139,9 @@ func (c *Collector) pollMesosAgent() {
 	if err := c.getAgentState(); err != nil {
 		c.log.Errorf("Failed to get agent state from %s. Error: %s", host, err)
 	}
+
+	c.log.Debug("Mapping containers to tasks")
+	c.ContainerTaskRels.update(c.agentState)
 
 	c.log.Debugf("Fetching container metrics from host %s", host)
 	if err := c.getContainerMetrics(); err != nil {
@@ -179,7 +234,7 @@ func getExecutorInfoByExecutorID(executorID string, executors []executorInfo) *e
 }
 
 // getTaskInfoByContainerID returns the TaskInfo struct matching the given cID.
-func getTaskInfoByContainerID(containerID string, tasks []taskInfo) *taskInfo {
+func getTaskInfoByContainerID(containerID string, tasks []TaskInfo) *TaskInfo {
 	for _, task := range tasks {
 		if len(task.Statuses) > 0 && task.Statuses[0].ContainerStatusInfo.ID.Value == containerID {
 			return &task
