@@ -54,7 +54,7 @@ type Collector struct {
 	metricsChan       chan producers.MetricsMessage
 	nodeInfo          collectors.NodeInfo
 	timestamp         int64
-	ContainerTaskRels ContainerTaskRels
+	ContainerTaskRels *ContainerTaskRels
 }
 
 // ContainerTaskRels defines the relationship between containers and tasks.
@@ -109,12 +109,12 @@ func (ctr *ContainerTaskRels) update(as agentState) {
 }
 
 // New creates a new instance of the Mesos agent collector (poller).
-func New(cfg Collector, nodeInfo collectors.NodeInfo) (Collector, chan producers.MetricsMessage) {
+func New(cfg Collector, nodeInfo collectors.NodeInfo, rels *ContainerTaskRels) (Collector, chan producers.MetricsMessage) {
 	c := cfg
 	c.log = logrus.WithFields(logrus.Fields{"collector": "mesos-agent"})
 	c.nodeInfo = nodeInfo
 	c.metricsChan = make(chan producers.MetricsMessage)
-	c.ContainerTaskRels = ContainerTaskRels{}
+	c.ContainerTaskRels = rels
 	return c, c.metricsChan
 }
 
