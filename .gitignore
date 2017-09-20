@@ -60,3 +60,4 @@ profile.cov
 *.crc
 *.avro
 mesos-*.tar.gz
+.idea/*
