@@ -81,7 +81,13 @@ namespace metrics {
 
     process::Future<Nothing> cleanup(
         const mesos::ContainerID& container_id) {
-      container_assigner->unregister_container(container_id);
+      // If we are a nested container in the `DEBUG` class, then we don't
+      // emit metrics from this container and hence have nothing to cleanup.
+      if (!(container_id.has_parent() &&
+            container_config.has_container_class() &&
+            container_config.container_class() == ContainerClass::DEBUG)) {
+        container_assigner->unregister_container(container_id);
+      }
       return Nothing();
     }
 
