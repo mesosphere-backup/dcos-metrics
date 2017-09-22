@@ -101,11 +101,7 @@ func (c *Config) loadConfig() error {
 		return err
 	}
 
-	if err = yaml.Unmarshal(fileByte, &c); err != nil {
-		return err
-	}
-
-	return nil
+	return yaml.Unmarshal(fileByte, &c)
 }
 
 func (c *Config) getNodeInfo(attemptSSL bool) error {

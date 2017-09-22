@@ -292,11 +292,7 @@ func (p *Plugin) loadConfig() error {
 		return err
 	}
 
-	if err = yaml.Unmarshal(fileByte, p); err != nil {
-		return err
-	}
-
-	return nil
+	return yaml.Unmarshal(fileByte, p)
 }
 
 // createClient creates an HTTP Client with credentials (if available) and
