@@ -20,6 +20,7 @@ const (
 var (
 	debugFlag = flag.Bool("debug", false, "Enables debug log messages")
 	floodFlag = flag.Bool("flood", false, "Floods the port with stats, for capacity testing")
+	tagFlag = flag.Bool("tag", true, "Send a tag along with stats (dogstatsd format)")
 )
 
 type byteCount struct {
@@ -76,12 +77,16 @@ type stat struct {
 	Tags  map[string]string
 }
 
-func uptime(value int64) string {
-	return fmt.Sprintf("statsd_tester.time.uptime:%d|g|#test_tag_key:test_tag_value", value)
+func uptime(value int64, sendTag bool) string {
+	metric := fmt.Sprintf("statsd_tester.time.uptime:%d|g", value)
+	if sendTag {
+		metric += "|#test_tag_key:test_tag_value"
+	}
+	return metric
 }
 
 func sendUptime(conn *net.UDPConn, value int64) byteCount {
-	return send(conn, uptime(value))
+	return send(conn, uptime(value, *tagFlag))
 }
 
 func send(conn *net.UDPConn, msg string) byteCount {
