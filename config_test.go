@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"io/ioutil"
 	"net"
@@ -30,7 +31,6 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
-	"github.com/pkg/errors"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
