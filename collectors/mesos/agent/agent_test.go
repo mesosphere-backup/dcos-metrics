@@ -186,23 +186,30 @@ var (
 		]`)
 )
 
-func TestGetContainerMetrics(t *testing.T) {
+// setupTestServer is a helper method for returning the specified JSON
+func setupTestServer(responseCode int, response []byte) (*httptest.Server, *http.Client, int) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(200)
-		w.Write(mockContainerMetrics)
+		w.WriteHeader(responseCode)
+		w.Write(response)
 	}))
-	defer ts.Close()
 
 	testClient, err := httpHelpers.NewMetricsClient("", "")
 	if err != nil {
-		t.Error("Error retreiving HTTP Client:", err)
+		panic("Error retrieving HTTP Client: " + err.Error())
 	}
 
 	port, err := extractPortFromURL(ts.URL)
 	if err != nil {
 		panic(err)
 	}
+
+	return ts, testClient, port
+}
+
+func TestGetContainerMetrics(t *testing.T) {
+	testServer, testClient, port := setupTestServer(200, mockContainerMetrics)
+	defer testServer.Close()
 
 	mac := Collector{
 		Port:            port,
@@ -235,23 +242,8 @@ func TestGetContainerMetrics(t *testing.T) {
 }
 
 func TestGetAgentState(t *testing.T) {
-
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(200)
-		w.Write(mockAgentState)
-	}))
-	defer ts.Close()
-
-	testClient, err := httpHelpers.NewMetricsClient("", "")
-	if err != nil {
-		t.Error("Error retreiving HTTP Client:", err)
-	}
-
-	port, err := extractPortFromURL(ts.URL)
-	if err != nil {
-		panic(err)
-	}
+	testServer, testClient, port := setupTestServer(200, mockAgentState)
+	defer testServer.Close()
 
 	mac := Collector{
 		Port:            port,
