@@ -42,9 +42,9 @@ function _goimports {
 function _golint {
     local test_dirs="$1"
     local ignore_dirs="$2"
-    logmsg "Skipping 'go lint' ..."
-    # go get -u github.com/golang/lint/golint
-    # test -z "$(golint $test_dirs | grep -v vendor | grep -v $ignore_dirs | tee /dev/stderr)"
+    logmsg "Running 'go lint' ..."
+    go get -u github.com/golang/lint/golint
+    test -z "$(golint $test_dirs | grep -v vendor | grep -v $ignore_dirs | tee /dev/stderr)"
 }
 
 
