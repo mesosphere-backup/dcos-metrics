@@ -20,7 +20,7 @@ const (
 var (
 	debugFlag = flag.Bool("debug", false, "Enables debug log messages")
 	floodFlag = flag.Bool("flood", false, "Floods the port with stats, for capacity testing")
-	tagFlag = flag.Bool("tag", true, "Send a tag along with stats (dogstatsd format)")
+	tagFlag   = flag.Bool("tag", true, "Send a tag along with stats (dogstatsd format)")
 )
 
 type byteCount struct {
