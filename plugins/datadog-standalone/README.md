@@ -6,7 +6,7 @@ for those who do not wish to make use of the Datadog Agent.
 ## Installation
 
 ### Build this plugin (requires a Golang environment)
-1. `go get github.com/dcos/dcos-metrics`
+1. `go get -u github.com/dcos/dcos-metrics`
 1. `cd $(go env GOPATH)/src/github.com/dcos/dcos-metrics`
 1. `make && make plugins`
 

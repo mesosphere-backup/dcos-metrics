@@ -8,7 +8,7 @@ run it in production.
 ## Usage
 
 ### Build this plugin (requires a Golang environment)
-1. `go get github.com/dcos/dcos-metrics`
+1. `go get -u github.com/dcos/dcos-metrics`
 1. `cd $(go env GOPATH)/src/github.com/dcos/dcos-metrics`
 1. `make && make plugins`
 
@@ -24,6 +24,7 @@ build
 
 Upload the plugin to your node via `scp` or similar, then simply run
 
+`./dcos-metrics-stdout-plugin --dcos-role=agent`
 `./dcos-metrics-stdout-plugin --dcos-role=agent`
 
 The plugin will log every message it receives to stdout. 
