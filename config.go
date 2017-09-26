@@ -64,8 +64,8 @@ type Config struct {
 	LogLevel    string
 	VersionFlag bool
 
-	// NodeInfoFunc fetches node info from a URL
-	NodeInfoFunc func(url.URL) (nodeutil.NodeInfo, error)
+	// nodeInfoFunc fetches node info from a URL
+	nodeInfoFunc func(url.URL) (nodeutil.NodeInfo, error)
 }
 
 // CollectorConfig contains configuration options relevant to the "collector"
@@ -108,8 +108,8 @@ func (c *Config) loadConfig() error {
 }
 
 func (c *Config) getNodeInfoFromURL(url url.URL) (nodeutil.NodeInfo, error) {
-	if c.NodeInfoFunc != nil {
-		return c.NodeInfoFunc(url)
+	if c.nodeInfoFunc != nil {
+		return c.nodeInfoFunc(url)
 	}
 	client, err := httpHelpers.NewMetricsClient(c.CACertificatePath, c.IAMConfigPath)
 	if err != nil {

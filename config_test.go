@@ -69,14 +69,14 @@ func TestGetNodeInfo(t *testing.T) {
 		var fetchedURLs []string
 		testConfig, _ := getNewConfig([]string{"-role", "agent"})
 
-		testConfig.NodeInfoFunc = func(url url.URL) (nodeutil.NodeInfo, error) {
+		testConfig.nodeInfoFunc = func(url url.URL) (nodeutil.NodeInfo, error) {
 			fetchedURLs = append(fetchedURLs, url.String())
 			info := &fakeInfo{
 				ip:        net.ParseIP("127.0.0.1"),
 				clusterID: "my-cluster-ID",
 			}
 			if strings.HasPrefix(url.String(), "https://") {
-				info.mesosIDErr = errors.New("Can't get mesos ID over http")
+				info.mesosIDErr = errors.New("Can't get mesos ID over https")
 			} else {
 				info.mesosID = "my mesos id"
 			}
