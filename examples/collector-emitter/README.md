@@ -15,7 +15,7 @@ apt-get install golang-go
 
 ```bash
 go get -u github.com/dcos/dcos-metrics
-cd $GOPATH/src/github/dcos/dcos-metrics
+cd $GOPATH/src/github.com/dcos/dcos-metrics
 go generate # creates 'metrics_schema' package
 go build
 ```
