@@ -25,7 +25,6 @@ build
 Upload the plugin to your node via `scp` or similar, then simply run
 
 `./dcos-metrics-stdout-plugin --dcos-role=agent`
-`./dcos-metrics-stdout-plugin --dcos-role=agent`
 
 The plugin will log every message it receives to stdout. 
 
