@@ -63,6 +63,9 @@ type Config struct {
 	ConfigPath  string
 	LogLevel    string
 	VersionFlag bool
+
+	// nodeInfoFunc fetches node info from a URL
+	nodeInfoFunc func(url.URL) (nodeutil.NodeInfo, error)
 }
 
 // CollectorConfig contains configuration options relevant to the "collector"
@@ -104,13 +107,24 @@ func (c *Config) loadConfig() error {
 	return yaml.Unmarshal(fileByte, &c)
 }
 
-func (c *Config) getNodeInfo(attemptSSL bool) error {
-	log.Debug("Getting node info")
+func (c *Config) getNodeInfoFromURL(url url.URL) (nodeutil.NodeInfo, error) {
+	if c.nodeInfoFunc != nil {
+		return c.nodeInfoFunc(url)
+	}
 	client, err := httpHelpers.NewMetricsClient(c.CACertificatePath, c.IAMConfigPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	// Create a new DC/OS nodeutil instance
+	info, err := nodeutil.NewNodeInfo(client, c.DCOSRole, nodeutil.OptionMesosStateURL(url.String()))
+	if err != nil {
+		return nil, fmt.Errorf("error: could not get nodeInfo: %s", err)
+	}
+	return info, nil
+}
 
+func (c *Config) getNodeInfo(attemptSSL bool) error {
+	log.Debug("Getting node info")
 	// If there is no available certificate, immediately drop back to HTTP
 	useSSL := attemptSSL && len(c.IAMConfigPath) > 0
 	stateURL := url.URL{
@@ -122,10 +136,9 @@ func (c *Config) getNodeInfo(attemptSSL bool) error {
 		stateURL.Scheme = "https"
 	}
 
-	// Create a new DC/OS nodeutil instance
-	node, err := nodeutil.NewNodeInfo(client, c.DCOSRole, nodeutil.OptionMesosStateURL(stateURL.String()))
+	node, err := c.getNodeInfoFromURL(stateURL)
 	if err != nil {
-		return fmt.Errorf("error: could not get nodeInfo: %s", err)
+		return err
 	}
 
 	// Get node IP address

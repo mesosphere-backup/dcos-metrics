@@ -17,15 +17,91 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"io/ioutil"
+	"net"
+	"net/url"
 	"os"
 	"testing"
 	"time"
 
+	"strings"
+
 	"github.com/Sirupsen/logrus"
+	"github.com/dcos/dcos-go/dcos/nodeutil"
 	. "github.com/smartystreets/goconvey/convey"
 )
+
+type fakeInfo struct {
+	ip           net.IP
+	ipErr        error
+	leader       bool
+	leaderErr    error
+	mesosID      string
+	mesosIDErr   error
+	clusterID    string
+	clusterIDErr error
+}
+
+var _ nodeutil.NodeInfo = &fakeInfo{}
+
+func (f *fakeInfo) DetectIP() (net.IP, error) {
+	return f.ip, f.ipErr
+}
+
+func (f *fakeInfo) IsLeader() (bool, error) {
+	return f.leader, f.leaderErr
+}
+
+func (f *fakeInfo) MesosID(ctx context.Context) (string, error) {
+	return f.mesosID, f.mesosIDErr
+}
+
+func (f *fakeInfo) ClusterID() (string, error) {
+	return f.clusterID, f.clusterIDErr
+}
+
+func TestGetNodeInfo(t *testing.T) {
+	Convey("When getting node info", t, func() {
+
+		var fetchedURLs []string
+		testConfig, _ := getNewConfig([]string{"-role", "agent"})
+
+		testConfig.nodeInfoFunc = func(url url.URL) (nodeutil.NodeInfo, error) {
+			fetchedURLs = append(fetchedURLs, url.String())
+			info := &fakeInfo{
+				ip:        net.ParseIP("127.0.0.1"),
+				clusterID: "my-cluster-ID",
+			}
+			if strings.HasPrefix(url.String(), "https://") {
+				info.mesosIDErr = errors.New("Can't get mesos ID over https")
+			} else {
+				info.mesosID = "my mesos id"
+			}
+			return info, nil
+		}
+
+		Convey("When an IAM Config  is set", func() {
+			testConfig.IAMConfigPath = "some config path"
+			testConfig.getNodeInfo(true)
+
+			So(len(fetchedURLs), ShouldEqual, 2)
+			So(fetchedURLs[0], ShouldStartWith, "https://")
+			So(fetchedURLs[1], ShouldStartWith, "http://")
+		})
+
+		Convey("When an IAM Config is not set", func() {
+			// don't set an IAM config path here
+			testConfig.getNodeInfo(true)
+
+			So(len(fetchedURLs), ShouldEqual, 1)
+			So(fetchedURLs[0], ShouldStartWith, "http")
+		})
+
+	})
+}
 
 func TestNewConfig(t *testing.T) {
 	Convey("Ensure default configuration is set properly", t, func() {
