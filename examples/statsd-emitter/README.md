@@ -31,13 +31,10 @@ Create the following application (in JSON Mode):
 ```json
 {
   "id": "statsd-emitter",
-  "cmd": "./statsd-emitter",
-  "cpus": 1,
+  "cmd": "/opt/mesosphere/bin/statsd-emitter",
+  "cpus": 0.1,
   "mem": 128,
   "disk": 0,
-  "instances": 1,
-  "uris": [
-    "https://s3-us-west-2.amazonaws.com/nick-dev/statsd-emitter.tgz"
-  ]
+  "instances": 1
 }
 ```
