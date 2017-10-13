@@ -48,15 +48,32 @@ type agentContainer struct {
 // For a complete reference, see:
 // https://github.com/apache/mesos/blob/1.0.1/include/mesos/v1/mesos.proto#L921-L1022
 type resourceStatistics struct {
+
+	// Process and thread info
+	Processes uint32 `json:"processes,omitempty"`
+	Threads   uint32 `json:"threads,omitempty"`
+
 	// CPU usage info
 	CpusUserTimeSecs      float64 `json:"cpus_user_time_secs,omitempty"`
 	CpusSystemTimeSecs    float64 `json:"cpus_system_time_secs,omitempty"`
 	CpusLimit             float64 `json:"cpus_limit,omitempty"`
+	CpusNrPeriods         uint32  `json:"cpus_nr_periods,omitempty"`
+	CpusNrThrottled       uint32  `json:"cpus_nr_throttled,omitempty"`
 	CpusThrottledTimeSecs float64 `json:"cpus_throttled_time_secs,omitempty"`
 
 	// Memory info
-	MemTotalBytes uint64 `json:"mem_total_bytes,omitempty"`
-	MemLimitBytes uint64 `json:"mem_limit_bytes,omitempty"`
+	MemTotalBytes              uint64 `json:"mem_total_bytes,omitempty"`
+	MemTotalMemswBytes         uint64 `json:"mem_total_memsw_bytes,omitempty"`
+	MemLimitBytes              uint64 `json:"mem_limit_bytes,omitempty"`
+	MemSoftLimitBytes          uint64 `json:"mem_soft_limit_bytes,omitempty"`
+	MemCacheBytes              uint64 `json:"mem_cache_bytes,omitempty"`
+	MemRssBytes                uint64 `json:"mem_rss_bytes,omitempty"`
+	MemMappedFileBytes         uint64 `json:"mem_mapped_file_bytes,omitempty"`
+	MemSwapBytes               uint64 `json:"mem_swap_bytes,omitempty"`
+	MemUnevictableBytes        uint64 `json:"mem_unevictable_bytes,omitempty"`
+	MemLowPressureCounter      uint64 `json:"mem_low_pressure_counter,omitempty"`
+	MemMediumPressureCounter   uint64 `json:"mem_medium_pressure_counter,omitempty"`
+	MemCriticalPressureCounter uint64 `json:"mem_critical_pressure_counter,omitempty"`
 
 	// Disk info
 	DiskLimitBytes uint64 `json:"disk_limit_bytes,omitempty"`
