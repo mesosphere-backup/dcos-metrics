@@ -61,6 +61,18 @@ func (c *Collector) createContainerDatapoints(container agentContainer) ([]produ
 
 	addDps := []producers.Datapoint{
 		producers.Datapoint{
+			Name:  "processes",
+			Value: container.Statistics.Processes,
+			Unit:  count,
+			Tags:  dpTags,
+		},
+		producers.Datapoint{
+			Name:  "threads",
+			Value: container.Statistics.Threads,
+			Unit:  count,
+			Tags:  dpTags,
+		},
+		producers.Datapoint{
 			Name:  "cpus.user.time",
 			Value: container.Statistics.CpusUserTimeSecs,
 			Unit:  seconds,
@@ -79,6 +91,18 @@ func (c *Collector) createContainerDatapoints(container agentContainer) ([]produ
 			Tags:  dpTags,
 		},
 		producers.Datapoint{
+			Name:  "cpus.nr.periods",
+			Value: container.Statistics.CpusNrPeriods,
+			Unit:  count,
+			Tags:  dpTags,
+		},
+		producers.Datapoint{
+			Name:  "cpus.nr.throttled",
+			Value: container.Statistics.CpusNrThrottled,
+			Unit:  count,
+			Tags:  dpTags,
+		},
+		producers.Datapoint{
 			Name:  "cpus.throttled.time",
 			Value: container.Statistics.CpusThrottledTimeSecs,
 			Unit:  seconds,
@@ -91,9 +115,69 @@ func (c *Collector) createContainerDatapoints(container agentContainer) ([]produ
 			Tags:  dpTags,
 		},
 		producers.Datapoint{
+			Name:  "mem.total.memsw",
+			Value: container.Statistics.MemTotalMemswBytes,
+			Unit:  bytes,
+			Tags:  dpTags,
+		},
+		producers.Datapoint{
 			Name:  "mem.limit",
 			Value: container.Statistics.MemLimitBytes,
 			Unit:  bytes,
+			Tags:  dpTags,
+		},
+		producers.Datapoint{
+			Name:  "mem.soft.limit",
+			Value: container.Statistics.MemSoftLimitBytes,
+			Unit:  bytes,
+			Tags:  dpTags,
+		},
+		producers.Datapoint{
+			Name:  "mem.cache",
+			Value: container.Statistics.MemCacheBytes,
+			Unit:  bytes,
+			Tags:  dpTags,
+		},
+		producers.Datapoint{
+			Name:  "mem.rss",
+			Value: container.Statistics.MemRssBytes,
+			Unit:  bytes,
+			Tags:  dpTags,
+		},
+		producers.Datapoint{
+			Name:  "mem.mapped.file",
+			Value: container.Statistics.MemMappedFileBytes,
+			Unit:  bytes,
+			Tags:  dpTags,
+		},
+		producers.Datapoint{
+			Name:  "mem.swap",
+			Value: container.Statistics.MemSwapBytes,
+			Unit:  bytes,
+			Tags:  dpTags,
+		},
+		producers.Datapoint{
+			Name:  "mem.unevictable",
+			Value: container.Statistics.MemUnevictableBytes,
+			Unit:  bytes,
+			Tags:  dpTags,
+		},
+		producers.Datapoint{
+			Name:  "mem.low.pressure",
+			Value: container.Statistics.MemLowPressureCounter,
+			Unit:  count,
+			Tags:  dpTags,
+		},
+		producers.Datapoint{
+			Name:  "mem.medium.pressure",
+			Value: container.Statistics.MemMediumPressureCounter,
+			Unit:  count,
+			Tags:  dpTags,
+		},
+		producers.Datapoint{
+			Name:  "mem.critical.pressure",
+			Value: container.Statistics.MemCriticalPressureCounter,
+			Unit:  count,
 			Tags:  dpTags,
 		},
 		producers.Datapoint{

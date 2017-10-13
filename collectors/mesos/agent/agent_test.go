@@ -147,10 +147,23 @@ var (
 				"source": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
 				"statistics": {
 					"cpus_limit": 1.1,
+					"cpus_nr_periods": 3701894,
+					"cpus_nr_throttled": 2126,
 					"cpus_system_time_secs": 0.31,
+					"cpus_throttled_time_secs": 98.355904778,
 					"cpus_user_time_secs": 0.22,
+					"mem_anon_bytes": 435118080,
+					"mem_cache_bytes": 15962112,
+					"mem_critical_pressure_counter": 0,
+					"mem_file_bytes": 15962112,
 					"mem_limit_bytes": 167772160,
-					"mem_total_bytes": 4476928
+					"mem_low_pressure_counter": 0,
+					"mem_mapped_file_bytes": 40960,
+					"mem_medium_pressure_counter": 0,
+					"mem_rss_bytes": 435118080,
+					"mem_swap_bytes": 0,
+					"mem_total_bytes": 4476928,
+					"mem_unevictable_bytes": 0
 				}
 			}
 		]`)
@@ -338,7 +351,7 @@ func TestBuildDatapoints(t *testing.T) {
 				for _, container := range thisContainerMetrics {
 					result, err := coll.createContainerDatapoints(container)
 					So(err, ShouldEqual, nil)
-					So(len(result), ShouldEqual, 16)
+					So(len(result), ShouldEqual, 30)
 
 					cidRegistry := []string{}
 					for _, dp := range result {
