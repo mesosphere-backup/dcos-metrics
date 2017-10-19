@@ -1,0 +1,11 @@
+[Unit]
+Description=DC/OS Metrics Agent Statsd Plugin
+[Service]
+Restart=always
+RestartSec=60
+PermissionsStartOnly=True
+User=dcos_metrics
+EnvironmentFile=/opt/mesosphere/environment
+EnvironmentFile=/opt/mesosphere/etc/dcos-metrics.env
+EnvironmentFile=/opt/mesosphere/etc/dcos-metrics-statsd.env
+ExecStart=/opt/mesosphere/bin/dcos-metrics-statsd-plugin -dcos-role agent -config ${DCOS_METRICS_CONFIG_PATH}
