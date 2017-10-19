@@ -1,0 +1,42 @@
+{
+  "id": "/statsd-server",
+  "container": {
+    "portMappings": [
+      {
+        "containerPort": 80,
+        "hostPort": 0,
+        "labels": {
+          "VIP_0": "/statsd-server:80"
+        },
+        "protocol": "tcp",
+        "name": "nginx"
+      },
+      {
+        "containerPort": 8125,
+        "hostPort": 8125,
+        "protocol": "udp",
+        "name": "statsd"
+      }
+    ],
+    "type": "MESOS",
+    "docker": {
+      "image": "hopsoft/graphite-statsd",
+      "forcePullImage": false
+    }
+  },
+  "cpus": 1,
+  "instances": 1,
+  "mem": 1024,
+  "gpus": 0,
+  "networks": [
+    {
+      "mode": "container/bridge"
+    }
+  ],
+  "healthChecks": [
+    {
+      "portIndex": 0,
+      "protocol": "MESOS_HTTP"
+    }
+  ]
+}
