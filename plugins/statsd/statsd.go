@@ -100,13 +100,13 @@ func emitDatapointsOverStatsd(datapoints []producers.Datapoint, client *statsd.S
 // convertDatapointToStatsd attempts to convert a datapoint to a statsd format
 // name + value, returning a false ok flag if the conversion failed.
 func convertDatapointToStatsd(datapoint producers.Datapoint) (string, string, bool) {
-	// Value is of type interface{}, hence sprintf
 	val, err := normalize(datapoint.Value)
 	if err != nil {
 		// This is only debug-level because we expect many NaNs in regular usage
 		log.Debugf("Metric %s failed to convert: %q", datapoint.Name, err)
 		return "", "", false
 	}
+	// Value is of type interface{}, hence sprintf
 	return datapoint.Name, fmt.Sprintf("%d|g", val), true
 }
 
