@@ -113,8 +113,10 @@ func TestStatsdConnector(t *testing.T) {
 			// Inside app.Action, the cli context is appropriate populated
 			err := statsdConnector([]producers.MetricsMessage{fooBarMetric}, c)
 			So(err, ShouldBeNil)
-			metric := <-msgs
-			So(metric, ShouldEqual, "foo.bar:123|g")
+			// The order of metrics receipt is not guaranteed
+			metrics := []string{<-msgs, <-msgs}
+			So(metrics, ShouldContain, "foo.bar:123|g")
+			So(metrics, ShouldContain, "foo.baz:124|g")
 		}
 		// Pass the appropriate configuration into the plugin
 		app.Run([]string{"", "--statsd-udp-host", "127.0.0.1", "--statsd-udp-port", port})
