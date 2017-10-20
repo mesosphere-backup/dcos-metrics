@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"sync"
 
 	log "github.com/Sirupsen/logrus"
 	plugin "github.com/dcos/dcos-metrics/plugins"
@@ -41,6 +42,7 @@ var (
 			Value:  8125,
 		},
 	}
+	once         sync.Once
 	statsdClient *statsd.StatsdClient
 )
 
@@ -62,13 +64,13 @@ func main() {
 // statsdConnector is the method called by the plugin every time it retrieves
 // metrics from the API.
 func statsdConnector(metrics []producers.MetricsMessage, c *cli.Context) error {
-	if statsdClient == nil {
+	once.Do(func() {
 		statsdHost := c.String("statsd-udp-host")
 		statsdPort := c.Int("statsd-udp-port")
 
 		log.Infof("Setting up new statsd client %s:%d", statsdHost, statsdPort)
 		statsdClient = statsd.New(statsdHost, statsdPort)
-	}
+	})
 
 	if len(metrics) == 0 {
 		log.Info("No messages received from metrics service")
