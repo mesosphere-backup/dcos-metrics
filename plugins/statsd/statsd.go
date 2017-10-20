@@ -75,7 +75,7 @@ func statsdConnector(metrics []producers.MetricsMessage, c *cli.Context) error {
 		return nil
 	}
 	for _, message := range metrics {
-		log.Debugf("Sending %d datapoints to statsd server...")
+		log.Debugf("Sending %d datapoints to statsd server...", len(message.Datapoints))
 		emitDatapointsOverStatsd(message.Datapoints, statsdClient)
 	}
 
@@ -104,7 +104,7 @@ func convertDatapointToStatsd(datapoint producers.Datapoint) (string, string, bo
 	val, err := normalize(datapoint.Value)
 	if err != nil {
 		// This is only debug-level because we expect many NaNs in regular usage
-		log.Debugf("Metric %s: %q", datapoint.Name, err)
+		log.Debugf("Metric %s failed to convert: %q", datapoint.Name, err)
 		return "", "", false
 	}
 	return datapoint.Name, fmt.Sprintf("%d|g", val), true
