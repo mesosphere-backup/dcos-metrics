@@ -40,6 +40,7 @@ type Plugin struct {
 	App               *cli.App
 	Name              string
 	Endpoints         []string
+	TestEndpoint      string
 	Role              string
 	PollingInterval   int
 	MetricsPort       int
@@ -86,6 +87,12 @@ func New(options ...Option) (*Plugin, error) {
 			Value:       newPlugin.MetricsPort,
 			Usage:       "Port the DC/OS metrics service is running.Defaults to agent adminrouter port",
 			Destination: &newPlugin.MetricsPort,
+		},
+		cli.StringFlag{
+			Name:        "metrics-endpoint",
+			Value:       "",
+			Usage:       "Testing endpoint for querying a single metrics endpoint",
+			Destination: &newPlugin.TestEndpoint,
 		},
 		cli.IntFlag{
 			Name:        "polling-interval",
@@ -192,6 +199,13 @@ func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
 // this instance should use.
 func (p *Plugin) setEndpoints() error {
 	p.Log.Infof("Setting plugin endpoints for role %s", p.Role)
+	if len(p.TestEndpoint) != 0 {
+		p.Endpoints = []string{
+			p.TestEndpoint,
+		}
+		return nil
+	}
+
 	if p.Role == dcos.RoleMaster {
 		p.Endpoints = []string{
 			"/system/v1/metrics/v0/node",
