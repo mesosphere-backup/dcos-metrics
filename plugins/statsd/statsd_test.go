@@ -122,12 +122,15 @@ func TestStatsdConnector(t *testing.T) {
 
 func TestNormalize(t *testing.T) {
 	tests := map[interface{}]int{
-		1:        1,
-		"123":    123,
-		123.45:   123,
-		123.54:   124,
-		"123.45": 123,
-		"123.54": 124,
+		123:             123,
+		int32(123):      123,
+		int64(123):      123,
+		float32(123.45): 123,
+		float64(123.45): 123,
+		123.54:          124,
+		"123":           123,
+		"123.45":        123,
+		"123.54":        124,
 	}
 	errors := []interface{}{
 		"NaN",
