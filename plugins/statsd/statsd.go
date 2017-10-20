@@ -106,7 +106,6 @@ func convertDatapointToStatsd(datapoint producers.Datapoint) (string, string, bo
 		log.Debugf("Metric %s failed to convert: %q", datapoint.Name, err)
 		return "", "", false
 	}
-	// Value is of type interface{}, hence sprintf
 	return datapoint.Name, fmt.Sprintf("%d|g", val), true
 }
 
