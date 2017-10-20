@@ -45,6 +45,11 @@ func main() {
 	}
 	log.SetLevel(lvl)
 
+	//AuthConfig
+	if len(cfg.Collector.MesosAgent.Principal) > 0 {
+		log.Info("Framework authentication set to principal", cfg.Collector.MesosAgent.Principal)
+	}
+
 	// HTTP profiling
 	if cfg.Collector.HTTPProfiler {
 		log.Info("HTTP profiling enabled")

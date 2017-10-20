@@ -55,6 +55,10 @@ type Collector struct {
 	nodeInfo          collectors.NodeInfo
 	timestamp         int64
 	ContainerTaskRels *ContainerTaskRels
+
+	//basic auth
+	Principal string `yaml:"principal"`
+	Secret    string `yaml:"secret"`
 }
 
 // ContainerTaskRels defines the relationship between containers and tasks.

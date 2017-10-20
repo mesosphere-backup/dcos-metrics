@@ -5,7 +5,7 @@
 # Collector configuration
 collector:
   http_profiler: false
-  
+
   node:
     poll_period: 15s
 
@@ -13,6 +13,8 @@ collector:
     poll_period: 15s
     port: 5051
     request_protocol: http
+    principal: dcos-metrics
+    secret: dcos-metrics-secret
 
 # Producers configuration
 producers:
