@@ -124,7 +124,7 @@ func normalize(i interface{}) (int, error) {
 		}
 		return int(v + 0.5), nil
 	case string:
-		f, err := strconv.ParseFloat(v, 32)
+		f, err := strconv.ParseFloat(v, 64)
 		if err != nil {
 			return -1, err
 		}
