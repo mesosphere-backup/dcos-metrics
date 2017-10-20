@@ -65,7 +65,8 @@ func mockStatsdServer() (string, chan string, *net.UDPConn) {
 			buffer := make([]byte, 1024)
 			n, _, err := conn.ReadFromUDP(buffer)
 			if err != nil {
-				panic(err)
+				// Connection was closed
+				break
 			}
 			message := string(buffer[0:n])
 			msg <- message
