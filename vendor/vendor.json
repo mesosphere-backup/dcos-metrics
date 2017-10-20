@@ -105,6 +105,12 @@
 			"revisionTime": "2015-06-06T11:53:03Z"
 		},
 		{
+			"checksumSHA1": "3qpkGOPrPi4iFlYqjXd293meV4k=",
+			"path": "github.com/etsy/statsd/examples/go",
+			"revision": "8d5363cb109cc6363661a1d5813e0b96787c4411",
+			"revisionTime": "2016-11-21T16:48:29Z"
+		},
+		{
 			"checksumSHA1": "wDZdTaY9JiqqqnF4c3pHP71nWmk=",
 			"path": "github.com/go-ole/go-ole",
 			"revision": "7dfdcf409020452e29b4babcbb22f984d2aa308a",
