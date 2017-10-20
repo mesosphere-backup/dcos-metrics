@@ -116,6 +116,12 @@ func normalize(i interface{}) (int, error) {
 	switch v := i.(type) {
 	case int:
 		return v, nil
+	case int32:
+		return int(v), nil
+	case int64:
+		return int(v), nil
+	case float32:
+		return int(v + 0.5), nil
 	case float64:
 		// We need this check here because NaN can be a float. Casting NaN to
 		// int results in a large negative number. Even after you add 0.5.
