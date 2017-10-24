@@ -54,7 +54,6 @@ type Config struct {
 	Producers         ProducersConfig `yaml:"producers"`
 	IAMConfigPath     string          `yaml:"iam_config_path"`
 	CACertificatePath string          `yaml:"ca_certificate_path"`
-
 	// Node info
 	nodeInfo collectors.NodeInfo
 
@@ -124,6 +123,10 @@ func (c *Config) getNodeInfo(attemptSSL bool) error {
 	}
 	if useSSL {
 		stateURL.Scheme = "https"
+	}
+
+	if len(c.Collector.MesosAgent.Principal) > 0 {
+		stateURL.User = url.UserPassword(c.Collector.MesosAgent.Principal, c.Collector.MesosAgent.Secret)
 	}
 
 	// Create a new DC/OS nodeutil instance
@@ -218,7 +221,7 @@ func getNewConfig(args []string) (Config, error) {
 		}, "\n"))
 		os.Exit(0)
 	}
-
+	log.Info("Configpath: ", c.ConfigPath)
 	if len(c.ConfigPath) > 0 {
 		if err := c.loadConfig(); err != nil {
 			return c, err
