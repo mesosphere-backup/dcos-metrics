@@ -16,6 +16,7 @@ package node
 
 import (
 	"reflect"
+	"runtime"
 	"testing"
 	"time"
 
@@ -136,7 +137,12 @@ func TestFormatPct(t *testing.T) {
 func TestInit(t *testing.T) {
 	Convey("When initializing the node metrics collector", t, func() {
 		Convey("Should automatically set lastCPU times", func() {
-			So(lastCPU.times.CPU, ShouldNotEqual, "")
+			if runtime.GOOS == "windows" {
+				// CPU not available on Windows, so using System instead
+				So(lastCPU.times.System, ShouldNotEqual, "")
+			} else {
+				So(lastCPU.times.CPU, ShouldNotEqual, "")
+			}
 		})
 	})
 }

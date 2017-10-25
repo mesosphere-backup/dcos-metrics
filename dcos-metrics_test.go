@@ -19,6 +19,7 @@ package main
 import (
 	"bytes"
 	"os/exec"
+	"runtime"
 	"testing"
 
 	yaml "gopkg.in/yaml.v2"
@@ -30,7 +31,12 @@ func TestMain(t *testing.T) {
 	// This test assumes that `go build` was run before `go test`,
 	// preferably by running `make` at the root of this repo.
 	Convey("Version and revision should match Git", t, func() {
-		cmd := exec.Command("/bin/bash", "-c", "./build/collector/dcos-metrics-collector* -role agent -version")
+		var cmd *exec.Cmd
+		if runtime.GOOS == "windows" {
+			cmd = exec.Command("powershell.exe", "./build/collector/dcos-metrics-collector* -role agent -version")
+		} else {
+			cmd = exec.Command("/bin/bash", "-c", "./build/collector/dcos-metrics-collector* -role agent -version")
+		}
 		stdout := bytes.Buffer{}
 		cmd.Stdout = &stdout
 		cmd.Run()
