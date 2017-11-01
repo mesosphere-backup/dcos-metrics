@@ -38,9 +38,15 @@ var (
 			Value:  8080,
 		},
 	}
-	registerOnce sync.Once
-	listener     net.Listener
+	registerOnce  sync.Once
+	listener      net.Listener
+	latestMetrics metricsSnapshot
 )
+
+type metricsSnapshot struct {
+	sync.Mutex
+	metrics []producers.MetricsMessage
+}
 
 func main() {
 	log.Info("Starting statsd DC/OS metrics plugin")
@@ -91,11 +97,20 @@ func stopPromServer(c *cli.Context) error {
 }
 
 func promConnector(metrics []producers.MetricsMessage, c *cli.Context) error {
+	latestMetrics.Lock()
+	latestMetrics.metrics = metrics
+	latestMetrics.Unlock()
 	return nil
 }
 
 func serveMetrics(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "", http.StatusNoContent)
+	if len(latestMetrics.metrics) == 0 {
+		http.Error(w, "", http.StatusNoContent)
+		return
+	}
+	for _, m := range latestMetrics.metrics {
+		fmt.Fprintf(w, messageToPromText(m))
+	}
 }
 
 // messageToPromText converts a single metrics message to prometheus-formatted

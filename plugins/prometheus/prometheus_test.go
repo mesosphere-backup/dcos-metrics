@@ -97,6 +97,19 @@ func TestPromPlugin(t *testing.T) {
 				So(status, ShouldEqual, http.StatusNoContent)
 				So(response, ShouldBeEmpty)
 			})
+
+			Convey("When the plugin is supplied with metrics", func() {
+				// Supply foo.bar and foo.baz to the plugin
+				err := promConnector([]producers.MetricsMessage{fooBarMetric}, c)
+				So(err, ShouldBeNil)
+
+				response, status := getLocalMetrics(port)
+				So(status, ShouldEqual, http.StatusOK)
+				So(response, ShouldContainSubstring, "foo_bar")
+				So(response, ShouldContainSubstring, "foo_baz")
+
+			})
+
 			return nil
 
 		}
