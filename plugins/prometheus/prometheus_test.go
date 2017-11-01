@@ -43,6 +43,22 @@ var (
 			},
 		},
 	}
+	updatedFooBarMetric = producers.MetricsMessage{
+		Datapoints: []producers.Datapoint{
+			producers.Datapoint{
+				Name:      "foo.bar",
+				Value:     456,
+				Unit:      "",
+				Timestamp: "2010-01-02T00:01:02.000000003Z",
+			},
+			producers.Datapoint{
+				Name:      "foo.qux",
+				Value:     123.5,
+				Unit:      "",
+				Timestamp: "2010-01-02T00:01:02.000000003Z",
+			},
+		},
+	}
 	fooBarMetricWithDimensions = producers.MetricsMessage{
 		Datapoints: []producers.Datapoint{
 			producers.Datapoint{
@@ -108,6 +124,29 @@ func TestPromPlugin(t *testing.T) {
 				So(response, ShouldContainSubstring, "foo_bar")
 				So(response, ShouldContainSubstring, "foo_baz")
 
+				// Supply foo.bar and baz.qux to the plugin
+				err = promConnector([]producers.MetricsMessage{updatedFooBarMetric}, c)
+				So(err, ShouldBeNil)
+
+				response, status = getLocalMetrics(port)
+				So(status, ShouldEqual, http.StatusOK)
+				// The original metric is still present
+				So(response, ShouldContainSubstring, "foo_bar")
+				// The replaced metric is not present
+				So(response, ShouldNotContainSubstring, "foo_baz")
+				// The new metric is present
+				So(response, ShouldContainSubstring, "foo_qux")
+
+				// Supply multiple messages to the plugin
+				err = promConnector([]producers.MetricsMessage{fooBarMetric, updatedFooBarMetric}, c)
+				So(err, ShouldBeNil)
+
+				response, status = getLocalMetrics(port)
+				So(status, ShouldEqual, http.StatusOK)
+				// All metrics should be present
+				So(response, ShouldContainSubstring, "foo_bar")
+				So(response, ShouldContainSubstring, "foo_baz")
+				So(response, ShouldContainSubstring, "foo_qux")
 			})
 
 			return nil
