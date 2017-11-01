@@ -21,9 +21,9 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/dcos/dcos-metrics/producers"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/urfave/cli"
-	"github.com/dcos/dcos-metrics/producers"
 )
 
 var (
@@ -43,6 +43,29 @@ var (
 			},
 		},
 	}
+	fooBarMetricWithDimensions = producers.MetricsMessage{
+		Datapoints: []producers.Datapoint{
+			producers.Datapoint{
+				Name:      "foo.bar",
+				Value:     123,
+				Unit:      "",
+				Timestamp: "2010-01-02T00:01:02.000000003Z",
+			},
+			producers.Datapoint{
+				Name:      "foo.baz",
+				Value:     123.5,
+				Unit:      "",
+				Timestamp: "2010-01-02T00:01:02.000000003Z",
+				Tags: map[string]string{
+					"frodo":   "baggins",
+					"samwise": "gamgee",
+				},
+			},
+		},
+		Dimensions: producers.Dimensions{
+			TaskID: "task-id-here",
+		},
+	}
 )
 
 func TestConversion(t *testing.T) {
@@ -50,6 +73,12 @@ func TestConversion(t *testing.T) {
 		text := messageToPromText(fooBarMetric)
 		So(text, ShouldContainSubstring, "foo_bar 123 1262390462000")
 		So(text, ShouldContainSubstring, "foo_baz 123.5 1262390462000")
+	})
+
+	Convey("When converting metrics with dimensions", t, func() {
+		text := messageToPromText(fooBarMetricWithDimensions)
+		So(text, ShouldContainSubstring, "foo_bar(task_id:\"task-id-here\") 123 1262390462000")
+		So(text, ShouldContainSubstring, "foo_baz(task_id:\"task-id-here\",frodo:\"baggins\",samwise:\"gamgee\") 123.5 1262390462000")
 	})
 }
 

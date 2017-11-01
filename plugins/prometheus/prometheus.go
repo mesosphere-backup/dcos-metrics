@@ -105,14 +105,50 @@ func messageToPromText(message producers.MetricsMessage) string {
 
 	for _, d := range message.Datapoints {
 		name := strings.Replace(d.Name, ".", "_", -1)
+		labels := getLabelsForDatapoint(message.Dimensions, d.Tags)
 		t, err := time.Parse(time.RFC3339, d.Timestamp)
 		if err != nil {
 			log.Warnf("Encountered bad timestamp, %q: %s", d.Timestamp, err)
 			continue
 		}
 		timestamp := int(t.UnixNano() / 1000000)
-		buffer.WriteString(fmt.Sprintf("%s%s %d\n", name, d.Value, timestamp))
+		buffer.WriteString(fmt.Sprintf("%s%s %v %d\n", name, labels, d.Value, timestamp))
 	}
 
 	return buffer.String()
+}
+
+// getLabelsForDatapoint returns prometheus-formatted labels from a
+// datapoint's dimensions and tags
+func getLabelsForDatapoint(dimensions producers.Dimensions, tags map[string]string) string {
+	allDimensions := map[string]string{}
+	if dimensions.Labels != nil {
+		allDimensions = dimensions.Labels
+	}
+
+	allDimensions["mesos_id"] = dimensions.MesosID
+	allDimensions["cluster_id"] = dimensions.ClusterID
+	allDimensions["container_id"] = dimensions.ContainerID
+	allDimensions["framework_name"] = dimensions.FrameworkName
+	allDimensions["framework_id"] = dimensions.FrameworkID
+	allDimensions["framework_role"] = dimensions.FrameworkRole
+	allDimensions["framework_principal"] = dimensions.FrameworkPrincipal
+	allDimensions["task_name"] = dimensions.TaskName
+	allDimensions["task_id"] = dimensions.TaskID
+	allDimensions["hostname"] = dimensions.Hostname
+
+	labels := []string{}
+	for k, v := range allDimensions {
+		if len(v) > 0 {
+			labels = append(labels, fmt.Sprintf("%s:%q", k, v))
+		}
+	}
+	for k, v := range tags {
+		labels = append(labels, fmt.Sprintf("%s:%q", k, v))
+	}
+
+	if len(labels) > 0 {
+		return "(" + strings.Join(labels, ",") + ")"
+	}
+	return ""
 }
