@@ -15,10 +15,13 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	plugin "github.com/dcos/dcos-metrics/plugins"
@@ -93,4 +96,23 @@ func promConnector(metrics []producers.MetricsMessage, c *cli.Context) error {
 
 func serveMetrics(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "", http.StatusNoContent)
+}
+
+// messageToPromText converts a single metrics message to prometheus-formatted
+// newline-separate strings
+func messageToPromText(message producers.MetricsMessage) string {
+	var buffer bytes.Buffer
+
+	for _, d := range message.Datapoints {
+		name := strings.Replace(d.Name, ".", "_", -1)
+		t, err := time.Parse(time.RFC3339, d.Timestamp)
+		if err != nil {
+			log.Warnf("Encountered bad timestamp, %q: %s", d.Timestamp, err)
+			continue
+		}
+		timestamp := int(t.UnixNano() / 1000000)
+		buffer.WriteString(fmt.Sprintf("%s%s %d\n", name, d.Value, timestamp))
+	}
+
+	return buffer.String()
 }

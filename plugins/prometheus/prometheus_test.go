@@ -23,7 +23,35 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/urfave/cli"
+	"github.com/dcos/dcos-metrics/producers"
 )
+
+var (
+	fooBarMetric = producers.MetricsMessage{
+		Datapoints: []producers.Datapoint{
+			producers.Datapoint{
+				Name:      "foo.bar",
+				Value:     123,
+				Unit:      "",
+				Timestamp: "2010-01-02T00:01:02.000000003Z",
+			},
+			producers.Datapoint{
+				Name:      "foo.baz",
+				Value:     123.5,
+				Unit:      "",
+				Timestamp: "2010-01-02T00:01:02.000000003Z",
+			},
+		},
+	}
+)
+
+func TestConversion(t *testing.T) {
+	Convey("When converting metrics", t, func() {
+		text := messageToPromText(fooBarMetric)
+		So(text, ShouldContainSubstring, "foo_bar 123 1262390462000")
+		So(text, ShouldContainSubstring, "foo_baz 123.5 1262390462000")
+	})
+}
 
 func TestPromPlugin(t *testing.T) {
 	app := cli.NewApp()
