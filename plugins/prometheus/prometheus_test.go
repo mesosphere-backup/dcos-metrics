@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"testing"
 
@@ -42,8 +43,20 @@ func TestPromPlugin(t *testing.T) {
 			return nil
 
 		}
-		app.Run([]string{"", "-prometheus-port", "8080"})
+		app.Run([]string{"", "-prometheus-port", freeport()})
 	})
+}
+
+// freeport listens momentarily on port 0, then closes the connection and
+// returns the assigned port, which is now known to be available.
+func freeport() string {
+	l, err := net.Listen("tcp", ":0")
+	defer l.Close()
+	if err != nil {
+		panic(err)
+	}
+	_, p, _ := net.SplitHostPort(l.Addr().String())
+	return p
 }
 
 // getLocalMetrics fetches text from http://localhost:port/metrics
