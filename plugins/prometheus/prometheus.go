@@ -56,12 +56,12 @@ func main() {
 		plugin.ExtraFlags(pluginFlags),
 		plugin.ConnectorFunc(promConnector))
 
-	promPlugin.BeforeFunc = startPromServer
-	promPlugin.AfterFunc = stopPromServer
-
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	promPlugin.BeforeFunc = startPromServer
+	promPlugin.AfterFunc = stopPromServer
 
 	log.Fatal(promPlugin.StartPlugin())
 }
@@ -126,8 +126,8 @@ func messageToPromText(message producers.MetricsMessage) string {
 			log.Warnf("Encountered bad timestamp, %q: %s", d.Timestamp, err)
 			continue
 		}
-		timestamp := int(t.UnixNano() / 1000000)
-		buffer.WriteString(fmt.Sprintf("%s%s %v %d\n", name, labels, d.Value, timestamp))
+		timestampMs := int(t.UnixNano() / 1000000)
+		buffer.WriteString(fmt.Sprintf("%s%s %v %d\n", name, labels, d.Value, timestampMs))
 	}
 
 	return buffer.String()
