@@ -92,8 +92,7 @@ func startPromServer(c *cli.Context) error {
 
 func stopPromServer(c *cli.Context) error {
 	log.Info("Halting Prometheus server.")
-	listener.Close()
-	return nil
+	return listener.Close()
 }
 
 func promConnector(metrics []producers.MetricsMessage, c *cli.Context) error {
