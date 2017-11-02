@@ -109,7 +109,7 @@ func TestPromPlugin(t *testing.T) {
 			port := c.Int("prometheus-port")
 
 			Convey("When the plugin has started", func() {
-				response, status := getLocalMetrics(port)
+				response, status := getLocalMetrics(port, t)
 				So(status, ShouldEqual, http.StatusNoContent)
 				So(response, ShouldBeEmpty)
 			})
@@ -119,7 +119,7 @@ func TestPromPlugin(t *testing.T) {
 				err := promConnector([]producers.MetricsMessage{fooBarMetric}, c)
 				So(err, ShouldBeNil)
 
-				response, status := getLocalMetrics(port)
+				response, status := getLocalMetrics(port, t)
 				So(status, ShouldEqual, http.StatusOK)
 				So(response, ShouldContainSubstring, "foo_bar")
 				So(response, ShouldContainSubstring, "foo_baz")
@@ -128,7 +128,7 @@ func TestPromPlugin(t *testing.T) {
 				err = promConnector([]producers.MetricsMessage{updatedFooBarMetric}, c)
 				So(err, ShouldBeNil)
 
-				response, status = getLocalMetrics(port)
+				response, status = getLocalMetrics(port, t)
 				So(status, ShouldEqual, http.StatusOK)
 				// The original metric is still present
 				So(response, ShouldContainSubstring, "foo_bar")
@@ -141,7 +141,7 @@ func TestPromPlugin(t *testing.T) {
 				err = promConnector([]producers.MetricsMessage{fooBarMetric, updatedFooBarMetric}, c)
 				So(err, ShouldBeNil)
 
-				response, status = getLocalMetrics(port)
+				response, status = getLocalMetrics(port, t)
 				So(status, ShouldEqual, http.StatusOK)
 				// All metrics should be present
 				So(response, ShouldContainSubstring, "foo_bar")
@@ -152,33 +152,33 @@ func TestPromPlugin(t *testing.T) {
 			return nil
 
 		}
-		app.Run([]string{"", "-prometheus-port", freeport()})
+		app.Run([]string{"", "-prometheus-port", freeport(t)})
 	})
 }
 
 // freeport listens momentarily on port 0, then closes the connection and
 // returns the assigned port, which is now known to be available.
-func freeport() string {
+func freeport(t *testing.T) string {
 	l, err := net.Listen("tcp", ":0")
 	defer l.Close()
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	_, p, _ := net.SplitHostPort(l.Addr().String())
 	return p
 }
 
 // getLocalMetrics fetches text from http://localhost:port/metrics
-func getLocalMetrics(port int) (string, int) {
+func getLocalMetrics(port int, t *testing.T) (string, int) {
 	addr := fmt.Sprintf("http://localhost:%d/metrics", port)
 	response, err := http.Get(addr)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	return string(body), response.StatusCode
 }
