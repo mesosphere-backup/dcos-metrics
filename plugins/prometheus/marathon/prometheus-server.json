@@ -1,0 +1,36 @@
+{
+  "id": "/prometheus",
+  "container": {
+    "portMappings": [
+      {
+        "containerPort": 9090,
+        "hostPort": 0,
+        "labels": {
+          "VIP_0": "/prometheus-server:80"
+        },
+        "protocol": "tcp",
+        "name": "http"
+      }
+    ],
+    "type": "MESOS",
+    "docker": {
+      "image": "prom/prometheus",
+      "forcePullImage": false
+    }
+  },
+  "cpus": 1,
+  "instances": 1,
+  "mem": 1024,
+  "gpus": 0,
+  "networks": [
+    {
+      "mode": "container/bridge"
+    }
+  ],
+  "healthChecks": [
+    {
+      "portIndex": 0,
+      "protocol": "MESOS_HTTP"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "id": "/statsd-emitter",
+  "cmd": "/opt/mesosphere/bin/statsd-emitter",
+  "cpus": 0.001
+}

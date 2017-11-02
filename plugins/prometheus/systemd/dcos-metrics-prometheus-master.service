@@ -1,0 +1,11 @@
+[Unit]
+Description=DC/OS Metrics Master Prometheus Plugin
+[Service]
+Restart=always
+RestartSec=60
+PermissionsStartOnly=True
+User=dcos_metrics
+EnvironmentFile=/opt/mesosphere/environment
+EnvironmentFile=/opt/mesosphere/etc/dcos-metrics.env
+EnvironmentFile=/opt/mesosphere/etc/dcos-metrics-prometheus.env
+ExecStart=/opt/mesosphere/bin/dcos-metrics-prometheus-plugin -dcos-role master -config ${DCOS_METRICS_CONFIG_PATH}
