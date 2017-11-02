@@ -103,11 +103,17 @@ func promConnector(metrics []producers.MetricsMessage, c *cli.Context) error {
 }
 
 func serveMetrics(w http.ResponseWriter, r *http.Request) {
-	if len(latestMetrics.metrics) == 0 {
+	// operate on a copy of metrics to avoid TOCTOU issues
+	metrics := []producers.MetricsMessage{}
+	latestMetrics.Lock()
+	metrics = latestMetrics.metrics
+	latestMetrics.Unlock()
+
+	if len(metrics) == 0 {
 		http.Error(w, "", http.StatusNoContent)
 		return
 	}
-	for _, m := range latestMetrics.metrics {
+	for _, m := range metrics {
 		fmt.Fprintf(w, messageToPromText(m))
 	}
 }
