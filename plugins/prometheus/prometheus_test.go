@@ -93,8 +93,8 @@ func TestConversion(t *testing.T) {
 
 	Convey("When converting metrics with dimensions", t, func() {
 		text := messageToPromText(fooBarMetricWithDimensions)
-		So(text, ShouldContainSubstring, "foo_bar(task_id:\"task-id-here\") 123 1262390462000")
-		So(text, ShouldContainSubstring, "foo_baz(task_id:\"task-id-here\",frodo:\"baggins\",samwise:\"gamgee\") 123.5 1262390462000")
+		So(text, ShouldContainSubstring, "foo_bar{task_id:\"task-id-here\"} 123 1262390462000")
+		So(text, ShouldContainSubstring, "foo_baz{task_id:\"task-id-here\",frodo:\"baggins\",samwise:\"gamgee\"} 123.5 1262390462000")
 	})
 }
 

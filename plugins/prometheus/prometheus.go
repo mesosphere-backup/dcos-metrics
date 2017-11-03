@@ -168,7 +168,7 @@ func getLabelsForDatapoint(dimensions producers.Dimensions, tags map[string]stri
 	}
 
 	if len(labels) > 0 {
-		return "(" + strings.Join(labels, ",") + ")"
+		return "{" + strings.Join(labels, ",") + "}"
 	}
 	return ""
 }
