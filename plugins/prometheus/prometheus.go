@@ -26,6 +26,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	plugin "github.com/dcos/dcos-metrics/plugins"
 	"github.com/dcos/dcos-metrics/producers"
+	prodHelpers "github.com/dcos/dcos-metrics/util/producers"
 	"github.com/urfave/cli"
 )
 
@@ -163,7 +164,9 @@ func getLabelsForDatapoint(dimensions producers.Dimensions, tags map[string]stri
 			labels = append(labels, fmt.Sprintf("%s:%q", k, v))
 		}
 	}
-	for k, v := range tags {
+	// Sorting tags ensures consistent order
+	for _, pair := range prodHelpers.SortTags(tags) {
+		k, v := pair[0], pair[1]
 		labels = append(labels, fmt.Sprintf("%s:%q", k, v))
 	}
 
