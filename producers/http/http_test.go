@@ -272,24 +272,3 @@ func TestJanitor(t *testing.T) {
 		})
 	})
 }
-
-func TestSortTags(t *testing.T) {
-	Convey("When sorting tags", t, func() {
-		someTags := map[string]string{
-			"foo":   "bar",
-			"baz":   "qux",
-			"corge": "grault",
-		}
-		sortedTags := sortTags(someTags)
-
-		Convey("all keys should be returned as a pair", func() {
-			So(len(sortedTags), ShouldEqual, 3)
-		})
-
-		Convey("tags should be sorted by key", func() {
-			So(sortedTags[0], ShouldResemble, []string{"baz", "qux"})
-			So(sortedTags[1], ShouldResemble, []string{"corge", "grault"})
-			So(sortedTags[2], ShouldResemble, []string{"foo", "bar"})
-		})
-	})
-}

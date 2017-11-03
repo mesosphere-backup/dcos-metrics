@@ -47,6 +47,8 @@ type Plugin struct {
 	MetricsHost       string
 	Log               *logrus.Entry
 	ConnectorFunc     func([]producers.MetricsMessage, *cli.Context) error
+	BeforeFunc        func(*cli.Context) error
+	AfterFunc         func(*cli.Context) error
 	Client            *http.Client
 	ConfigPath        string
 	IAMConfigPath     string `yaml:"iam_config_path"`
@@ -123,6 +125,18 @@ func New(options ...Option) (*Plugin, error) {
 // poll the system for metrics and send them to the ConnectorFunc.  This method
 // will block.
 func (p *Plugin) StartPlugin() error {
+	p.App.Before = func(c *cli.Context) error {
+		if p.BeforeFunc != nil {
+			return p.BeforeFunc(c)
+		}
+		return nil
+	}
+	p.App.After = func(c *cli.Context) error {
+		if p.AfterFunc != nil {
+			return p.BeforeFunc(c)
+		}
+		return nil
+	}
 	p.App.Action = func(c *cli.Context) error {
 		for {
 			metrics, err := p.Metrics()
