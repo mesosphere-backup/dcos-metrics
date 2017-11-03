@@ -34,10 +34,10 @@ which it aggregates and offers for scraping by your Prometheus server.
 
 ### Running a Prometheus server on a DC/OS cluster
 
-You can deploy a [prometheus server](./marathon/prometheus-server.json) with
+You can deploy a [prometheus server](./marathon/prometheus.json) with
 Marathon by running
 
-`dcos marathon app add prometheus-server.json`
+`dcos marathon app add prometheus.json`
 
 You can also deploy it manually with the DC/OS UI.
 
