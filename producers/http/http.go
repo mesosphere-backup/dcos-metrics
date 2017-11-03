@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -27,6 +26,7 @@ import (
 	"github.com/coreos/go-systemd/activation"
 	"github.com/dcos/dcos-go/store"
 	"github.com/dcos/dcos-metrics/producers"
+	prodHelpers "github.com/dcos/dcos-metrics/util/producers"
 )
 
 var httpLog = log.WithFields(log.Fields{
@@ -117,7 +117,7 @@ func (p *producerImpl) writeObjectToStore(d producers.Datapoint, m producers.Met
 	}
 	// e.g. dcos.metrics.app.[ContainerId].kafka.server.ReplicaFetcherManager.MaxLag
 	qualifiedName := joinMetricName(prefix, d.Name)
-	for _, pair := range sortTags(d.Tags) {
+	for _, pair := range prodHelpers.SortTags(d.Tags) {
 		k, v := pair[0], pair[1]
 		// e.g. dcos.metrics.node.[MesosId].network.out.errors.#interface:eth0
 		serializedTag := fmt.Sprintf("#%s:%s", k, v)
@@ -126,22 +126,6 @@ func (p *producerImpl) writeObjectToStore(d producers.Datapoint, m producers.Met
 	httpLog.Debugf("Setting store object '%s' with timestamp %s",
 		qualifiedName, time.Unix(newMessage.Timestamp, 0).Format(time.RFC3339))
 	p.store.Set(qualifiedName, newMessage)
-}
-
-// sortTags turns a map[string]string into a slice of key/values, sorted by key.
-func sortTags(tags map[string]string) [][]string {
-	keys := make([]string, len(tags))
-	result := make([][]string, len(tags))
-	i := 0
-	for k := range tags {
-		keys[i] = k
-		i++
-	}
-	sort.Strings(keys)
-	for i, k := range keys {
-		result[i] = []string{k, tags[k]}
-	}
-	return result
 }
 
 // joinMetricName concatenates its arguments using the metric name separator
