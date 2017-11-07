@@ -50,7 +50,7 @@ type metricsSnapshot struct {
 }
 
 func main() {
-	log.Info("Starting statsd DC/OS metrics plugin")
+	log.Info("Starting Prometheus DC/OS metrics plugin")
 
 	promPlugin, err := plugin.New(
 		plugin.Name("prometheus"),
