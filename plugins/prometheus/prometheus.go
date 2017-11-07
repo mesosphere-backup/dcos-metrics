@@ -161,13 +161,13 @@ func getLabelsForDatapoint(dimensions producers.Dimensions, tags map[string]stri
 	labels := []string{}
 	for k, v := range allDimensions {
 		if len(v) > 0 {
-			labels = append(labels, fmt.Sprintf("%s:%q", k, v))
+			labels = append(labels, fmt.Sprintf("%s=%q", k, v))
 		}
 	}
 	// Sorting tags ensures consistent order
 	for _, pair := range prodHelpers.SortTags(tags) {
 		k, v := pair[0], pair[1]
-		labels = append(labels, fmt.Sprintf("%s:%q", k, v))
+		labels = append(labels, fmt.Sprintf("%s=%q", k, v))
 	}
 
 	if len(labels) > 0 {
