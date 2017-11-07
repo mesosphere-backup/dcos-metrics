@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -42,6 +43,7 @@ var (
 	registerOnce  sync.Once
 	listener      net.Listener
 	latestMetrics metricsSnapshot
+	illegalChars  = regexp.MustCompile("\\W")
 )
 
 type metricsSnapshot struct {
@@ -125,7 +127,7 @@ func messageToPromText(message producers.MetricsMessage) string {
 	var buffer bytes.Buffer
 
 	for _, d := range message.Datapoints {
-		name := strings.Replace(d.Name, ".", "_", -1)
+		name := sanitizeName(d.Name)
 		labels := getLabelsForDatapoint(message.Dimensions, d.Tags)
 		t, err := time.Parse(time.RFC3339, d.Timestamp)
 		if err != nil {
@@ -167,11 +169,17 @@ func getLabelsForDatapoint(dimensions producers.Dimensions, tags map[string]stri
 	// Sorting tags ensures consistent order
 	for _, pair := range prodHelpers.SortTags(tags) {
 		k, v := pair[0], pair[1]
-		labels = append(labels, fmt.Sprintf("%s=%q", k, v))
+		labels = append(labels, fmt.Sprintf("%s=%q", sanitizeName(k), v))
 	}
 
 	if len(labels) > 0 {
 		return "{" + strings.Join(labels, ",") + "}"
 	}
 	return ""
+}
+
+// sanitizeName returns a metric or label name which is safe for use
+// in prometheus output
+func sanitizeName(name string) string {
+	return strings.ToLower(illegalChars.ReplaceAllString(name, "_"))
 }

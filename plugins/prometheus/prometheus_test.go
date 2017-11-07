@@ -36,7 +36,7 @@ var (
 				Timestamp: "2010-01-02T00:01:02.000000003Z",
 			},
 			producers.Datapoint{
-				Name:      "foo.baz",
+				Name:      "foo-baz",
 				Value:     123.5,
 				Unit:      "",
 				Timestamp: "2010-01-02T00:01:02.000000003Z",
@@ -73,8 +73,8 @@ var (
 				Unit:      "",
 				Timestamp: "2010-01-02T00:01:02.000000003Z",
 				Tags: map[string]string{
-					"frodo":   "baggins",
-					"samwise": "gamgee",
+					"frodo":    "baggins",
+					"sam-wise": "gam-gee",
 				},
 			},
 		},
@@ -94,7 +94,7 @@ func TestConversion(t *testing.T) {
 	Convey("When converting metrics with dimensions", t, func() {
 		text := messageToPromText(fooBarMetricWithDimensions)
 		So(text, ShouldContainSubstring, "foo_bar{task_id=\"task-id-here\"} 123 1262390462000")
-		So(text, ShouldContainSubstring, "foo_baz{task_id=\"task-id-here\",frodo=\"baggins\",samwise=\"gamgee\"} 123.5 1262390462000")
+		So(text, ShouldContainSubstring, "foo_baz{task_id=\"task-id-here\",frodo=\"baggins\",sam_wise=\"gam-gee\"} 123.5 1262390462000")
 	})
 }
 
