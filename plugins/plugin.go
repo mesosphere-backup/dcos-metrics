@@ -128,7 +128,7 @@ func (p *Plugin) StartPlugin() error {
 	return p.App.Run(os.Args)
 }
 
-// Metrics polls the local dcos-metrics API and returns a slice of
+// Metrics queries the local dcos-metrics API and returns a slice of
 // producers.MetricsMessage.
 func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
 	var messages []producers.MetricsMessage
@@ -154,7 +154,7 @@ func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
 	return messages, nil
 }
 
-// getNodeMetrics polls the /node endpoint and returns metrics found there
+// getNodeMetrics queries the /node endpoint and returns metrics found there
 func (p *Plugin) getNodeMetrics() (producers.MetricsMessage, error) {
 	nodeMetrics, err := makeMetricsRequest(p.Client, "http://localhost/v0/node")
 	if err != nil {
@@ -163,7 +163,7 @@ func (p *Plugin) getNodeMetrics() (producers.MetricsMessage, error) {
 	return nodeMetrics, nil
 }
 
-// getContainerMetrics polls the /containers/<id> and /containers/<id>/app
+// getContainerMetrics queries the /containers/<id> and /containers/<id>/app
 // endpoint for each container on the machine. It returns a slice of metrics
 // messages, one for each hit.
 func (p *Plugin) getContainerMetrics() ([]producers.MetricsMessage, error) {
@@ -186,7 +186,7 @@ func (p *Plugin) getContainerMetrics() ([]producers.MetricsMessage, error) {
 	return messages, nil
 }
 
-// getContainerList polls the /containers endpoint and returns a slice of
+// getContainerList queries the /containers endpoint and returns a slice of
 // container IDs.
 func (p *Plugin) getContainerList() ([]string, error) {
 	var ids []string
@@ -211,7 +211,7 @@ func (p *Plugin) getContainerList() ([]string, error) {
 
 /*** Helpers ***/
 
-// makeMetricsRequest polls the given url expecting to find a JSON-formatted
+// makeMetricsRequest queries the given url expecting to find a JSON-formatted
 // MetricsMessage, which it returns.
 func makeMetricsRequest(client *http.Client, url string) (producers.MetricsMessage, error) {
 	l := logrus.WithFields(logrus.Fields{"plugin": "http-helper"})
