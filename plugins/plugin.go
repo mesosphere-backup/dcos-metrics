@@ -90,7 +90,9 @@ func New(options ...Option) (*Plugin, error) {
 func (p *Plugin) StartPlugin() error {
 	p.App.Before = func(c *cli.Context) error {
 		if p.BeforeFunc != nil {
-			return p.BeforeFunc(c)
+			if err := p.BeforeFunc(c); err != nil {
+				return err
+			}
 		}
 		if p.Role == dcos.RoleMaster || p.Role == dcos.RoleAgent || p.Role == dcos.RoleAgentPublic {
 			return p.createClient()
@@ -101,7 +103,9 @@ func (p *Plugin) StartPlugin() error {
 	}
 	p.App.After = func(c *cli.Context) error {
 		if p.AfterFunc != nil {
-			return p.AfterFunc(c)
+			if err := p.AfterFunc(c); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
