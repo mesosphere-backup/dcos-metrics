@@ -216,7 +216,7 @@ func (p *Plugin) getContainerList() ([]string, error) {
 func makeMetricsRequest(client *http.Client, url string) (producers.MetricsMessage, error) {
 	l := logrus.WithFields(logrus.Fields{"plugin": "http-helper"})
 
-	l.Infof("Making request to %+v", url)
+	l.Infof("Making request to %s", url)
 	mm := producers.MetricsMessage{}
 
 	resp, err := client.Get(url)
@@ -233,7 +233,7 @@ func makeMetricsRequest(client *http.Client, url string) (producers.MetricsMessa
 
 	// 204 No Content is not an error code; we handle it explicitly
 	if resp.StatusCode == http.StatusNoContent {
-		l.Warnf("Empty response received from endpoint: %+v", url)
+		l.Warnf("Empty response received from endpoint: %s", url)
 		return mm, nil
 	}
 
