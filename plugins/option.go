@@ -15,16 +15,8 @@
 package plugin
 
 import (
-	"errors"
-
 	"github.com/dcos/dcos-metrics/producers"
 	"github.com/urfave/cli"
-)
-
-var (
-	errBadProto = errors.New("Protocol can be either http or https only")
-	errBadPort  = errors.New("Port must be less than 65535")
-	errBadToken = errors.New("Port token can not have zero length")
 )
 
 // Option lets each plugin configure the Plugin type. The plugin.New(...)
@@ -47,39 +39,6 @@ func PollingInterval(i int) Option {
 	return func(p *Plugin) error {
 		p.PollingInterval = i
 		return nil
-	}
-}
-
-// MetricsProtocol allows the plugin to set either "http" or "https" for the url
-// it calls to gather metrics.
-func MetricsProtocol(proto string) Option {
-	return func(p *Plugin) error {
-		if proto == "http" || proto == "https" {
-			p.MetricsScheme = proto
-			return nil
-		}
-		return errBadProto
-	}
-}
-
-// MetricsHost allows the plugin to set a custom hostname for the url it calls
-// to gather metrics.
-func MetricsHost(h string) Option {
-	return func(p *Plugin) error {
-		p.MetricsHost = h
-		return nil
-	}
-}
-
-// MetricsPort allows the plugin to set a custom port for the url it calls to
-// gather metrics.
-func MetricsPort(port int) Option {
-	return func(p *Plugin) error {
-		if port <= 65535 {
-			p.MetricsPort = port
-			return nil
-		}
-		return errBadPort
 	}
 }
 

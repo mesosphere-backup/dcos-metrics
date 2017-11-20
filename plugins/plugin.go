@@ -39,9 +39,6 @@ type Plugin struct {
 	Endpoints       []string
 	Role            string
 	PollingInterval int
-	MetricsPort     int
-	MetricsScheme   string
-	MetricsHost     string
 	Log             *logrus.Entry
 	ConnectorFunc   func([]producers.MetricsMessage, *cli.Context) error
 	BeforeFunc      func(*cli.Context) error
@@ -57,39 +54,17 @@ func New(options ...Option) (*Plugin, error) {
 	newPlugin := &Plugin{
 		Name:            "default",
 		PollingInterval: 10,
-		MetricsScheme:   "http",
-		MetricsHost:     "localhost",
-		MetricsPort:     61001,
 	}
 
 	newPlugin.App = cli.NewApp()
 	newPlugin.App.Version = version
 	newPlugin.App.Flags = []cli.Flag{
-		cli.StringFlag{
-			Name:        "metrics-host",
-			Value:       newPlugin.MetricsHost,
-			Usage:       "The IP or hostname where DC/OS metrics is running",
-			Destination: &newPlugin.MetricsHost,
-		},
-		cli.StringFlag{
-			Name:        "metrics-proto",
-			Value:       newPlugin.MetricsScheme,
-			Usage:       "The HTTP protocol for the DC/OS metrics service",
-			Destination: &newPlugin.MetricsScheme,
-		},
-		cli.IntFlag{
-			Name:        "metrics-port",
-			Value:       newPlugin.MetricsPort,
-			Usage:       "Port the DC/OS metrics service is running.Defaults to agent adminrouter port",
-			Destination: &newPlugin.MetricsPort,
-		},
 		cli.IntFlag{
 			Name:        "polling-interval",
 			Value:       newPlugin.PollingInterval,
 			Usage:       "Polling interval for metrics in seconds",
 			Destination: &newPlugin.PollingInterval,
 		},
-
 		cli.StringFlag{
 			Name:        "dcos-role",
 			Value:       newPlugin.Role,
