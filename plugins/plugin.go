@@ -15,6 +15,7 @@
 package plugin
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -28,7 +29,6 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-metrics/producers"
-	httpHelpers "github.com/dcos/dcos-metrics/util/http/helpers"
 	"github.com/urfave/cli"
 
 	yaml "gopkg.in/yaml.v2"
@@ -309,15 +309,22 @@ func (p *Plugin) loadConfig() error {
 	return yaml.Unmarshal(fileByte, p)
 }
 
-// createClient creates an HTTP Client with credentials (if available) and
-// attaches it to the plugin
+// createClient creates an HTTP Client which uses the unix file socket
+// appropriate to the plugin's role
 func (p *Plugin) createClient() error {
-	p.Log.Info("Creating an HTTP client to poll the local metrics API")
-	client, err := httpHelpers.NewMetricsClient(p.CACertificatePath, p.IAMConfigPath)
-	if err != nil {
-		return err
+	address := "/run/dcos/dcos-metrics-agent.sock"
+	if p.Role == dcos.RoleMaster {
+		address = "/run/dcos/dcos-metrics-master.sock"
 	}
 
-	p.Client = client
+	p.Log.Infof("Creating metrics API client via %s", address)
+
+	p.Client = &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", address)
+			},
+		},
+	}
 	return nil
 }
