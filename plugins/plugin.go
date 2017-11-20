@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -195,18 +194,10 @@ func (p *Plugin) getContainerList() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		p.Log.Errorf("Encountered error reading response body, %s", err.Error())
-		return nil, err
-	}
-	if err := json.Unmarshal(body, &ids); err != nil {
-		return nil, err
-	}
-
-	return ids, nil
+	err = json.NewDecoder(resp.Body).Decode(&ids)
+	return ids, errors.Wrap(err, "could not decode container list")
 }
 
 /*** Helpers ***/
@@ -232,19 +223,8 @@ func makeMetricsRequest(client *http.Client, url string) (producers.MetricsMessa
 	}
 
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		l.Errorf("Encountered error reading response body, %s", err.Error())
-		return mm, err
-	}
-
-	err = json.Unmarshal(body, &mm)
-	if err != nil {
-		l.Errorf("Encountered error parsing JSON, %s. JSON Content was: %s", err.Error(), body)
-		return mm, err
-	}
-
-	return mm, nil
+	err = json.NewDecoder(resp.Body).Decode(&mm)
+	return mm, errors.Wrapf(err, "could not decode metrics response: %s", url)
 }
 
 // createClient creates an HTTP Client which uses the unix file socket
