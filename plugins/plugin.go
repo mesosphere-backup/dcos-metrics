@@ -118,7 +118,7 @@ func (p *Plugin) StartPlugin() error {
 		if p.BeforeFunc != nil {
 			return p.BeforeFunc(c)
 		}
-		return nil
+		return p.createClient()
 	}
 	p.App.After = func(c *cli.Context) error {
 		if p.AfterFunc != nil {
@@ -150,14 +150,6 @@ func (p *Plugin) StartPlugin() error {
 func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
 
 	metricsMessages := []producers.MetricsMessage{}
-
-	// The first time Metrics() is called, the plugin client
-	// should be initialised
-	if p.Client == nil {
-		if err := p.createClient(); err != nil {
-			return metricsMessages, err
-		}
-	}
 
 	p.Log.Info("Getting metrics from metrics service")
 	if err := p.setEndpoints(); err != nil {
