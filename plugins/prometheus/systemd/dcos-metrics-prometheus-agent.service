@@ -8,4 +8,4 @@ User=dcos_metrics
 EnvironmentFile=/opt/mesosphere/environment
 EnvironmentFile=/opt/mesosphere/etc/dcos-metrics.env
 EnvironmentFile=/opt/mesosphere/etc/dcos-metrics-prometheus.env
-ExecStart=/opt/mesosphere/bin/dcos-metrics-prometheus-plugin -dcos-role agent -config ${DCOS_METRICS_CONFIG_PATH}
+ExecStart=/opt/mesosphere/bin/dcos-metrics-prometheus-plugin --dcos-role agent
