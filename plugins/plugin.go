@@ -136,7 +136,7 @@ func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
 	// Fetch node metrics
 	nodeMetrics, err := p.getNodeMetrics()
 	if err != nil {
-		return messages, err
+		return nil, err
 	}
 	messages = append(messages, nodeMetrics)
 
@@ -148,7 +148,7 @@ func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
 	// Fetch container metrics
 	containerMetrics, err := p.getContainerMetrics()
 	if err != nil {
-		return messages, err
+		return nil, err
 	}
 	messages = append(messages, containerMetrics...)
 	return messages, nil
@@ -170,16 +170,16 @@ func (p *Plugin) getContainerMetrics() ([]producers.MetricsMessage, error) {
 	var messages []producers.MetricsMessage
 	ids, err := p.getContainerList()
 	if err != nil {
-		return messages, errors.Wrap(err, "could not read list of containers")
+		return nil, errors.Wrap(err, "could not read list of containers")
 	}
 	for _, id := range ids {
 		containerMetrics, err := makeMetricsRequest(p.Client, fmt.Sprintf("http://localhost/v0/containers/%s", id))
 		if err != nil {
-			return messages, errors.Wrapf(err, "could not retrieve metrics for container %s", id)
+			return nil, errors.Wrapf(err, "could not retrieve metrics for container %s", id)
 		}
 		containerAppMetrics, err := makeMetricsRequest(p.Client, fmt.Sprintf("http://localhost/v0/containers/%s/app", id))
 		if err != nil {
-			return messages, errors.Wrapf(err, "could not retrieve app metrics for container %s", id)
+			return nil, errors.Wrapf(err, "could not retrieve app metrics for container %s", id)
 		}
 		messages = append(messages, containerMetrics, containerAppMetrics)
 	}
@@ -193,17 +193,17 @@ func (p *Plugin) getContainerList() ([]string, error) {
 
 	resp, err := p.Client.Get("http://localhost/v0/containers")
 	if err != nil {
-		return ids, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		p.Log.Errorf("Encountered error reading response body, %s", err.Error())
-		return ids, err
+		return nil, err
 	}
 	if err := json.Unmarshal(body, &ids); err != nil {
-		return ids, err
+		return nil, err
 	}
 
 	return ids, nil
