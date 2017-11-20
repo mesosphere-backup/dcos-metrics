@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -118,7 +119,12 @@ func (p *Plugin) StartPlugin() error {
 		if p.BeforeFunc != nil {
 			return p.BeforeFunc(c)
 		}
-		return p.createClient()
+		if p.Role == dcos.RoleMaster || p.Role == dcos.RoleAgent || p.Role == dcos.RoleAgentPublic {
+			return p.createClient()
+		}
+		return fmt.Errorf(
+			"--dcos-role %q was not recognized (valid roles: %s, %s, %s)",
+			p.Role, dcos.RoleMaster, dcos.RoleAgent, dcos.RoleAgentPublic)
 	}
 	p.App.After = func(c *cli.Context) error {
 		if p.AfterFunc != nil {
