@@ -174,7 +174,7 @@ func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
 			URL:    &metricsURL,
 		}
 
-		metricMessage, err := makeMetricsRequest(p.Client, request)
+		metricMessage, err := makeMetricsRequest(p.Client, metricsURL.String())
 		if err != nil {
 			return metricsMessages, err
 		}
@@ -243,13 +243,16 @@ func (p *Plugin) setEndpoints() error {
 }
 
 /*** Helpers ***/
-func makeMetricsRequest(client *http.Client, request *http.Request) (producers.MetricsMessage, error) {
+
+// makeMetricsRequest polls the given url expecting to find a JSON-formatted
+// MetricsMessage, which it returns.
+func makeMetricsRequest(client *http.Client, url string) (producers.MetricsMessage, error) {
 	l := logrus.WithFields(logrus.Fields{"plugin": "http-helper"})
 
-	l.Infof("Making request to %+v", request.URL)
+	l.Infof("Making request to %+v", url)
 	mm := producers.MetricsMessage{}
 
-	resp, err := client.Do(request)
+	resp, err := client.Get(url)
 	if err != nil {
 		l.Errorf("Encountered error requesting data, %s", err.Error())
 		return mm, err
@@ -263,7 +266,7 @@ func makeMetricsRequest(client *http.Client, request *http.Request) (producers.M
 
 	// 204 No Content is not an error code; we handle it explicitly
 	if resp.StatusCode == http.StatusNoContent {
-		l.Warnf("Empty response received from endpoint: %+v", request.URL)
+		l.Warnf("Empty response received from endpoint: %+v", url)
 		return mm, nil
 	}
 
