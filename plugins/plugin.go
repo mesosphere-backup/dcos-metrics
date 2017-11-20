@@ -17,7 +17,6 @@ package plugin
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -30,6 +29,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-metrics/producers"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -151,39 +151,85 @@ func (p *Plugin) StartPlugin() error {
 	return p.App.Run(os.Args)
 }
 
-// Metrics polls the DC/OS components and returns a slice of
+// Metrics polls the local dcos-metrics API and returns a slice of
 // producers.MetricsMessage.
 func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
+	var messages []producers.MetricsMessage
 
-	metricsMessages := []producers.MetricsMessage{}
+	// Fetch node metrics
+	nodeMetrics, err := p.getNodeMetrics()
+	if err != nil {
+		return messages, err
+	}
+	messages = append(messages, nodeMetrics)
 
-	p.Log.Info("Getting metrics from metrics service")
-	if err := p.setEndpoints(); err != nil {
-		p.Log.Fatal(err)
+	// Master only collects node metrics; return without checking containers
+	if p.Role == dcos.RoleMaster {
+		return messages, nil
 	}
 
-	for _, path := range p.Endpoints {
-		metricsURL := url.URL{
-			Scheme: p.MetricsScheme,
-			Host:   net.JoinHostPort(p.MetricsHost, strconv.Itoa(p.MetricsPort)),
-			Path:   path,
-		}
+	// Fetch container metrics
+	containerMetrics, err := p.getContainerMetrics()
+	if err != nil {
+		return messages, err
+	}
+	messages = append(messages, containerMetrics...)
+	return messages, nil
+}
 
-		request := &http.Request{
-			Method: "GET",
-			URL:    &metricsURL,
-		}
+// getNodeMetrics polls the /node endpoint and returns metrics found there
+func (p *Plugin) getNodeMetrics() (producers.MetricsMessage, error) {
+	nodeMetrics, err := makeMetricsRequest(p.Client, "http://localhost/v0/node")
+	if err != nil {
+		return nodeMetrics, errors.Wrap(err, "could not read node metrics")
+	}
+	return nodeMetrics, nil
+}
 
-		metricMessage, err := makeMetricsRequest(p.Client, metricsURL.String())
+// getContainerMetrics polls the /containers/<id> and /containers/<id>/app
+// endpoint for each container on the machine. It returns a slice of metrics
+// messages, one for each hit.
+func (p *Plugin) getContainerMetrics() ([]producers.MetricsMessage, error) {
+	var messages []producers.MetricsMessage
+	ids, err := p.getContainerList()
+	if err != nil {
+		return messages, errors.Wrap(err, "could not read list of containers")
+	}
+	for _, id := range ids {
+		containerMetrics, err := makeMetricsRequest(p.Client, fmt.Sprintf("http://localhost/v0/containers/%s", id))
 		if err != nil {
-			return metricsMessages, err
+			return messages, errors.Wrapf(err, "could not retrieve metrics for container %s", id)
 		}
+		containerAppMetrics, err := makeMetricsRequest(p.Client, fmt.Sprintf("http://localhost/v0/containers/%s/app", id))
+		if err != nil {
+			return messages, errors.Wrapf(err, "could not retrieve app metrics for container %s", id)
+		}
+		messages = append(messages, containerMetrics, containerAppMetrics)
+	}
+	return messages, nil
+}
 
-		metricsMessages = append(metricsMessages, metricMessage)
-		p.Log.Infof("Received data from metrics service endpoint %s, success!", request.URL.Path)
+// getContainerList polls the /containers endpoint and returns a slice of
+// container IDs.
+func (p *Plugin) getContainerList() ([]string, error) {
+	var ids []string
+
+	resp, err := p.Client.Get("http://localhost/v0/containers")
+	if err != nil {
+		return ids, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		p.Log.Errorf("Encountered error reading response body, %s", err.Error())
+		return ids, err
+	}
+	if err := json.Unmarshal(body, &ids); err != nil {
+		return ids, err
 	}
 
-	return metricsMessages, nil
+	return ids, nil
 }
 
 // SetEndpoints uses the role passed as a flag to generate the metrics endpoints
