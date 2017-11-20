@@ -39,12 +39,17 @@ Marathon by running
 
 `dcos marathon app add prometheus.json`
 
-You can also deploy it manually with the DC/OS UI.
+Once it's running, use `dcos node tunnel` to establish a VPN to your cluster,
+then visit [prometheus.marathon.l4lb.thisdcos.directory] to see Prometheus
+working. This image has a built-in configuration script which should detect
+the nodes in your cluster automatically.
 
-You will need to configure the Prometheus server to discover an endpoint on
-each of your nodes. You should do this by adding the IP address of each node
-to the `static_configs` array in the `scrape_configs` section of your
-`prometheus.yml` file. Remember to specify the port you're using too.
+For more advanced dashboarding, you can install [grafana](./marathon/grafana.json):
+
+ `dcos marathon app add grafana.json`
+
+Then simply step through the setup at [grafana.marathon.l4lb.thisdcos.directory],
+specifying the prometheus address above as your source.
 
 ### Configuring the plugin
 
