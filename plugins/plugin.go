@@ -21,9 +21,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -230,62 +228,6 @@ func (p *Plugin) getContainerList() ([]string, error) {
 	}
 
 	return ids, nil
-}
-
-// SetEndpoints uses the role passed as a flag to generate the metrics endpoints
-// this instance should use.
-func (p *Plugin) setEndpoints() error {
-	p.Log.Infof("Setting plugin endpoints for role %s", p.Role)
-	if p.Role == dcos.RoleMaster {
-		p.Endpoints = []string{
-			"/system/v1/metrics/v0/node",
-		}
-		return nil
-	}
-
-	if p.Role == dcos.RoleAgent || p.Role == dcos.RoleAgentPublic {
-		p.Endpoints = []string{
-			"/system/v1/metrics/v0/node",
-		}
-
-		containers := []string{}
-		metricsURL := url.URL{
-			Scheme: p.MetricsScheme,
-			Host:   net.JoinHostPort(p.MetricsHost, strconv.Itoa(p.MetricsPort)),
-			Path:   "/system/v1/metrics/v0/containers",
-		}
-
-		request := &http.Request{
-			Method: "GET",
-			URL:    &metricsURL,
-		}
-
-		resp, err := p.Client.Do(request)
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			p.Log.Errorf("Encountered error reading response body, %s", err.Error())
-			return err
-		}
-
-		if err := json.Unmarshal(body, &containers); err != nil {
-			return err
-		}
-
-		for _, c := range containers {
-			e := "/system/v1/metrics/v0/containers/" + c
-			p.Log.Infof("Discovered new container endpoint %s", e)
-			p.Endpoints = append(p.Endpoints, e, e+"/app")
-		}
-
-		return nil
-	}
-
-	return errors.New("Role must be either 'master' or 'agent'")
 }
 
 /*** Helpers ***/
