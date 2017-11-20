@@ -30,29 +30,24 @@ import (
 	"github.com/dcos/dcos-go/dcos"
 	"github.com/dcos/dcos-metrics/producers"
 	"github.com/urfave/cli"
-
-	yaml "gopkg.in/yaml.v2"
 )
 
 // Plugin is used to collect metrics and then send them to a remote system
 // (e.g. DataDog, Librato, etc.).  Use plugin.New(...) to build a new plugin.
 type Plugin struct {
-	App               *cli.App
-	Name              string
-	Endpoints         []string
-	Role              string
-	PollingInterval   int
-	MetricsPort       int
-	MetricsScheme     string
-	MetricsHost       string
-	Log               *logrus.Entry
-	ConnectorFunc     func([]producers.MetricsMessage, *cli.Context) error
-	BeforeFunc        func(*cli.Context) error
-	AfterFunc         func(*cli.Context) error
-	Client            *http.Client
-	ConfigPath        string
-	IAMConfigPath     string `yaml:"iam_config_path"`
-	CACertificatePath string `yaml:"ca_certificate_path"`
+	App             *cli.App
+	Name            string
+	Endpoints       []string
+	Role            string
+	PollingInterval int
+	MetricsPort     int
+	MetricsScheme   string
+	MetricsHost     string
+	Log             *logrus.Entry
+	ConnectorFunc   func([]producers.MetricsMessage, *cli.Context) error
+	BeforeFunc      func(*cli.Context) error
+	AfterFunc       func(*cli.Context) error
+	Client          *http.Client
 }
 
 var version = "UNSET"
@@ -101,12 +96,6 @@ func New(options ...Option) (*Plugin, error) {
 			Value:       newPlugin.Role,
 			Usage:       "DC/OS role, either master or agent",
 			Destination: &newPlugin.Role,
-		},
-		cli.StringFlag{
-			Name:        "config",
-			Value:       newPlugin.ConfigPath,
-			Usage:       "The path to the config file.",
-			Destination: &newPlugin.ConfigPath,
 		},
 	}
 
