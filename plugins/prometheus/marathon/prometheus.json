@@ -14,7 +14,7 @@
     ],
     "type": "MESOS",
     "docker": {
-      "image": "prom/prometheus",
+      "image": "philipnrmn/prometheus-on-dcos",
       "forcePullImage": false
     }
   },
