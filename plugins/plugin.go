@@ -224,17 +224,18 @@ func makeMetricsRequest(client *http.Client, url string) (producers.MetricsMessa
 		l.Errorf("Encountered error requesting data, %s", err.Error())
 		return mm, err
 	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		l.Errorf("Encountered error reading response body, %s", err.Error())
-		return mm, err
-	}
 
 	// 204 No Content is not an error code; we handle it explicitly
 	if resp.StatusCode == http.StatusNoContent {
 		l.Warnf("Empty response received from endpoint: %s", url)
 		return mm, nil
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		l.Errorf("Encountered error reading response body, %s", err.Error())
+		return mm, err
 	}
 
 	err = json.Unmarshal(body, &mm)
