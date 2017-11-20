@@ -101,7 +101,7 @@ func (p *Plugin) StartPlugin() error {
 	}
 	p.App.After = func(c *cli.Context) error {
 		if p.AfterFunc != nil {
-			return p.BeforeFunc(c)
+			return p.AfterFunc(c)
 		}
 		return nil
 	}
