@@ -6,7 +6,7 @@ Don't see your desired plugin on this list? Make a PR and add it!
 
 - [ ] Elastic Search
 - [ ] InfluxDB
-- [ ] Prometheus
+- [x] Prometheus
 - [ ] SignalFX
 
 ## Where to start?

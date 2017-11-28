@@ -1,38 +1,45 @@
 ## DC/OS Metrics Service Plugins
-**NOTE** These plugins are considered experimental and are not supported by the DC/OS support team. If you're having issues, please feel free to file an issue to this repo (not github.com/dcos/dcos) or file a *Pull Request* (we love pull requests!).
 
-Though your mileage may vary, if there is a plugin missing that you need, please feel free to file an issue so we can poll what services our users want the most.
+DC/OS Metrics Plugins are the best way to get your metrics from DC/OS to your monitoring platform.
 
-## Developing
-To develop a new plugin in preparation for a pull request to this project:
+Plugins are binaries which you run on each node in your DC/OS cluster. There they monitor the DC/OS Metrics API,
+aggregating, transforming, and pushing or offering them as appropriate.
 
-### Plugin Development
-1. Create a new package for your `cool` plugin `mkdir plugins/cool/`
-1. Make a go file named after your package `touch plugins/cool/cool.go`
+The following plugins are available:
+ - [Datadog Agent](./datadog) - sends your metrics to the Datadog Agent
+ - [Datadog Standalone](./datadog-standalone) - sends your metrics straight to DatadogHQ
+ - [Librato](./librato) - sends your metrics to Librato
+ - [Prometheus](./prometheus) - serves prometheus-format metrics
+ - [StatsD](./statsd) - sends your metrics to a StatsD server
+ - [stdout](./stdout) - prints your metrics to stdout
 
-#### Get a new plugin.Plugin{}
-1. Create flags: `myFlags := []cli.Flag{}`
-1. `myPlugin := plugin.New(myFlags)` -> `plugin.Plugin{}`
-1. Use `myPlugin.App.Action` and pass it a [cli.ActionFunc()](https://github.com/urfave/cli/blob/master/app.go#L66) which has all the `main()` logic your plugin needs.
-1. Call `myPlugin.Metrics()` which returns a slice of `producers.MetricsMessage{}` from the metrics HTTP API.
+Missing a plugin? You can get in touch with the team and ask us to write a new one, or you can
+[write your own](#Developing).
 
-At this point you can write what ever helper methods you need to transform these and send to your metrics aggregation or cloud hosted service.
+### Installation
+Plugins can be installed on each node.
 
-### Unit Test Coverage
-1. Add a unit test (aim for 80% coverage)
+The binaries can be obtained from the [releases page](https://github.com/dcos/dcos-metrics/releases), or built from
+source according to preference. The binary should be copied to the `/opt/mesosphere/bin` directory on each node.
 
-#### Add a README.md in your `cool` package explaining:
-```
-vi plugins/cool/README.md
-# The Cool Plugin
-This cool plugin allows you to plugin to cool stuff.
+Each plugin has (or will soon have) a `systemd` directory containing systemd unit files for the master and agent.
+These should be downloaded, edited as appropriate - each plugin has its own flags where you may need to define API
+keys or make customisations - and then uploaded to the /etc/systemd/system` directory on each node.
 
-# How To Run Me
-1. ...
+This done, the new systemd service should be added and started (`systemctl daemon-reload && systemctl start <plugin>`)
 
-# Caveats
-I knew there were caveats!
-```
+### Compatibility
+Regardless of the release to which they are attached, all plugins are compatible with DC/OS 1.9 and above.
 
-#### Submit a Pull Request!
-Ping @malnick on DC/OS community slack :)
+### The future
+In 1.11, a new and improved metrics API will be available which should make plugins much easier to write and install.
+
+When that happens, the plugins that reside in this directory will be deprecated. They will continue to work. New plugins
+using the updated API will be developed and released to replace them.
+
+In later versions of DC/OS, we expect these plugins to cease to function as the API on which they depend will no longer
+be available.
+
+### Developing
+See [CONTRIBUTING.md](./CONTRIBUTING.md)
+
