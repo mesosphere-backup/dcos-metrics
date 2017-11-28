@@ -21,7 +21,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -164,23 +163,22 @@ func (p *Plugin) getNodeMetrics() (producers.MetricsMessage, error) {
 // endpoint for each container on the machine. It returns a slice of metrics
 // messages, one for each hit.
 func (p *Plugin) getContainerMetrics() ([]producers.MetricsMessage, error) {
+	var messages []producers.MetricsMessage
 	ids, err := p.getContainerList()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read list of containers")
 	}
-
-	var futures []<-chan producers.MetricsMessage
 	for _, id := range ids {
-		url1 := fmt.Sprintf("http://localhost/v0/containers/%s", id)
-		url2 := fmt.Sprintf("http://localhost/v0/containers/%s/app", id)
-		futures = append(futures, makeMetricsRequestFuture(p.Client, url1), makeMetricsRequestFuture(p.Client, url2))
+		containerMetrics, err := makeMetricsRequest(p.Client, fmt.Sprintf("http://localhost/v0/containers/%s", id))
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not retrieve metrics for container %s", id)
+		}
+		containerAppMetrics, err := makeMetricsRequest(p.Client, fmt.Sprintf("http://localhost/v0/containers/%s/app", id))
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not retrieve app metrics for container %s", id)
+		}
+		messages = append(messages, containerMetrics, containerAppMetrics)
 	}
-
-	var messages []producers.MetricsMessage
-	for future := range mergeFutures(futures) {
-		messages = append(messages, future)
-	}
-
 	return messages, nil
 }
 
@@ -200,45 +198,6 @@ func (p *Plugin) getContainerList() ([]string, error) {
 }
 
 /*** Helpers ***/
-
-// mergeFutures aggregates multiple channels into a single output channel
-func mergeFutures(cs []<-chan producers.MetricsMessage) <-chan producers.MetricsMessage {
-	var wg sync.WaitGroup
-	out := make(chan producers.MetricsMessage)
-
-	// Start an output goroutine for each input channel in cs.  output
-	// copies values from c to out until c is closed, then calls wg.Done.
-	output := func(c <-chan producers.MetricsMessage) {
-		for n := range c {
-			out <- n
-		}
-		wg.Done()
-	}
-	wg.Add(len(cs))
-	for _, c := range cs {
-		go output(c)
-	}
-
-	// Start a goroutine to close out once all the output goroutines are
-	// done.  This must start after the wg.Add call.
-	go func() {
-		wg.Wait()
-		close(out)
-	}()
-	return out
-}
-
-// makeMetricsRequestFuture wraps makeMetricsRequest in a goroutine, returning
-// a channel on which the MetricsMessage will be returned.
-func makeMetricsRequestFuture(client *http.Client, url string) <-chan producers.MetricsMessage {
-	out := make(chan producers.MetricsMessage, 1)
-	go func() {
-		message, _ := makeMetricsRequest(client, url)
-		out <- message
-		close(out)
-	}()
-	return out
-}
 
 // makeMetricsRequest queries the given url expecting to find a JSON-formatted
 // MetricsMessage, which it returns.
