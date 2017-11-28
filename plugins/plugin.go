@@ -155,11 +155,8 @@ func (p *Plugin) Metrics() ([]producers.MetricsMessage, error) {
 
 // getNodeMetrics queries the /node endpoint and returns metrics found there
 func (p *Plugin) getNodeMetrics() (producers.MetricsMessage, error) {
-	nodeMetrics, err := makeMetricsRequest(p.Client, "http://localhost/v0/node")
-	if err != nil {
-		return nodeMetrics, errors.Wrap(err, "could not read node metrics")
-	}
-	return nodeMetrics, nil
+	message, err := makeMetricsRequest(p.Client, "http://localhost/v0/node")
+	return message, errors.Wrap(err, "could not read node metrics")
 }
 
 // getContainerMetrics queries the /containers/<id> and /containers/<id>/app
