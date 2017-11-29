@@ -1,0 +1,39 @@
+{
+  "id": "/grafana",
+  "instances": 1,
+  "container": {
+    "type": "MESOS",
+    "volumes": [],
+    "docker": {
+      "image": "grafana/grafana"
+    },
+    "portMappings": [
+      {
+        "containerPort": 3000,
+        "hostPort": 0,
+        "labels": {
+          "VIP_0": "/grafana:80"
+        },
+        "protocol": "tcp",
+        "name": "http"
+      }
+    ]
+  },
+  "cpus": 1,
+  "mem": 512,
+  "requirePorts": false,
+  "networks": [
+    {
+      "mode": "container/bridge"
+    }
+  ],
+  "healthChecks": [
+    {
+      "portIndex": 0,
+      "protocol": "MESOS_HTTP",
+      "path": "/"
+    }
+  ],
+  "fetch": [],
+  "constraints": []
+}
