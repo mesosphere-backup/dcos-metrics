@@ -1,5 +1,5 @@
 # dcos-metrics
-[![Build Status](https://jenkins.mesosphere.com/service/jenkins/buildStatus/icon?job=dcos-cluster-ops/dcos-metrics/dcos-metrics-master)][jenkins-master]
+[![Build Status](https://jenkins.mesosphere.com/service/jenkins/buildStatus/icon?job=public-dcos-cluster-ops/dcos-metrics/dcos-metrics-master)][jenkins-master]
 [![Go Report Card](https://goreportcard.com/badge/github.com/dcos/dcos-metrics)][go-report-card]
 
 **Table of Contents:**
