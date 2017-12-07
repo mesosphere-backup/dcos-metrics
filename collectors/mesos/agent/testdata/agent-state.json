@@ -1,0 +1,48 @@
+{
+  "frameworks": [
+    {
+      "id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
+      "name": "marathon",
+      "role": "*",
+      "principal": "dcos_marathon",
+      "executors": [
+        {
+          "id": "foo.124b1048-a17a-11e6-9182-080027fb5b88",
+          "name": "Command Executor (Task: foo.124b1048-a17a-11e6-9182-080027fb5b88) (Command: sh -c 'sleep 900')",
+          "container": "e4c2f9f6-47aa-481d-a183-a21e8435bc06",
+          "labels": [
+            {
+              "key": "somekey",
+              "value": "someval"
+            }
+          ],
+          "tasks": [
+            {
+              "id": "foo.124b1048-a17a-11e6-9182-080027fb5b88",
+              "name": "foo",
+              "framework_id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
+              "executor_id": "",
+              "slave_id": "34b46033-69c0-4663-887c-f64b526e47a6-S0",
+              "labels": [
+                {
+                  "key": "somekey",
+                  "value": "someval"
+                }
+              ],
+              "statuses": [
+                {
+                  "state": "TASK_RUNNING",
+                  "container_status": {
+                    "container_id": {
+                      "value": "e4faacb2-f69f-4ea1-9d96-eb06fea75eef"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
