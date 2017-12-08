@@ -35,10 +35,10 @@ import (
 
 var (
 	mockAgentState = loadFixture("agent-state.json")
-	// For now, mockClusterState only includes framework infos and flags related to framework auth.
-	mockClusterState          = loadFixture("cluster-state.json")
-	mockContainerMetrics      = loadFixture("container-metrics.json")
-	deficientContainerMetrics = loadFixture("container-metrics-no-statistics.json")
+	// For now, mockMasterState only includes framework infos and flags related to framework auth.
+	mockMasterState             = loadFixture("master-state.json")
+	mockContainerMetrics        = loadFixture("container-metrics.json")
+	mockContainerMetricsNoStats = loadFixture("container-metrics-no-statistics.json")
 )
 
 // setupTestServer is a helper method for returning the specified JSON
@@ -256,7 +256,7 @@ func TestTransform(t *testing.T) {
 		})
 
 		Convey("Missing container metrics", func() {
-			if err := json.Unmarshal(deficientContainerMetrics, &mac.containerMetrics); err != nil {
+			if err := json.Unmarshal(mockContainerMetricsNoStats, &mac.containerMetrics); err != nil {
 				panic(err)
 			}
 			result := mac.metricsMessages()
