@@ -10,6 +10,8 @@ dcos-go/dcos/nodeutil provides a golang interface to DC/OS cluster.
 - `MesosID(*context.Context)` returns a node's mesos ID. Optionally can accept an instance of Context to control
   request cancellation from a caller.
 - `ClusterID()` returns a UUID of a cluster.
+- `TaskCanonicalID(context.Context, task)` returns a canonical node ID for a given task.
+  This includes the mesos agent, framework, executor and container IDs.
 
 Note: Methods `IsLeader()` and `ClusterID()` will only work on master nodes.
 
@@ -57,4 +59,3 @@ func main() {
     }
 }
 ```
-
