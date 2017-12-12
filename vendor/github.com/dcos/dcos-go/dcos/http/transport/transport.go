@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package helpers
+package transport
 
 import (
 	"crypto/tls"
@@ -21,10 +21,12 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-
-	log "github.com/Sirupsen/logrus"
-	"github.com/dcos/dcos-go/dcos/http/transport"
 )
+
+type dcosTransport struct {
+	CaCertificatePath string
+	IAMConfigPath     string
+}
 
 // loadCAPool will load a valid x509 cert.
 func loadCAPool(path string) (*x509.CertPool, error) {
@@ -47,12 +49,11 @@ func loadCAPool(path string) (*x509.CertPool, error) {
 	return caPool, nil
 }
 
-// getTransport will return transport for http.Client
-func getTransport(caCertificatePath string) (*http.Transport, error) {
+// newTransport will return transport for http.Client
+func configureTLS(caCertificatePath string) (*http.Transport, error) {
 	tr := &http.Transport{}
 	// if user provided CA cert we must use it, otherwise use InsecureSkipVerify: true for all HTTPS requests.
 	if caCertificatePath != "" {
-		log.Infof("Loading CA cert: %s", caCertificatePath)
 		caPool, err := loadCAPool(caCertificatePath)
 		if err != nil {
 			return tr, err
@@ -69,26 +70,30 @@ func getTransport(caCertificatePath string) (*http.Transport, error) {
 	return tr, nil
 }
 
-// NewMetricsClient returns a client with a transport using dcos-go/jwt/transport for
-// secure communications if a IAM configuration is present. It uses a verified cert if
-// present and skips verification if not present.
-func NewMetricsClient(caCertificatePath string, iamConfigPath string) (*http.Client, error) {
-	client := &http.Client{}
-	tr, err := getTransport(caCertificatePath)
-	if err != nil {
-		return client, err
-	}
-	client.Transport = tr
-
-	if len(iamConfigPath) != 0 {
-		rt, err := transport.NewRoundTripper(
-			client.Transport,
-			transport.OptionReadIAMConfig(iamConfigPath))
-		if err != nil {
-			log.Fatal(err)
+// NewTransport returns a DC/OS transport implementation by leveraging a roundtripper for
+// IAM configuration if passed with a pre-configured TLS configuration.
+func NewTransport(clientOptionFuncs ...OptionTransportFunc) (http.RoundTripper, error) {
+	t := dcosTransport{}
+	for _, opt := range clientOptionFuncs {
+		if err := opt(&t); err != nil {
+			return nil, err
 		}
-		client.Transport = rt
 	}
 
-	return client, nil
+	tr, err := configureTLS(t.CaCertificatePath)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(t.IAMConfigPath) != 0 {
+		withIAM, err := NewRoundTripper(
+			tr,
+			OptionReadIAMConfig(t.IAMConfigPath))
+		if err != nil {
+			return nil, err
+		}
+		return withIAM, nil
+	}
+
+	return tr, nil
 }

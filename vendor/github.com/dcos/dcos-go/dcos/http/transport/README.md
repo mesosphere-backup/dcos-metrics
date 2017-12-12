@@ -1,7 +1,6 @@
 # dcos-go/jwt/transport
 
 #### Warning.
-- package works only with `github.com/dgrijalva/jwt-go` `v2.6.0`. Please make sure you vendor the right version.
 - package breaks `RoundTripper` interface spec defined in `https://golang.org/pkg/net/http/#RoundTripper`
   by mutating request instance.
 

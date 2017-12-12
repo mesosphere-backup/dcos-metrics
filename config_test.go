@@ -63,6 +63,10 @@ func (f *fakeInfo) ClusterID() (string, error) {
 	return f.clusterID, f.clusterIDErr
 }
 
+func (f *fakeInfo) TaskCanonicalID(ctx context.Context, task string, completed bool) (*nodeutil.CanonicalTaskID, error) {
+	return &nodeutil.CanonicalTaskID{}, nil
+}
+
 func TestGetNodeInfo(t *testing.T) {
 	Convey("When getting node info", t, func() {
 

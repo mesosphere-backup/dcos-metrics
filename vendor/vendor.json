@@ -55,34 +55,34 @@
 			"version": "bedbcc6fcb03444c055a00c4d36c2f2783fb9973"
 		},
 		{
-			"checksumSHA1": "t+xHkFcaPuAVgec1W3MNTnSNhXg=",
+			"checksumSHA1": "2ubisn4EiBh2f3qZRDa81BV87hI=",
 			"path": "github.com/dcos/dcos-go/dcos",
-			"revision": "bedbcc6fcb03444c055a00c4d36c2f2783fb9973",
-			"revisionTime": "2017-02-22T21:20:18Z"
+			"revision": "4dd6c8d149dc706729bd0f617211a539717a6132",
+			"revisionTime": "2017-12-07T19:43:51Z"
 		},
 		{
-			"checksumSHA1": "3YuJZ1i8gW1ISvmXxCgkvIa7LkE=",
+			"checksumSHA1": "yJshNw2wIUh7wjASqCgHB2geElk=",
+			"path": "github.com/dcos/dcos-go/dcos/http/transport",
+			"revision": "4dd6c8d149dc706729bd0f617211a539717a6132",
+			"revisionTime": "2017-12-07T19:43:51Z"
+		},
+		{
+			"checksumSHA1": "MnOuioF+o+gamskiD28LRbq5EyU=",
 			"path": "github.com/dcos/dcos-go/dcos/nodeutil",
-			"revision": "74526af763e046fdbcb9e2ac64fed0bdd9213e0f",
-			"revisionTime": "2017-02-23T00:15:14Z"
+			"revision": "4dd6c8d149dc706729bd0f617211a539717a6132",
+			"revisionTime": "2017-12-07T19:43:51Z"
 		},
 		{
-			"checksumSHA1": "ZlJiS1RE06MscHhuI1kYNdJi+Tk=",
+			"checksumSHA1": "mCuoKmG5BojkBOtcDfvXsRLipIk=",
 			"path": "github.com/dcos/dcos-go/exec",
-			"revision": "78a50ee3f8678fd72bb97360c837ea22a7e85d43",
-			"revisionTime": "2016-12-15T02:36:14Z"
-		},
-		{
-			"checksumSHA1": "U14VXt9bXlwhVLIIBJDzLpYAZXE=",
-			"path": "github.com/dcos/dcos-go/jwt/transport",
-			"revision": "78a50ee3f8678fd72bb97360c837ea22a7e85d43",
-			"revisionTime": "2016-12-15T02:36:14Z"
+			"revision": "4dd6c8d149dc706729bd0f617211a539717a6132",
+			"revisionTime": "2017-12-07T19:43:51Z"
 		},
 		{
 			"checksumSHA1": "y7+qlMm+ID5NYA8dOFd2WFcIRaU=",
 			"path": "github.com/dcos/dcos-go/store",
-			"revision": "78a50ee3f8678fd72bb97360c837ea22a7e85d43",
-			"revisionTime": "2016-12-15T02:36:14Z"
+			"revision": "4dd6c8d149dc706729bd0f617211a539717a6132",
+			"revisionTime": "2017-12-07T19:43:51Z"
 		},
 		{
 			"checksumSHA1": "7oJyGPn6FhDZeJy9wuWqWSQ5XFM=",
@@ -261,10 +261,46 @@
 			"revisionTime": "2016-09-05T11:50:38Z"
 		},
 		{
+			"checksumSHA1": "1hwn8cgg4EVXhCpJIqmMbzqnUo0=",
+			"path": "golang.org/x/crypto/ed25519",
+			"revision": "94eea52f7b742c7cbe0b03b22f0c4c8631ece122",
+			"revisionTime": "2017-11-28T01:43:40Z"
+		},
+		{
+			"checksumSHA1": "LXFcVx8I587SnWmKycSDEq9yvK8=",
+			"path": "golang.org/x/crypto/ed25519/internal/edwards25519",
+			"revision": "94eea52f7b742c7cbe0b03b22f0c4c8631ece122",
+			"revisionTime": "2017-11-28T01:43:40Z"
+		},
+		{
 			"checksumSHA1": "Xz3hUrPvOYGWTuHrEryoYAj9zwg=",
 			"path": "golang.org/x/sys/unix",
 			"revision": "9bb9f0998d48b31547d975974935ae9b48c7a03c",
 			"revisionTime": "2016-10-11T23:07:22Z"
+		},
+		{
+			"checksumSHA1": "Qq9iBb+/Hjnydxe0Ait/ouqX7yE=",
+			"path": "gopkg.in/square/go-jose.v2",
+			"revision": "f8f38de21b4dcd69d0413faf231983f5fd6634b1",
+			"revisionTime": "2017-09-13T18:28:36Z"
+		},
+		{
+			"checksumSHA1": "Ho5sr2GbiR8S35IRni7vC54d5Js=",
+			"path": "gopkg.in/square/go-jose.v2/cipher",
+			"revision": "f8f38de21b4dcd69d0413faf231983f5fd6634b1",
+			"revisionTime": "2017-09-13T18:28:36Z"
+		},
+		{
+			"checksumSHA1": "JFun0lWY9eqd80Js2iWsehu1gc4=",
+			"path": "gopkg.in/square/go-jose.v2/json",
+			"revision": "f8f38de21b4dcd69d0413faf231983f5fd6634b1",
+			"revisionTime": "2017-09-13T18:28:36Z"
+		},
+		{
+			"checksumSHA1": "36YSMA8/CXxaomaM6bXrq1Gt7Rs=",
+			"path": "gopkg.in/square/go-jose.v2/jwt",
+			"revision": "f8f38de21b4dcd69d0413faf231983f5fd6634b1",
+			"revisionTime": "2017-09-13T18:28:36Z"
 		},
 		{
 			"checksumSHA1": "SPMXWeoFQa5z0pLPmqpcFzyHqQQ=",
