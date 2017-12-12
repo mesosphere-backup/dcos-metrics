@@ -1,7 +1,22 @@
+// Copyright 2016 Mesosphere, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package transport
 
 import (
 	"bytes"
+	"crypto/rsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,7 +24,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	"gopkg.in/square/go-jose.v2"
+	"gopkg.in/square/go-jose.v2/jwt"
 )
 
 // ErrTokenRefresh is an error type returned by `RoundTrip` if the bouncer response was not 200.
@@ -26,8 +42,17 @@ var (
 	ErrEmptyToken = errors.New("Empty token")
 
 	// ErrWrongRoundTripperImpl returned by `CurrentToken` if http.RoundTripper does not implement implWithJWT.
-	ErrWrongRoundTripperImpl = errors.New("RoundTripper does not implement implWithJWT")
+	ErrWrongRoundTripperImpl = errors.New("RoundTripper does not implement OptionRoundtripperFunc")
 )
+
+type dcosRoundtripper struct {
+	sync.Mutex
+	token              string
+	expire             time.Duration
+	uid, loginEndpoint string
+	secret             *rsa.PrivateKey
+	transport          http.RoundTripper
+}
 
 // Debug is an interface which defines methods to generate a token and get the latest generated token.
 type Debug interface {
@@ -35,22 +60,13 @@ type Debug interface {
 	CurrentToken() string
 }
 
-// implWithJWT is a wrapper over http.RoundTripper which adds a valid token to each request.
-type implWithJWT struct {
-	sync.Mutex
-	token                      string
-	expire                     time.Duration
-	uid, secret, loginEndpoint string
-	transport                  http.RoundTripper
-}
-
 // NewRoundTripper returns RoundTripper implementation with JWT handling.
-func NewRoundTripper(rt http.RoundTripper, opts ...Option) (http.RoundTripper, error) {
+func NewRoundTripper(rt http.RoundTripper, opts ...OptionRoundtripperFunc) (http.RoundTripper, error) {
 	if rt == nil {
 		rt = http.DefaultTransport
 	}
 
-	t := &implWithJWT{
+	t := &dcosRoundtripper{
 		transport: rt,
 	}
 
@@ -77,16 +93,23 @@ func NewRoundTripper(rt http.RoundTripper, opts ...Option) (http.RoundTripper, e
 }
 
 // generateToken is a function that generates JWT and makes a POST request to bouncer to sign it.
-func (t *implWithJWT) GenerateToken() error {
+func (t *dcosRoundtripper) GenerateToken() error {
 	t.Lock()
 	defer t.Unlock()
 
-	// TODO: this is very broken with the latest `jwt-go` lib version 3.0.0
-	token := jwt.New(jwt.SigningMethodRS256)
-	token.Claims["uid"] = t.uid
-	token.Claims["exp"] = time.Now().Add(t.expire).Unix()
+	sig, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.RS256, Key: t.secret}, (&jose.SignerOptions{}).WithType("JWT"))
+	if err != nil {
+		return err
+	}
 
-	tokenStr, err := token.SignedString([]byte(t.secret))
+	cl := struct {
+		UID string `json:"uid"`
+		Exp int64  `json:"exp"`
+	}{
+		t.uid,
+		time.Now().Add(t.expire).Unix(),
+	}
+	tokenStr, err := jwt.Signed(sig).Claims(cl).CompactSerialize()
 	if err != nil {
 		return err
 	}
@@ -141,14 +164,14 @@ func (t *implWithJWT) GenerateToken() error {
 	return nil
 }
 
-func (t *implWithJWT) CurrentToken() string {
+func (t *dcosRoundtripper) CurrentToken() string {
 	t.Lock()
 	defer t.Unlock()
 	return t.token
 }
 
 // RoundTrip is implementation of RoundTripper interface.
-func (t *implWithJWT) RoundTrip(req *http.Request) (*http.Response, error) {
+func (t *dcosRoundtripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	// helper function to update `Authorization` header.
 	addAuthToken := func() {
 		if token := t.CurrentToken(); token != "" {
@@ -176,6 +199,9 @@ func (t *implWithJWT) RoundTrip(req *http.Request) (*http.Response, error) {
 
 		addAuthToken()
 		resp, err = t.transport.RoundTrip(req)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return resp, nil
 }

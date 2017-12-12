@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,10 +22,11 @@ import (
 )
 
 const (
-	defaultExecTimeout       = 10 * time.Second
-	defaultClusterIDLocation = "/var/lib/dcos/cluster-id"
-	defaultBashPath          = "/bin/bash"
+	defaultExecTimeout = 10 * time.Second
 )
+
+// ErrTaskNotFound is return if the canonical ID for a given task not found.
+var ErrTaskNotFound = errors.New("task not found")
 
 var defaultStateURL = url.URL{
 	Scheme: "http",
@@ -53,6 +56,16 @@ type NodeInfo interface {
 	IsLeader() (bool, error)
 	MesosID(context.Context) (string, error)
 	ClusterID() (string, error)
+	TaskCanonicalID(ctx context.Context, task string, completed bool) (*CanonicalTaskID, error)
+}
+
+// CanonicalTaskID is a unique task id.
+type CanonicalTaskID struct {
+	ID           string
+	AgentID      string
+	FrameworkID  string
+	ExecutorID   string
+	ContainerIDs []string
 }
 
 // dcosInfo is implementation of NodeInfo interface.
@@ -75,6 +88,24 @@ type dcosInfo struct {
 	mesosStateURL     string
 	dnsRecordLeader   string
 	clusterIDLocation string
+}
+
+func getDefaultShellPath() string {
+	switch runtime.GOOS {
+	case "windows":
+		return "powershell.exe"
+	default:
+		return "/bin/bash"
+	}
+}
+
+func getClusterIDLocation() string {
+	switch runtime.GOOS {
+	case "windows":
+		return "/mesos/var/lib/dcos/cluster-id"
+	default:
+		return "/var/lib/dcos/cluster-id"
+	}
 }
 
 // NewNodeInfo returns a new instance of NodeInfo implementation.
@@ -103,11 +134,11 @@ func NewNodeInfo(client *http.Client, role string, options ...Option) (NodeInfo,
 		client:            client,
 		role:              role,
 		cache:             true,
-		detectIPLocation:  dcos.FileDetectIP,
+		detectIPLocation:  dcos.GetFileDetectIPLocation(),
 		detectIPTimeout:   defaultExecTimeout,
 		dnsRecordLeader:   dcos.DNSRecordLeader,
 		mesosStateURL:     defaultStateURL.String(),
-		clusterIDLocation: defaultClusterIDLocation,
+		clusterIDLocation: getClusterIDLocation(),
 	}
 
 	// update parameters with a caller input.
@@ -138,7 +169,9 @@ func (d *dcosInfo) DetectIP() (net.IP, error) {
 		return nil, err
 	}
 
-	ce, err := exec.Run(defaultBashPath, []string{d.detectIPLocation}, exec.Timeout(d.detectIPTimeout))
+	ctx, cancel := context.WithTimeout(context.Background(), d.detectIPTimeout)
+	defer cancel()
+	ce, err := exec.Run(ctx, getDefaultShellPath(), []string{d.detectIPLocation})
 	if err != nil {
 		return nil, err
 	}
@@ -156,12 +189,12 @@ func (d *dcosInfo) DetectIP() (net.IP, error) {
 	// strip the trailing \n
 	detectedIP := string(bytes.TrimSpace(buf))
 	if detectedIP == "" {
-		return nil, ErrNodeInfo{fmt.Sprintf("command %s return empty output", dcos.FileDetectIP)}
+		return nil, ErrNodeInfo{fmt.Sprintf("command %s return empty output", dcos.GetFileDetectIPLocation())}
 	}
 
 	validIP := net.ParseIP(detectedIP)
 	if validIP == nil {
-		return nil, ErrNodeInfo{fmt.Sprintf("command %s returned invalid IP address %s", dcos.FileDetectIP, detectedIP)}
+		return nil, ErrNodeInfo{fmt.Sprintf("command %s returned invalid IP address %s", dcos.GetFileDetectIPLocation(), detectedIP)}
 	}
 
 	// save retrieved IP address to cache.
@@ -238,44 +271,8 @@ func (d *dcosInfo) MesosID(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	req, err := http.NewRequest("GET", d.mesosStateURL, nil)
+	state, err := d.state(ctx)
 	if err != nil {
-		return "", err
-	}
-
-	if ctx != nil {
-		if header, ok := HeaderFromContext(ctx); ok {
-			req.Header = header
-		}
-		req = req.WithContext(ctx)
-	}
-
-	resp, err := d.client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", ErrNodeInfo{fmt.Sprintf("GET request to %s returned response code %d", d.mesosStateURL, resp.StatusCode)}
-	}
-
-	type stateJSON struct {
-		// top level ID is used for mesos master ID.
-		ID     string `json:"id"`
-		Slaves []struct {
-			ID  string `json:"id"`
-			Pid string `json:"pid"`
-		} `json:"slaves"`
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	var state stateJSON
-	if err := json.Unmarshal(body, &state); err != nil {
 		return "", err
 	}
 
@@ -364,6 +361,80 @@ func (d *dcosInfo) ClusterID() (string, error) {
 	}
 
 	return clusterID, nil
+}
+
+func (d *dcosInfo) state(ctx context.Context) (state State, err error) {
+	req, err := http.NewRequest("GET", d.mesosStateURL, nil)
+	if err != nil {
+		return state, err
+	}
+
+	if ctx != nil {
+		if header, ok := HeaderFromContext(ctx); ok {
+			req.Header = header
+		}
+		req = req.WithContext(ctx)
+	}
+
+	resp, err := d.client.Do(req)
+	if err != nil {
+		return state, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return state, ErrNodeInfo{fmt.Sprintf("GET request to %s returned response code %d", d.mesosStateURL, resp.StatusCode)}
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&state)
+	return state, err
+}
+
+// TaskCanonicalID return a CanonicalTaskID for a given task.
+func (d *dcosInfo) TaskCanonicalID(ctx context.Context, task string, completed bool) (*CanonicalTaskID, error) {
+	state, err := d.state(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var foundTasks []Task
+	for _, framework := range state.Frameworks {
+		currentTasks := framework.Tasks
+		if completed {
+			currentTasks = framework.CompletedTasks
+		}
+
+		for _, t := range currentTasks {
+			if t.Name != task && !strings.Contains(t.ID, task) {
+				continue
+			}
+			foundTasks = append(foundTasks, t)
+		}
+	}
+
+	if len(foundTasks) == 0 {
+		return nil, ErrTaskNotFound
+	} else if len(foundTasks) > 1 {
+		var taskIDs []string
+		for _, task := range foundTasks {
+			taskIDs = append(taskIDs, task.ID)
+		}
+		return nil, fmt.Errorf("found more then 1 task with name %s: %s", task, taskIDs)
+	}
+
+	t := foundTasks[0]
+	containerIDs, err := t.ContainerIDs()
+	if err != nil {
+		return nil, err
+	}
+
+	return &CanonicalTaskID{
+		ID:           t.ID,
+		AgentID:      t.SlaveID,
+		FrameworkID:  t.FrameworkID,
+		ExecutorID:   t.ExecutorID,
+		ContainerIDs: containerIDs,
+	}, nil
 }
 
 // HeaderFromContext returns http.Header from a context if it's found.

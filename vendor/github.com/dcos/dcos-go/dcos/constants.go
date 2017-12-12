@@ -1,5 +1,9 @@
 package dcos
 
+import (
+	"runtime"
+)
+
 // DC/OS roles.
 const (
 	// RoleMaster defines a master role.
@@ -12,11 +16,15 @@ const (
 	RoleAgentPublic = "agent_public"
 )
 
-// DC/OS files.
-const (
-	// FileDetectIP is a shell script on every DC/OS node which provides IP address used by mesos.
-	FileDetectIP = "/opt/mesosphere/bin/detect_ip"
-)
+// GetFileDetectIPLocation is a shell script on every DC/OS node which provides IP address used by mesos.
+func GetFileDetectIPLocation() string {
+	switch runtime.GOOS {
+	case "windows":
+		return "/mesos/bin/detect_ip.ps1"
+	default:
+		return "/opt/mesosphere/bin/detect_ip"
+	}
+}
 
 // DC/OS DNS records.
 const (
