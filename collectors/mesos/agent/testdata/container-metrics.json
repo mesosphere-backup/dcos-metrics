@@ -1,0 +1,29 @@
+[
+  {
+    "container_id": "e4faacb2-f69f-4ea1-9d96-eb06fea75eef",
+    "executor_id": "foo.124b1048-a17a-11e6-9182-080027fb5b88",
+    "executor_name": "Command Executor (Task: foo.adf2b6f4-a171-11e6-9182-080027fb5b88) (Command: sh -c 'sleep 900')",
+    "framework_id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
+    "source": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
+    "statistics": {
+      "cpus_limit": 1.1,
+      "cpus_nr_periods": 3701894,
+      "cpus_nr_throttled": 2126,
+      "cpus_system_time_secs": 0.31,
+      "cpus_throttled_time_secs": 98.355904778,
+      "cpus_user_time_secs": 0.22,
+      "mem_anon_bytes": 435118080,
+      "mem_cache_bytes": 15962112,
+      "mem_critical_pressure_counter": 0,
+      "mem_file_bytes": 15962112,
+      "mem_limit_bytes": 167772160,
+      "mem_low_pressure_counter": 0,
+      "mem_mapped_file_bytes": 40960,
+      "mem_medium_pressure_counter": 0,
+      "mem_rss_bytes": 435118080,
+      "mem_swap_bytes": 0,
+      "mem_total_bytes": 4476928,
+      "mem_unevictable_bytes": 0
+    }
+  }
+]

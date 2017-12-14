@@ -88,6 +88,41 @@ type resourceStatistics struct {
 	NetTxBytes   uint64 `json:"net_tx_bytes,omitempty"`
 	NetTxErrors  uint64 `json:"net_tx_errors,omitempty"`
 	NetTxDropped uint64 `json:"net_tx_dropped,omitempty"`
+
+	// Blkio isolated device stats
+	Blkio *BlkioStats `json:"blkio_statistics,omitempty"`
+}
+
+// BlkioStats represents IO throttling in cgroups. For more details on the
+// mesos implementation, refer to:
+// http://mesos.apache.org/documentation/latest/isolators/cgroups-blkio/
+// For more details on cgroups blkio controller, refer to:
+// https://www.kernel.org/doc/Documentation/cgroup-v1/blkio-controller.txt
+type BlkioStats struct {
+	Cfq          []IODeviceStats `json:"cfq,omitempty"`
+	CfqRecursive []IODeviceStats `json:"cfq_recursive,omitempty"`
+	Throttling   []IODeviceStats `json:"throttling,omitempty"`
+}
+
+// IODeviceStats represents the statistics from an IO device being managed by a
+// blkio isolator
+type IODeviceStats struct {
+	Device struct {
+		Major uint64 `json:"major"`
+		Minor uint64 `json:"minor"`
+	} `json:"device,omitempty"`
+	Serviced     []IOStatValue `json:"io_serviced,omitempty"`
+	ServiceBytes []IOStatValue `json:"io_service_bytes,omitempty"`
+	ServiceTime  []IOStatValue `json:"io_service_time,omitempty"`
+	Merged       []IOStatValue `json:"io_merged,omitempty"`
+	Queued       []IOStatValue `json:"io_queued,omitempty"`
+	WaitTime     []IOStatValue `json:"io_wait_time,omitempty"`
+}
+
+// IOStatValue represents a single blkio operation value
+type IOStatValue struct {
+	Operation string `json:"op"`
+	Value     uint64 `json:"value"`
 }
 
 // poll queries an agent for container-level metrics, such as

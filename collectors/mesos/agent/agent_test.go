@@ -18,6 +18,7 @@ package agent
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -33,170 +34,12 @@ import (
 )
 
 var (
-	mockAgentState = []byte(`
-		{
-			"frameworks": [
-				{
-					"id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
-					"name": "marathon",
-					"role": "*",
-					"principal": "dcos_marathon",
-					"executors": [
-						{
-							"id": "foo.124b1048-a17a-11e6-9182-080027fb5b88",
-							"name": "Command Executor (Task: foo.124b1048-a17a-11e6-9182-080027fb5b88) (Command: sh -c 'sleep 900')",
-							"container": "e4c2f9f6-47aa-481d-a183-a21e8435bc06",
-							"labels": [
-								{
-									"key": "somekey",
-									"value": "someval"
-								}
-							],
-							"tasks": [
-								{
-									"id": "foo.124b1048-a17a-11e6-9182-080027fb5b88",
-									"name": "foo",
-									"framework_id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
-									"executor_id": "",
-									"slave_id": "34b46033-69c0-4663-887c-f64b526e47a6-S0",
-									"labels": [
-										{
-											"key": "somekey",
-											"value": "someval"
-										}
-									],
-									"statuses": [
-										{
-											"state": "TASK_RUNNING",
-											"container_status": {
-												"container_id": {
-													"value": "e4faacb2-f69f-4ea1-9d96-eb06fea75eef"
-												}
-											}
-										}
-									]
-								}
-							]
-						}
-					]
-				}
-			]
-		}`)
-
-	// For now, mockClusterState only includes framework infos and flags related to framework auth.
-	mockClusterState = []byte(`
-	{
-		"version": "1.2.0",
-		"flags": {
-			"authenticate_frameworks": "true"
-		},
-		"slaves": [],
-		"frameworks": [
-			{
-				"id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
-				"name": "marathon",
-				"pid": "scheduler-ec318492-5847-4c63-a527-100c35851838@10.10.0.231:43773",
-				"used_resources": {
-					"disk": 10,
-					"mem": 288,
-					"gpus": 0,
-					"cpus": 0.9,
-					"ports": "[1347-1347, 6303-6303, 8958-8958, 24846-24846, 26563-26563, 27062-27062, 27226-27226]"
-				},
-				"offered_resources": {
-					"disk": 0,
-					"mem": 0,
-					"gpus": 0,
-					"cpus": 0
-				},
-				"capabilities": [
-					"TASK_KILLING_STATE",
-					"PARTITION_AWARE"
-				],
-				"hostname": "10.10.0.231",
-				"webui_url": "https://10.10.0.231:8443",
-				"active": true,
-				"connected": true,
-				"recovered": false,
-				"user": "nobody",
-				"failover_timeout": 604800,
-				"checkpoint": true,
-				"registered_time": 1482179777.19633,
-				"unregistered_time": 0,
-				"principal": "dcos_marathon",
-				"resources": {
-					"disk": 10,
-					"mem": 288,
-					"gpus": 0,
-					"cpus": 0.9,
-					"ports": "[1347-1347, 6303-6303, 8958-8958, 24846-24846, 26563-26563, 27062-27062, 27226-27226]"
-				},
-				"role": "slave_public",
-				"tasks": []
-			}
-		]
-	}`)
-
-	mockContainerMetrics = []byte(`
-		[
-			{
-				"container_id": "e4faacb2-f69f-4ea1-9d96-eb06fea75eef",
-				"executor_id": "foo.124b1048-a17a-11e6-9182-080027fb5b88",
-				"executor_name": "Command Executor (Task: foo.adf2b6f4-a171-11e6-9182-080027fb5b88) (Command: sh -c 'sleep 900')",
-				"framework_id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
-				"source": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
-				"statistics": {
-					"cpus_limit": 1.1,
-					"cpus_nr_periods": 3701894,
-					"cpus_nr_throttled": 2126,
-					"cpus_system_time_secs": 0.31,
-					"cpus_throttled_time_secs": 98.355904778,
-					"cpus_user_time_secs": 0.22,
-					"mem_anon_bytes": 435118080,
-					"mem_cache_bytes": 15962112,
-					"mem_critical_pressure_counter": 0,
-					"mem_file_bytes": 15962112,
-					"mem_limit_bytes": 167772160,
-					"mem_low_pressure_counter": 0,
-					"mem_mapped_file_bytes": 40960,
-					"mem_medium_pressure_counter": 0,
-					"mem_rss_bytes": 435118080,
-					"mem_swap_bytes": 0,
-					"mem_total_bytes": 4476928,
-					"mem_unevictable_bytes": 0
-				}
-			}
-		]`)
-
-	deficientContainerMetrics = []byte(`
-		[
-			{
-				"container_id": "e4faacb2-f69f-4ea1-9d96-eb06fea75eef",
-				"executor_id": "foo.124b1048-a17a-11e6-9182-080027fb5b88",
-				"executor_name": "Command Executor (Task: foo.adf2b6f4-a171-11e6-9182-080027fb5b88) (Command: sh -c 'sleep 900')",
-				"framework_id": "5349f49b-68b3-4638-aab2-fc4ec845f993-0000",
-				"source": "foo.adf2b6f4-a171-11e6-9182-080027fb5b88",
-				"statistics": {
-					"cpus_limit": 1.1,
-					"cpus_system_time_secs": 0.31,
-					"cpus_user_time_secs": 0.22,
-					"mem_limit_bytes": 167772160,
-					"mem_total_bytes": 4476928
-				}
-			},
-			{
-				"container_id": "623cd286-0b5e-4d1b-895b-8ca30d1fbe05",
-				"executor_id": "boba_20170731215525xd01p.87bf554a-763f-11e7-90b8-70b3d5800001",
-				"executor_name": "Command Executor (Task: boba_20170731215525xd01p.87bf554a-763f-11e7-90b8-70b3d5800001) (Command: sh -c 'sleep 1')",
-				"framework_id": "378ac077-d22b-445f-8f6e-942956eb5ee4-0000",
-				"source": "boba_20170731215525xd01p.87bf554a-763f-11e7-90b8-70b3d5800001",
-				"status": {
-						"container_id": {
-						"value": "623cd286-0b5e-4d1b-895b-8ca30d1fbe05"
-					}
-				}
-			}
-		]`)
+	mockAgentState = loadFixture("agent-state.json")
+	// For now, mockMasterState only includes framework infos and flags related to framework auth.
+	mockMasterState               = loadFixture("master-state.json")
+	mockContainerMetrics          = loadFixture("container-metrics.json")
+	mockContainerMetricsNoStats   = loadFixture("container-metrics-no-statistics.json")
+	mockContainerMetricsWithBlkio = loadFixture("container-metrics-blkio.json")
 )
 
 func TestGetContainerMetrics(t *testing.T) {
@@ -422,11 +265,84 @@ func TestTransform(t *testing.T) {
 		})
 
 		Convey("Missing container metrics", func() {
-			if err := json.Unmarshal(deficientContainerMetrics, &mac.containerMetrics); err != nil {
+			if err := json.Unmarshal(mockContainerMetricsNoStats, &mac.containerMetrics); err != nil {
 				panic(err)
 			}
 			result := mac.metricsMessages()
 			So(len(result), ShouldEqual, 1) // one container message
+		})
+
+		Convey("With blkio statistics", func() {
+			if err := json.Unmarshal(mockContainerMetricsWithBlkio, &mac.containerMetrics); err != nil {
+				panic(err)
+			}
+			result := mac.metricsMessages()
+			So(len(result), ShouldEqual, 1) // one container message
+
+			// expected stats where [bklio_device="total"]
+			expected_total_stats := map[string]uint64{
+				"blkio.cfq.io_merged.total":        123451,
+				"blkio.cfq.io_queued.total":        123452,
+				"blkio.cfq.io_service_bytes.total": 123453,
+				"blkio.cfq.io_service_time.total":  123454,
+				"blkio.cfq.io_serviced.total":      123455,
+				"blkio.cfq.io_wait_time.total":     123456,
+
+				"blkio.cfq_recursive.io_merged.total":        543211,
+				"blkio.cfq_recursive.io_queued.total":        543212,
+				"blkio.cfq_recursive.io_service_bytes.total": 543213,
+				"blkio.cfq_recursive.io_service_time.total":  543214,
+				"blkio.cfq_recursive.io_serviced.total":      543215,
+				"blkio.cfq_recursive.io_wait_time.total":     543216,
+
+				"blkio.throttling.io_service_bytes.total": 1234567890,
+				"blkio.throttling.io_serviced.total":      9876543210,
+			}
+
+			// expected stats where [bklio_device="8:0"]
+			expected_dev_stats := map[string]uint64{
+				"blkio.throttling.io_service_bytes.read":  567891,
+				"blkio.throttling.io_service_bytes.write": 567892,
+				"blkio.throttling.io_service_bytes.sync":  567893,
+				"blkio.throttling.io_service_bytes.async": 567894,
+				"blkio.throttling.io_service_bytes.total": 567895,
+
+				"blkio.throttling.io_serviced.read":  987651,
+				"blkio.throttling.io_serviced.write": 987652,
+				"blkio.throttling.io_serviced.sync":  987653,
+				"blkio.throttling.io_serviced.async": 987654,
+				"blkio.throttling.io_serviced.total": 987655,
+			}
+
+			// Build map of device : names
+			actual_total_stats := map[string]uint64{}
+			actual_dev_stats := map[string]uint64{}
+			for _, d := range result[0].Datapoints {
+				v, _ := d.Value.(uint64)
+				if d.Tags["blkio_device"] == "total" {
+					actual_total_stats[d.Name] = v
+					continue
+				}
+				if d.Tags["blkio_device"] == "8:0" {
+					actual_dev_stats[d.Name] = v
+					continue
+				}
+			}
+
+			for name, expected := range expected_total_stats {
+				// Check that the stat is present
+				So(actual_total_stats, ShouldContainKey, name)
+				// Check that the value is correct
+				So(actual_total_stats[name], ShouldEqual, expected)
+			}
+
+			for name, expected := range expected_dev_stats {
+				// Check that the stat is present
+				So(actual_dev_stats, ShouldContainKey, name)
+				// Check that the value is correct
+				So(actual_dev_stats[name], ShouldEqual, expected)
+			}
+
 		})
 	})
 }
@@ -564,6 +480,15 @@ func TestGetLabelsByContainerID(t *testing.T) {
 			So(result, ShouldResemble, map[string]string{"somekey": "someval"})
 		})
 	})
+}
+
+func loadFixture(name string) []byte {
+	// the forward-slash works correctly on Windows
+	contents, err := ioutil.ReadFile("testdata/" + name)
+	if err != nil {
+		panic(err)
+	}
+	return contents
 }
 
 func extractPortFromURL(u string) (int, error) {
