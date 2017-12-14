@@ -16,6 +16,8 @@ package agent
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/dcos/dcos-metrics/producers"
@@ -29,11 +31,28 @@ const (
 	frameworkID  = "framework_id"
 	executorID   = "executor_id"
 	executorName = "executor_name"
+	blkioDevice  = "blkio_device"
 
 	// Container unit constants
 	seconds = "seconds"
 	count   = "count"
 	bytes   = "bytes"
+
+	// Namespaces of blkio isolation strategy
+	blkioCfq          = "blkio.cfq"
+	blkioCfqRecursive = "blkio.cfq_recursive"
+	blkioThrottling   = "blkio.throttling"
+
+	// All blkio statistics
+	serviced     = "io_serviced"
+	serviceBytes = "io_service_bytes"
+	serviceTime  = "io_service_time"
+	merged       = "io_merged"
+	queued       = "io_queued"
+	waitTime     = "io_wait_time"
+
+	// The device name for 'total' blkio stats
+	devTotal = "total"
 )
 
 // ErrNoStatistics is a sentinel error for cases where the mesos /containers
@@ -247,7 +266,70 @@ func (c *Collector) createContainerDatapoints(container agentContainer) ([]produ
 		dps = append(dps, dp)
 	}
 
+	// It's possible that the blkio object was not present
+	if container.Statistics.Blkio == nil {
+		return dps, nil
+	}
+
+	// Blkio stats are nested, and need to be processed separately
+	if container.Statistics.Blkio.Cfq != nil {
+		stats := deviceStatsToDatapoints(container.Statistics.Blkio.Cfq, blkioCfq, dpTags, ts)
+		dps = append(dps, stats...)
+	}
+	if container.Statistics.Blkio.CfqRecursive != nil {
+		stats := deviceStatsToDatapoints(container.Statistics.Blkio.CfqRecursive, blkioCfqRecursive, dpTags, ts)
+		dps = append(dps, stats...)
+	}
+	if container.Statistics.Blkio.Throttling != nil {
+		stats := deviceStatsToDatapoints(container.Statistics.Blkio.Throttling, blkioThrottling, dpTags, ts)
+		dps = append(dps, stats...)
+	}
+
 	return dps, nil
+}
+
+// deviceStatsToDatapoints flattens the nested blkio stats into a list of
+// clearly-named datapoints. All units are bytes, therefore all values are
+// integers. Datapoints from throttled devices are tagged with their origin.
+func deviceStatsToDatapoints(stats []IODeviceStats, prefix string, baseTags map[string]string, ts string) []producers.Datapoint {
+	var datapoints []producers.Datapoint
+
+	for _, stat := range stats {
+		dev := devTotal
+		if stat.Device.Major > 0 {
+			dev = fmt.Sprintf("%d:%d", stat.Device.Major, stat.Device.Minor)
+		}
+		// Create a new tags map for these datapoints
+		tags := map[string]string{blkioDevice: dev}
+		for k, v := range baseTags {
+			tags[k] = v
+		}
+		datapoints = append(datapoints, statValuesToDatapoints(stat.Serviced, prefix+"."+serviced, tags, ts)...)
+		datapoints = append(datapoints, statValuesToDatapoints(stat.ServiceBytes, prefix+"."+serviceBytes, tags, ts)...)
+		datapoints = append(datapoints, statValuesToDatapoints(stat.ServiceTime, prefix+"."+serviceTime, tags, ts)...)
+		datapoints = append(datapoints, statValuesToDatapoints(stat.Merged, prefix+"."+merged, tags, ts)...)
+		datapoints = append(datapoints, statValuesToDatapoints(stat.Queued, prefix+"."+queued, tags, ts)...)
+		datapoints = append(datapoints, statValuesToDatapoints(stat.WaitTime, prefix+"."+waitTime, tags, ts)...)
+	}
+
+	return datapoints
+}
+
+// statValuesToDatapoints converts a list of IO stats to a list of datapoints
+func statValuesToDatapoints(vals []IOStatValue, prefix string, tags map[string]string, ts string) []producers.Datapoint {
+	var datapoints []producers.Datapoint
+	for _, s := range vals {
+		op := strings.ToLower(s.Operation)
+		d := producers.Datapoint{
+			Name:      prefix + "." + op,
+			Value:     s.Value,
+			Tags:      tags,
+			Timestamp: ts,
+			Unit:      bytes,
+		}
+		datapoints = append(datapoints, d)
+	}
+	return datapoints
 }
 
 // -- helpers
