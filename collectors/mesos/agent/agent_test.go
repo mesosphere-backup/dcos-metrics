@@ -273,19 +273,19 @@ func TestTransform(t *testing.T) {
 
 			// expected stats where [bklio_device="total"]
 			expected_total_stats := map[string]uint64{
-				"blkio.cfq.io_merged.total":        12345,
-				"blkio.cfq.io_queued.total":        12345,
-				"blkio.cfq.io_service_bytes.total": 12345,
-				"blkio.cfq.io_service_time.total":  12345,
-				"blkio.cfq.io_serviced.total":      12345,
-				"blkio.cfq.io_wait_time.total":     12345,
+				"blkio.cfq.io_merged.total":        123451,
+				"blkio.cfq.io_queued.total":        123452,
+				"blkio.cfq.io_service_bytes.total": 123453,
+				"blkio.cfq.io_service_time.total":  123454,
+				"blkio.cfq.io_serviced.total":      123455,
+				"blkio.cfq.io_wait_time.total":     123456,
 
-				"blkio.cfq_recursive.io_merged.total":        54321,
-				"blkio.cfq_recursive.io_queued.total":        54321,
-				"blkio.cfq_recursive.io_service_bytes.total": 54321,
-				"blkio.cfq_recursive.io_service_time.total":  54321,
-				"blkio.cfq_recursive.io_serviced.total":      54321,
-				"blkio.cfq_recursive.io_wait_time.total":     54321,
+				"blkio.cfq_recursive.io_merged.total":        543211,
+				"blkio.cfq_recursive.io_queued.total":        543212,
+				"blkio.cfq_recursive.io_service_bytes.total": 543213,
+				"blkio.cfq_recursive.io_service_time.total":  543214,
+				"blkio.cfq_recursive.io_serviced.total":      543215,
+				"blkio.cfq_recursive.io_wait_time.total":     543216,
 
 				"blkio.throttling.io_service_bytes.total": 1234567890,
 				"blkio.throttling.io_serviced.total":      9876543210,
@@ -293,17 +293,17 @@ func TestTransform(t *testing.T) {
 
 			// expected stats where [bklio_device="8:0"]
 			expected_dev_stats := map[string]uint64{
-				"blkio.throttling.io_service_bytes.read":  56789,
-				"blkio.throttling.io_service_bytes.write": 56789,
-				"blkio.throttling.io_service_bytes.sync":  56789,
-				"blkio.throttling.io_service_bytes.async": 56789,
-				"blkio.throttling.io_service_bytes.total": 56789,
+				"blkio.throttling.io_service_bytes.read":  567891,
+				"blkio.throttling.io_service_bytes.write": 567892,
+				"blkio.throttling.io_service_bytes.sync":  567893,
+				"blkio.throttling.io_service_bytes.async": 567894,
+				"blkio.throttling.io_service_bytes.total": 567895,
 
-				"blkio.throttling.io_serviced.read":  98765,
-				"blkio.throttling.io_serviced.write": 98765,
-				"blkio.throttling.io_serviced.sync":  98765,
-				"blkio.throttling.io_serviced.async": 98765,
-				"blkio.throttling.io_serviced.total": 98765,
+				"blkio.throttling.io_serviced.read":  987651,
+				"blkio.throttling.io_serviced.write": 987652,
+				"blkio.throttling.io_serviced.sync":  987653,
+				"blkio.throttling.io_serviced.async": 987654,
+				"blkio.throttling.io_serviced.total": 987655,
 			}
 
 			// Build map of device : names
