@@ -16,6 +16,7 @@ package agent
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/dcos/dcos-metrics/producers"
@@ -34,6 +35,19 @@ const (
 	seconds = "seconds"
 	count   = "count"
 	bytes   = "bytes"
+
+	// Namespaces of blkio isolation strategy
+	blkioCfq          = "blkio.cfq"
+	blkioCfqRecursive = "blkio.cfq_recursive"
+	blkioThrottling   = "blkio.throttling"
+
+	// All blkio statistics
+	serviced     = "io_serviced"
+	serviceBytes = "io_service_bytes"
+	serviceTime  = "io_service_time"
+	merged       = "io_merged"
+	queued       = "io_queued"
+	waitTime     = "io_wait_time"
 )
 
 // ErrNoStatistics is a sentinel error for cases where the mesos /containers
@@ -247,7 +261,57 @@ func (c *Collector) createContainerDatapoints(container agentContainer) ([]produ
 		dps = append(dps, dp)
 	}
 
+	// It's possible that the blkio object was not present
+	if container.Statistics.Blkio == nil {
+		return dps, nil
+	}
+
+	// Blkio stats are nested, and need to be processed separately
+	if container.Statistics.Blkio.Cfq != nil {
+		stats := deviceStatsToDatapoints(container.Statistics.Blkio.Cfq, blkioCfq)
+		dps = append(dps, stats...)
+	}
+	if container.Statistics.Blkio.CfqRecursive != nil {
+		stats := deviceStatsToDatapoints(container.Statistics.Blkio.CfqRecursive, blkioCfqRecursive)
+		dps = append(dps, stats...)
+	}
+	if container.Statistics.Blkio.Throttling != nil {
+		stats := deviceStatsToDatapoints(container.Statistics.Blkio.Throttling, blkioThrottling)
+		dps = append(dps, stats...)
+	}
+
 	return dps, nil
+}
+
+// deviceStatsToDatapoints flattens the nested blkio stats into a list of
+// clearly-named datapoints.
+func deviceStatsToDatapoints(stats []IODeviceStats, prefix string) []producers.Datapoint {
+	var datapoints []producers.Datapoint
+
+	for _, stat := range stats {
+		datapoints = append(datapoints, statValuesToDatapoints(stat.Serviced, prefix+"."+serviced)...)
+		datapoints = append(datapoints, statValuesToDatapoints(stat.ServiceBytes, prefix+"."+serviceBytes)...)
+		datapoints = append(datapoints, statValuesToDatapoints(stat.ServiceTime, prefix+"."+serviceTime)...)
+		datapoints = append(datapoints, statValuesToDatapoints(stat.Merged, prefix+"."+merged)...)
+		datapoints = append(datapoints, statValuesToDatapoints(stat.Queued, prefix+"."+queued)...)
+		datapoints = append(datapoints, statValuesToDatapoints(stat.WaitTime, prefix+"."+waitTime)...)
+	}
+
+	return datapoints
+}
+
+// statValuesToDatapoints converts a list of IO stats to a list of datapoints
+func statValuesToDatapoints(vals []IOStatValue, prefix string) []producers.Datapoint {
+	var datapoints []producers.Datapoint
+	for _, s := range vals {
+		op := strings.ToLower(s.Operation)
+		d := producers.Datapoint{
+			Name:  prefix + "." + op,
+			Value: s.Value,
+		}
+		datapoints = append(datapoints, d)
+	}
+	return datapoints
 }
 
 // -- helpers

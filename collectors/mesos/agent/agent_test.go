@@ -300,6 +300,8 @@ func TestTransform(t *testing.T) {
 			for name, expected := range expected_total_stats {
 				// Check that the stat is present
 				So(actual_total_stats, ShouldContainKey, name)
+				// Check that the value is correct
+				So(actual_total_stats[name], ShouldEqual, expected)
 			}
 		})
 	})
