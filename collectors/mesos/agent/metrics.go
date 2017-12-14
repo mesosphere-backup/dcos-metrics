@@ -273,15 +273,15 @@ func (c *Collector) createContainerDatapoints(container agentContainer) ([]produ
 
 	// Blkio stats are nested, and need to be processed separately
 	if container.Statistics.Blkio.Cfq != nil {
-		stats := deviceStatsToDatapoints(container.Statistics.Blkio.Cfq, blkioCfq, dpTags)
+		stats := deviceStatsToDatapoints(container.Statistics.Blkio.Cfq, blkioCfq, dpTags, ts)
 		dps = append(dps, stats...)
 	}
 	if container.Statistics.Blkio.CfqRecursive != nil {
-		stats := deviceStatsToDatapoints(container.Statistics.Blkio.CfqRecursive, blkioCfqRecursive, dpTags)
+		stats := deviceStatsToDatapoints(container.Statistics.Blkio.CfqRecursive, blkioCfqRecursive, dpTags, ts)
 		dps = append(dps, stats...)
 	}
 	if container.Statistics.Blkio.Throttling != nil {
-		stats := deviceStatsToDatapoints(container.Statistics.Blkio.Throttling, blkioThrottling, dpTags)
+		stats := deviceStatsToDatapoints(container.Statistics.Blkio.Throttling, blkioThrottling, dpTags, ts)
 		dps = append(dps, stats...)
 	}
 
@@ -291,7 +291,7 @@ func (c *Collector) createContainerDatapoints(container agentContainer) ([]produ
 // deviceStatsToDatapoints flattens the nested blkio stats into a list of
 // clearly-named datapoints. All units are bytes, therefore all values are
 // integers. Datapoints from throttled devices are tagged with their origin.
-func deviceStatsToDatapoints(stats []IODeviceStats, prefix string, baseTags map[string]string) []producers.Datapoint {
+func deviceStatsToDatapoints(stats []IODeviceStats, prefix string, baseTags map[string]string, ts string) []producers.Datapoint {
 	var datapoints []producers.Datapoint
 
 	for _, stat := range stats {
@@ -304,26 +304,28 @@ func deviceStatsToDatapoints(stats []IODeviceStats, prefix string, baseTags map[
 		for k, v := range baseTags {
 			tags[k] = v
 		}
-		datapoints = append(datapoints, statValuesToDatapoints(stat.Serviced, prefix+"."+serviced, tags)...)
-		datapoints = append(datapoints, statValuesToDatapoints(stat.ServiceBytes, prefix+"."+serviceBytes, tags)...)
-		datapoints = append(datapoints, statValuesToDatapoints(stat.ServiceTime, prefix+"."+serviceTime, tags)...)
-		datapoints = append(datapoints, statValuesToDatapoints(stat.Merged, prefix+"."+merged, tags)...)
-		datapoints = append(datapoints, statValuesToDatapoints(stat.Queued, prefix+"."+queued, tags)...)
-		datapoints = append(datapoints, statValuesToDatapoints(stat.WaitTime, prefix+"."+waitTime, tags)...)
+		datapoints = append(datapoints, statValuesToDatapoints(stat.Serviced, prefix+"."+serviced, tags, ts)...)
+		datapoints = append(datapoints, statValuesToDatapoints(stat.ServiceBytes, prefix+"."+serviceBytes, tags, ts)...)
+		datapoints = append(datapoints, statValuesToDatapoints(stat.ServiceTime, prefix+"."+serviceTime, tags, ts)...)
+		datapoints = append(datapoints, statValuesToDatapoints(stat.Merged, prefix+"."+merged, tags, ts)...)
+		datapoints = append(datapoints, statValuesToDatapoints(stat.Queued, prefix+"."+queued, tags, ts)...)
+		datapoints = append(datapoints, statValuesToDatapoints(stat.WaitTime, prefix+"."+waitTime, tags, ts)...)
 	}
 
 	return datapoints
 }
 
 // statValuesToDatapoints converts a list of IO stats to a list of datapoints
-func statValuesToDatapoints(vals []IOStatValue, prefix string, tags map[string]string) []producers.Datapoint {
+func statValuesToDatapoints(vals []IOStatValue, prefix string, tags map[string]string, ts string) []producers.Datapoint {
 	var datapoints []producers.Datapoint
 	for _, s := range vals {
 		op := strings.ToLower(s.Operation)
 		d := producers.Datapoint{
-			Name:  prefix + "." + op,
-			Value: s.Value,
-			Tags:  tags,
+			Name:      prefix + "." + op,
+			Value:     s.Value,
+			Tags:      tags,
+			Timestamp: ts,
+			Unit:      bytes,
 		}
 		datapoints = append(datapoints, d)
 	}
