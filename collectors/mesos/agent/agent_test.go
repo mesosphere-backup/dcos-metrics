@@ -271,6 +271,7 @@ func TestTransform(t *testing.T) {
 			result := mac.metricsMessages()
 			So(len(result), ShouldEqual, 1) // one container message
 
+			// expected stats where [bklio_device="total"]
 			expected_total_stats := map[string]uint64{
 				"blkio.cfq.io_merged.total":        12345,
 				"blkio.cfq.io_queued.total":        12345,
@@ -289,12 +290,35 @@ func TestTransform(t *testing.T) {
 				"blkio.throttling.io_service_bytes.total": 1234567890,
 				"blkio.throttling.io_serviced.total":      9876543210,
 			}
+
+			// expected stats where [bklio_device="8:0"]
+			expected_dev_stats := map[string]uint64{
+				"blkio.throttling.io_service_bytes.read":  56789,
+				"blkio.throttling.io_service_bytes.write": 56789,
+				"blkio.throttling.io_service_bytes.sync":  56789,
+				"blkio.throttling.io_service_bytes.async": 56789,
+				"blkio.throttling.io_service_bytes.total": 56789,
+
+				"blkio.throttling.io_serviced.read":  98765,
+				"blkio.throttling.io_serviced.write": 98765,
+				"blkio.throttling.io_serviced.sync":  98765,
+				"blkio.throttling.io_serviced.async": 98765,
+				"blkio.throttling.io_serviced.total": 98765,
+			}
+
 			// Build map of device : names
 			actual_total_stats := map[string]uint64{}
+			actual_dev_stats := map[string]uint64{}
 			for _, d := range result[0].Datapoints {
 				v, _ := d.Value.(uint64)
+				if d.Tags["blkio_device"] == "total" {
 					actual_total_stats[d.Name] = v
 					continue
+				}
+				if d.Tags["blkio_device"] == "8:0" {
+					actual_dev_stats[d.Name] = v
+					continue
+				}
 			}
 
 			for name, expected := range expected_total_stats {
@@ -303,6 +327,14 @@ func TestTransform(t *testing.T) {
 				// Check that the value is correct
 				So(actual_total_stats[name], ShouldEqual, expected)
 			}
+
+			for name, expected := range expected_dev_stats {
+				// Check that the stat is present
+				So(actual_dev_stats, ShouldContainKey, name)
+				// Check that the value is correct
+				So(actual_dev_stats[name], ShouldEqual, expected)
+			}
+
 		})
 	})
 }
