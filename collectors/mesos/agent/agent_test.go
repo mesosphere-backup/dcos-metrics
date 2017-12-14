@@ -270,6 +270,37 @@ func TestTransform(t *testing.T) {
 			}
 			result := mac.metricsMessages()
 			So(len(result), ShouldEqual, 1) // one container message
+
+			expected_total_stats := map[string]uint64{
+				"blkio.cfq.io_merged.total":        12345,
+				"blkio.cfq.io_queued.total":        12345,
+				"blkio.cfq.io_service_bytes.total": 12345,
+				"blkio.cfq.io_service_time.total":  12345,
+				"blkio.cfq.io_serviced.total":      12345,
+				"blkio.cfq.io_wait_time.total":     12345,
+
+				"blkio.cfq_recursive.io_merged.total":        54321,
+				"blkio.cfq_recursive.io_queued.total":        54321,
+				"blkio.cfq_recursive.io_service_bytes.total": 54321,
+				"blkio.cfq_recursive.io_service_time.total":  54321,
+				"blkio.cfq_recursive.io_serviced.total":      54321,
+				"blkio.cfq_recursive.io_wait_time.total":     54321,
+
+				"blkio.throttling.io_service_bytes.total": 1234567890,
+				"blkio.throttling.io_serviced.total":      9876543210,
+			}
+			// Build map of device : names
+			actual_total_stats := map[string]uint64{}
+			for _, d := range result[0].Datapoints {
+				v, _ := d.Value.(uint64)
+					actual_total_stats[d.Name] = v
+					continue
+			}
+
+			for name, expected := range expected_total_stats {
+				// Check that the stat is present
+				So(actual_total_stats, ShouldContainKey, name)
+			}
 		})
 	})
 }
