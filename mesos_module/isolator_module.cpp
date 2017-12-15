@@ -80,7 +80,8 @@ namespace metrics {
     }
 
     process::Future<Nothing> cleanup(
-        const mesos::ContainerID& container_id) {
+        const mesos::ContainerID& container_id,
+        const mesos::slave::ContainerConfig& container_config) {
       // If we are a nested container in the `DEBUG` class, then we don't
       // emit metrics from this container and hence have nothing to cleanup.
       if (!(container_id.has_parent() &&
