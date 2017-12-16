@@ -30,7 +30,8 @@ namespace metrics {
       const mesos::slave::ContainerConfig& container_config);
 
     process::Future<Nothing> cleanup(
-      const mesos::ContainerID& container_id);
+      const mesos::ContainerID& container_id,
+      const mesos::slave::ContainerConfig& container_config);
 
     // The following calls are unused by this implementation.
 
