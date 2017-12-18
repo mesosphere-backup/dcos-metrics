@@ -38,7 +38,7 @@ namespace metrics {
   class IsolatorProcess : public process::Process<IsolatorProcess<ContainerAssigner>> {
    public:
     IsolatorProcess(std::shared_ptr<ContainerAssigner> container_assigner)
-      : container_assigner(container_assigner) { }
+      : container_assigner(container_assigner), registered(false) { }
     virtual ~IsolatorProcess() { }
 
     process::Future<Nothing> recover(
@@ -50,6 +50,7 @@ namespace metrics {
         LOG(INFO) << "  container_state[" << state.ShortDebugString() << "]";
       }
       container_assigner->recover_containers(states);
+      registered = true;
       return Nothing();
     }
 
@@ -74,6 +75,7 @@ namespace metrics {
                    << container_id.ShortDebugString();
         return None();
       }
+      registered = true;
       mesos::slave::ContainerLaunchInfo launch_info;
       set_env(launch_info, endpoint.get());
       return launch_info;
@@ -81,11 +83,10 @@ namespace metrics {
 
     process::Future<Nothing> cleanup(
         const mesos::ContainerID& container_id) {
-      // If we are a nested container in the `DEBUG` class, then we don't
-      // emit metrics from this container and hence have nothing to cleanup.
-      if (!(container_id.has_parent() &&
-            container_config.has_container_class() &&
-            container_config.container_class() == ContainerClass::DEBUG)) {
+      // If we haven't registered before and are not emitting metrics, e.g.,
+      // because we are a nested container in the `DEBUG` class, we have
+      // nothing to cleanup.
+      if (registered) {
         container_assigner->unregister_container(container_id);
       }
       return Nothing();
@@ -93,6 +94,7 @@ namespace metrics {
 
    private:
     std::shared_ptr<ContainerAssigner> container_assigner;
+    bool registered;
   };
 }
 
