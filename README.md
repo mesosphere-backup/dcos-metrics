@@ -97,4 +97,4 @@ have a chance to keep up with community contributions, please follow the guideli
 [github-rji]: https://github.com/rji
 [github-universe]: https://github.com/mesosphere/universe
 [go-report-card]: https://goreportcard.com/report/github.com/dcos/dcos-metrics]
-[jenkins-master]: https://jenkins.mesosphere.com/service/jenkins/job/public-dcos-metrics/job/public-dcos-metrics-master/
+[jenkins-master]: https://jenkins.mesosphere.com/service/jenkins/job/public-dcos-cluster-ops/job/dcos-metrics/job/dcos-metrics-master/
