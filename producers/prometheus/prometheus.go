@@ -18,10 +18,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"net"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -102,7 +100,7 @@ func (p *promProducer) Run() error {
 	mux.Handle("/metrics", promhttp.HandlerFor(
 		registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
 
-	addr := net.JoinHostPort("localhost", strconv.Itoa(p.config.Port))
+	addr := fmt.Sprintf(":%d", p.config.Port)
 	server := &http.Server{
 		Addr:    addr,
 		Handler: mux,
