@@ -130,7 +130,7 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 	for _, obj := range p.store.Objects() {
 		message, ok := obj.(producers.MetricsMessage)
 		if !ok {
-			promLog.Warnf("Unsupported message type %v", obj)
+			promLog.Warnf("Unsupported message type %T", obj)
 			continue
 		}
 		dims := dimsToMap(message.Dimensions)
@@ -157,7 +157,7 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 			desc := prometheus.NewDesc(name, "DC/OS Metrics Datapoint", tagKeys, nil)
 			metric, err := prometheus.NewConstMetric(desc, prometheus.GaugeValue, val, tagVals...)
 			if err != nil {
-				promLog.Warnf("Could not create Prometheus metric %s", name)
+				promLog.Warnf("Could not create Prometheus metric %s: %s", name, err)
 				continue
 			}
 
@@ -246,7 +246,7 @@ func coerceToFloat(unk interface{}) (float64, error) {
 	case uint64:
 		return float64(i), nil
 	default:
-		return math.NaN(), errors.New("value could not be coerced to float64")
+		return math.NaN(), fmt.Errorf("value %q could not be coerced to float64", i)
 	}
 }
 
