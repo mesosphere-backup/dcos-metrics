@@ -15,17 +15,261 @@
 package prometheus
 
 import (
+	"errors"
+	"fmt"
+	"math"
+	"net"
+	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/dcos/dcos-go/store"
 	"github.com/dcos/dcos-metrics/producers"
+	prodHelpers "github.com/dcos/dcos-metrics/util/producers"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-type promProducer struct{}
+var (
+	illegalChars = regexp.MustCompile("\\W")
+	promLog      = log.WithFields(log.Fields{"producer": "prometheus"})
+)
 
-func New() (producers.MetricsProducer, chan producers.MetricsMessage) {
-	p := promProducer{}
-	c := make(chan producers.MetricsMessage)
-	return &p, c
+// Config is a configuration for the Prom producer's behaviour
+type Config struct {
+	Port        int `yaml:"port"`
+	CacheExpiry time.Duration
+}
+
+// promProducer implements both producers.MetricsProducer and
+// prometheus.Producer
+type promProducer struct {
+	config             Config
+	store              store.Store
+	metricsChan        chan producers.MetricsMessage
+	janitorRunInterval time.Duration
+}
+
+// New returns a prometheus producer and a channel for passing in metrics
+func New(cfg Config) (producers.MetricsProducer, chan producers.MetricsMessage) {
+	p := promProducer{
+		config:             cfg,
+		store:              store.New(),
+		metricsChan:        make(chan producers.MetricsMessage),
+		janitorRunInterval: 60 * time.Second,
+	}
+	return &p, p.metricsChan
 }
 
 func (p *promProducer) Run() error {
+	promLog.Info("Starting Prom producer garbage collection service")
+	go p.janitor()
+
+	// The below is borrowed wholesale from the http producer.
+	// TODO (philipnrmn): rewrite this section to avoid use of the store
+	go func() {
+		promLog.Debug("Prom producer listening for incoming messages on metricsChan")
+		for {
+			// read messages off the channel,
+			// and give them a unique name in the store
+			message := <-p.metricsChan
+
+			var name string
+			switch message.Name {
+			case producers.NodeMetricPrefix:
+				name = joinMetricName(message.Name, message.Dimensions.MesosID)
+
+			case producers.ContainerMetricPrefix:
+				name = joinMetricName(message.Name, message.Dimensions.ContainerID)
+
+			case producers.AppMetricPrefix:
+				name = joinMetricName(message.Name, message.Dimensions.ContainerID)
+			}
+
+			for _, d := range message.Datapoints {
+				p.writeObjectToStore(d, message, name)
+			}
+		}
+	}()
+
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(p)
+
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.HandlerFor(
+		registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
+
+	server := &http.Server{
+		Addr:    net.JoinHostPort("localhost", strconv.Itoa(p.config.Port)),
+		Handler: mux,
+	}
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil {
+			if err != http.ErrServerClosed {
+				promLog.Printf("E! Error creating prometheus metric endpoint, err: %s\n",
+					err.Error())
+			}
+		}
+	}()
 	return nil
+}
+
+// Describe passes all the available stat descriptions to Prometheus; we
+// send a single 'dummy' stat description, and then create our actual
+// descriptions on the fly in Collect() below.
+func (p *promProducer) Describe(ch chan<- *prometheus.Desc) {
+	promLog.Warn("Describe() was called")
+	prometheus.NewGauge(prometheus.GaugeOpts{Name: "Dummy", Help: "Dummy"}).Describe(ch)
+}
+
+// Collect iterates over all the metrics available in the store, converting
+// them to prometheus.Metric and passing them into the prometheus producer
+// channel, where they will be served to consumers.
+func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
+	for _, obj := range p.store.Objects() {
+		message, ok := obj.(producers.MetricsMessage)
+		if !ok {
+			promLog.Warnf("Unsupported message type %v", obj)
+			continue
+		}
+		dims := dimsToMap(message.Dimensions)
+
+		for _, d := range message.Datapoints {
+			promLog.Debugf("Processing datapoint %s", d.Name)
+			var tagKeys []string
+			var tagVals []string
+			for k, v := range dims {
+				tagKeys = append(tagKeys, sanitizeName(k))
+				tagVals = append(tagVals, v)
+			}
+			for k, v := range d.Tags {
+				tagKeys = append(tagKeys, sanitizeName(k))
+				tagVals = append(tagVals, v)
+			}
+
+			name := sanitizeName(d.Name)
+			val, err := coerceToFloat(d.Value)
+			if err != nil {
+				promLog.Warnf("Bad datapoint value %q: %s", d.Value, err)
+				continue
+			}
+			desc := prometheus.NewDesc(name, "DC/OS Metrics Datapoint", tagKeys, nil)
+			metric, err := prometheus.NewConstMetric(desc, prometheus.GaugeValue, val, tagVals...)
+			if err != nil {
+				promLog.Warnf("Could not create Prometheus metric %s", name)
+				continue
+			}
+
+			promLog.Debugf("Emitting datapoint %s", name)
+			ch <- metric
+		}
+
+	}
+}
+
+// - helpers -
+
+// writeObjectToStore writes a prefixed datapoint into the store.
+func (p *promProducer) writeObjectToStore(d producers.Datapoint, m producers.MetricsMessage, prefix string) {
+	newMessage := producers.MetricsMessage{
+		Name:       m.Name,
+		Datapoints: []producers.Datapoint{d},
+		Dimensions: m.Dimensions,
+		Timestamp:  m.Timestamp,
+	}
+	// e.g. dcos.metrics.app.[ContainerId].kafka.server.ReplicaFetcherManager.MaxLag
+	qualifiedName := joinMetricName(prefix, d.Name)
+	for _, pair := range prodHelpers.SortTags(d.Tags) {
+		k, v := pair[0], pair[1]
+		// e.g. dcos.metrics.node.[MesosId].network.out.errors.#interface:eth0
+		serializedTag := fmt.Sprintf("#%s:%s", k, v)
+		qualifiedName = joinMetricName(qualifiedName, serializedTag)
+	}
+	p.store.Set(qualifiedName, newMessage)
+}
+
+// joinMetricName concatenates its arguments using the metric name separator
+func joinMetricName(segments ...string) string {
+	return strings.Join(segments, producers.MetricNamespaceSep)
+}
+
+// janitor analyzes the objects in the store and removes stale objects. An
+// object is considered stale when the top-level timestamp of its MetricsMessage
+// has exceeded the CacheExpiry, which is calculated as a multiple of the
+// collector's polling period. This function should be run in its own goroutine.
+func (p *promProducer) janitor() {
+	ticker := time.NewTicker(p.janitorRunInterval)
+	for {
+		select {
+		case _ = <-ticker.C:
+			for k, v := range p.store.Objects() {
+				o := v.(producers.MetricsMessage)
+
+				age := time.Now().Sub(time.Unix(o.Timestamp, 0))
+				if age > p.config.CacheExpiry {
+					promLog.Debugf("Removing stale object %s; last updated %d seconds ago", k, age/time.Second)
+					p.store.Delete(k)
+				}
+			}
+		}
+	}
+}
+
+// sanitizeName returns a metric or label name which is safe for use
+// in prometheus output
+func sanitizeName(name string) string {
+	return strings.ToLower(illegalChars.ReplaceAllString(name, "_"))
+}
+
+// coerceToFloat attempts to convert an interface to float64. It should succeed
+// with any numeric input.
+func coerceToFloat(unk interface{}) (float64, error) {
+	switch i := unk.(type) {
+	case float64:
+		if math.IsNaN(i) {
+			return i, errors.New("value was NaN")
+		}
+		return i, nil
+	case float32:
+		return float64(i), nil
+	case int:
+		return float64(i), nil
+	case int32:
+		return float64(i), nil
+	case int64:
+		return float64(i), nil
+	case uint:
+		return float64(i), nil
+	case uint32:
+		return float64(i), nil
+	case uint64:
+		return float64(i), nil
+	default:
+		return math.NaN(), errors.New("value could not be coerced to float64")
+	}
+}
+
+// dimsToMap converts a Dimensions object to a flat map of strings to strings
+func dimsToMap(dims producers.Dimensions) map[string]string {
+	results := map[string]string{
+		"mesos_id":            dims.MesosID,
+		"cluster_id":          dims.ClusterID,
+		"container_id":        dims.ContainerID,
+		"executor_id":         dims.ExecutorID,
+		"framework_name":      dims.FrameworkName,
+		"framework_id":        dims.FrameworkID,
+		"framework_role":      dims.FrameworkRole,
+		"framework_principal": dims.FrameworkPrincipal,
+		"task_name":           dims.TaskName,
+		"task_id":             dims.TaskID,
+		"hostname":            dims.Hostname,
+	}
+	for k, v := range dims.Labels {
+		results[k] = v
+	}
+	return results
 }
