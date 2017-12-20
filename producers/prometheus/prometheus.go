@@ -102,20 +102,14 @@ func (p *promProducer) Run() error {
 	mux.Handle("/metrics", promhttp.HandlerFor(
 		registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
 
+	addr := net.JoinHostPort("localhost", strconv.Itoa(p.config.Port))
 	server := &http.Server{
-		Addr:    net.JoinHostPort("localhost", strconv.Itoa(p.config.Port)),
+		Addr:    addr,
 		Handler: mux,
 	}
 
-	go func() {
-		if err := server.ListenAndServe(); err != nil {
-			if err != http.ErrServerClosed {
-				promLog.Printf("E! Error creating prometheus metric endpoint, err: %s\n",
-					err.Error())
-			}
-		}
-	}()
-	return nil
+	promLog.Infof("Serving Prometheus metrics on %s", addr)
+	return server.ListenAndServe()
 }
 
 // Describe passes all the available stat descriptions to Prometheus; we
