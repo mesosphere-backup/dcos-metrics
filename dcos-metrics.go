@@ -26,6 +26,7 @@ import (
 	nodeCollector "github.com/dcos/dcos-metrics/collectors/node"
 	"github.com/dcos/dcos-metrics/producers"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
+	promProducer "github.com/dcos/dcos-metrics/producers/prometheus"
 	"github.com/dcos/dcos-metrics/util/http/profiler"
 )
 
@@ -62,6 +63,15 @@ func main() {
 			cfg.Producers.HTTPProducerConfig)
 		producerChans = append(producerChans, httpProducerChan)
 		go hp.Run()
+	}
+
+	// Prometheus producer
+	if producerIsConfigured("prometheus", cfg) {
+		log.Info("Prometheus producer enabled")
+		pp, promChan := promProducer.New(
+			cfg.Producers.PrometheusProducerConfig)
+		producerChans = append(producerChans, promChan)
+		go pp.Run()
 	}
 
 	// Initialize and run the node poller

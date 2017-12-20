@@ -30,6 +30,7 @@ import (
 	mesosAgent "github.com/dcos/dcos-metrics/collectors/mesos/agent"
 	"github.com/dcos/dcos-metrics/collectors/node"
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
+	promProducer "github.com/dcos/dcos-metrics/producers/prometheus"
 	httpClient "github.com/dcos/dcos-metrics/util/http/client"
 	httpHelpers "github.com/dcos/dcos-metrics/util/http/helpers"
 
@@ -86,7 +87,8 @@ type CollectorConfig struct {
 // 'producers/kafka/kafka.go'. It is then the responsibility of the individual producers to
 // validate the configuration the user has provided and panic if necessary.
 type ProducersConfig struct {
-	HTTPProducerConfig httpProducer.Config `yaml:"http,omitempty"`
+	HTTPProducerConfig       httpProducer.Config `yaml:"http,omitempty"`
+	PrometheusProducerConfig promProducer.Config `yaml:"prometheus,omitempty"`
 	//KafkaProducerConfig  kafkaProducer.Config  `yaml:"kafka,omitempty"`
 	//StatsdProducerConfig statsdProducer.Config `yaml:"statsd,omitempty"`
 }
@@ -198,6 +200,10 @@ func newConfig() Config {
 			HTTPProducerConfig: httpProducer.Config{
 				CacheExpiry: time.Duration(120 * time.Second),
 				Port:        9000,
+			},
+			PrometheusProducerConfig: promProducer.Config{
+				CacheExpiry: time.Duration(60 * time.Second),
+				Port:        9273,
 			},
 		},
 		LogLevel: "info",
