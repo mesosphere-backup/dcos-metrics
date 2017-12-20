@@ -81,6 +81,7 @@ func TestRun(t *testing.T) {
 		body, err := ioutil.ReadAll(resp.Body)
 		So(err, ShouldBeNil)
 
+		// TODO (philipnrmn): verify the output better than this
 		So(string(body), ShouldContainSubstring, "datapoint_one")
 		So(string(body), ShouldContainSubstring, "123.456")
 
