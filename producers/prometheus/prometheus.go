@@ -116,7 +116,6 @@ func (p *promProducer) Run() error {
 // send a single 'dummy' stat description, and then create our actual
 // descriptions on the fly in Collect() below.
 func (p *promProducer) Describe(ch chan<- *prometheus.Desc) {
-	promLog.Warn("Describe() was called")
 	prometheus.NewGauge(prometheus.GaugeOpts{Name: "Dummy", Help: "Dummy"}).Describe(ch)
 }
 
