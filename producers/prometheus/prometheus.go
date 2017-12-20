@@ -115,6 +115,10 @@ func (p *promProducer) Run() error {
 // Describe passes all the available stat descriptions to Prometheus; we
 // send a single 'dummy' stat description, and then create our actual
 // descriptions on the fly in Collect() below.
+// This is necessary because Describe is expected to yield all possible
+// metrics to the channel, and must therefore send at least one value.
+// For a full description see:
+// https://godoc.org/github.com/prometheus/client_golang/prometheus#Collector
 func (p *promProducer) Describe(ch chan<- *prometheus.Desc) {
 	prometheus.NewGauge(prometheus.GaugeOpts{Name: "Dummy", Help: "Dummy"}).Describe(ch)
 }
