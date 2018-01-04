@@ -12,32 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package node
+package http
 
 import (
-	"runtime"
-	"testing"
+	"net"
+	"os"
+
+	"github.com/coreos/go-systemd/activation"
 )
 
-var mockUptime = uptimeMetric{
-	timestamp: "2009-11-10T23:00:00Z", uptime: uint64(7865),
+func getListener(unsetEnv bool) ([]net.Listener, error) {
+	return activation.Listeners(true)
 }
 
-func TestUptimeAddDatapoints(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("skipping test on windows as it is not supported.")
-	}
-
-	mockNc := nodeCollector{}
-
-	dps, err := mockUptime.getDatapoints()
-
-	if err != nil {
-		t.Errorf("Expected no errors getting datapoints from mockCPU, got %s", err.Error())
-	}
-
-	if len(dps) != 1 {
-		t.Error("Expected 6 CPU metric datapoints, got", len(mockNc.datapoints))
-	}
-
+func getFiles(unsetEnv bool) []*os.File {
+	return activation.Files(unsetEnv)
 }

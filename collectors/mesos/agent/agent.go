@@ -174,7 +174,7 @@ func (c *Collector) metricsMessages() (out []producers.MetricsMessage) {
 
 		fi := getFrameworkInfoByFrameworkID(cm.FrameworkID, c.agentState.Frameworks)
 		if fi == nil {
-			c.log.Warnf("Did not find FrameworkInfo for framework ID %s, skipping!", fi.ID)
+			c.log.Warnf("Did not find FrameworkInfo for framework ID %s, skipping!", cm.FrameworkID)
 			continue
 		}
 

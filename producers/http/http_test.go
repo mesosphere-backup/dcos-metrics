@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"strconv"
 	"testing"
 	"time"
 
-	"github.com/coreos/go-systemd/activation"
 	"github.com/dcos/dcos-go/store"
 	"github.com/dcos/dcos-metrics/producers"
 	. "github.com/smartystreets/goconvey/convey"
@@ -161,41 +161,46 @@ func TestRun(t *testing.T) {
 			So(p.store.Size(), ShouldEqual, 1)
 		})
 
-		Convey("Should create a new router on a systemd socket (if it's available)", func() {
-			// Mock the systemd socket
-			if err := os.Setenv("LISTEN_PID", strconv.Itoa(os.Getpid())); err != nil {
-				panic(err)
-			}
-			if err := os.Setenv("LISTEN_FDS", strconv.Itoa(1)); err != nil {
-				panic(err)
-			}
+		// No systemd on Windows
+		if runtime.GOOS != "windows" {
+			Convey("Should create a new router on a systemd socket (if it's available)", func() {
+				// Mock the systemd socket
+				if err := os.Setenv("LISTEN_PID", strconv.Itoa(os.Getpid())); err != nil {
+					panic(err)
+				}
+				if err := os.Setenv("LISTEN_FDS", strconv.Itoa(1)); err != nil {
+					panic(err)
+				}
 
-			files := activation.Files(false)
-			if len(files) != 1 {
-				panic(fmt.Errorf("expected activation.Files length to be 1, got %d", len(files)))
-			}
+				if runtime.GOOS != "windows" {
+					files := getFiles(false)
+					if len(files) != 1 {
+						panic(fmt.Errorf("expected activation.Files length to be 1, got %d", len(files)))
+					}
+				}
 
-			port, err := getEphemeralPort()
-			if err != nil {
-				panic(err)
-			}
+				port, err := getEphemeralPort()
+				if err != nil {
+					panic(err)
+				}
 
-			p, _ := New(Config{Port: port})
-			go p.Run()
-			time.Sleep(1 * time.Second)
+				p, _ := New(Config{Port: port})
+				go p.Run()
+				time.Sleep(1 * time.Second)
 
-			// There shouldn't be anything listening on the configured TCP port
-			_, err = net.Dial("tcp", net.JoinHostPort("localhost", strconv.Itoa(port)))
-			So(err, ShouldNotBeNil)
+				// There shouldn't be anything listening on the configured TCP port
+				_, err = net.Dial("tcp", net.JoinHostPort("localhost", strconv.Itoa(port)))
+				So(err, ShouldNotBeNil)
 
-			// Restore the environment
-			if err := os.Unsetenv("LISTEN_PID"); err != nil {
-				panic(err)
-			}
-			if err := os.Unsetenv("LISTEN_FDS"); err != nil {
-				panic(err)
-			}
-		})
+				// Restore the environment
+				if err := os.Unsetenv("LISTEN_PID"); err != nil {
+					panic(err)
+				}
+				if err := os.Unsetenv("LISTEN_FDS"); err != nil {
+					panic(err)
+				}
+			})
+		}
 
 		Convey("Should create a new router on a HTTP port if a systemd socket is unavailable", func() {
 			// Ensure the environment is clean

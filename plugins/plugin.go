@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -227,7 +228,12 @@ func makeMetricsRequest(client *http.Client, url string) (producers.MetricsMessa
 // createClient creates an HTTP Client which uses the unix file socket
 // appropriate to the plugin's role
 func (p *Plugin) createClient() error {
+	network := "unix"
 	address := "/run/dcos/dcos-metrics-agent.sock"
+	if runtime.GOOS == "windows" {
+		network = "tcp"
+		address = "localhost:9000"
+	}
 	if p.Role == dcos.RoleMaster {
 		address = "/run/dcos/dcos-metrics-master.sock"
 	}
@@ -237,7 +243,7 @@ func (p *Plugin) createClient() error {
 	p.Client = &http.Client{
 		Transport: &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial("unix", address)
+				return net.Dial(network, address)
 			},
 		},
 	}

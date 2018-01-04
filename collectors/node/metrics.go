@@ -15,6 +15,7 @@
 package node
 
 import (
+	"runtime"
 	"time"
 
 	"github.com/dcos/dcos-metrics/producers"
@@ -102,6 +103,12 @@ func getNodeMetrics() ([]producers.Datapoint, error) {
 	// returned by .poll(), adding them to our top scope nodeMetrics slice.
 	for _, mp := range nodeMetricPollers {
 		if err := mp.poll(); err != nil {
+			if runtime.GOOS == "windows" {
+				// Some of the pollers may not be implemented on Windows so skip over them.
+				// For instance, loadMetrics is not implemented.
+				continue
+			}
+
 			return nc.datapoints, err
 		}
 

@@ -23,7 +23,6 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/coreos/go-systemd/activation"
 	"github.com/dcos/dcos-go/store"
 	"github.com/dcos/dcos-metrics/producers"
 	prodHelpers "github.com/dcos/dcos-metrics/util/producers"
@@ -93,7 +92,8 @@ func (p *producerImpl) Run() error {
 	}()
 
 	r := newRouter(p)
-	listeners, err := activation.Listeners(true)
+
+	listeners, err := getListener(true)
 	if err != nil {
 		return fmt.Errorf("Unable to get listeners: %s", err)
 	}
@@ -103,6 +103,7 @@ func (p *producerImpl) Run() error {
 		httpLog.Infof("http producer serving requests on systemd socket: %s", listeners[0].Addr().String())
 		return http.Serve(listeners[0], r)
 	}
+
 	httpLog.Infof("http producer serving requests on tcp socket: %s", net.JoinHostPort(p.config.IP, strconv.Itoa(p.config.Port)))
 	return http.ListenAndServe(fmt.Sprintf("%s:%d", p.config.IP, p.config.Port), r)
 }
