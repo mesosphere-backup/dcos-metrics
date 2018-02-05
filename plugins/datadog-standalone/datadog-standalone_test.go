@@ -18,6 +18,7 @@ import "net/http"
 import (
 	"encoding/json"
 	"io/ioutil"
+	"math"
 	"net/http/httptest"
 	"testing"
 
@@ -29,7 +30,8 @@ var (
 		"datapoints":[
 			{"name":"system.uptime","value":86799,"unit":"count","timestamp":"2017-04-08T20:37:39.259136472Z", "tags":{"foo":"bar"}},
 			{"name":"cpu.cores","value":2,"unit":"count","timestamp":"2017-04-08T20:37:39.259145164Z"},
-			{"name":"cpu.total","value":1.32,"unit":"percent","timestamp":"2017-04-08T20:37:39.259145164Z"}
+			{"name":"cpu.total","value":1.32,"unit":"percent","timestamp":"2017-04-08T20:37:39.259145164Z"},
+			{"name":"nan.val","value":null,"unit":"count","timestamp":"2017-04-08T20:37:39.259145164Z"}
 		],
 		"dimensions":{
 			"mesos_id":"378922ca-dd97-4802-a1b2-dde2f42d74ac",
@@ -44,6 +46,9 @@ func TestPostMetricsToDatadog(t *testing.T) {
 	if err := json.Unmarshal([]byte(nodeMetricsJSON), &nodeMetrics); err != nil {
 		t.Fatal("Bad test fixture; could not unmarshal JSON")
 	}
+
+	// We assign NaN here, since JSON cannot contain NaNs.
+	nodeMetrics.Datapoints[3].Value = math.NaN()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()

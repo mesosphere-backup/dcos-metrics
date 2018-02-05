@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
 
 	log "github.com/Sirupsen/logrus"
@@ -170,7 +171,7 @@ func messagesToSeries(messages []producers.MetricsMessage) *DDSeries {
 		for _, datapoint := range message.Datapoints {
 			m, err := datapointToDDMetric(datapoint, messageTags, host)
 			if err != nil {
-				log.Error(err)
+				log.Warn(err)
 				continue
 			}
 			series.Series = append(series.Series, *m)
@@ -189,6 +190,10 @@ func datapointToDDMetric(datapoint producers.Datapoint, messageTags []string, ho
 	v, err := plugin.DatapointValueToFloat64(datapoint.Value)
 	if err != nil {
 		return nil, err
+	}
+
+	if math.IsNaN(v) || math.IsInf(v, 0) {
+		return nil, fmt.Errorf("datapoint %q had NaN value", datapoint.Name)
 	}
 
 	datapointTags := []string{}
