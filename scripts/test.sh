@@ -34,7 +34,6 @@ function _gofmt {
 
 function _goimports {
     logmsg "Running 'goimports' ..."
-    go get -u golang.org/x/tools/cmd/goimports
     test -z "$(goimports -l -d $(find . -type f -name '*.go' -not -path "./vendor/**") | tee /dev/stderr)"
 }
 
@@ -42,9 +41,8 @@ function _goimports {
 function _golint {
     local test_dirs="$1"
     local ignore_dirs="$2"
-    logmsg "Skipping 'go lint' ..."
-    # go get -u github.com/golang/lint/golint
-    # test -z "$(golint $test_dirs | grep -v vendor | grep -v $ignore_dirs | tee /dev/stderr)"
+    logmsg "Running 'go lint' ..."
+    test -z "$(golint $test_dirs | grep -v vendor | grep -v $ignore_dirs | tee /dev/stderr)"
 }
 
 
@@ -60,12 +58,6 @@ function _unittest_with_coverage {
     local ignore_packages="$2"
     local covermode="count"
     logmsg "Running unit tests ..."
-
-    go get -u github.com/jstemmer/go-junit-report
-    go get -u github.com/smartystreets/goconvey
-    go get -u golang.org/x/tools/cmd/cover
-    go get -u github.com/axw/gocov/...
-    go get -u github.com/AlekSi/gocov-xml
 
     # We can't' use the test profile flag with multiple packages. Therefore,
     # run 'go test' for each package, and concatenate the results into
