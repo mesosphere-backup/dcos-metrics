@@ -40,6 +40,23 @@ var (
 			"hostname":"192.168.65.90"
 		}
 	}`
+	taskMetricsJSON = `{
+		"datapoints": [
+			{"name": "statsd_tester.time.uptime", "value": 73101, "unit": "", "timestamp": "2018-03-08T18:02:52Z", "tags": { "test_tag_key": "test_tag_value" }},
+			{"name": "dcos.metrics.module.container_throttled_bytes_per_sec", "value": 0, "unit": "", "timestamp": "2018-03-08T18:02:42Z"},
+			{"name": "dcos.metrics.module.container_received_bytes_per_sec", "value": 61.7833, "unit": "", "timestamp": "2018-03-08T18:02:42Z" }
+		],
+		"dimensions": {
+			"mesos_id":"378922ca-dd97-4802-a1b2-dde2f42d74ac",
+			"cluster_id":"cc477141-2c93-4b9f-bf05-ec0e163ce2bd",
+			"hostname":"192.168.65.90",
+			"container_id": "22b0db5b-eef1-4d44-8472-23d088e215da",
+			"executor_id": "statsd-emitter.befadcf7-22fa-11e8-bea1-ee89f1bc37fb",
+			"framework_id": "379eb87f-403a-4dbf-9a61-722fa2b79e3d-0001",
+			"task_name": "statsd-emitter",
+			"task_id": "statsd-emitter.befadcf7-22fa-11e8-bea1-ee89f1bc37fb"
+		}
+	}`
 )
 
 func TestPostMetricsToDatadog(t *testing.T) {
