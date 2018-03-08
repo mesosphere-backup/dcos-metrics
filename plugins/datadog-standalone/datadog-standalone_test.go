@@ -17,6 +17,7 @@ package main
 import "net/http"
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math"
 	"net/http/httptest"
@@ -71,7 +72,7 @@ func TestPostMetricsToDatadog(t *testing.T) {
 			t.Fatalf("Expected unix time of 1491683859, got %v", uptime.Points[0])
 		}
 
-		expectedTags := []string{
+		expectedNodeTags := []string{
 			// message-level tags
 			"mesosId:378922ca-dd97-4802-a1b2-dde2f42d74ac",
 			"clusterId:cc477141-2c93-4b9f-bf05-ec0e163ce2bd",
@@ -80,17 +81,9 @@ func TestPostMetricsToDatadog(t *testing.T) {
 			"foo:bar",
 		}
 
-		for _, expectedTag := range expectedTags {
-			tagWasFound := false
-			for _, tag := range uptime.Tags {
-				if expectedTag == tag {
-					tagWasFound = true
-					break
-				}
-			}
-			if !tagWasFound {
-				t.Fatalf("Expected to find tag %s, but it was not present", expectedTag)
-			}
+		err = compareTags(expectedNodeTags, uptime.Tags)
+		if err != nil {
+			t.Fatal(err)
 		}
 
 		if *uptime.Host != "192.168.65.90" {
@@ -101,4 +94,19 @@ func TestPostMetricsToDatadog(t *testing.T) {
 
 	defer server.Close()
 	postMetricsToDatadog(server.URL, []producers.MetricsMessage{nodeMetrics})
+
+func compareTags(expected []string, actual []string) error {
+	for _, expectedTag := range expected {
+		tagWasFound := false
+		for _, tag := range actual {
+			if expectedTag == tag {
+				tagWasFound = true
+				break
+			}
+		}
+		if !tagWasFound {
+			return fmt.Errorf("Expected to find tag %s, but it was not present", expectedTag)
+		}
+	}
+	return nil
 }
