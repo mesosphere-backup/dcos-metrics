@@ -167,6 +167,8 @@ func messagesToSeries(messages []producers.MetricsMessage) *DDSeries {
 		addMessageTag("frameworkRole", dimensions.FrameworkRole)
 		addMessageTag("frameworkPrincipal", dimensions.FrameworkPrincipal)
 		addMessageTag("hostname", dimensions.Hostname)
+		addMessageTag("taskId", dimensions.TaskID)
+		addMessageTag("taskName", dimensions.TaskName)
 
 		for _, datapoint := range message.Datapoints {
 			m, err := datapointToDDMetric(datapoint, messageTags, host)
