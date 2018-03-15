@@ -16,7 +16,7 @@ dcos-metrics collects, tags, and transmits metrics from every node, container, a
 
 |For operators                                             |For developers                                             |
 |----------------------------------------------------------|-----------------------------------------------------------|
-|[Hosting Prometheus & Grafana][quickstart-prometheus]     |[Instrumenting your code][quickstart-instrumentation]      |
+|[Self-hosted Prometheus & Grafana][quickstart-prometheus] |[Instrumenting your code][quickstart-instrumentation]      |
 |[Integrating with DataDog][quickstart-datadog]            |[Using the DC/OS HTTP API][quickstart-api]                 |
 |[Integrating with Librato][quickstart-librato]            |[Contributing to DC/OS Metrics][quickstart-contributing]   |
 
