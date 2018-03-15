@@ -60,6 +60,6 @@ DC/OS) please consider contributing it to the [DC/OS Labs grafana dashboard repo
 
 [docs-dcos-cli]: https://docs.mesosphere.com/latest/cli/
 [dcos-labs-grafana]: https://github.com/dcos-labs/grafana-dashboards
-[quickstart-prom-dcos19]: prometheus-dcos19.md
+[quickstart-prom]: prometheus.md
 [resource-prom-json]: ../resources/prometheus.json
 [resource-graf-json]: ../resources/grafana.json
