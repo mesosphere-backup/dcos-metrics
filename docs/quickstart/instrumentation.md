@@ -6,8 +6,8 @@ DC/OS metrics listens for <statsd metrics> from every app running with the <Meso
 
 ```
 import os, statsd
-c = statsd.StatsClient(os.getenv(’STATSD_UDP_HOST’), os.getenv('STATSD_UDP_PORT’), prefix=‘example.app’)
-c.incr(‘foo.bar') # Will be ‘example.app.foo.bar' in statsd/graphite. 
+c = statsd.StatsClient(os.getenv('STATSD_UDP_HOST'), os.getenv('STATSD_UDP_PORT'), prefix='example.app')
+c.incr('foo.bar') # Will be ‘example.app.foo.bar' in statsd/graphite. 
 ```
 
 ## Limitiations:
