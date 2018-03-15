@@ -33,8 +33,7 @@ dcos-metrics collects, tags, and transmits metrics from every node, container, a
 
 <hr>
 
-[dcos-metrics][github-dcos-metrics] is maintained by [Philip Norman][github-philipnrmn] and the Cluster Ops team at
-[Mesosphere][mesosphere-io]. 
+[dcos-metrics][github-dcos-metrics] is maintained by the Cluster Ops team at [Mesosphere][mesosphere-io]. 
 
 
 [button-build]: https://jenkins.mesosphere.com/service/jenkins/buildStatus/icon?job=public-dcos-cluster-ops/dcos-metrics/dcos-metrics-master
@@ -69,5 +68,4 @@ dcos-metrics collects, tags, and transmits metrics from every node, container, a
 [github-clusterops]: https://github.com/orgs/mesosphere/teams/clusterops-team
 [github-dcos]: https://github.com/dcos/dcos
 [github-dcos-metrics]: https://github.com/dcos/dcos-metrics
-[github-philipnrmn]: https://github.com/philipnrmn
 [mesosphere-io]: https://mesosphere.io
