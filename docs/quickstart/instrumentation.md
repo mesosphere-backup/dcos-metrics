@@ -10,7 +10,7 @@ c = statsd.StatsClient(os.getenv('STATSD_UDP_HOST'), os.getenv('STATSD_UDP_PORT'
 c.incr('foo.bar') # Will be ‘example.app.foo.bar' in statsd/graphite. 
 ```
 
-## Limitiations:
+## Limitations:
 Workloads running with the docker containerizer do not have a statsd server made available to them. Consider running a <statsd sidecar> if you need to get metrics from an application running with the docker containerizer.
 
 Statsd has no concept of a histogram; all metrics are therefore reported as gauges.
