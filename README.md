@@ -1,10 +1,7 @@
 # dcos-metrics
+
 [![Build Status][button-build]][jenkins-master]
 [![Go Report Card][button-go-report]][go-report-card]
-[![Report Bug][button-bug]][jira-bug]
-[![Suggest Feature][button-feature]][jira-feature]
-[![Community Slack][button-slack]][dcos-slack]
-[![Mailing List][button-email]][dcos-mailing-list]
 
 ## Overview
 
@@ -26,22 +23,23 @@ dcos-metrics collects, tags, and transmits metrics from every node, container, a
 * [Librato][plugin-librato]
 * [Prometheus][plugin-prometheus] (DC/OS 1.9 and 1.10 only)
 
+## Resources
+
+* [Report a bug][jira-bug]
+* [Suggest a feature][jira-feature]
+* [Join Community Slack][dcos-slack] (#day2ops and #day2ops-wg channels for discussion of dcos-metrics)
+* [Mailing List][dcos-mailing-list]
+
 ## License
 
-[DC/OS][github-dcos], along with this project, are both open source software released under the
+Both dcos-metrics and [DC/OS][github-dcos] are open source software released under the
 [Apache Software License, Version 2.0](LICENSE).
-
-<hr>
 
 [dcos-metrics][github-dcos-metrics] is maintained by the Cluster Ops team at [Mesosphere][mesosphere-io]. 
 
 
 [button-build]: https://jenkins.mesosphere.com/service/jenkins/buildStatus/icon?job=public-dcos-cluster-ops/dcos-metrics/dcos-metrics-master
 [button-go-report]: https://goreportcard.com/badge/github.com/dcos/dcos-metrics
-[button-bug]: http://placekitten.com/81/20
-[button-feature]: http://placekitten.com/81/20
-[button-slack]: http://placekitten.com/81/20
-[button-email]: http://placekitten.com/81/20
 
 [architecture-diagram]: http://placekitten.com/1024/600
 [architecture]: docs/architecture.md
