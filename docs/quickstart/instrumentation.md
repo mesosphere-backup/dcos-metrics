@@ -14,11 +14,11 @@ c.incr('foo.bar') # Will be ‘example.app.foo.bar' in statsd/graphite.
 
 ## Under the hood
 
-The mesos instance on every agent in DC/OS has several modules plugged into it to adapt the way it works. One of those
-is a dedicated [isolator module][mesos-isolator] for metrics. When a container is started, the module reserves a port 
-for statsd metrics, starts a statsd server process, and injects two variables into the container environment with the
-host and port for that server. Metrics received by that server are tagged with the container ID and sent through to the
-dcos-metrics collector. 
+The mesos instance on every agent in DC/OS has several DC/OS specific modules which extend its functionality. One of
+those is a dedicated [isolator module][mesos-isolator] for metrics. When a container is started, the module reserves a
+port for statsd metrics, starts a statsd server process, and injects two variables into the container environment with
+the host and port for that server. Metrics received by that server are tagged with the container ID and sent through to
+the dcos-metrics collector. 
 
 ## Limitations
 
