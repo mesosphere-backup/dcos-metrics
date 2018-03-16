@@ -2,7 +2,8 @@
 
 DC/OS metrics listens for [statsd metrics][statsd-spec] from every app running with the
 [Mesos containerizer][mesos-ucr]. We expose a statsd server for each container, which allows us to tag all metrics by
-origin. We expose them via the standard environment variables `STATSD_UDP_HOST` and `STATSD_UDP_PORT`. 
+origin. We make its address available to the application by injecting the standard environment variables
+`STATSD_UDP_HOST` and `STATSD_UDP_PORT`. 
 
 ## Quickstart:
 
