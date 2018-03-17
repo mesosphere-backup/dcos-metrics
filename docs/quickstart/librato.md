@@ -39,7 +39,7 @@ $ vim /etc/systemd/system/dcos-metrics-librato.service
 Load the new configuration and start the plugin
 ```
 $ systemctl daemon-reload
-librato$ systemctl start dcos-metrics-librato.service
+$ systemctl start dcos-metrics-librato.service
 ```
 
 
