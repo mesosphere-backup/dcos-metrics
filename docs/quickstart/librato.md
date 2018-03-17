@@ -8,7 +8,7 @@ types.
 
 * A cluster running DC/OS 1.9 or newer
 * The [DC/OS CLI][docs-dcos-cli] installed
-* A Librato account (an account can be created free of charge at [librato.com][librato]
+* A Librato account (an account can be created free of charge at [librato.com][librato])
 
 ## Deploying the plugin
 
