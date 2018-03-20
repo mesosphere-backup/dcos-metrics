@@ -7,7 +7,7 @@
 
 dcos-metrics collects, tags, and transmits metrics from every node, container, and application in your DC/OS cluster. 
 
-[![dcos-metrics architecture][architecture-diagram]][architecture]
+![architecture-diagram]
 
 ## Getting started
 
@@ -42,7 +42,6 @@ Both dcos-metrics and [DC/OS][github-dcos] are open source software released und
 [button-go-report]: https://goreportcard.com/badge/github.com/dcos/dcos-metrics
 
 [architecture-diagram]: docs/architecture.svg
-[architecture]: docs/architecture.md
 
 [jenkins-master]: https://jenkins.mesosphere.com/service/jenkins/job/public-dcos-cluster-ops/job/dcos-metrics/job/dcos-metrics-master/
 [jira-bug]: https://jira.mesosphere.com/secure/CreateIssueDetails!init.jspa?issuetype=1&pid=14105&components=19811&summary=Issue%20on%20DC/OS%20Metrics&priority=2&labels=testing&assignee=philip&customfield_12300=4
