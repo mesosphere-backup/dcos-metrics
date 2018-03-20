@@ -7,7 +7,7 @@
 
 dcos-metrics collects, tags, and transmits metrics from every node, container, and application in your DC/OS cluster. 
 
-![architecture-diagram]
+![Architecture Diagram][architecture-diagram]
 
 ## Getting started
 
