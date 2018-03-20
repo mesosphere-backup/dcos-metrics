@@ -1,8 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="600" viewBox="0 0 1024 600">
   <style>
     /* <![CDATA[ */
-    rect, circle { stroke: black; fill: white; }
+    rect, circle, line { stroke: black; fill: white; }
     text { font-size: 16; font-family: sans-serif; }
+    path { stroke: black; }
     a { cursor: pointer; }
     a:hover { text-decoration: underline; }
     
@@ -24,7 +25,6 @@
 
       <rect width="72" height="26" />
       <text x="4" y="18">Sources</text>
-      
       
       <g name="frameworks" transform="translate(8 34)">
         <rect width="334" height="196" />
@@ -118,10 +118,10 @@
       </text>
     </g>
     
-    <g name="plugins" transform="translate(400 240)">
-      <rect x="16" y="16" width="160" height="220" class="flgr" />
-      <rect x="8" y="8" width="160" height="220" class="flgr" />
-      <rect width="160" height="220" />
+    <g name="plugins" transform="translate(400 320)">
+      <rect x="16" y="16" width="160" height="150" class="flgr" />
+      <rect x="8" y="8" width="160" height="150" class="flgr" />
+      <rect width="160" height="150" />
       
       <rect width="64" height="26" />
       <text x="4" y="18">Plugins</text>
@@ -166,5 +166,57 @@
     </g>
   </g>
   
+  <g name="data-in">
+    <g transform="translate(374 282) rotate(-25)">
+      <line x1="0" x2="50" />
+      <line x1="50" x2="45" y2="-5" />
+      <line x1="50" x2="45" y2="5" />
+    </g>
+
+    <g transform="translate(374 420) rotate(-67)">
+      <line x1="0" x2="150" />
+      <line x1="150" x2="145" y2="-5" />
+      <line x1="150" x2="145" y2="5" />
+    </g>
+    
+    <g transform="translate(374 512) rotate(-70)">
+      <line x1="0" x2="230" />
+      <line x1="230" x2="225" y2="-5" />
+      <line x1="230" x2="225" y2="5" />
+    </g>
+    
+  </g>
+  
+  <g name="data-out">
+    <g transform="translate(730 106)">
+      <line x1="0" x2="70" />
+      <line x1="0" x2="5" y2="-5" />
+      <line x1="0" x2="5" y2="5" />
+    </g>
+
+    <g transform="translate(730 156)">
+      <line x1="0" x2="70" />
+      <line x1="0" x2="5" y2="-5" />
+      <line x1="0" x2="5" y2="5" />
+    </g>
+
+    <g transform="translate(730 260)">
+      <line x1="0" x2="70" />
+      <line x1="0" x2="5" y2="-5" />
+      <line x1="0" x2="5" y2="5" />
+    </g>
+
+    <g transform="translate(576 464)">
+      <line x1="0" x2="220" />
+      <line x1="220" x2="215" y2="-5" />
+      <line x1="220" x2="215" y2="5" />
+    </g>
+
+    <g transform="translate(576 514)">
+      <line x1="0" x2="220" />
+      <line x1="220" x2="215" y2="-5" />
+      <line x1="220" x2="215" y2="5" />
+    </g>
+  </g>
   
 </svg>
