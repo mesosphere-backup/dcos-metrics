@@ -3,7 +3,7 @@
 The HTTP API is designed for cases where you want to get metrics from one particular node or task, for example to build
 third-party tooling. It is exposed via adminrouter for each agent:
 
-`http://<your-dcos-master-url>/system/v1/<agent-id>/metrics/v0`
+`http://<your-dcos-master-url>/system/v1/agent/<agent-id>/metrics/v0`
 
 ## The /node endpoint
 
