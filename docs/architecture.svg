@@ -10,7 +10,7 @@
     /* ]]> */
   </style>
   
-  <rect name="border" width="1024" height="600" stroke-width="4" />
+  <rect name="border" x="1" y="1" width="1022" height="598" />
   <text x="512" y="36" font-size="24" text-anchor="middle">DC/OS Metrics</text>
   
   <g name="agent" transform="translate(16 84)">
