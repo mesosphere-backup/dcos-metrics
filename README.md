@@ -41,7 +41,7 @@ Both dcos-metrics and [DC/OS][github-dcos] are open source software released und
 [button-build]: https://jenkins.mesosphere.com/service/jenkins/buildStatus/icon?job=public-dcos-cluster-ops/dcos-metrics/dcos-metrics-master
 [button-go-report]: https://goreportcard.com/badge/github.com/dcos/dcos-metrics
 
-[architecture-diagram]: http://placekitten.com/1024/600
+[architecture-diagram]: docs/architecture.svg
 [architecture]: docs/architecture.md
 
 [jenkins-master]: https://jenkins.mesosphere.com/service/jenkins/job/public-dcos-cluster-ops/job/dcos-metrics/job/dcos-metrics-master/

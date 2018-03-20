@@ -1,0 +1,170 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="600" viewBox="0 0 1024 600">
+  <style>
+    /* <![CDATA[ */
+    rect, circle { stroke: black; fill: white; }
+    text { font-size: 16; font-family: sans-serif; }
+    a { cursor: pointer; }
+    a:hover { text-decoration: underline; }
+    
+    .flgr { fill: #eee; }
+    /* ]]> */
+  </style>
+  
+  <rect name="border" width="1024" height="600" stroke-width="4" />
+  <text x="512" y="36" font-size="24" text-anchor="middle">DC/OS Metrics</text>
+  
+  <g name="agent" transform="translate(16 84)">
+    <rect width="600" height="500" />
+    
+    <rect width="94" height="26" />
+    <text x="4" y="18" font-size="16">Agent Node</text>
+    
+    <g name="sources" transform="translate(16 52)">
+      <rect width="350" height="430" />
+
+      <rect width="72" height="26" />
+      <text x="4" y="18">Sources</text>
+      
+      
+      <g name="frameworks" transform="translate(8 34)">
+        <rect width="334" height="196" />
+        
+        <rect width="156" height="26" />
+        <text x="4" y="18">Frameworks &amp; Apps</text>
+        
+        <g transform="translate(8 36)">
+          <rect width="72" height="72" />
+          <text x="4" y="18">Nginx</text>
+        </g>
+        
+        <g transform="translate(88 36)">
+          <rect width="72" height="72" />
+          <text x="4" y="18">Postgres</text>
+        </g>
+        
+        <g transform="translate(168 36)">
+          <rect width="72" height="72" />
+          <text x="4" y="18">Elastic</text>
+        </g>
+        
+        <g transform="translate(248 36)">
+          <rect width="78" height="72" />
+          <text x="4" y="18">Jenkins</text>
+        </g>
+        
+        <g transform="translate(8 116)">
+          <rect width="72" height="72" />
+          <text x="4" y="18">Kafka</text>
+        </g>
+        
+        <g transform="translate(88 116)">
+          <rect width="72" height="72" />
+          <text x="4" y="18">Spark</text>
+        </g>
+        
+        <g transform="translate(168 116)">
+          <rect width="72" height="72" />
+          <text x="4" y="18">Chronos</text>
+        </g>
+        
+        <g transform="translate(248 116)">
+          <rect width="78" height="72" />
+          <text x="4" y="18">HDFS</text>
+        </g>
+        
+      </g>
+      
+      <g name="mesos" transform="translate(8 236)">
+        <rect width="334" height="90" />
+        <rect width="106" height="26" />
+        <text x="4" y="18">Mesos Agent</text>
+        
+        <g transform="translate(226 34)">
+          <rect width="100" height="48" />
+          <text x="4" y="18">HTTP API</text>
+        </g>
+      </g>
+      
+      <g name="resources" transform="translate(8 332)">
+        <rect width="334" height="90" />
+        
+        <rect width="88" height="26" />
+        <text x="4" y="18">Resources</text>
+        
+        <g transform="translate(8 34)">
+          <rect width="102" height="48" />
+          <text x="4" y="18">CPU</text>
+        </g>
+        
+        <g transform="translate(118 34)">
+          <rect width="100" height="48" />
+          <text x="4" y="18">Memory</text>
+        </g>
+        
+        <g transform="translate(226 34)">
+          <rect width="100" height="48" />
+          <text x="4" y="18">I/O</text>
+        </g>
+      </g>
+      
+    </g>
+    
+    <g name="store" transform="translate(380 30)">
+      <circle cx="100" cy="100" r="80" />
+      <text x="80" y="104">
+        <a href="https://github.com/dcos/dcos-go/tree/master/store" target="_blank">
+          Store
+        </a>
+      </text>
+    </g>
+    
+    <g name="plugins" transform="translate(400 240)">
+      <rect x="16" y="16" width="160" height="220" class="flgr" />
+      <rect x="8" y="8" width="160" height="220" class="flgr" />
+      <rect width="160" height="220" />
+      
+      <rect width="64" height="26" />
+      <text x="4" y="18">Plugins</text>
+      
+    </g>
+  </g>
+    
+  <g name="producers" transform="translate(626 84)">
+    <g>
+      <rect width="100" height="146" />
+      <text x="4" y="18">HTTP API</text>
+    </g>    
+    <g transform="translate(0 154)">
+      <rect width="100" height="146" />
+      <text x="4" y="18">Prometheus</text>
+      <text x="4" y="34">exporter</text>
+    </g>
+  </g>
+  
+  <g name="consumers" transform="translate(800 84)">
+    <g>
+      <rect width="208" height="42" />
+      <text x="4" y="18">DC/OS UI</text>
+    </g>
+    <g transform="translate(0 50)">
+      <rect width="208" height="42" />
+      <text x="4" y="18">DC/OS CLI</text>
+    </g>
+    
+    <g transform="translate(0 154)">
+      <rect width="208" height="42" />
+      <text x="4" y="18">Prometheus</text>
+    </g>
+    
+    <g transform="translate(0 358)">
+      <rect width="208" height="42" />
+      <text x="4" y="18">Librato</text>
+    </g>
+    <g transform="translate(0 408)">
+      <rect width="208" height="42" />
+      <text x="4" y="18">DataDog</text>
+    </g>
+  </g>
+  
+  
+</svg>
