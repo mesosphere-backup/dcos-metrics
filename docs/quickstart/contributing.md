@@ -11,9 +11,7 @@ If you'd like to talk about your project before you start coding, the maintainer
 consider attending the Day 2 Ops working group, where we discuss the direction of dcos-metrics and related components
 every month. There's a dedicated slack channel for that too - #day2ops-wg.
 
-We look forward to seeing your contributions!
-
- - the maintainers
+We look forward to seeing your contributions.
 
 [dcos-jira]: https://jira.mesosphere.com
 [dcos-slack]: https://dcos-community.slack.com
