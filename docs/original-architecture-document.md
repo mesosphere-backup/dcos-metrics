@@ -1,4 +1,7 @@
-﻿# Architecture and Design
+﻿* N.B.: this document is out-of-date and is preserved for historical interest and to show the original intentions of
+this project *
+
+# Architecture and Design
   * Mesosphere, DC/OS Open Source
   * October 16, 2016 (Updated December 7, 2016)
   * Team Lead: Jeff Malnick 
