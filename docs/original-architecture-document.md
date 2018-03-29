@@ -40,7 +40,7 @@ publish metrics from applications running on top of DC/OS to the collector by ex
 environment variable inside every container. We will then decorate these metrics with some structured data such as
 agent-id, framework-id and task-id.
 
-![architecture diagram](dcos-metrics-architecture.png)
+![architecture diagram](original-architecture.png)
 
 Per-container metrics tags enable you to arbitrarily group metrics, for example on a per-framework or per-system/agent
 basis. The full list is:
