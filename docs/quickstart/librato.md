@@ -4,6 +4,8 @@ In order to send stats to Librato, you will have to install and configure a plug
 plugin reads from the dcos-metrics API and transmits data to the Librato server. The procedure is similar for all node
 types. 
 
+[![screencast][video-librato]][youtube-librato]
+
 ## Prerequisites:
 
 * A cluster running DC/OS 1.9 or newer
@@ -45,3 +47,5 @@ $ systemctl start dcos-metrics-librato.service
 
 [docs-dcos-cli]: https://docs.mesosphere.com/latest/cli/
 [librato]: https://librato.com
+[video-librato]: ./video-librato.png
+[youtube-librato]: https://youtu.be/k3qGo5lIoU8

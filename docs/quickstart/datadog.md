@@ -4,6 +4,8 @@ In order to send stats to DataDog, you will have to install and configure a plug
 plugin reads from the dcos-metrics API and transmits data to the DataDog server. The procedure is similar for all node
 types. 
 
+[![screencast][video-datadog]][youtube-datadog]
+
 ## Prerequisites:
 
 * A cluster running DC/OS 1.9 or newer
@@ -44,3 +46,5 @@ $ systemctl start dcos-metrics-datadog.service
 
 [docs-dcos-cli]: https://docs.mesosphere.com/latest/cli/
 [datadog-hq]: https://datadoghq.com
+[video-datadog]: ./video-datadog.png
+[youtube-datadog]: https://youtu.be/63S7VKb0vFo

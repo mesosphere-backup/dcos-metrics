@@ -3,6 +3,8 @@
 Prometheus producers are already running on every node in your cluster, so you only have to configure Prometheus and
 Grafana. This walkthrough shows you the quickest way to deploy Prometheus to monitor your DC/OS cluster. 
 
+[![screencast][video-prometheus]][youtube-prometheus]
+
 ## Prerequisites:
 
 * A cluster running DC/OS 1.11 or higher (see [Prometheus on DC/OS 1.9 and 1.10][quickstart-prom-dcos19] for earlier
@@ -46,3 +48,5 @@ DC/OS) please consider contributing it to the [DC/OS Labs grafana dashboard repo
 [resource-metrics-json]: ../resources/metrics.json
 [resource-prom-json]: ../resources/prometheus.json
 [resource-graf-json]: ../resources/grafana.json
+[video-prometheus]: ./video-prometheus.png
+[youtube-prometheus]: https://youtu.be/63S7VKb0vFo
