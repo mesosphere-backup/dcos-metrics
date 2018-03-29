@@ -1,0 +1,58 @@
+{
+  "id": "/monitoring/grafana",
+  "labels": {
+    "DCOS_SERVICE_SCHEME": "http",
+    "DCOS_SERVICE_NAME": "grafana",
+    "DCOS_SERVICE_PORT_INDEX": "0"
+  },
+  "cmd": "mv default.conf /etc/nginx/conf.d/default.conf && nginx -g \"daemon off;\"",
+  "container": {
+    "portMappings": [
+      {
+        "containerPort": 3000,
+        "hostPort": 0,
+        "protocol": "tcp",
+        "servicePort": 10001,
+        "name": "graf"
+      }
+    ],
+    "type": "MESOS",
+    "volumes": [],
+    "docker": {
+      "image": "nginx",
+      "forcePullImage": false,
+      "parameters": []
+    }
+  },
+  "cpus": 0.1,
+  "disk": 0,
+  "fetch": [
+    {
+      "uri": "https://gist.githubusercontent.com/philipnrmn/ca3db85baab5f099aa1c310ca0f7c490/raw/698b609b1081403a2cdec9089fee8240aaa606a6/default.conf",
+      "extract": false,
+      "executable": false,
+      "cache": false
+    }
+  ],
+  "instances": 1,
+  "mem": 128,
+  "gpus": 0,
+  "networks": [
+    {
+      "mode": "container/bridge"
+    }
+  ],
+  "healthChecks": [
+    {
+      "gracePeriodSeconds": 300,
+      "intervalSeconds": 60,
+      "maxConsecutiveFailures": 3,
+      "portIndex": 0,
+      "timeoutSeconds": 20,
+      "delaySeconds": 15,
+      "protocol": "MESOS_HTTP",
+      "path": "/"
+    }
+  ],
+  "constraints": []
+}

@@ -1,0 +1,119 @@
+{
+  "id": "/monitoring/metrics",
+  "environment": {
+    "GF_AUTH_BASIC_ENABLED": "false",
+    "GF_AUTH_ANONYMOUS_ENABLED": "true",
+    "GF_SERVER_ROOT_URL": "/service/grafana",
+    "GF_AUTH_ANONYMOUS_ORG_ROLE": "Admin",
+    "GF_PATHS_PROVISIONING": "/mnt/mesos/sandbox"
+  },
+  "containers": [
+    {
+      "name": "prometheus",
+      "resources": {
+        "cpus": 0.1,
+        "mem": 1024,
+        "disk": 0
+      },
+      "image": {
+        "kind": "DOCKER",
+        "id": "philipnrmn/prometheus-on-dcos:proxy",
+        "forcePull": true
+      },
+      "healthCheck": {
+        "http": {
+          "scheme": "HTTP",
+          "endpoint": "prom",
+          "path": "/"
+        },
+        "gracePeriodSeconds": 300,
+        "intervalSeconds": 60,
+        "maxConsecutiveFailures": 3,
+        "timeoutSeconds": 20,
+        "delaySeconds": 15
+      },
+      "endpoints": [
+        {
+          "name": "prom",
+          "containerPort": 9090,
+          "hostPort": 0,
+          "protocol": [
+            "tcp"
+          ],
+          "labels": {
+            "VIP_0": "/monitoring/metrics:9090"
+          }
+        }
+      ]
+    },
+    {
+      "name": "grafana",
+      "resources": {
+        "cpus": 0.1,
+        "mem": 1024,
+        "disk": 0
+      },
+      "image": {
+        "kind": "DOCKER",
+        "id": "grafana/grafana"
+      },
+      "healthCheck": {
+        "http": {
+          "scheme": "HTTP",
+          "endpoint": "graf",
+          "path": "/"
+        },
+        "gracePeriodSeconds": 300,
+        "intervalSeconds": 60,
+        "maxConsecutiveFailures": 3,
+        "timeoutSeconds": 20,
+        "delaySeconds": 15
+      },
+      "endpoints": [
+        {
+          "name": "graf",
+          "containerPort": 3000,
+          "hostPort": 0,
+          "protocol": [
+            "tcp"
+          ],
+          "labels": {
+            "VIP_0": "/monitoring/metrics:3000"
+          }
+        }
+      ],
+      "exec": {
+        "command": {
+          "shell": "cd / && /run.sh"
+        }
+      },
+      "artifacts": [
+        {
+          "uri": "https://gist.githubusercontent.com/philipnrmn/597ca643880f1833a5ecace1a786bd92/raw/3c88c46f854fd982a1f6f56a75c44cbfdf0dd0d8/prometheus.yaml"
+        }
+      ]
+    }
+  ],
+  "networks": [
+    {
+      "name": "dcos",
+      "mode": "container"
+    }
+  ],
+  "scaling": {
+    "instances": 1,
+    "kind": "fixed"
+  },
+  "scheduling": {
+    "placement": {
+      "constraints": []
+    }
+  },
+  "executorResources": {
+    "cpus": 0.1,
+    "mem": 32,
+    "disk": 10
+  },
+  "volumes": []
+  
+}

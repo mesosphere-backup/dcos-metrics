@@ -1,4 +1,7 @@
-﻿# Architecture and Design
+﻿* N.B.: this document is out-of-date and is preserved for historical interest and to show the original intentions of
+this project *
+
+# Architecture and Design
   * Mesosphere, DC/OS Open Source
   * October 16, 2016 (Updated December 7, 2016)
   * Team Lead: Jeff Malnick 
@@ -37,7 +40,7 @@ publish metrics from applications running on top of DC/OS to the collector by ex
 environment variable inside every container. We will then decorate these metrics with some structured data such as
 agent-id, framework-id and task-id.
 
-![architecture diagram](dcos-metrics-architecture.png)
+![architecture diagram](original-architecture.png)
 
 Per-container metrics tags enable you to arbitrarily group metrics, for example on a per-framework or per-system/agent
 basis. The full list is:

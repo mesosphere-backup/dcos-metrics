@@ -1,0 +1,6 @@
+[Unit]
+Description=DC/OS Metrics Librato Plugin
+
+[Service]
+# replace dcos-role with 'agent' or 'master', add librato email and librato token with record permissions
+ExecStart=/opt/mesosphere/bin/dcos-metrics-librato --dcos-role master --librato-email "you@example.com" --librato-token xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx

@@ -1,76 +1,21 @@
-# Prometheus plugin for DC/OS Metrics
+# Prometheus Plugin for DC/OS Metrics
 
-This plugin exposes all data received by dcos-metrics in Prometheus format,
-allowing you to channel node, container and app metrics to a central Prometheus
-server.
+This plugin serves all metrics collected by the dcos-metrics service in [Prometheus format][1]. Note that this plugin is
+only needed for DC/OS 1.9 and 1.10; as of DC/OS 1.11 this functionality is [built into dcos-metrics][2].
 
-This endpoint includes data from:
-1. The local node - CPU, memory, disk usage etc
-1. Each container running on this node, if it is a Mesos agent
-1. Any metrics received over statsd from each container's workload
+## Installation & Usage
 
-## Architecture
+Refer to the [quickstart documentation][3] for instructions on installing and using this plugin.
 
-The Prometheus plugin uses the dcos-metrics plugin API. You run the plugin
-binary on each node in your cluster. It polls its local HTTP API for metrics,
-which it aggregates and offers for scraping by your Prometheus server.
+### Building this plugin (requires a Golang environment)
 
-## Usage
+1. `go get -u github.com/dcos/dcos-metrics`
+1. `cd $(go env GOPATH)/src/github.com/dcos/dcos-metrics`
+1. `make && make plugins`
 
-### Installing and starting the plugin
+The resulting binary (dcos-metrics-prometheus-plugin), which will be built to the `build/plugins` directory
+wth the dcos-metrics version appended to its filename, can then be installed on each node in the cluster.
 
-1. Download the latest prometheus plugin binary from  the [releases](https://github.com/dcos/dcos-metrics/releases) page
-1. Upload the binary as `/opt/mesosphere/bin/dcos-metrics-prometheus-plugin` on every node in your cluster
-1. Download the [environment file](./systemd/dcos-metrics-prometheus.env)
-1. Upload the environment file to `/opt/mesosphere/etc` on every node
-1. On every master node:
-    1. Copy the [master systemd service](./systemd/dcos-metrics-prometheus-master.service) file to `/etc/systemd/system`
-    1. Reload the systemd state by running `systemctl daemon-reload`
-    1. Start the systemd service with `systemctl start dcos-metrics-prometheus-master`
-1. On every agent node:
-    1. Copy the [agent systemd service](./systemd/dcos-metrics-prometheus-agent.service) file to `/etc/systemd/system`
-    1. Reload the systemd state by running `systemctl daemon-reload`
-    1. Start the systemd service with `systemctl start dcos-metrics-prometheus-agent`
-
-### Running a Prometheus server on a DC/OS cluster
-
-You can deploy a [prometheus server](./marathon/prometheus.json) with
-Marathon by running
-
-`dcos marathon app add prometheus.json`
-
-Once it's running, use `dcos node tunnel` to establish a VPN to your cluster,
-then visit [prometheus.marathon.l4lb.thisdcos.directory] to see Prometheus
-working. This image has a built-in configuration script which should detect
-the nodes in your cluster automatically.
-
-For more advanced dashboarding, you can install [grafana](./marathon/grafana.json):
-
- `dcos marathon app add grafana.json`
-
-Then simply step through the setup at [grafana.marathon.l4lb.thisdcos.directory],
-specifying the prometheus address above as your source.
-
-### Configuring the plugin
-
-The plugin serves by default on http://localhost:8088. (8088 was chosen because
-8080 is the standard, but was already reserved for Marathon). If you would like
-to serve on a different port, you can modify the environment file:
-
-1. Download the [environment file](./systemd/dcos-metrics-prometheus.env)
-1. Modify the `PROMETHEUS_PORT` EV to your desired value
-1. Upload the environment file to `/opt/mesosphere/etc` on every node
-1. Reload systemd state by running `systemctl daemon-reload` on every node
-1. Restart the systemd services by running
-    1. `systemctl restart dcos-metrics-prometheus-agent` on the agent nodes and
-    1. `systemctl restart dcos-metrics-prometheus-master` on the master nodes
-
-## Testing your setup
-
-Launch the [statsd-emitter](./marathon/statsd-emitter.json) test task on
-Marathon:
-
-`dcos marathon app add statsd-emitter.json`
-
-Then check your prometheus frontend for the 'statsd_tester_time_uptime' metric
-- if it is present, you have configured everything correctly.
+[1]: https://prometheus.io/docs/instrumenting/writing_exporters/
+[2]: https://github.com/dcos/dcos-metrics/releases/tag/1.11.0
+[3]: ../../docs/quickstart/prometheus.md

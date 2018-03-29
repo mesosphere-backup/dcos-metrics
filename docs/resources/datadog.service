@@ -1,0 +1,6 @@
+[Unit]
+Description=DC/OS Metrics Datadog Plugin
+
+[Service]
+# replace dcos-role with 'agent' or 'master' and datadog-key with your API key
+ExecStart=/opt/mesosphere/bin/dcos-metrics-datadog --dcos-role master --datadog-key xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
