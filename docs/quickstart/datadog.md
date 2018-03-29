@@ -20,13 +20,13 @@ $ sudo su
 
 Download the plugin and make sure it's executable
 ```
-$ curl -OL https://downloads.mesosphere.io/dcos-metrics/plugins/datadog /opt/mesosphere/bin/dcos-metrics-datadog
+$ curl -o /opt/mesosphere/bin/dcos-metrics-datadog -L https://downloads.mesosphere.io/dcos-metrics/plugins/datadog 
 $ chmod +x /opt/mesosphere/bin/dcos-metrics-datadog
 ```
 
 Download the systemd configuration for your plugin
 ```
-$ curl -OL https://downloads.mesosphere.io/dcos-metrics/plugins/datadog.service /etc/systemd/system/dcos-metrics-datadog.service
+$ curl -o /etc/systemd/system/dcos-metrics-datadog.service -L https://downloads.mesosphere.io/dcos-metrics/plugins/datadog.service
 ```
 
 Change the --dcos-role flag to ‘agent’, ‘agent_public' or ‘master'.
