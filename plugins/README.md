@@ -5,13 +5,15 @@ DC/OS Metrics Plugins are the best way to get your metrics from DC/OS to your mo
 Plugins are binaries which you run on each node in your DC/OS cluster. There they monitor the DC/OS Metrics API,
 aggregating, transforming, and pushing or offering them as appropriate.
 
-The following plugins are available:
- - [Datadog Agent](./datadog) - sends your metrics to the Datadog Agent
- - [Datadog Standalone](./datadog-standalone) - sends your metrics straight to DatadogHQ
+The following plugins are available for use:
+ - [Datadog](./datadog-standalone) - sends your metrics straight to DatadogHQ
  - [Librato](./librato) - sends your metrics to Librato
- - [Prometheus](./prometheus) - serves prometheus-format metrics
- - [StatsD](./statsd) - sends your metrics to a StatsD server
- - [stdout](./stdout) - prints your metrics to stdout
+ - [Prometheus](./prometheus) - serves prometheus-format metrics (DC/OS 1.9 and 1.10 only)
+
+The following plugins are not recommended for production use:
+ - [Datadog Agent](./datadog) - deprecated, sends your metrics to the Datadog Agent
+ - [StatsD](./statsd) - experimental, sends your metrics to a StatsD server
+ - [stdout](./stdout) - for debugging only, prints your metrics to stdout
 
 Missing a plugin? You can get in touch with the team and ask us to write a new one, or you can
 [write your own](#Developing).
@@ -19,8 +21,9 @@ Missing a plugin? You can get in touch with the team and ask us to write a new o
 ### Installation
 Plugins can be installed on each node.
 
-The binaries can be obtained from the [releases page](https://github.com/dcos/dcos-metrics/releases), or built from
-source according to preference. The binary should be copied to the `/opt/mesosphere/bin` directory on each node.
+The prebuilt binaries are linked from the [README](https://github.com/dcos/dcos-metrics/tree/master/README.md) or can
+be built from source according to preference. The binary should be copied to the `/opt/mesosphere/bin` directory on
+each node.
 
 Each plugin has (or will soon have) a `systemd` directory containing systemd unit files for the master and agent.
 These should be downloaded, edited as appropriate - each plugin has its own flags where you may need to define API
