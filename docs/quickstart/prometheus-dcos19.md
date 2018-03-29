@@ -18,13 +18,13 @@ $ sudo su
 
 Download the plugin and make sure it's executable
 ```
-$ curl -OL https://downloads.dcos.io/dcos-metrics/plugins/prometheus /opt/mesosphere/bin/dcos-metrics-prometheus
+$ curl -OL https://downloads.mesosphere.io/dcos-metrics/plugins/prometheus /opt/mesosphere/bin/dcos-metrics-prometheus
 $ chmod +x /opt/mesosphere/bin/dcos-metrics-prometheus
 ```
 
 Download the systemd configuration for your plugin
 ```
-$ curl -OL https://downloads.dcos.io/dcos-metrics/plugins/prometheus.service /etc/systemd/system/dcos-metrics-prometheus.service
+$ curl -OL https://downloads.mesosphere.io/dcos-metrics/plugins/prometheus.service /etc/systemd/system/dcos-metrics-prometheus.service
 ```
 
 Change the --dcos-role flag to ‘agent’, ‘agent_public' or ‘master'

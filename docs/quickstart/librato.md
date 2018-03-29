@@ -20,13 +20,13 @@ $ sudo su
 
 Download the plugin and make sure it's executable
 ```
-$ curl -OL https://downloads.dcos.io/dcos-metrics/plugins/librato /opt/mesosphere/bin/dcos-metrics-librato
+$ curl -OL https://downloads.mesosphere.io/dcos-metrics/plugins/librato /opt/mesosphere/bin/dcos-metrics-librato
 $ chmod +x /opt/mesosphere/bin/dcos-metrics-librato
 ```
 
 Download the systemd configuration for your plugin
 ```
-$ curl -OL https://downloads.dcos.io/dcos-metrics/plugins/librato.service /etc/systemd/system/dcos-metrics-librato.service
+$ curl -OL https://downloads.mesosphere.io/dcos-metrics/plugins/librato.service /etc/systemd/system/dcos-metrics-librato.service
 ```
 
 Change the --dcos-role flag to ‘agent’, ‘agent_public' or ‘master'.
