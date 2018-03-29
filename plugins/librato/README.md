@@ -1,73 +1,19 @@
 # Librato Service Plugin for DC/OS
-This plugin supports sending metrics from the DC/OS metrics service on both master and agent hosts to [Librato](https://metrics.librato.com).
 
-## Installation
+This plugin sends all metrics collected by the dcos-metrics service to [Librato][1]. 
 
-### Build this plugin (requires a Golang environment)
+## Installation & Usage
+
+Refer to the [quickstart documentation][2] for instructions on installing and using this plugin.
+
+### Building this plugin (requires a Golang environment)
+
 1. `go get -u github.com/dcos/dcos-metrics`
 1. `cd $(go env GOPATH)/src/github.com/dcos/dcos-metrics`
 1. `make && make plugins`
 
-The plugin will be available in the build directory:
+The resulting binary (dcos-metrics-librato-plugin), which will be built to the `build/plugins` directory
+wth the dcos-metrics version appended to its filename, can then be installed on each node in the cluster.
 
-```
-$ tree build
-build/
-|-- collector
-|   `-- dcos-metrics-collector-1.1.0-44-ga9f1e73
-|-- plugins
-|   `-- dcos-metrics-librato-plugin@1.1.0-44-ga9f1e73
-`-- statsd-emitter
-    `-- dcos-metrics-statsd-emitter-1.1.0-44-ga9f1e73
-```
-
-### Install the DC/OS Librato metrics plugin
-For each host in your cluster, you'll need to transfer the binary you build for the plugin and then add a systemd unit to manage the service. This unit differs slightly between agent and master hosts.
-
-#### Create a Valid Auth Token for DC/OS
-The DC/OS docs have good info on making this auth token for [OSS](https://dcos.io/docs/1.7/administration/id-and-access-mgt/managing-authentication/) and [enterprise](https://docs.mesosphere.com/1.8/administration/id-and-access-mgt/service-auth/custom-service-auth/) DC/OS.
-
-#### Deploy the Metrics Plugin to Every Cluster Host
-1. `scp build/plugins/dcos-metrics-librato-plugin@1.1.0-44-ga9f1e73 my.host:/usr/bin`
-1. `ssh my.master "chmod 0755 /usr/bin/dcos-metrics-librato-plugin@1.1.0-44-ga9f1e73"`
-
-#### Master Systemd Unit
-Add a master systemd unit file: `cat /etc/systemd/system/dcos-metrics-librato-plugin.service`
-
-```
-[Unit]
-Description=DC/OS Librato Metrics Plugin (master)
-
-[Service]
-ExecStart=/usr/bin/dcos-metrics-librato-plugin@1.1.0-44-ga9f1e73 \
-	-dcos-role master \
-	-auth-token <MY_AUTH_TOKEN> \
-	-metrics-port 80 \
-	-librato-email "your librato email" \
-	-librato-token "your librato API token with record permissions" \
-	-librato-metric-prefix "dcos"
-```
-
-#### Agent Systemd Unit
-Add a agent systemd unit file: `cat /etc/systemd/system/dcos-metrics-librato-plugin.service`
-
-```
-[Unit]
-Description=DC/OS Librato Metrics Plugin (agent)
-
-[Service]
-ExecStart=/usr/bin/dcos-metrics-librato-plugin@1.1.0-44-ga9f1e73 \
-	-dcos-role agent \
-	-auth-token <MY_AUTH_TOKEN> \
-	-librato-email "your librato email" \
-	-librato-token "your librato API token with record permissions" \
-	-librato-metric-prefix "dcos"
-```
-
-*Note:* This plugin runs on port :61001 (agent adminrouter) by default, so we don't pass the port as we did in the master version of the service.
-
-#### Enable, Start & Verify
-1. `systemctl enable dcos-metrics-librato-plugin && systemctl start dcos-metrics-librato-plugin`
-1. `journalctl -u dcos-metrics-librato-plugin` -> Make sure everything is OK
-
-## That's it!
+[1]: https://metrics.librato.com
+[2]: ../../docs/quickstart/librato.md
