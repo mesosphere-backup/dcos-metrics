@@ -41,25 +41,37 @@ $ systemctl start dcos-metrics-prometheus.service
 ## Part 2: Configuring Prometheus and Grafana
 
 Download the following json resources:
+* [metrics.json][resource-metrics-json]
 * [prometheus.json][resource-prom-json]
 * [grafana.json][resource-graf-json]
 
-Deploy Prometheus using the dcos-metrics prometheus docker image:
+Deploy Prometheus and Grafana in a pod:
 
-`$ dcos marathon app add prometheus.json`
+`$ dcos marathon pod add metrics.json`
 
-Wait for Prometheus to become healthy, then deploy Grafana using the dcos-metrics grafana docker image:
+Deploy the Prometheus and Grafana service proxies:
 
-`$ dcos marathon app add grafana.json`
+```
+$ dcos marathon app add prometheus.json
+$ dcos marathon app add grafana.json
+```
 
-Wait for Grafana to become healthy, then open the Grafana UI at 
+Wait for all services to become healthy, then open the Grafana UI at 
 https://your-dcos-master-url/service/grafana
 
+Add a Prometheus datasource to Grafana named 'DC/OS Metrics', using all the default values. Ensure that it set to be
+the default datasource. 
+
+Create a new dashboard in Grafana. You will see metrics appearing from the newly created DC/OS Metrics source.
+
+<!--
 By default, a simple DC/OS dashboard is included. If you create a DC/OS-specific dashboard (for example, for Kafka on
 DC/OS) please consider contributing it to the [DC/OS Labs grafana dashboard repository][dcos-labs-grafana]. 
+-->
 
 [docs-dcos-cli]: https://docs.mesosphere.com/latest/cli/
 [dcos-labs-grafana]: https://github.com/dcos-labs/grafana-dashboards
 [quickstart-prom]: prometheus.md
+[resource-metrics-json]: ../resources/metrics.json
 [resource-prom-json]: ../resources/prometheus.json
 [resource-graf-json]: ../resources/grafana.json
