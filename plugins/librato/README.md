@@ -1,4 +1,4 @@
-# Librato Service Plugin for DC/OS
+# Librato Plugin for DC/OS Metrics
 
 This plugin sends all metrics collected by the dcos-metrics service to [Librato][1]. 
 

@@ -1,4 +1,4 @@
-# Datadog Metrics Service Plugin for DC/OS
+# Datadog Plugin for DC/OS Metrics
 
 This plugin sends all metrics collected by the dcos-metrics service to [DataDog][1]. 
 
