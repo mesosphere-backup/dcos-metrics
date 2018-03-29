@@ -8,7 +8,7 @@ types.
 
 * A cluster running DC/OS 1.9 or newer
 * The [DC/OS CLI][docs-dcos-cli] installed
-* A DataDog account (an account can be created free of charge at [datadoghq.com][datadog-hq]
+* A DataDog account (an account can be created free of charge at [datadoghq.com][datadog-hq])
 
 ## Deploying the plugin
 
