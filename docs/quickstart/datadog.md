@@ -47,4 +47,4 @@ $ systemctl start dcos-metrics-datadog.service
 [docs-dcos-cli]: https://docs.mesosphere.com/latest/cli/
 [datadog-hq]: https://datadoghq.com
 [video-datadog]: ./video-datadog.png
-[youtube-datadog]: https://youtu.be/63S7VKb0vFo
+[youtube-datadog]: https://youtu.be/GWvbFaGE9qo
