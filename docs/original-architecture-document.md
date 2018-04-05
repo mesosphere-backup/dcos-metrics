@@ -1,5 +1,5 @@
-﻿* N.B.: this document is out-of-date and is preserved for historical interest and to show the original intentions of
-this project *
+⚠️ this document is preserved for historical interest and to show the original intentions of
+this project, and does not reflect its current architecture ⚠️
 
 # Architecture and Design
   * Mesosphere, DC/OS Open Source
