@@ -88,6 +88,21 @@ func TestRun(t *testing.T) {
 	})
 }
 
+func TestSanitizeName(t *testing.T) {
+	Convey("Should remove illegal metric name chars", t, func() {
+		io := map[string]string{
+			"abc":     "abc",
+			"abc123":  "abc123",
+			"foo-bar": "foo_bar",
+			"foo:bar": "foo_bar",
+			"foo bar": "foo_bar",
+		}
+		for i, o := range io {
+			So(sanitizeName(i), ShouldEqual, o)
+		}
+	})
+}
+
 // getEphemeralPort returns an available ephemeral port on the system.
 func getEphemeralPort() (int, error) {
 	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
