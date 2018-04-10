@@ -33,7 +33,9 @@ import (
 
 var (
 	illegalChars = regexp.MustCompile("\\W")
-	promLog      = log.WithFields(log.Fields{"producer": "prometheus"})
+	// This is the same regex that Prometheus uses to test validity
+	legalLabel = regexp.MustCompile("^[a-zA-Z_]([a-zA-Z0-9_])*$")
+	promLog    = log.WithFields(log.Fields{"producer": "prometheus"})
 )
 
 // Config is a configuration for the Prom producer's behaviour
@@ -217,7 +219,13 @@ func (p *promProducer) janitor() {
 // sanitizeName returns a metric or label name which is safe for use
 // in prometheus output
 func sanitizeName(name string) string {
-	return strings.ToLower(illegalChars.ReplaceAllString(name, "_"))
+	output := strings.ToLower(illegalChars.ReplaceAllString(name, "_"))
+
+	if legalLabel.MatchString(output) {
+		return output
+	}
+	// Prefix name with _ if it begins with a number
+	return "_" + output
 }
 
 // coerceToFloat attempts to convert an interface to float64. It should succeed

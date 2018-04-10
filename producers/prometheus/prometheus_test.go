@@ -93,6 +93,7 @@ func TestSanitizeName(t *testing.T) {
 		io := map[string]string{
 			"abc":     "abc",
 			"abc123":  "abc123",
+			"123abc":  "_123abc",
 			"foo-bar": "foo_bar",
 			"foo:bar": "foo_bar",
 			"foo bar": "foo_bar",
