@@ -43,7 +43,9 @@ var (
 	registerOnce  sync.Once
 	listener      net.Listener
 	latestMetrics metricsSnapshot
-	illegalChars  = regexp.MustCompile("\\W")
+	// This is the same regex that Prometheus uses to test validity
+	legalLabel   = regexp.MustCompile("^[a-zA-Z_]([a-zA-Z0-9_])*$")
+	illegalChars = regexp.MustCompile("\\W")
 )
 
 type metricsSnapshot struct {
@@ -181,5 +183,11 @@ func getLabelsForDatapoint(dimensions producers.Dimensions, tags map[string]stri
 // sanitizeName returns a metric or label name which is safe for use
 // in prometheus output
 func sanitizeName(name string) string {
-	return strings.ToLower(illegalChars.ReplaceAllString(name, "_"))
+	output := strings.ToLower(illegalChars.ReplaceAllString(name, "_"))
+
+	if legalLabel.MatchString(output) {
+		return output
+	}
+	// Prefix name with _ if it begins with a number
+	return "_" + output
 }
