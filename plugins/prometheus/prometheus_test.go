@@ -156,6 +156,22 @@ func TestPromPlugin(t *testing.T) {
 	})
 }
 
+func TestSanitizeName(t *testing.T) {
+	Convey("Should remove illegal metric name chars", t, func() {
+		io := map[string]string{
+			"abc":     "abc",
+			"abc123":  "abc123",
+			"123abc":  "_123abc",
+			"foo-bar": "foo_bar",
+			"foo:bar": "foo_bar",
+			"foo bar": "foo_bar",
+		}
+		for i, o := range io {
+			So(sanitizeName(i), ShouldEqual, o)
+		}
+	})
+}
+
 // freeport listens momentarily on port 0, then closes the connection and
 // returns the assigned port, which is now known to be available.
 func freeport(t *testing.T) string {
