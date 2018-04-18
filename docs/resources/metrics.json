@@ -44,6 +44,12 @@
             "VIP_0": "/monitoring/metrics:9090"
           }
         }
+      ],
+      "volumeMounts": [
+        {
+          "name": "data",
+          "mountPath": "/prometheus/data"
+        }
       ]
     },
     {
@@ -114,6 +120,12 @@
     "mem": 32,
     "disk": 10
   },
-  "volumes": []
-  
+  "volumes": [
+    {
+      "persistent": {
+        "size": 10240
+      },
+      "name": "data"
+    }
+  ] 
 }
