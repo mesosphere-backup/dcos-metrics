@@ -1,6 +1,6 @@
 package main
 
-// 'go generate' must be run for the 'metricsSchema' package to be present:
+// 'go generate' must be run for the 'schema' package to be present:
 //go:generate go run ../../schema/generator.go -infile ../../schema/metrics.avsc -outfile metrics_schema/schema.go
 
 import (
@@ -14,7 +14,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"github.com/dcos/dcos-metrics/examples/collector-emitter/metrics_schema"
+	schema "github.com/dcos/dcos-metrics/examples/collector-emitter/metrics_schema"
 	"github.com/linkedin/goavro"
 )
 
@@ -31,14 +31,14 @@ var (
 	blockTickMsFlag = flag.Int("block-tick-ms", 500,
 		"Number of milliseconds to wait before flushing the current avro block (0 = disabled)")
 
-	datapointNamespace = goavro.RecordEnclosingNamespace(metricsSchema.DatapointNamespace)
-	datapointSchema    = goavro.RecordSchema(metricsSchema.DatapointSchema)
+	datapointNamespace = goavro.RecordEnclosingNamespace(schema.DatapointNamespace)
+	datapointSchema    = goavro.RecordSchema(schema.DatapointSchema)
 
-	metricListNamespace = goavro.RecordEnclosingNamespace(metricsSchema.MetricListNamespace)
-	metricListSchema    = goavro.RecordSchema(metricsSchema.MetricListSchema)
+	metricListNamespace = goavro.RecordEnclosingNamespace(schema.MetricListNamespace)
+	metricListSchema    = goavro.RecordSchema(schema.MetricListSchema)
 
-	tagNamespace = goavro.RecordEnclosingNamespace(metricsSchema.TagNamespace)
-	tagSchema    = goavro.RecordSchema(metricsSchema.TagSchema)
+	tagNamespace = goavro.RecordEnclosingNamespace(schema.TagNamespace)
+	tagSchema    = goavro.RecordSchema(schema.TagSchema)
 
 	startTime = time.Now()
 )
@@ -144,7 +144,7 @@ func buildDatapoint(name string, timeMs int64, value float64) interface{} {
 // ---
 
 func runTCPSerializerSender(recordsChan <-chan []interface{}) {
-	codec, err := goavro.NewCodec(metricsSchema.MetricListSchema)
+	codec, err := goavro.NewCodec(schema.MetricListSchema)
 	if err != nil {
 		log.Fatal("Failed to initialize avro codec: ", err)
 	}
