@@ -7,6 +7,22 @@ only needed for DC/OS 1.9 and 1.10; as of DC/OS 1.11 this functionality is [buil
 
 Refer to the [quickstart documentation][3] for instructions on installing and using this plugin.
 
+To install the plugin on DC/OS 1.9 and 1.10, it is necessary to follow the next steps:
+
+1. Download the latest prometheus plugin binary from the [releases](https://github.com/dcos/dcos-metrics/releases) page
+1. Upload the binary as `/opt/mesosphere/bin/dcos-metrics-prometheus-plugin` on every node in your cluster
+1. Download the [environment file](./systemd/dcos-metrics-prometheus.env)
+1. Upload the environment file to `/opt/mesosphere/etc` on every node
+1. On every master node:
+    1. Copy the [master systemd service](./systemd/dcos-metrics-prometheus-master.service) file to `/etc/systemd/system`
+    1. Reload the systemd state by running `systemctl daemon-reload`
+    1. Start the systemd service with `systemctl start dcos-metrics-prometheus-master`
+1. On every agent node:
+    1. Copy the [agent systemd service](./systemd/dcos-metrics-prometheus-agent.service) file to `/etc/systemd/system`
+    1. Reload the systemd state by running `systemctl daemon-reload`
+    1. Start the systemd service with `systemctl start dcos-metrics-prometheus-agent`
+
+
 ### Building this plugin (requires a Golang environment)
 
 1. `go get -u github.com/dcos/dcos-metrics`
