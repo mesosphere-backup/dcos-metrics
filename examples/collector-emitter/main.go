@@ -1,7 +1,7 @@
 package main
 
-// 'go generate' must be run for the 'schema' package to be present:
-//go:generate go run ../../schema/generator.go -infile ../../schema/metrics.avsc -outfile metrics_schema/schema.go
+// 'go generate' must be run for the 'metrics_schema' package to be present:
+//go:generate go generate github.com/dcos/dcos-metrics/schema/
 
 import (
 	"flag"
@@ -14,7 +14,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	schema "github.com/dcos/dcos-metrics/examples/collector-emitter/metrics_schema"
+	schema "github.com/dcos/dcos-metrics/schema/metrics_schema"
 	"github.com/linkedin/goavro"
 )
 

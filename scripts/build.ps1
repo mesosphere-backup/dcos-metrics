@@ -19,13 +19,13 @@ function license_check
     Get-ChildItem -File -Filter *.go -Recurse | ?{ $_.FullName -notmatch "\\vendor\\" } | ?{ $_.FullName -notmatch "\\schema\\" } | ?{ $_.FullName -notmatch "\\examples\\" } |
     ForEach-Object {
         $fullName = $_.FullName
-        $output = Select-String -Pattern "Copyright [0-9]{4} Mesosphere, Inc." $fullName 
+        $output = Select-String -Pattern "Copyright [0-9]{4} Mesosphere, Inc." $fullName
         if (-not $output)
         {
             Write-Output("$fullName does not have proper Mesosphere copyright")
             $retval=$retval+1
         }
-        $output = Select-String -SimpleMatch "Licensed under the Apache License, Version 2.0 (the `"License`");" $fullName 
+        $output = Select-String -SimpleMatch "Licensed under the Apache License, Version 2.0 (the `"License`");" $fullName
         if (-not $output)
         {
             Write-Output("$fullName does not have proper Apache license")
@@ -36,11 +36,8 @@ function license_check
 
 function build_collector()
 {
-    $curLocation = Get-Location
-    Set-Location "$SOURCE_DIR/schema"
-    & go run generator.go -infile metrics.avsc -outfile ./metrics_schema/schema.go
+    & go generate github.com/dcos/dcos-metrics/
     fastfail("Failed to generate schema.go.")
-    Set-Location $curLocation
 
     $filenames = ""
     Get-ChildItem -file -Filter *.go |
@@ -109,7 +106,7 @@ foreach ($arg in $args)
 {
     $SOURCE_DIR = & git rev-parse --show-toplevel
     fastfail("Failed to find top-level source directory. Cannot find git.exe?")
-    
+
     $GIT_REF = & git describe --tags --always
     fastfail("Failed to get git ref")
 
@@ -119,7 +116,7 @@ foreach ($arg in $args)
     fastfail("Failed to get revision")
 
     $PLATFORM = "Windows"
-    
+
     try
     {
         main $arg
@@ -127,7 +124,7 @@ foreach ($arg in $args)
     catch
     {
         Write-Output ("Failed build for component $arg")
-        exit -1    
+        exit -1
     }
 }
 & tree /F build

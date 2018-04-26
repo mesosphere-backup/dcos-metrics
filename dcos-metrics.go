@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// 'go generate' must be run for the 'metrics_schema' package to be present:
+//go:generate go generate github.com/dcos/dcos-metrics/schema/
+
 package main
 
 import (

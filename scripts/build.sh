@@ -29,17 +29,29 @@ function license_check {
     fi
 }
 
+function build_clean {
+    rm -rf ./build
+    rm -rf ./schema/metrics_schema
+}
+
 function build_collector {
     license_check
-    # build metrics_schema package
-    pushd "${SOURCE_DIR}/schema"
-    go run generator.go -infile metrics.avsc -outfile ./metrics_schema/schema.go
-    popd
+    # generate metrics_schema package used by collector
+    go generate github.com/dcos/dcos-metrics/
 
     # build binary
     go build -a -o ${BUILD_DIR}/dcos-metrics-${COMPONENT}-${GIT_REF}       \
         -ldflags "-X main.VERSION=${VERSION} -X main.REVISION=${REVISION} -X github.com/dcos/dcos-metrics/util/http/client.USERAGENT=dcos-metrics/${VERSION}" \
         *.go
+}
+
+function build_collector-emitter {
+    # generate metrics_schema package used by example
+    go generate github.com/dcos/dcos-metrics/examples/collector-emitter/
+
+    # build binary
+    go build -a -o ${BUILD_DIR}/dcos-metrics-${COMPONENT}-${GIT_REF} \
+    examples/collector-emitter/main.go
 }
 
 function build_statsd-emitter {
@@ -49,7 +61,7 @@ function build_statsd-emitter {
 
 function build_plugins {
     license_check
-		
+
     for PLUGIN in $(cd plugins/ && ls -d */ | sed 's,/,,'); do
 				pluginPath=${BUILD_DIR}/dcos-metrics-${PLUGIN}-plugin@${GIT_REF}
         echo "Building plugin: $PLUGIN"
