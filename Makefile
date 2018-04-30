@@ -7,6 +7,7 @@ all: clean build test
 build: docker
 	$(call buildIt,collector)
 	$(call buildIt,statsd-emitter)
+	$(call buildIt,collector-emitter)
 
 .PHONY: plugins
 plugins: docker clean
@@ -18,8 +19,8 @@ test: docker clean build
 
 .PHONY: clean
 clean:
-	rm -rf ./build
-	rm -rf ./schema/metrics_schema
+        # Clean from within the docker container to avoid issues with file permissions:
+        $(call buildIt,clean)
 
 .PHONY: docker
 docker:

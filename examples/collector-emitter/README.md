@@ -15,9 +15,10 @@ apt-get install golang-go
 
 ```bash
 go get -u github.com/dcos/dcos-metrics
-cd $GOPATH/src/github.com/dcos/dcos-metrics
+cd $GOPATH/src/github.com/dcos/dcos-metrics/examples/collector-emitter/
 go generate # creates 'metrics_schema' package
-go build
+go build # local native build
+CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -ldflags="-s -w" -o collector-emitter-linux # linux build (for clusters)
 ```
 
 If you see errors about `cannot find package "github.com/.../metrics_schema"`, you forgot to perform `go generate`.
