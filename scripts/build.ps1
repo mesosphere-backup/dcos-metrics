@@ -100,7 +100,7 @@ if ($args.Count -eq 0)
     exit -1
 }
 
-Remove-Item .\build -Force -Recurse
+Remove-Item .\build -Force -Recurse -ErrorAction Ignore
 
 foreach ($arg in $args)
 {
