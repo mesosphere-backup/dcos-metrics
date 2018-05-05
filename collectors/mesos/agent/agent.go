@@ -94,8 +94,9 @@ func (ctr *ContainerTaskRels) update(as agentState) {
 			for _, t := range e.Tasks {
 				for _, s := range t.Statuses {
 					rels[s.ContainerStatusInfo.ID.Value] = &TaskInfo{
-						ID:   t.ID,
-						Name: t.Name,
+						ID:     t.ID,
+						Name:   t.Name,
+						Labels: t.Labels,
 					}
 				}
 			}
