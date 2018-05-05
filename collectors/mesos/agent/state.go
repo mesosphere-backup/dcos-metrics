@@ -64,11 +64,12 @@ type executorInfo struct {
 	ID        string     `json:"id"`
 	Name      string     `json:"name"`
 	Container string     `json:"container"`
-	Labels    []keyValue `json:"labels,omitempty"` // labels are optional
+	Labels    []KeyValue `json:"labels,omitempty"` // labels are optional
 	Tasks     []TaskInfo `json:"tasks,omitempty"`
 }
 
-type keyValue struct {
+// KeyValue is key and a value, each a string
+type KeyValue struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
@@ -77,7 +78,7 @@ type keyValue struct {
 type TaskInfo struct {
 	ID       string           `json:"id"`
 	Name     string           `json:"name"`
-	Labels   []keyValue       `json:"labels,omitempty"`
+	Labels   []KeyValue       `json:"labels,omitempty"`
 	Statuses []taskStatusInfo `json:"statuses,omitempty"`
 }
 
