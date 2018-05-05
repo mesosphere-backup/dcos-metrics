@@ -64,6 +64,7 @@ func (ar avroRecord) extract(pmm *producers.MetricsMessage, ctr *mesosAgent.Cont
 				if info != nil {
 					pmm.Dimensions.TaskID = info.ID
 					pmm.Dimensions.TaskName = info.Name
+					pmm.Dimensions.Labels = convertLabels(info.Labels)
 				} else {
 					fwColLog.Debugf("Container ID %s had no associated task", tagValue)
 				}
@@ -111,6 +112,16 @@ func (ar avroRecord) extract(pmm *producers.MetricsMessage, ctr *mesosAgent.Cont
 	}
 
 	return fmt.Errorf("must have dcos.metrics.Tags or dcos.metrics.Datapoint in avro record to use .extract()")
+}
+
+// convertLabels converts each keyValue to an entry in a map
+func convertLabels(newLabels []mesosAgent.KeyValue) map[string]string {
+	result := map[string]string{}
+	for _, l := range newLabels {
+		result[l.Key] = l.Value
+	}
+
+	return result
 }
 
 // *avroRecord.createObjectFromRecord creates a JSON implementation of the avro
