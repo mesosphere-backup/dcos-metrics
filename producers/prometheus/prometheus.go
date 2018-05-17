@@ -15,12 +15,14 @@
 package prometheus
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -40,8 +42,9 @@ var (
 
 // Config is a configuration for the Prom producer's behaviour
 type Config struct {
-	Port        int `yaml:"port"`
-	CacheExpiry time.Duration
+	Port         int  `yaml:"port"`
+	StaticBuffer bool `yaml:"static_buffer,omitempty"`
+	CacheExpiry  time.Duration
 }
 
 // promProducer implements both producers.MetricsProducer and
@@ -67,6 +70,7 @@ func New(cfg Config) (producers.MetricsProducer, chan producers.MetricsMessage) 
 func (p *promProducer) Run() error {
 	promLog.Info("Starting Prom producer garbage collection service")
 	go p.janitor()
+	go updateProm(p.store)
 
 	// The below is borrowed wholesale from the http producer.
 	// TODO (philipnrmn): rewrite this section to avoid use of the store
@@ -95,12 +99,17 @@ func (p *promProducer) Run() error {
 		}
 	}()
 
-	registry := prometheus.NewRegistry()
-	registry.MustRegister(p)
-
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.HandlerFor(
-		registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
+
+	// static_buffer is a debug setting which manually dumps metrics out in prom format
+	if p.config.StaticBuffer {
+		mux.HandleFunc("/metrics", promHandler)
+	} else {
+		registry := prometheus.NewRegistry()
+		registry.MustRegister(p)
+		mux.Handle("/metrics", promhttp.HandlerFor(
+			registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
+	}
 
 	addr := fmt.Sprintf(":%d", p.config.Port)
 	server := &http.Server{
@@ -110,6 +119,76 @@ func (p *promProducer) Run() error {
 
 	promLog.Infof("Serving Prometheus metrics on %s", addr)
 	return server.ListenAndServe()
+}
+
+var promLock = sync.Mutex{}
+var promOutput string
+
+func promHandler(w http.ResponseWriter, r *http.Request) {
+	promLock.Lock()
+	output := promOutput
+	promLock.Unlock()
+
+	w.Write([]byte(output))
+}
+
+// function that runs on timer, writing out the string of prometheus
+// output
+func updateProm(store store.Store) {
+	ticker := time.NewTicker(10 * time.Second)
+	for {
+		select {
+		case _ = <-ticker.C:
+			log.Info("Updating prometheus output...")
+			buffer := bytes.NewBuffer(nil)
+			for _, obj := range store.Objects() {
+				message, ok := obj.(producers.MetricsMessage)
+				if !ok {
+					promLog.Warnf("Unsupported message type %T", obj)
+					continue
+				}
+				dims := dimsToMap(message.Dimensions)
+
+				for _, d := range message.Datapoints {
+
+					// var tagKeys []string
+					// var tagVals []string
+					// for k, v := range dims {
+					// 	tagKeys = append(tagKeys, sanitizeName(k))
+					// 	tagVals = append(tagVals, v)
+					// }
+					// for k, v := range d.Tags {
+					// 	tagKeys = append(tagKeys, sanitizeName(k))
+					// 	tagVals = append(tagVals, v)
+					// }
+
+					name := sanitizeName(d.Name)
+					val, err := coerceToFloat(d.Value)
+					if err != nil {
+						promLog.Warnf("Bad datapoint value %q: %s", d.Value, err)
+						continue
+					}
+
+					buffer.WriteString(fmt.Sprintf("# HELP %s DC/OS Metrics Datapoint\n", name))
+					buffer.WriteString(fmt.Sprintf("# TYPE %s gauge\n", name))
+					buffer.WriteString(fmt.Sprintf("%s{", name))
+					for k, v := range dims {
+						buffer.WriteString(fmt.Sprintf("%s=\"%s\" ", k, v))
+					}
+					for k, v := range d.Tags {
+						buffer.WriteString(fmt.Sprintf("%s=\"%s\" ", k, v))
+					}
+					buffer.WriteString(fmt.Sprintf("} %v\n", val))
+				}
+			}
+
+			promLock.Lock()
+			promOutput = string(buffer.Bytes())
+			promLock.Unlock()
+
+			log.Info("Updated prometheus output.")
+		}
+	}
 }
 
 // Describe passes all the available stat descriptions to Prometheus; we
@@ -127,6 +206,7 @@ func (p *promProducer) Describe(ch chan<- *prometheus.Desc) {
 // them to prometheus.Metric and passing them into the prometheus producer
 // channel, where they will be served to consumers.
 func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
+	log.Info("The store has ", len(p.store.Objects()), "objects in it")
 	for _, obj := range p.store.Objects() {
 		message, ok := obj.(producers.MetricsMessage)
 		if !ok {
