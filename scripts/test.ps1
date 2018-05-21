@@ -121,6 +121,10 @@ function _unittest_with_coverage
         $package = Split-Path -Leaf $import_path
         Write-Output "Running tests for $import_path"
 
+        if ($import_path -eq 'github.com/dcos/dcos-metrics/vendor/github.com/coreos/go-systemd/activation') {
+            Write-Host("Skipped $import_path")
+            continue
+        }
         $covfile = ($BUILD_DIR + "/coverage-reports/profile_" + $package + ".cov")
         $repfile = ($BUILD_DIR + "/test-reports/" + $package + "-report.xml")
 
@@ -130,6 +134,7 @@ function _unittest_with_coverage
         $testoutput | Out-Default
         if ($LASTEXITCODE -ne 0) 
         {
+            Write-Host ("Failed to test $import_path")
             $numFailures = ($numFailures + 1)
         }
 #            fastfail("Unittests failed")
