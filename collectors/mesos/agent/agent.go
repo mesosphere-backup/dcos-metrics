@@ -27,8 +27,6 @@ import (
 )
 
 const (
-	// HTTPTIMEOUT defines the maximum duration for all requests
-	HTTPTIMEOUT    = 2 * time.Second
 	maxLabelLength = 128
 )
 
@@ -39,6 +37,7 @@ type Collector struct {
 	Port            int           `yaml:"port"`
 	PollPeriod      time.Duration `yaml:"poll_period"`
 	RequestProtocol string        `yaml:"request_protocol"`
+	RequestTimeout  time.Duration `yaml:"request_timeout"`
 	HTTPClient      *http.Client
 
 	agentState       agentState
