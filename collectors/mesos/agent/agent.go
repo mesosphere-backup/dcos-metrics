@@ -37,7 +37,7 @@ type Collector struct {
 	Port            int           `yaml:"port"`
 	PollPeriod      time.Duration `yaml:"poll_period"`
 	RequestProtocol string        `yaml:"request_protocol"`
-	RequestTimeout  time.Duration `yaml:"request_timeout"`
+	RequestTimeout  time.Duration `yaml:"request_timeout,omitempty"`
 	HTTPClient      *http.Client
 
 	agentState       agentState
