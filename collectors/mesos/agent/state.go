@@ -106,7 +106,7 @@ func (c *Collector) getAgentState() error {
 		Path:   "/state",
 	}
 
-	c.HTTPClient.Timeout = HTTPTIMEOUT
+	c.HTTPClient.Timeout = c.RequestTimeout
 
 	return client.Fetch(c.HTTPClient, u, &c.agentState)
 }

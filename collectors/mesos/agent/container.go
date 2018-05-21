@@ -134,7 +134,7 @@ func (c *Collector) getContainerMetrics() error {
 		Path:   "/containers",
 	}
 
-	c.HTTPClient.Timeout = HTTPTIMEOUT
+	c.HTTPClient.Timeout = c.RequestTimeout
 
 	return client.Fetch(c.HTTPClient, u, &c.containerMetrics)
 }
