@@ -7,9 +7,10 @@ var ErrContainerIDNotFound = errors.New("invalid task. Container ID not found")
 
 // State stands for mesos state.json available via /mesos/master/state.json
 type State struct {
-	ID         string      `json:"id"`
-	Slaves     []Slave     `json:"slaves"`
-	Frameworks []Framework `json:"frameworks"`
+	ID                  string      `json:"id"`
+	Slaves              []Slave     `json:"slaves"`
+	Frameworks          []Framework `json:"frameworks"`
+	CompletedFrameworks []Framework `json:"completed_frameworks"`
 }
 
 // Slave is a field in state.json
