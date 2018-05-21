@@ -193,6 +193,7 @@ func newConfig() Config {
 				PollPeriod:      time.Duration(60 * time.Second),
 				Port:            5051,
 				RequestProtocol: "http",
+				RequestTimeout:  time.Duration(5 * time.Second),
 			},
 			Node: &node.Collector{
 				PollPeriod: time.Duration(60 * time.Second),
