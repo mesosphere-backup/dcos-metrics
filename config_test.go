@@ -176,8 +176,9 @@ func TestLoadConfig(t *testing.T) {
 collector:
   mesos_agent:
     port: 1234
-    poll_period: 5
+    poll_period: 5s
     request_protocol: https
+    request_timeout: 5s
   node:
     poll_period: 3
   http_profiler: false
@@ -194,10 +195,11 @@ collector:
 			So(loadErr, ShouldBeNil)
 
 			So(testConfig.Collector.MesosAgent.Port, ShouldEqual, 1234)
-			So(testConfig.Collector.MesosAgent.PollPeriod, ShouldEqual, 5)
+			So(testConfig.Collector.MesosAgent.PollPeriod, ShouldEqual, time.Second*5)
 			So(testConfig.Collector.Node.PollPeriod, ShouldEqual, 3)
 			So(testConfig.Collector.HTTPProfiler, ShouldBeFalse)
 			So(testConfig.Collector.MesosAgent.RequestProtocol, ShouldEqual, "https")
+			So(testConfig.Collector.MesosAgent.RequestTimeout, ShouldEqual, time.Second*5)
 		})
 	})
 }
