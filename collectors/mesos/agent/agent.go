@@ -30,6 +30,22 @@ const (
 	maxLabelLength = 128
 )
 
+var (
+	/// cosmosLabels are attached to mesos tasks so that DC/OS can track what is
+	// from Cosmos and what is a user-defined task. They are of no value in
+	// metrics, so we strip them out.
+	cosmosLabels = map[string]bool{
+		"DCOS_PACKAGE_DEFINITION":      true,
+		"DCOS_PACKAGE_FRAMEWORK_NAME":  true,
+		"DCOS_PACKAGE_METADATA":        true,
+		"DCOS_PACKAGE_OPTIONS":         true,
+		"DCOS_PACKAGE_SOURCE":          true,
+		"DCOS_SERVICE_PORT_INDEX":      true,
+		"DCOS_SERVICE_SCHEME":          true,
+		"MARATHON_SINGLE_INSTANCE_APP": true,
+	}
+)
+
 // Collector defines the collector type for Mesos agent. It is
 // configured from main from config file options and pass a new instance of HTTP
 // client and a channel for dropping metrics onto.
@@ -255,6 +271,9 @@ func getLabelsByContainerID(containerID string, frameworks []frameworkInfo, log 
 			if executor.Container == containerID {
 				log.Debugf("ContainerID %v for executor %v is a match, adding labels", containerID, executor)
 				for _, pair := range executor.Labels {
+					if _, inSlice := cosmosLabels[pair.Key]; inSlice {
+						continue
+					}
 					if len(pair.Value) > maxLabelLength {
 						log.Warnf("Label %s is longer than %d chars; discarding label", pair.Key, maxLabelLength)
 						log.Debugf("Discarded label value: %s", pair.Value)

@@ -459,6 +459,10 @@ func TestGetLabelsByContainerID(t *testing.T) {
 								Key:   "longkey",
 								Value: "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
 							},
+							KeyValue{
+								Key:   "DCOS_PACKAGE_DEFINITION",
+								Value: "shortVal",
+							},
 						},
 					},
 				},
@@ -476,6 +480,11 @@ func TestGetLabelsByContainerID(t *testing.T) {
 		})
 
 		Convey("Should drop labels with overly long values", func() {
+			result := getLabelsByContainerID("containerWithLongLabelID", fi, tl)
+			So(result, ShouldResemble, map[string]string{"somekey": "someval"})
+		})
+
+		Convey("Should drop cosmos-related labels", func() {
 			result := getLabelsByContainerID("containerWithLongLabelID", fi, tl)
 			So(result, ShouldResemble, map[string]string{"somekey": "someval"})
 		})
