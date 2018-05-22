@@ -30,6 +30,7 @@ import (
 	"github.com/dcos/dcos-metrics/producers"
 	prodHelpers "github.com/dcos/dcos-metrics/util/producers"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -41,8 +42,9 @@ var (
 
 // Config is a configuration for the Prom producer's behaviour
 type Config struct {
-	Port        int `yaml:"port"`
-	CacheExpiry time.Duration
+	Port         int  `yaml:"port"`
+	StaticBuffer bool `yaml:"static_buffer,omitempty"`
+	CacheExpiry  time.Duration
 }
 
 // promProducer implements both producers.MetricsProducer and
@@ -97,11 +99,17 @@ func (p *promProducer) Run() error {
 		}
 	}()
 
-	registry := prometheus.NewRegistry()
-	registry.MustRegister(p)
-
 	mux := http.NewServeMux()
-	mux.HandleFunc("/metrics", promHandler)
+
+	// static_buffer is a debug setting which manually dumps metrics out in prom format
+	if p.config.StaticBuffer {
+		mux.HandleFunc("/metrics", promHandler)
+	} else {
+		registry := prometheus.NewRegistry()
+		registry.MustRegister(p)
+		mux.Handle("/metrics", promhttp.HandlerFor(
+			registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
+	}
 
 	addr := fmt.Sprintf(":%d", p.config.Port)
 	server := &http.Server{
