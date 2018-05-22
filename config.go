@@ -203,8 +203,9 @@ func newConfig() Config {
 				Port:        9000,
 			},
 			PrometheusProducerConfig: promProducer.Config{
-				CacheExpiry: time.Duration(60 * time.Second),
-				Port:        9273,
+				CacheExpiry:  time.Duration(60 * time.Second),
+				Port:         9273,
+				StaticBuffer: false,
 			},
 		},
 		LogLevel: "info",
