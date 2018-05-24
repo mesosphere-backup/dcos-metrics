@@ -23,6 +23,22 @@ import (
 	"github.com/dcos/dcos-metrics/producers"
 )
 
+var (
+	/// cosmosLabels are attached to mesos tasks so that DC/OS can track what is
+	// from Cosmos and what is a user-defined task. They are of no value in
+	// metrics, so we strip them out.
+	cosmosLabels = map[string]bool{
+		"DCOS_PACKAGE_DEFINITION":      true,
+		"DCOS_PACKAGE_FRAMEWORK_NAME":  true,
+		"DCOS_PACKAGE_METADATA":        true,
+		"DCOS_PACKAGE_OPTIONS":         true,
+		"DCOS_PACKAGE_SOURCE":          true,
+		"DCOS_SERVICE_PORT_INDEX":      true,
+		"DCOS_SERVICE_SCHEME":          true,
+		"MARATHON_SINGLE_INSTANCE_APP": true,
+	}
+)
+
 // avroRecord{} conveys field for goavro.Record
 // schema set by the schema package
 type field struct {
@@ -118,6 +134,10 @@ func (ar avroRecord) extract(pmm *producers.MetricsMessage, ctr *mesosAgent.Cont
 func convertLabels(newLabels []mesosAgent.KeyValue) map[string]string {
 	result := map[string]string{}
 	for _, l := range newLabels {
+		// Remove blacklisted cosmos labels
+		if _, inSlice := cosmosLabels[l.Key]; inSlice {
+			continue
+		}
 		result[l.Key] = l.Value
 	}
 
