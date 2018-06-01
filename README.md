@@ -21,7 +21,7 @@ dcos-metrics collects, tags, and transmits metrics from every node, container, a
 
 * [DataDog][plugin-datadog]
 * [Librato][plugin-librato]
-* [Prometheus][plugin-prometheus] (DC/OS 1.9+)
+* [Prometheus][plugin-prometheus] DC/OS 1.9 and 1.10 only (DC/OS 1.11+ does not require a plugin)
 
 ## Resources
 
