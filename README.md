@@ -5,7 +5,7 @@
 
 ## Overview
 
-dcos-metrics collects, tags, and transmits metrics from every node, container, and application in your DC/OS cluster. 
+dcos-metrics collects, tags, and transmits metrics from every node, container, and application in your DC/OS cluster.
 
 ![Architecture Diagram][architecture-diagram]
 
@@ -21,13 +21,13 @@ dcos-metrics collects, tags, and transmits metrics from every node, container, a
 
 * [DataDog][plugin-datadog]
 * [Librato][plugin-librato]
-* [Prometheus][plugin-prometheus] (DC/OS 1.9 and 1.10 only)
+* [Prometheus][plugin-prometheus] (DC/OS 1.9+)
 
 ## Resources
 
 * [Report a bug][jira-bug]
 * [Suggest a feature][jira-feature]
-* [Join Community Slack][dcos-slack] (#day2ops and #day2ops-wg channels for discussion of dcos-metrics)
+* [Join Community Slack][dcos-slack] (#ops and #ops-wg channels for discussion of dcos-metrics)
 * [Mailing List][dcos-mailing-list]
 
 ## License
@@ -35,7 +35,7 @@ dcos-metrics collects, tags, and transmits metrics from every node, container, a
 Both dcos-metrics and [DC/OS][github-dcos] are open source software released under the
 [Apache Software License, Version 2.0](LICENSE).
 
-[dcos-metrics][github-dcos-metrics] is maintained by the Cluster Ops team at [Mesosphere][mesosphere-io]. 
+[dcos-metrics][github-dcos-metrics] is maintained by the Cluster Ops team at [Mesosphere][mesosphere-io].
 
 
 [button-build]: https://jenkins.mesosphere.com/service/jenkins/buildStatus/icon?job=public-dcos-cluster-ops/dcos-metrics/dcos-metrics-master
