@@ -12,7 +12,6 @@
         "containerPort": 3000,
         "hostPort": 0,
         "protocol": "tcp",
-        "servicePort": 10001,
         "name": "graf"
       }
     ],
