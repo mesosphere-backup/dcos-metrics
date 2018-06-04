@@ -12,7 +12,6 @@
         "containerPort": 80,
         "hostPort": 0,
         "protocol": "tcp",
-        "servicePort": 10000,
         "name": "http"
       }
     ],
