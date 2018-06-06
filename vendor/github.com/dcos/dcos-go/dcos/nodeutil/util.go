@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	defaultExecTimeout = 10 * time.Second
+	defaultExecTimeout       = 10 * time.Second
+	defaultClusterIDLocation = "/var/lib/dcos/cluster-id"
 )
 
 // ErrTaskNotFound is return if the canonical ID for a given task not found.
@@ -99,15 +100,6 @@ func getDefaultShellPath() string {
 	}
 }
 
-func getClusterIDLocation() string {
-	switch runtime.GOOS {
-	case "windows":
-		return "/mesos/var/lib/dcos/cluster-id"
-	default:
-		return "/var/lib/dcos/cluster-id"
-	}
-}
-
 // NewNodeInfo returns a new instance of NodeInfo implementation.
 func NewNodeInfo(client *http.Client, role string, options ...Option) (NodeInfo, error) {
 	if client == nil {
@@ -138,7 +130,7 @@ func NewNodeInfo(client *http.Client, role string, options ...Option) (NodeInfo,
 		detectIPTimeout:   defaultExecTimeout,
 		dnsRecordLeader:   dcos.DNSRecordLeader,
 		mesosStateURL:     defaultStateURL.String(),
-		clusterIDLocation: getClusterIDLocation(),
+		clusterIDLocation: defaultClusterIDLocation,
 	}
 
 	// update parameters with a caller input.
@@ -390,6 +382,23 @@ func (d *dcosInfo) state(ctx context.Context) (state State, err error) {
 	return state, err
 }
 
+func findTask(name string, completed bool, frameworks []Framework) (foundTasks []Task) {
+	for _, framework := range frameworks {
+		currentTasks := framework.Tasks
+		if completed {
+			currentTasks = framework.CompletedTasks
+		}
+
+		for _, t := range currentTasks {
+			if t.Name != name && !strings.Contains(t.ID, name) {
+				continue
+			}
+			foundTasks = append(foundTasks, t)
+		}
+	}
+	return
+}
+
 // TaskCanonicalID return a CanonicalTaskID for a given task.
 func (d *dcosInfo) TaskCanonicalID(ctx context.Context, task string, completed bool) (*CanonicalTaskID, error) {
 	state, err := d.state(ctx)
@@ -397,20 +406,14 @@ func (d *dcosInfo) TaskCanonicalID(ctx context.Context, task string, completed b
 		return nil, err
 	}
 
-	var foundTasks []Task
-	for _, framework := range state.Frameworks {
-		currentTasks := framework.Tasks
-		if completed {
-			currentTasks = framework.CompletedTasks
-		}
+	frameworksTasks := findTask(task, completed, state.Frameworks)
 
-		for _, t := range currentTasks {
-			if t.Name != task && !strings.Contains(t.ID, task) {
-				continue
-			}
-			foundTasks = append(foundTasks, t)
-		}
+	var completedFrameworksTasks []Task
+	if completed {
+		completedFrameworksTasks = findTask(task, completed, state.CompletedFrameworks)
 	}
+
+	foundTasks := append(frameworksTasks, completedFrameworksTasks...)
 
 	if len(foundTasks) == 0 {
 		return nil, ErrTaskNotFound

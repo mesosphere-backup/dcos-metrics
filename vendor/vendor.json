@@ -73,10 +73,10 @@
 			"revisionTime": "2017-12-07T19:43:51Z"
 		},
 		{
-			"checksumSHA1": "MnOuioF+o+gamskiD28LRbq5EyU=",
+			"checksumSHA1": "59TTuicR7fFqMWZ+8chOcynF1Vo=",
 			"path": "github.com/dcos/dcos-go/dcos/nodeutil",
-			"revision": "4dd6c8d149dc706729bd0f617211a539717a6132",
-			"revisionTime": "2017-12-07T19:43:51Z"
+			"revision": "95000f9090913360b907002f4a38f30ab077c5ee",
+			"revisionTime": "2018-05-12T14:06:00Z"
 		},
 		{
 			"checksumSHA1": "mCuoKmG5BojkBOtcDfvXsRLipIk=",
