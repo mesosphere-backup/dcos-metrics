@@ -1,6 +1,6 @@
 
 function run_docker {
-	docker run --net=host --rm \
+	docker run --net=host \
 	  -e LIBPROCESS_IP=127.0.0.1 \
 	  mesosphere/mesos:1.5.0 \
 	  mesos-execute \
@@ -16,16 +16,19 @@ function echo_statsd_envs {
 		echo "STATSD_UDP_PORT: \$STATSD_UDP_PORT"
 	EOF
 	)
-	run_docker ${cmd}
+	run_docker "${cmd}"
 }
 
-function emit_single_metric {
+function emit_metrics {
 	local cmd=$(cat <<- EOF
-		echo "metric:1234|c" | nc \$STATSD_UDP_HOST \$STATSD_UDP_PORT
+		for i in \$(seq 1000000); do
+			echo "dcos.custom.metric:\$i|c";
+			sleep 0.5;
+		done | nc -w0 -u \$STATSD_UDP_HOST \$STATSD_UDP_PORT;
 	EOF
 	)
-	run_docker ${cmd}
+	run_docker "${cmd}"
 }
 
-echo_statsd_envs
-#emit_single_metric
+#echo_statsd_envs
+emit_metrics
