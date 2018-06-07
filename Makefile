@@ -23,6 +23,10 @@ module:
 		rusxg/ubuntu-cmake \
 		bash build_module.sh
 
+.PHONY: run-module
+run-module:
+	bash run_module.sh
+
 .PHONY: clean
 clean:
 	rm -rf ./build
