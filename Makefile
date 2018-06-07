@@ -28,6 +28,10 @@ module:
 		rusxg/ubuntu-cmake \
 		bash build_module.sh
 
+.PHONY: run-module
+run-module:
+	bash run_module.sh
+
 .PHONY: clean
 clean:
         # Clean from within the docker container to avoid issues with file permissions:
