@@ -5,7 +5,7 @@ Monitoring component to be run against ```mesos-slave```s. Contains an Isolator 
 ## Prerequisites
 
 - CMake
-- [Mesos' build prerequisites](http://mesos.apache.org/gettingstarted/)
+- [Mesos' build prerequisites](http://mesos.apache.org/getting-started/)
 - Boost ASIO (install ```libasio-dev```)
 
 ## Build instructions
