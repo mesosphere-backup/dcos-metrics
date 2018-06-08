@@ -1,3 +1,4 @@
+#define NDEBUG
 #include "metrics_tcp_sender.hpp"
 
 #include <glog/logging.h>
