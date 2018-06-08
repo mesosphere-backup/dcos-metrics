@@ -22,8 +22,8 @@ wget https://downloads.mesosphere.com/pkgpanda-artifact-cache/avro-cpp-1.8.0.tar
 tar -zxvf avro-cpp-1.8.0.tar.gz
 
 # download mesos
-wget http://repos.mesosphere.com/debian/pool/main/m/mesos/mesos_1.5.0-0.1.393.pre.20171220git5f40f3d40.debian9_amd64.deb
-dpkg --force-all -i mesos_1.5.0-0.1.393.pre.20171220git5f40f3d40.debian9_amd64.deb
+wget http://repos.mesosphere.com/ubuntu/pool/main/m/mesos/mesos_1.4.1-2.0.1.ubuntu1604_amd64.deb
+dpkg --force-all -i mesos_1.4.1-2.0.1.ubuntu1604_amd64.deb
 
 # Set up the modules build dir
 pushd dcos-metrics/mesos_module
