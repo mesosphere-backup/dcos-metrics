@@ -5,14 +5,6 @@ set -o errexit -o nounset -o pipefail
 # set up compiler flags
 export CXXFLAGS="-Wno-deprecated-declarations -Wno-unused"
 
-# install wget
-apt-get update
-apt-get -y -f install
-apt-get -y install wget
-apt-get -y install zlib1g-dev
-apt-get -y install libcurl4-openssl-dev
-apt-get -y install python
-
 # download boost
 wget https://downloads.mesosphere.com/pkgpanda-artifact-cache/boost_1_53_0.tar.gz
 tar -zxvf boost_1_53_0.tar.gz

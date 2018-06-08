@@ -12,16 +12,23 @@ plugins: clean
 test:
 	bash -c "./scripts/test.sh collector unit"
 
+.PHONY: build-docker-image
+build-docker-image:
+	mkdir -p mesos_module/build/docker
+	cp Dockerfile mesos_module/build/docker
+	cd mesos_module/build/docker; \
+	docker build -t dcos-metrics-image .
+
 .PHONY: module
-module:
+module: build-docker-image
 	docker run \
 		--rm \
 		-it \
 		-v $(PWD):/workspace/dcos-metrics \
 		-v $(PWD)/build_module.sh:/workspace/build_module.sh \
 		-w /workspace \
-		rusxg/ubuntu-cmake \
-		bash build_module.sh
+		dcos-metrics-image \
+		build_module.sh
 
 .PHONY: run-module
 run-module:
