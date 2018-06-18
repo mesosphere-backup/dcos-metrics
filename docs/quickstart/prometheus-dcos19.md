@@ -29,7 +29,7 @@ $ curl -o /etc/systemd/system/dcos-metrics-prometheus.service -L https://downloa
 
 Change the --dcos-role flag to ‘agent’, ‘agent_public' or ‘master'
 ```
-$ vim /etc/systemd/system/dcos-metrics-prometheus.service
+$ vi /etc/systemd/system/dcos-metrics-prometheus.service
 ```
 
 Load the new configuration and start the plugin
