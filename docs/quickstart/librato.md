@@ -35,7 +35,7 @@ Change the --dcos-role flag to ‘agent’, ‘agent_public' or ‘master'.
 Change the --librato-email flag to your librato email.
 Change the --librato-token flag to your librato API token (ensure that it has record permissions).
 ```
-$ vim /etc/systemd/system/dcos-metrics-librato.service
+$ vi /etc/systemd/system/dcos-metrics-librato.service
 ```
 
 Load the new configuration and start the plugin
