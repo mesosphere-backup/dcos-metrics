@@ -34,7 +34,7 @@ $ curl -o /etc/systemd/system/dcos-metrics-datadog.service -L https://downloads.
 Change the --dcos-role flag to ‘agent’, ‘agent_public' or ‘master'.
 Change the --datadog-key flag to your DataDog API key.
 ```
-$ vim /etc/systemd/system/dcos-metrics-datadog.service
+$ vi /etc/systemd/system/dcos-metrics-datadog.service
 ```
 
 Load the new configuration and start the plugin
