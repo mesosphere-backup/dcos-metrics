@@ -193,10 +193,12 @@ namespace {
       }
     }
 
+    std::string metric_type;
+
     while (section_start != NULL) {
       // parse any following sections (eg |@0.1 sampling or |#tag1:val1,tag2:val2)
       size_t sections_size = (data + size) - section_start;
-      if (sections_size <= 2) {
+      if (sections_size <= 1) {
         break;
       }
       // find start of next section, if any
@@ -205,18 +207,36 @@ namespace {
         (next_section_start == NULL) ? (char*)(data + size) : next_section_start;
       switch (section_start[1]) {
         case '@': {
-          // sampling: multiply value to correct it
-          std::string factor_str(section_start + 2, section_end - section_start - 2);
-          try {
-            double sample_factor = std::stod(factor_str);
-            if (sample_factor != 0) {
-              point.value /= sample_factor;
-            } else {
-              throw std::invalid_argument("Zero sampling is invalid");
+          if (metric_type.empty()) {
+            LOG(WARNING)
+              << "Either the statsd metric type was not specified, or the"
+              << " metric type incorrectly occurred after the sample rate";
+          } else if (metric_type == "c") {
+            // In the case of counters, we should correct the value to account for the sample
+            // rate. i.e., a sample rate of 0.5 means that only half of all events are sampled,
+            // so the value should be multiplied by 2.
+            //
+            // All other metric types do not require this adjustment.
+            //
+            // NOTE: It is typical for metrics aggregators to produce summary statistics based
+            // on values reported by histograms (which are tagged with the metric type 'h').
+            // This usually includes a histogram 'count'. The histogram count _does_ need to be
+            // adjusted for sample rate, but since we don't perform such histogram processing
+            // here, we simply pass through any histogram values.
+            //
+            // https://help.datadoghq.com/hc/en-us/articles/208398693--dog-statsd-sample-rate-parameter-explained
+            std::string factor_str(section_start + 2, section_end - section_start - 2);
+            try {
+              double sample_factor = std::stod(factor_str);
+              if (sample_factor != 0) {
+                point.value /= sample_factor;
+              } else {
+                throw std::invalid_argument("Zero sampling is invalid");
+              }
+            } catch (...) {
+              LOG(WARNING) << "Corrupt sampling value: '" << factor_str << "' "
+                           << "(from data '" << std::string(data, size) << "')";
             }
-          } catch (...) {
-            LOG(WARNING) << "Corrupt sampling value: '" << factor_str << "' "
-                         << "(from data '" << std::string(data, size) << "')";
           }
           break;
         }
@@ -224,6 +244,10 @@ namespace {
           // datadog tags: include in our tags
           parse_datadog_tags(section_start, section_end - section_start, tags);
           break;
+        default: {
+          // This section must contain the metric type.
+          metric_type = std::string(section_start + 1, section_end - section_start - 1);
+        }
       }
       // seek to next section, if any
       if (next_section_start == NULL) {
