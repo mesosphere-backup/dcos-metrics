@@ -30,7 +30,6 @@ import (
 	"github.com/dcos/dcos-metrics/producers"
 	prodHelpers "github.com/dcos/dcos-metrics/util/producers"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -100,7 +99,6 @@ func (p *promProducer) Run() error {
 	}()
 
 	mux := http.NewServeMux()
-
 	// static_buffer is a debug setting which manually dumps metrics out in prom format
 	if p.config.StaticBuffer {
 		mux.HandleFunc("/metrics", promHandler)
@@ -132,6 +130,11 @@ func promHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(output))
 }
 
+type metricFamily struct {
+	name       string
+	datapoints []string
+}
+
 // function that runs on timer, writing out the string of prometheus
 // output
 func updateProm(store store.Store) {
@@ -141,6 +144,8 @@ func updateProm(store store.Store) {
 		case _ = <-ticker.C:
 			log.Info("Updating prometheus output...")
 			buffer := bytes.NewBuffer(nil)
+			deduped := make(map[string]metricFamily)
+
 			for _, obj := range store.Objects() {
 				message, ok := obj.(producers.MetricsMessage)
 				if !ok {
@@ -169,16 +174,47 @@ func updateProm(store store.Store) {
 						continue
 					}
 
-					buffer.WriteString(fmt.Sprintf("# HELP %s DC/OS Metrics Datapoint\n", name))
-					buffer.WriteString(fmt.Sprintf("# TYPE %s gauge\n", name))
-					buffer.WriteString(fmt.Sprintf("%s{", name))
+					family, present := deduped[name]
+					if !present {
+						family = metricFamily{
+							name: name,
+						}
+					}
+
+					// build the labels
+					var labels []string
+
 					for k, v := range dims {
-						buffer.WriteString(fmt.Sprintf("%s=\"%s\" ", k, v))
+						_, present := d.Tags[k]
+						if present {
+							// Respect the tag value over the global dimension
+							continue
+						}
+						labels = append(labels, fmt.Sprintf("%s=\"%s\"", sanitizeName(k), v))
 					}
 					for k, v := range d.Tags {
-						buffer.WriteString(fmt.Sprintf("%s=\"%s\" ", k, v))
+						if k == "executor_name" {
+							v = sanitizeName(v)
+						}
+
+						labels = append(labels, fmt.Sprintf("%s=\"%s\"", sanitizeName(k), v))
 					}
-					buffer.WriteString(fmt.Sprintf("} %v\n", val))
+
+					labelString := ""
+					if labels != nil {
+						labelString = strings.Join(labels, ",")
+					}
+
+					family.datapoints = append(family.datapoints, fmt.Sprintf("%s{%s} %v", name, labelString, val))
+					deduped[name] = family
+				}
+			}
+
+			for k, v := range deduped {
+				buffer.WriteString(fmt.Sprintf("# HELP %s DC/OS Metrics Datapoint\n", k))
+				buffer.WriteString(fmt.Sprintf("# TYPE %s gauge\n", k))
+				for _, datapoint := range v.datapoints {
+					buffer.WriteString(fmt.Sprintf("%s\n", datapoint))
 				}
 			}
 
@@ -258,6 +294,7 @@ func (p *promProducer) writeObjectToStore(d producers.Datapoint, m producers.Met
 		Dimensions: m.Dimensions,
 		Timestamp:  m.Timestamp,
 	}
+
 	// e.g. dcos.metrics.app.[ContainerId].kafka.server.ReplicaFetcherManager.MaxLag
 	qualifiedName := joinMetricName(prefix, d.Name)
 	for _, pair := range prodHelpers.SortTags(d.Tags) {

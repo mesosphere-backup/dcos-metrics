@@ -14,7 +14,9 @@
 
 package producers
 
-import "sort"
+import (
+	"sort"
+)
 
 // SortTags turns a map[string]string into a slice of key/values, sorted by key.
 func SortTags(tags map[string]string) [][]string {
@@ -30,4 +32,25 @@ func SortTags(tags map[string]string) [][]string {
 		result[i] = []string{k, tags[k]}
 	}
 	return result
+}
+
+var blacklistedLabels = []string{
+	"DCOS_PACKAGE_DEFINITION",
+	"DCOS_PACKAGE_FRAMEWORK_NAME",
+	"DCOS_PACKAGE_METADATA",
+	"DCOS_PACKAGE_OPTIONS",
+	"DCOS_PACKAGE_SOURCE",
+	"DCOS_SERVICE_PORT_INDEX",
+	"DCOS_SERVICE_SCHEME",
+	"MARATHON_SINGLE_INSTANCE_APP",
+	"DCOS_SECRETS_DIRECTIVE",
+}
+
+// Strips out blacklisted labels
+// NOT CONCURRENT SAFE
+func StripBlacklistedTags(tags map[string]string) map[string]string {
+	for _, blacklisted := range blacklistedLabels {
+		delete(tags, blacklisted)
+	}
+	return tags
 }

@@ -28,6 +28,7 @@ import (
 	httpProducer "github.com/dcos/dcos-metrics/producers/http"
 	promProducer "github.com/dcos/dcos-metrics/producers/prometheus"
 	"github.com/dcos/dcos-metrics/util/http/profiler"
+	prodHelpers "github.com/dcos/dcos-metrics/util/producers"
 )
 
 func main() {
@@ -105,6 +106,15 @@ func main() {
 
 // broadcast sends a MetricsMessage to a range of producer chans
 func broadcast(msg producers.MetricsMessage, producers []chan<- producers.MetricsMessage) {
+	// Strip the blacklisted tags from the metric as the metric
+	// will be processed concurrently by multiple producers.
+	// It's necessary to sanitize both labels and datapoint tags.
+	msg.Dimensions.Labels = prodHelpers.StripBlacklistedTags(msg.Dimensions.Labels)
+
+	for _, datapoint := range msg.Datapoints {
+		datapoint.Tags = prodHelpers.StripBlacklistedTags(datapoint.Tags)
+	}
+
 	for _, producer := range producers {
 		producer <- msg
 	}
