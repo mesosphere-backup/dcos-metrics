@@ -25,6 +25,23 @@ import (
 	"github.com/gorilla/mux"
 )
 
+func debugHandler(p *producerImpl) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		allMetrics := p.store.Objects()
+		if len(allMetrics) == 0 {
+			httpLog.Error("/v0/debug - no content in store.")
+			http.Error(w, "No values found in store", http.StatusNoContent)
+		}
+
+		combinedMetrics, err := combineMessages(allMetrics)
+		if err != nil {
+			httpLog.Errorf("/v0/debug - %s", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		encode(combinedMetrics, w)
+	}
+}
+
 func nodeHandler(p *producerImpl) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		nodeMetrics, err := p.store.GetByRegex(regexp.QuoteMeta(producers.NodeMetricPrefix) + ".*")
