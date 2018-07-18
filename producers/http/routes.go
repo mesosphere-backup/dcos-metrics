@@ -66,6 +66,13 @@ var routes = []Route{
 		Path:        strings.Join([]string{root, "node"}, "/"),
 		HandlerFunc: nodeHandler,
 	},
+
+	Route{
+		Name:        "debug",
+		Method:      "GET",
+		Path:        strings.Join([]string{root, "debug"}, "/"),
+		HandlerFunc: debugHandler,
+	},
 }
 
 var agentRoutes = []Route{
