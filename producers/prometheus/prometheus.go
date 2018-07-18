@@ -151,7 +151,7 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 			name := sanitizeName(d.Name)
 			val, err := coerceToFloat(d.Value)
 			if err != nil {
-				promLog.Warnf("Bad datapoint value %q: %s", d.Value, err)
+				promLog.Warnf("Bad datapoint value %q: (%s) %s", d.Value, d.Name, err)
 				continue
 			}
 			desc := prometheus.NewDesc(name, "DC/OS Metrics Datapoint", tagKeys, nil)
