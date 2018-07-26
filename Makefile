@@ -26,6 +26,11 @@ clean:
 docker:
 	docker build -t $(IMAGE_NAME) .
 
+.PHONY: rawbuild
+rawbuild:
+	bash -c "./scripts/build.sh collector"
+	bash -c "./scripts/build.sh statsd-emitter"
+
 define testIt
 	$(call containerIt,bash -c "./scripts/test.sh $1")
 endef
