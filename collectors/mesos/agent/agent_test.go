@@ -220,6 +220,35 @@ func TestBuildDatapoints(t *testing.T) {
 	})
 }
 
+func TestMesosUnavailable(t *testing.T) {
+	Convey("When Mesos is unavailable", t, func() {
+		mac := Collector{
+			PollPeriod:  60,
+			log:         logrus.WithFields(logrus.Fields{"test": "this"}),
+			metricsChan: make(chan producers.MetricsMessage),
+			nodeInfo: collectors.NodeInfo{
+				MesosID:   "test-mesos-id",
+				ClusterID: "test-cluster-id",
+			},
+		}
+
+		// Agent state does not return data (mac.agentState is empty) but containerMetrics
+		// is not empty because it was pre-populated in a previous polling run.
+		Convey("With container metrics", func() {
+			// The mocks in this test file are bytearrays so that they can be used
+			// by the HTTP test server(s). So we need to unmarshal them here before
+			// they can be used by a.transform().
+			if err := json.Unmarshal(mockContainerMetrics, &mac.containerMetrics); err != nil {
+				panic(err)
+			}
+			result := mac.metricsMessages()
+			Convey("Should return empty []producers.MetricsMessage without errors", func() {
+				So(len(result), ShouldEqual, 0)
+			})
+		})
+	})
+}
+
 func TestTransform(t *testing.T) {
 	Convey("When transforming agent metrics to fit producers.MetricsMessage", t, func() {
 		mac := Collector{
