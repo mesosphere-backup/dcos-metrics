@@ -123,10 +123,31 @@ func (p *promProducer) Describe(ch chan<- *prometheus.Desc) {
 	prometheus.NewGauge(prometheus.GaugeOpts{Name: "Dummy", Help: "Dummy"}).Describe(ch)
 }
 
+func appendIfAbsent(lst []string, entry string) []string {
+	for _, val := range lst {
+		if entry == val {
+			return lst
+		}
+	}
+	return append(lst, entry)
+}
+
 // Collect iterates over all the metrics available in the store, converting
 // them to prometheus.Metric and passing them into the prometheus producer
 // channel, where they will be served to consumers.
 func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
+	type fqName = string
+	type tagKVKey = string
+	type tagKVVal = string
+	type tagKV = map[tagKVKey]tagKVVal
+	type dataStruct struct {
+		tags      tagKV
+		datapoint producers.Datapoint
+	}
+
+	// Each FQname has an element in the list, corresponding to a datapoint, and each datapoint has a map of tags
+	tagsGroupedByName := map[fqName][]dataStruct{}
+
 	for _, obj := range p.store.Objects() {
 		message, ok := obj.(producers.MetricsMessage)
 		if !ok {
@@ -134,37 +155,106 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 			continue
 		}
 		dims := dimsToMap(message.Dimensions)
-
 		for _, d := range message.Datapoints {
-			promLog.Debugf("Processing datapoint %s", d.Name)
-			var tagKeys []string
-			var tagVals []string
+			tagsForThisDatapoint := tagKV{}
+			name := sanitizeName(d.Name)
 			for k, v := range dims {
-				tagKeys = append(tagKeys, sanitizeName(k))
-				tagVals = append(tagVals, v)
+				tagsForThisDatapoint[k] = v
 			}
 			for k, v := range d.Tags {
-				tagKeys = append(tagKeys, sanitizeName(k))
-				tagVals = append(tagVals, v)
+				tagsForThisDatapoint[k] = v
 			}
-
-			name := sanitizeName(d.Name)
-			val, err := coerceToFloat(d.Value)
-			if err != nil {
-				promLog.Debugf("Bad datapoint value %q: (%s) %s", d.Value, d.Name, err)
-				continue
-			}
-			desc := prometheus.NewDesc(name, "DC/OS Metrics Datapoint", tagKeys, nil)
-			metric, err := prometheus.NewConstMetric(desc, prometheus.GaugeValue, val, tagVals...)
-			if err != nil {
-				promLog.Warnf("Could not create Prometheus metric %s: %s", name, err)
-				continue
-			}
-
-			promLog.Debugf("Emitting datapoint %s", name)
-			ch <- metric
+			tagsGroupedByName[name] = append(tagsGroupedByName[name], dataStruct{tagsForThisDatapoint, d})
 		}
 
+	}
+
+	for fqName, datapointsTags := range tagsGroupedByName {
+		// Get a list of all  keys common to this fqName
+
+		var allKeys []tagKVKey
+		for _, kv := range datapointsTags {
+			for k := range kv.tags {
+				allKeys = appendIfAbsent(allKeys, k)
+			}
+		}
+
+		// Figure out the constLabels. Do this by collecting the common KV pairs together.
+		// At the same time we can figure out the variable labels by taking
+		// the difference between the total set and the constLabels.
+		commonToAll := map[tagKVKey]bool{}
+
+		for _, key := range allKeys {
+			var tagVal []tagKVVal
+
+			for _, tagSet := range datapointsTags {
+				if val, ok := tagSet.tags[key]; ok {
+					tagVal = append(tagVal, val)
+				}
+			}
+			// If the length differs, => 1+ datapoints doesn't have the tag, therefore not common to all
+			if len(tagVal) != len(datapointsTags) {
+				commonToAll[key] = false
+			} else {
+				check := true
+				prevVal := tagVal[0]
+				// Check the values, if any one of them doesn't match, then it's not common to all
+				for _, val := range tagVal[1:] {
+					if val != prevVal {
+						check = false
+						commonToAll[key] = false
+					}
+				}
+				if check == true {
+					// If check's value hasn't changed after traversing the values, then they must all be the same
+					commonToAll[key] = true
+				}
+			}
+		}
+
+		commonKVSet := tagKV{}
+		var differingKVKeys []tagKVKey
+		for key, checkVal := range commonToAll {
+			datapoint := datapointsTags[0]
+			if checkVal == true {
+				// Take the first datapoint since they're all identical
+				commonKVSet[key] = datapoint.tags[key]
+			} else {
+				differingKVKeys = append(differingKVKeys, key)
+			}
+		}
+
+		desc := prometheus.NewDesc(fqName, "DC/OS Metrics Datapoint", differingKVKeys, commonKVSet)
+
+		for _, datapoint := range datapointsTags {
+
+			var differingKVVals []tagKVVal
+
+			for _, tagName := range differingKVKeys {
+				if val, ok := datapoint.tags[tagName]; ok {
+					differingKVVals = append(differingKVVals, val)
+				} else {
+					differingKVVals = append(differingKVVals, "")
+				}
+			}
+
+			dp := datapoint.datapoint
+			val, err := coerceToFloat(datapoint.datapoint.Value)
+			if err != nil {
+				promLog.Debugf("Bad datapoint value %q: (%s) %s", dp.Value, dp.Name, err)
+				continue
+			}
+
+			metric, err := prometheus.NewConstMetric(desc, prometheus.GaugeValue, val, differingKVVals...)
+
+			if err != nil {
+				promLog.Warnf("Could not create Prometheus metric %s: %s", fqName, err)
+				continue
+			}
+
+			promLog.Debugf("Emitting datapoint %s", fqName)
+			ch <- metric
+		}
 	}
 }
 
