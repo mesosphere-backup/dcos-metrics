@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -65,6 +66,12 @@ func TestRun(t *testing.T) {
 			producers.Datapoint{
 				Name:  "datapoint-one",
 				Value: 123.456,
+				Tags:  map[string]string{"hello": "world"},
+			},
+			producers.Datapoint{
+				Name:  "datapoint-one",
+				Value: 789.012,
+				Tags:  map[string]string{"foo": "bar"},
 			},
 		}
 		metricsChan <- producers.MetricsMessage{
@@ -81,9 +88,16 @@ func TestRun(t *testing.T) {
 		body, err := ioutil.ReadAll(resp.Body)
 		So(err, ShouldBeNil)
 
-		// TODO (philipnrmn): verify the output better than this
-		So(string(body), ShouldContainSubstring, "datapoint_one")
-		So(string(body), ShouldContainSubstring, "123.456")
+		splitBody := strings.Split(string(body), "\n")
+		So(len(splitBody), ShouldEqual, len(dps)+3) // 3 extra: One for HELP, one for TYPE, and an empty line at the end
+
+		firstDatapointPos := 2
+		secondDatapointPos := len(splitBody) - 2
+
+		So(splitBody[firstDatapointPos], ShouldContainSubstring, "datapoint_one")
+		So(splitBody[firstDatapointPos], ShouldContainSubstring, "123.456")
+		So(splitBody[firstDatapointPos], ShouldContainSubstring, "foo=\"\"")
+		So(splitBody[secondDatapointPos], ShouldContainSubstring, "foo=\"bar\"")
 
 	})
 }
@@ -101,6 +115,14 @@ func TestSanitizeName(t *testing.T) {
 		for i, o := range io {
 			So(sanitizeName(i), ShouldEqual, o)
 		}
+	})
+}
+
+func TestAppendIfAbsent(t *testing.T) {
+	Convey("Should append to a list only if element is absent", t, func() {
+		l := []tagKVKey{"a", "b", "c"}
+		So(appendIfAbsent(l, "a"), ShouldResemble, l)
+		So(appendIfAbsent(l, "z"), ShouldResemble, append(l, "z"))
 	})
 }
 
