@@ -159,12 +159,21 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 			tagsForThisDatapoint := tagKV{}
 			name := sanitizeName(d.Name)
 			for k, v := range dims {
-				tagsForThisDatapoint[k] = v
+				goodKey := sanitizeName(k)
+				tagsForThisDatapoint[goodKey] = v
 			}
 			for k, v := range d.Tags {
-				tagsForThisDatapoint[k] = v
+				goodKey := sanitizeName(k)
+
+				tagsForThisDatapoint[goodKey] = v
 			}
-			tagsGroupedByName[name] = append(tagsGroupedByName[name], dataStruct{tagsForThisDatapoint, d})
+			sanitizedDatapointTags := map[string]string{}
+			for k, v := range d.Tags {
+				goodKey := sanitizeName(k)
+				sanitizedDatapointTags[goodKey] = v
+			}
+			sanitizedDatapoint := producers.Datapoint{Name: d.Name, Value: d.Value, Unit: d.Unit, Timestamp: d.Timestamp, Tags: sanitizedDatapointTags}
+			tagsGroupedByName[name] = append(tagsGroupedByName[name], dataStruct{tagsForThisDatapoint, sanitizedDatapoint})
 		}
 
 	}
@@ -197,10 +206,10 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 				commonToAll[key] = false
 			} else {
 				check := true
-				prevVal := tagVal[0]
+				firstVal := tagVal[0]
 				// Check the values, if any one of them doesn't match, then it's not common to all
 				for _, val := range tagVal[1:] {
-					if val != prevVal {
+					if val != firstVal {
 						check = false
 						commonToAll[key] = false
 					}
