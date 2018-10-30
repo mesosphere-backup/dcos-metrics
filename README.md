@@ -6,6 +6,7 @@
 ## Overview
 
 dcos-metrics collects, tags, and transmits metrics from every node, container, and application in your DC/OS cluster.
+It also presents interesting build problems for Jenkins ;)
 
 ![Architecture Diagram][architecture-diagram]
 
