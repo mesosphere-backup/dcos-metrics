@@ -108,7 +108,7 @@ func TestPostMetricsToDatadog(t *testing.T) {
 		}
 
 		if *uptime.Host != "192.168.65.90" {
-			t.Fatalf("Expected to find host 192.168.65.90, found %s", uptime.Host)
+			t.Fatalf("Expected to find host 192.168.65.90, found %v", uptime.Host)
 		}
 
 		statsdUptime := series.Series[4]

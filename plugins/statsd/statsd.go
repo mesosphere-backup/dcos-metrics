@@ -127,7 +127,7 @@ func normalize(i interface{}) (int, error) {
 		// We need this check here because NaN can be a float. Casting NaN to
 		// int results in a large negative number. Even after you add 0.5.
 		if math.IsNaN(v) {
-			return -1, fmt.Errorf("Could not normalize NaN %q", v)
+			return -1, fmt.Errorf("Could not normalize NaN %v", v)
 		}
 		return int(v + 0.5), nil
 	case string:
