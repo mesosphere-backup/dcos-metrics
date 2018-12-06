@@ -136,17 +136,13 @@ func appendIfAbsent(lst []string, entry string) []string {
 // them to prometheus.Metric and passing them into the prometheus producer
 // channel, where they will be served to consumers.
 func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
-	type fqName = string
-	type tagKVKey = string
-	type tagKVVal = string
-	type tagKV = map[tagKVKey]tagKVVal
 	type dataStruct struct {
-		tags      tagKV
+		tags      map[string]string
 		datapoint producers.Datapoint
 	}
 
 	// Each FQname has an element in the list, corresponding to a datapoint, and each datapoint has a map of tags
-	tagsGroupedByName := map[fqName][]dataStruct{}
+	tagsGroupedByName := map[string][]dataStruct{}
 
 	for _, obj := range p.store.Objects() {
 		message, ok := obj.(producers.MetricsMessage)
@@ -156,7 +152,7 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 		}
 		dims := dimsToMap(message.Dimensions)
 		for _, d := range message.Datapoints {
-			tagsForThisDatapoint := tagKV{}
+			tagsForThisDatapoint := map[string]string{}
 			name := sanitizeName(d.Name)
 			for k, v := range dims {
 				goodKey := sanitizeName(k)
@@ -181,7 +177,7 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 	for fqName, datapointsTags := range tagsGroupedByName {
 		// Get a list of all  keys common to this fqName
 
-		var allKeys []tagKVKey
+		var allKeys []string
 		for _, kv := range datapointsTags {
 			for k := range kv.tags {
 				allKeys = appendIfAbsent(allKeys, k)
@@ -191,10 +187,10 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 		// Figure out the constLabels. Do this by collecting the common KV pairs together.
 		// At the same time we can figure out the variable labels by taking
 		// the difference between the total set and the constLabels.
-		commonToAll := map[tagKVKey]bool{}
+		commonToAll := map[string]bool{}
 
 		for _, key := range allKeys {
-			var tagVal []tagKVVal
+			var tagVal []string
 
 			for _, tagSet := range datapointsTags {
 				if val, ok := tagSet.tags[key]; ok {
@@ -221,8 +217,8 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 			}
 		}
 
-		commonKVSet := tagKV{}
-		var differingKVKeys []tagKVKey
+		commonKVSet := map[string]string{}
+		var differingKVKeys []string
 		for key, checkVal := range commonToAll {
 			datapoint := datapointsTags[0]
 			if checkVal == true {
@@ -237,7 +233,7 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 
 		for _, datapoint := range datapointsTags {
 
-			var differingKVVals []tagKVVal
+			var differingKVVals []string
 
 			for _, tagName := range differingKVKeys {
 				if val, ok := datapoint.tags[tagName]; ok {

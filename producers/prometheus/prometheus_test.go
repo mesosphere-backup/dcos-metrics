@@ -120,7 +120,7 @@ func TestSanitizeName(t *testing.T) {
 
 func TestAppendIfAbsent(t *testing.T) {
 	Convey("Should append to a list only if element is absent", t, func() {
-		l := []tagKVKey{"a", "b", "c"}
+		l := []string{"a", "b", "c"}
 		So(appendIfAbsent(l, "a"), ShouldResemble, l)
 		So(appendIfAbsent(l, "z"), ShouldResemble, append(l, "z"))
 	})
