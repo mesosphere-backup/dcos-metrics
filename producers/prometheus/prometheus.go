@@ -123,15 +123,6 @@ func (p *promProducer) Describe(ch chan<- *prometheus.Desc) {
 	prometheus.NewGauge(prometheus.GaugeOpts{Name: "Dummy", Help: "Dummy"}).Describe(ch)
 }
 
-func appendIfAbsent(lst []string, entry string) []string {
-	for _, val := range lst {
-		if entry == val {
-			return lst
-		}
-	}
-	return append(lst, entry)
-}
-
 // Collect iterates over all the metrics available in the store, converting
 // them to prometheus.Metric and passing them into the prometheus producer
 // channel, where they will be served to consumers.
@@ -177,10 +168,10 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 	for fqName, datapointsTags := range tagsGroupedByName {
 		// Get a list of all  keys common to this fqName
 
-		var allKeys []string
+		allKeys := map[string]bool{}
 		for _, kv := range datapointsTags {
 			for k := range kv.tags {
-				allKeys = appendIfAbsent(allKeys, k)
+				allKeys[k] = true
 			}
 		}
 
@@ -189,7 +180,7 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 		// the difference between the total set and the constLabels.
 		commonToAll := map[string]bool{}
 
-		for _, key := range allKeys {
+		for key := range allKeys {
 			var tagVal []string
 
 			for _, tagSet := range datapointsTags {
