@@ -20,7 +20,7 @@ import (
 	"regexp"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/dcos/dcos-metrics/plugins"
+	plugin "github.com/dcos/dcos-metrics/plugins"
 )
 
 // measurement represents each point in a time series
