@@ -17,14 +17,15 @@
 package prometheus
 
 import (
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
+
+	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/expfmt"
 
 	"github.com/dcos/dcos-metrics/producers"
 	. "github.com/smartystreets/goconvey/convey"
@@ -85,20 +86,41 @@ func TestRun(t *testing.T) {
 		So(err, ShouldBeNil)
 		defer resp.Body.Close()
 
-		body, err := ioutil.ReadAll(resp.Body)
+		parser := expfmt.TextParser{}
+		metricFamilies, err := parser.TextToMetricFamilies(resp.Body)
 		So(err, ShouldBeNil)
 
-		splitBody := strings.Split(string(body), "\n")
-		So(len(splitBody), ShouldEqual, len(dps)+3) // 3 extra: One for HELP, one for TYPE, and an empty line at the end
+		// Assert the metric is present with the expected type.
+		// The metric name should be sanitized for use in the Prometheus exposition format.
+		So(metricFamilies, ShouldContainKey, "datapoint_one")
+		So(metricFamilies["datapoint_one"].GetType(), ShouldEqual, dto.MetricType_GAUGE)
 
-		firstDatapointPos := 2
-		secondDatapointPos := len(splitBody) - 2
-
-		So(splitBody[firstDatapointPos], ShouldContainSubstring, "datapoint_one")
-		So(splitBody[firstDatapointPos], ShouldContainSubstring, "123.456")
-		So(splitBody[firstDatapointPos], ShouldContainSubstring, "foo=\"\"")
-		So(splitBody[secondDatapointPos], ShouldContainSubstring, "foo=\"bar\"")
-
+		// Assert the metric has the expected values and labels.
+		// A metric should have labels for all tags provided on all metrics. If there's no corresponding tag for the
+		// label on the original metric, its value should be an empty string.
+		expectedValueLabels := map[float64]map[string]string{
+			123.456: map[string]string{
+				"hello": "world",
+				"foo":   "",
+			},
+			789.012: map[string]string{
+				"hello": "",
+				"foo":   "bar",
+			},
+		}
+		// Collect labels for each metric value into a map for comparison with expectedValueLabels.
+		valueLabels := map[float64]map[string]string{}
+		for _, metric := range metricFamilies["datapoint_one"].Metric {
+			labels := map[string]string{}
+			for _, label := range metric.Label {
+				if *label.Name == "hello" || *label.Name == "foo" {
+					labels[*label.Name] = *label.Value
+				}
+			}
+			valueLabels[metric.GetGauge().GetValue()] = labels
+		}
+		// Compare the expected and observed value labels.
+		So(valueLabels, ShouldResemble, expectedValueLabels)
 	})
 }
 
