@@ -144,23 +144,13 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 		dims := dimsToMap(message.Dimensions)
 		for _, d := range message.Datapoints {
 			tagsForThisDatapoint := map[string]string{}
-			name := sanitizeName(d.Name)
 			for k, v := range dims {
-				goodKey := sanitizeName(k)
-				tagsForThisDatapoint[goodKey] = v
+				tagsForThisDatapoint[k] = v
 			}
 			for k, v := range d.Tags {
-				goodKey := sanitizeName(k)
-
-				tagsForThisDatapoint[goodKey] = v
+				tagsForThisDatapoint[k] = v
 			}
-			sanitizedDatapointTags := map[string]string{}
-			for k, v := range d.Tags {
-				goodKey := sanitizeName(k)
-				sanitizedDatapointTags[goodKey] = v
-			}
-			sanitizedDatapoint := producers.Datapoint{Name: d.Name, Value: d.Value, Unit: d.Unit, Timestamp: d.Timestamp, Tags: sanitizedDatapointTags}
-			tagsGroupedByName[name] = append(tagsGroupedByName[name], dataStruct{tagsForThisDatapoint, sanitizedDatapoint})
+			tagsGroupedByName[d.Name] = append(tagsGroupedByName[d.Name], dataStruct{tagsForThisDatapoint, d})
 		}
 
 	}
@@ -220,7 +210,7 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 			}
 		}
 
-		desc := prometheus.NewDesc(fqName, "DC/OS Metrics Datapoint", differingKVKeys, commonKVSet)
+		desc := prometheus.NewDesc(sanitize(fqName), "DC/OS Metrics Datapoint", sanitizeSlice(differingKVKeys), sanitizeKeys(commonKVSet))
 
 		for _, datapoint := range datapointsTags {
 
@@ -302,9 +292,9 @@ func (p *promProducer) janitor() {
 	}
 }
 
-// sanitizeName returns a metric or label name which is safe for use
-// in prometheus output
-func sanitizeName(name string) string {
+// sanitize returns a string which is safe to use as a metric or label name in Prometheus output.
+// Unsafe characters are replaced by `_`. If name begins with a numeral, it is prepended with `_`.
+func sanitize(name string) string {
 	output := strings.ToLower(illegalChars.ReplaceAllString(name, "_"))
 
 	if legalLabel.MatchString(output) {
@@ -312,6 +302,24 @@ func sanitizeName(name string) string {
 	}
 	// Prefix name with _ if it begins with a number
 	return "_" + output
+}
+
+// sanitizeSlice returns a []string whose elements have been sanitized.
+func sanitizeSlice(names []string) []string {
+	sanitized := []string{}
+	for _, n := range names {
+		sanitized = append(sanitized, sanitize(n))
+	}
+	return sanitized
+}
+
+// sanitizeKeys returns a map[string]string whose keys have been sanitized.
+func sanitizeKeys(m map[string]string) map[string]string {
+	sanitized := map[string]string{}
+	for k, v := range m {
+		sanitized[sanitize(k)] = v
+	}
+	return sanitized
 }
 
 // coerceToFloat attempts to convert an interface to float64. It should succeed
