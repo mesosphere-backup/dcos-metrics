@@ -216,10 +216,10 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 		variableLabels, constLabels := getDescLabels(datapointsLabels)
 		desc := prometheus.NewDesc(sanitize(name), "DC/OS Metrics Datapoint", sanitizeSlice(variableLabels), sanitizeKeys(constLabels))
 
+		// Publish a metric for each datapoint.
 		for _, dpLabels := range datapointsLabels {
-
+			// Collect this datapoint's variable label values.
 			var variableLabelVals []string
-
 			for _, labelName := range variableLabels {
 				if val, ok := dpLabels.labels[labelName]; ok {
 					variableLabelVals = append(variableLabelVals, val)
@@ -235,7 +235,6 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 			}
 
 			metric, err := prometheus.NewConstMetric(desc, prometheus.GaugeValue, val, variableLabelVals...)
-
 			if err != nil {
 				promLog.Warnf("Could not create Prometheus metric %s: %s", name, err)
 				continue
