@@ -123,44 +123,50 @@ func (p *promProducer) Describe(ch chan<- *prometheus.Desc) {
 	prometheus.NewGauge(prometheus.GaugeOpts{Name: "Dummy", Help: "Dummy"}).Describe(ch)
 }
 
-// Collect iterates over all the metrics available in the store, converting
-// them to prometheus.Metric and passing them into the prometheus producer
-// channel, where they will be served to consumers.
-func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
-	type dataStruct struct {
-		tags      map[string]string
-		datapoint producers.Datapoint
-	}
+type datapointLabels struct {
+	datapoint *producers.Datapoint
+	labels    map[string]string
+}
 
-	// Each FQname has an element in the list, corresponding to a datapoint, and each datapoint has a map of tags
-	tagsGroupedByName := map[string][]dataStruct{}
+// datapointLabelsByName returns a mapping of datapoint names to a slice of structs pairing producers.Datapoints by that
+// name with their corresponding labels. Labels are derived from MetricsMessage dimensions and Datapoint tags.
+func datapointLabelsByName(s store.Store) map[string][]datapointLabels {
+	rval := map[string][]datapointLabels{}
 
-	for _, obj := range p.store.Objects() {
-		message, ok := obj.(producers.MetricsMessage)
+	for _, obj := range s.Objects() {
+		m, ok := obj.(producers.MetricsMessage)
 		if !ok {
 			promLog.Warnf("Unsupported message type %T", obj)
 			continue
 		}
-		dims := dimsToMap(message.Dimensions)
-		for _, d := range message.Datapoints {
-			tagsForThisDatapoint := map[string]string{}
+
+		// For each datapoint, collect its labels and add an entry to rval.
+		dims := dimsToMap(m.Dimensions)
+		for _, d := range m.Datapoints {
+			labels := map[string]string{}
 			for k, v := range dims {
-				tagsForThisDatapoint[k] = v
+				labels[k] = v
 			}
 			for k, v := range d.Tags {
-				tagsForThisDatapoint[k] = v
+				labels[k] = v
 			}
-			tagsGroupedByName[d.Name] = append(tagsGroupedByName[d.Name], dataStruct{tagsForThisDatapoint, d})
+			rval[d.Name] = append(rval[d.Name], datapointLabels{&d, labels})
 		}
-
 	}
 
-	for fqName, datapointsTags := range tagsGroupedByName {
+	return rval
+}
+
+// Collect iterates over all the metrics available in the store, converting
+// them to prometheus.Metric and passing them into the prometheus producer
+// channel, where they will be served to consumers.
+func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
+	for fqName, datapointsTags := range datapointLabelsByName(p.store) {
 		// Get a list of all  keys common to this fqName
 
 		allKeys := map[string]bool{}
 		for _, kv := range datapointsTags {
-			for k := range kv.tags {
+			for k := range kv.labels {
 				allKeys[k] = true
 			}
 		}
@@ -174,7 +180,7 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 			var tagVal []string
 
 			for _, tagSet := range datapointsTags {
-				if val, ok := tagSet.tags[key]; ok {
+				if val, ok := tagSet.labels[key]; ok {
 					tagVal = append(tagVal, val)
 				}
 			}
@@ -204,7 +210,7 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 			datapoint := datapointsTags[0]
 			if checkVal == true {
 				// Take the first datapoint since they're all identical
-				commonKVSet[key] = datapoint.tags[key]
+				commonKVSet[key] = datapoint.labels[key]
 			} else {
 				differingKVKeys = append(differingKVKeys, key)
 			}
@@ -217,7 +223,7 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 			var differingKVVals []string
 
 			for _, tagName := range differingKVKeys {
-				if val, ok := datapoint.tags[tagName]; ok {
+				if val, ok := datapoint.labels[tagName]; ok {
 					differingKVVals = append(differingKVVals, val)
 				} else {
 					differingKVVals = append(differingKVVals, "")
