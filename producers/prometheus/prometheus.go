@@ -53,6 +53,12 @@ type promProducer struct {
 	janitorRunInterval time.Duration
 }
 
+// datapointLabels associates a datapoint with its labels.
+type datapointLabels struct {
+	datapoint *producers.Datapoint
+	labels    map[string]string
+}
+
 // New returns a prometheus producer and a channel for passing in metrics
 func New(cfg Config) (producers.MetricsProducer, chan producers.MetricsMessage) {
 	p := promProducer{
@@ -121,11 +127,6 @@ func (p *promProducer) Run() error {
 // https://godoc.org/github.com/prometheus/client_golang/prometheus#Collector
 func (p *promProducer) Describe(ch chan<- *prometheus.Desc) {
 	prometheus.NewGauge(prometheus.GaugeOpts{Name: "Dummy", Help: "Dummy"}).Describe(ch)
-}
-
-type datapointLabels struct {
-	datapoint *producers.Datapoint
-	labels    map[string]string
 }
 
 // datapointLabelsByName returns a mapping of datapoint names to a slice of structs pairing producers.Datapoints by that
