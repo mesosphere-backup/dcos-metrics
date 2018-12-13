@@ -212,37 +212,36 @@ func getDescLabels(datapointsLabels []datapointLabels) (variableLabels []string,
 // them to prometheus.Metric and passing them into the prometheus producer
 // channel, where they will be served to consumers.
 func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
-	for fqName, datapointsLabels := range datapointLabelsByName(p.store) {
+	for name, datapointsLabels := range datapointLabelsByName(p.store) {
 		variableLabels, constLabels := getDescLabels(datapointsLabels)
-		desc := prometheus.NewDesc(sanitize(fqName), "DC/OS Metrics Datapoint", sanitizeSlice(variableLabels), sanitizeKeys(constLabels))
+		desc := prometheus.NewDesc(sanitize(name), "DC/OS Metrics Datapoint", sanitizeSlice(variableLabels), sanitizeKeys(constLabels))
 
-		for _, datapoint := range datapointsLabels {
+		for _, dpLabels := range datapointsLabels {
 
-			var differingKVVals []string
+			var variableLabelVals []string
 
 			for _, labelName := range variableLabels {
-				if val, ok := datapoint.labels[labelName]; ok {
-					differingKVVals = append(differingKVVals, val)
+				if val, ok := dpLabels.labels[labelName]; ok {
+					variableLabelVals = append(variableLabelVals, val)
 				} else {
-					differingKVVals = append(differingKVVals, "")
+					variableLabelVals = append(variableLabelVals, "")
 				}
 			}
 
-			dp := datapoint.datapoint
-			val, err := coerceToFloat(datapoint.datapoint.Value)
+			val, err := coerceToFloat(dpLabels.datapoint.Value)
 			if err != nil {
-				promLog.Debugf("Bad datapoint value %q: (%s) %s", dp.Value, dp.Name, err)
+				promLog.Debugf("Bad datapoint value %q: (%s) %s", dpLabels.datapoint.Value, dpLabels.datapoint.Name, err)
 				continue
 			}
 
-			metric, err := prometheus.NewConstMetric(desc, prometheus.GaugeValue, val, differingKVVals...)
+			metric, err := prometheus.NewConstMetric(desc, prometheus.GaugeValue, val, variableLabelVals...)
 
 			if err != nil {
-				promLog.Warnf("Could not create Prometheus metric %s: %s", fqName, err)
+				promLog.Warnf("Could not create Prometheus metric %s: %s", name, err)
 				continue
 			}
 
-			promLog.Debugf("Emitting datapoint %s", fqName)
+			promLog.Debugf("Emitting datapoint %s", name)
 			ch <- metric
 		}
 	}
