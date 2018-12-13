@@ -219,7 +219,7 @@ func TestPrometheusProducer(t *testing.T) {
 	}
 }
 
-func TestSanitizeName(t *testing.T) {
+func TestSanitize(t *testing.T) {
 	Convey("Should remove illegal metric name chars", t, func() {
 		io := map[string]string{
 			"abc":     "abc",
@@ -230,7 +230,7 @@ func TestSanitizeName(t *testing.T) {
 			"foo bar": "foo_bar",
 		}
 		for i, o := range io {
-			So(sanitizeName(i), ShouldEqual, o)
+			So(sanitize(i), ShouldEqual, o)
 		}
 	})
 }
