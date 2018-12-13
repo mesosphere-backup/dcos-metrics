@@ -161,11 +161,11 @@ func datapointLabelsByName(s store.Store) map[string][]datapointLabels {
 // them to prometheus.Metric and passing them into the prometheus producer
 // channel, where they will be served to consumers.
 func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
-	for fqName, datapointsTags := range datapointLabelsByName(p.store) {
+	for fqName, datapointsLabels := range datapointLabelsByName(p.store) {
 		// Get a list of all  keys common to this fqName
 
 		allKeys := map[string]bool{}
-		for _, kv := range datapointsTags {
+		for _, kv := range datapointsLabels {
 			for k := range kv.labels {
 				allKeys[k] = true
 			}
@@ -177,21 +177,21 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 		commonToAll := map[string]bool{}
 
 		for key := range allKeys {
-			var tagVal []string
+			var labelVal []string
 
-			for _, tagSet := range datapointsTags {
-				if val, ok := tagSet.labels[key]; ok {
-					tagVal = append(tagVal, val)
+			for _, dpLabels := range datapointsLabels {
+				if val, ok := dpLabels.labels[key]; ok {
+					labelVal = append(labelVal, val)
 				}
 			}
-			// If the length differs, => 1+ datapoints doesn't have the tag, therefore not common to all
-			if len(tagVal) != len(datapointsTags) {
+			// If the length differs, => 1+ datapoints doesn't have the label, therefore not common to all
+			if len(labelVal) != len(datapointsLabels) {
 				commonToAll[key] = false
 			} else {
 				check := true
-				firstVal := tagVal[0]
+				firstVal := labelVal[0]
 				// Check the values, if any one of them doesn't match, then it's not common to all
-				for _, val := range tagVal[1:] {
+				for _, val := range labelVal[1:] {
 					if val != firstVal {
 						check = false
 						commonToAll[key] = false
@@ -207,7 +207,7 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 		commonKVSet := map[string]string{}
 		var differingKVKeys []string
 		for key, checkVal := range commonToAll {
-			datapoint := datapointsTags[0]
+			datapoint := datapointsLabels[0]
 			if checkVal == true {
 				// Take the first datapoint since they're all identical
 				commonKVSet[key] = datapoint.labels[key]
@@ -218,12 +218,12 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 
 		desc := prometheus.NewDesc(sanitize(fqName), "DC/OS Metrics Datapoint", sanitizeSlice(differingKVKeys), sanitizeKeys(commonKVSet))
 
-		for _, datapoint := range datapointsTags {
+		for _, datapoint := range datapointsLabels {
 
 			var differingKVVals []string
 
-			for _, tagName := range differingKVKeys {
-				if val, ok := datapoint.labels[tagName]; ok {
+			for _, labelName := range differingKVKeys {
+				if val, ok := datapoint.labels[labelName]; ok {
 					differingKVVals = append(differingKVVals, val)
 				} else {
 					differingKVVals = append(differingKVVals, "")
