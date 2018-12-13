@@ -157,72 +157,76 @@ func datapointLabelsByName(s store.Store) map[string][]datapointLabels {
 	return rval
 }
 
+// getDescLabels returns the variable lables and constant labels for the prometheus.Desc shared among datapointsLabels.
+func getDescLabels(datapointsLabels []datapointLabels) (variableLabels []string, constLabels map[string]string) {
+	// Get a list of all  keys common to this fqName
+
+	allKeys := map[string]bool{}
+	for _, kv := range datapointsLabels {
+		for k := range kv.labels {
+			allKeys[k] = true
+		}
+	}
+
+	// Figure out the constLabels. Do this by collecting the common KV pairs together.
+	// At the same time we can figure out the variable labels by taking
+	// the difference between the total set and the constLabels.
+	commonToAll := map[string]bool{}
+
+	for key := range allKeys {
+		var labelVal []string
+
+		for _, dpLabels := range datapointsLabels {
+			if val, ok := dpLabels.labels[key]; ok {
+				labelVal = append(labelVal, val)
+			}
+		}
+		// If the length differs, => 1+ datapoints doesn't have the label, therefore not common to all
+		if len(labelVal) != len(datapointsLabels) {
+			commonToAll[key] = false
+		} else {
+			check := true
+			firstVal := labelVal[0]
+			// Check the values, if any one of them doesn't match, then it's not common to all
+			for _, val := range labelVal[1:] {
+				if val != firstVal {
+					check = false
+					commonToAll[key] = false
+				}
+			}
+			if check == true {
+				// If check's value hasn't changed after traversing the values, then they must all be the same
+				commonToAll[key] = true
+			}
+		}
+	}
+
+	constLabels = map[string]string{}
+	for key, checkVal := range commonToAll {
+		datapoint := datapointsLabels[0]
+		if checkVal == true {
+			// Take the first datapoint since they're all identical
+			constLabels[key] = datapoint.labels[key]
+		} else {
+			variableLabels = append(variableLabels, key)
+		}
+	}
+	return variableLabels, constLabels
+}
+
 // Collect iterates over all the metrics available in the store, converting
 // them to prometheus.Metric and passing them into the prometheus producer
 // channel, where they will be served to consumers.
 func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 	for fqName, datapointsLabels := range datapointLabelsByName(p.store) {
-		// Get a list of all  keys common to this fqName
-
-		allKeys := map[string]bool{}
-		for _, kv := range datapointsLabels {
-			for k := range kv.labels {
-				allKeys[k] = true
-			}
-		}
-
-		// Figure out the constLabels. Do this by collecting the common KV pairs together.
-		// At the same time we can figure out the variable labels by taking
-		// the difference between the total set and the constLabels.
-		commonToAll := map[string]bool{}
-
-		for key := range allKeys {
-			var labelVal []string
-
-			for _, dpLabels := range datapointsLabels {
-				if val, ok := dpLabels.labels[key]; ok {
-					labelVal = append(labelVal, val)
-				}
-			}
-			// If the length differs, => 1+ datapoints doesn't have the label, therefore not common to all
-			if len(labelVal) != len(datapointsLabels) {
-				commonToAll[key] = false
-			} else {
-				check := true
-				firstVal := labelVal[0]
-				// Check the values, if any one of them doesn't match, then it's not common to all
-				for _, val := range labelVal[1:] {
-					if val != firstVal {
-						check = false
-						commonToAll[key] = false
-					}
-				}
-				if check == true {
-					// If check's value hasn't changed after traversing the values, then they must all be the same
-					commonToAll[key] = true
-				}
-			}
-		}
-
-		commonKVSet := map[string]string{}
-		var differingKVKeys []string
-		for key, checkVal := range commonToAll {
-			datapoint := datapointsLabels[0]
-			if checkVal == true {
-				// Take the first datapoint since they're all identical
-				commonKVSet[key] = datapoint.labels[key]
-			} else {
-				differingKVKeys = append(differingKVKeys, key)
-			}
-		}
-
-		desc := prometheus.NewDesc(sanitize(fqName), "DC/OS Metrics Datapoint", sanitizeSlice(differingKVKeys), sanitizeKeys(commonKVSet))
+		variableLabels, constLabels := getDescLabels(datapointsLabels)
+		desc := prometheus.NewDesc(sanitize(fqName), "DC/OS Metrics Datapoint", sanitizeSlice(variableLabels), sanitizeKeys(constLabels))
 
 		for _, datapoint := range datapointsLabels {
 
 			var differingKVVals []string
 
-			for _, labelName := range differingKVKeys {
+			for _, labelName := range variableLabels {
 				if val, ok := datapoint.labels[labelName]; ok {
 					differingKVVals = append(differingKVVals, val)
 				} else {
