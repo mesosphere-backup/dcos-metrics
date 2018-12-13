@@ -157,60 +157,54 @@ func datapointLabelsByName(s store.Store) map[string][]datapointLabels {
 	return rval
 }
 
+// labelValueIsConstant returns true if the value of labelName is constant among datapointsLabels.
+func labelValueIsConstant(labelName string, datapointsLabels []datapointLabels) bool {
+	// Initialize lastVal with the first datapoint's label value.
+	lastVal, ok := datapointsLabels[0].labels[labelName]
+	if !ok {
+		// The label is missing from this datapoint, so its value must not be constant.
+		return false
+	}
+
+	// Compare each datapoint's label value to the label value of the datapoint before it. If we find unequal values,
+	// the label value is not constant.
+	for _, dpLabels := range datapointsLabels[1:] {
+		val, ok := dpLabels.labels[labelName]
+		if !ok || val != lastVal {
+			// The label is missing from this datapoint, or its value doesn't match the previous datapoint's value. Its
+			// value is not constant.
+			return false
+		}
+		// Update lastVal with the current label value before starting the next iteration.
+		lastVal = val
+	}
+	// We didn't find unequal label values, so this label's value is constant.
+	return true
+}
+
 // getDescLabels returns the variable lables and constant labels for the prometheus.Desc shared among datapointsLabels.
 func getDescLabels(datapointsLabels []datapointLabels) (variableLabels []string, constLabels map[string]string) {
-	// Get a list of all  keys common to this fqName
-
-	allKeys := map[string]bool{}
+	// Collect all label names used among datapointsLabels.
+	labelNames := map[string]bool{}
 	for _, kv := range datapointsLabels {
 		for k := range kv.labels {
-			allKeys[k] = true
+			labelNames[k] = true
 		}
 	}
 
-	// Figure out the constLabels. Do this by collecting the common KV pairs together.
-	// At the same time we can figure out the variable labels by taking
-	// the difference between the total set and the constLabels.
-	commonToAll := map[string]bool{}
-
-	for key := range allKeys {
-		var labelVal []string
-
-		for _, dpLabels := range datapointsLabels {
-			if val, ok := dpLabels.labels[key]; ok {
-				labelVal = append(labelVal, val)
-			}
-		}
-		// If the length differs, => 1+ datapoints doesn't have the label, therefore not common to all
-		if len(labelVal) != len(datapointsLabels) {
-			commonToAll[key] = false
-		} else {
-			check := true
-			firstVal := labelVal[0]
-			// Check the values, if any one of them doesn't match, then it's not common to all
-			for _, val := range labelVal[1:] {
-				if val != firstVal {
-					check = false
-					commonToAll[key] = false
-				}
-			}
-			if check == true {
-				// If check's value hasn't changed after traversing the values, then they must all be the same
-				commonToAll[key] = true
-			}
-		}
-	}
-
+	// Collect variableLabels and constLabels.
+	// variableLabels contains the names of labels whose values vary among these datapoints. constLabels contains the
+	// names and values of labels which are constant among these datapoints.
 	constLabels = map[string]string{}
-	for key, checkVal := range commonToAll {
-		datapoint := datapointsLabels[0]
-		if checkVal == true {
-			// Take the first datapoint since they're all identical
-			constLabels[key] = datapoint.labels[key]
+	for labelName := range labelNames {
+		if labelValueIsConstant(labelName, datapointsLabels) {
+			// The label's value is constant, so we can grab it from any element.
+			constLabels[labelName] = datapointsLabels[0].labels[labelName]
 		} else {
-			variableLabels = append(variableLabels, key)
+			variableLabels = append(variableLabels, labelName)
 		}
 	}
+
 	return variableLabels, constLabels
 }
 
