@@ -134,8 +134,8 @@ func (p *promProducer) Describe(ch chan<- *prometheus.Desc) {
 // channel, where they will be served to consumers.
 func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 	for name, datapointsLabels := range datapointLabelsByName(p.store) {
-		variableLabels, constLabels := getDescLabels(datapointsLabels)
-		desc := prometheus.NewDesc(sanitize(name), "DC/OS Metrics Datapoint", sanitizeSlice(variableLabels), sanitizeKeys(constLabels))
+		variableLabels := getLabelNames(datapointsLabels)
+		desc := prometheus.NewDesc(sanitize(name), "DC/OS Metrics Datapoint", sanitizeSlice(variableLabels), nil)
 
 		// Publish a metric for each datapoint.
 		for _, dpLabels := range datapointsLabels {
@@ -236,15 +236,6 @@ func sanitizeSlice(names []string) []string {
 	return sanitized
 }
 
-// sanitizeKeys returns a map[string]string whose keys have been sanitized.
-func sanitizeKeys(m map[string]string) map[string]string {
-	sanitized := map[string]string{}
-	for k, v := range m {
-		sanitized[sanitize(k)] = v
-	}
-	return sanitized
-}
-
 // coerceToFloat attempts to convert an interface to float64. It should succeed
 // with any numeric input.
 func coerceToFloat(unk interface{}) (float64, error) {
@@ -323,53 +314,20 @@ func datapointLabelsByName(s store.Store) map[string][]datapointLabels {
 	return rval
 }
 
-// labelValueIsConstant returns true if the value of labelName is constant among datapointsLabels.
-func labelValueIsConstant(labelName string, datapointsLabels []datapointLabels) bool {
-	// Initialize lastVal with the first datapoint's label value.
-	lastVal, ok := datapointsLabels[0].labels[labelName]
-	if !ok {
-		// The label is missing from this datapoint, so its value must not be constant.
-		return false
-	}
-
-	// Compare each datapoint's label value to the label value of the datapoint before it. If we find unequal values,
-	// the label value is not constant.
-	for _, dpLabels := range datapointsLabels[1:] {
-		val, ok := dpLabels.labels[labelName]
-		if !ok || val != lastVal {
-			// The label is missing from this datapoint, or its value doesn't match the previous datapoint's value. Its
-			// value is not constant.
-			return false
-		}
-		// Update lastVal with the current label value before starting the next iteration.
-		lastVal = val
-	}
-	// We didn't find unequal label values, so this label's value is constant.
-	return true
-}
-
-// getDescLabels returns the variable lables and constant labels for the prometheus.Desc shared among datapointsLabels.
-func getDescLabels(datapointsLabels []datapointLabels) (variableLabels []string, constLabels map[string]string) {
+// getLabelNames returns the names of all labels among datapointsLabels.
+func getLabelNames(datapointsLabels []datapointLabels) []string {
 	// Collect all label names used among datapointsLabels.
-	labelNames := map[string]bool{}
+	nameMap := map[string]bool{}
 	for _, kv := range datapointsLabels {
 		for k := range kv.labels {
-			labelNames[k] = true
+			nameMap[k] = true
 		}
 	}
 
-	// Collect variableLabels and constLabels.
-	// variableLabels contains the names of labels whose values vary among these datapoints. constLabels contains the
-	// names and values of labels which are constant among these datapoints.
-	constLabels = map[string]string{}
-	for labelName := range labelNames {
-		if labelValueIsConstant(labelName, datapointsLabels) {
-			// The label's value is constant, so we can grab it from any element.
-			constLabels[labelName] = datapointsLabels[0].labels[labelName]
-		} else {
-			variableLabels = append(variableLabels, labelName)
-		}
+	// Return a slice of nameMap keys.
+	names := []string{}
+	for n := range nameMap {
+		names = append(names, n)
 	}
-
-	return variableLabels, constLabels
+	return names
 }
