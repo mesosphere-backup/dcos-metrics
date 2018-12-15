@@ -14,7 +14,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"github.com/dcos/dcos-metrics/schema/metrics_schema"
+	metricsSchema "github.com/dcos/dcos-metrics/schema/metrics_schema"
 	"github.com/linkedin/goavro"
 )
 
