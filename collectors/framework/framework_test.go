@@ -27,7 +27,7 @@ import (
 	"github.com/dcos/dcos-metrics/collectors"
 	mesosAgent "github.com/dcos/dcos-metrics/collectors/mesos/agent"
 	"github.com/dcos/dcos-metrics/producers"
-	"github.com/dcos/dcos-metrics/schema/metrics_schema"
+	metricsSchema "github.com/dcos/dcos-metrics/schema/metrics_schema"
 	"github.com/linkedin/goavro"
 	. "github.com/smartystreets/goconvey/convey"
 )
