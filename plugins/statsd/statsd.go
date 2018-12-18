@@ -23,7 +23,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	plugin "github.com/dcos/dcos-metrics/plugins"
 	"github.com/dcos/dcos-metrics/producers"
-	"github.com/etsy/statsd/examples/go"
+	statsd "github.com/etsy/statsd/examples/go"
 	"github.com/urfave/cli"
 )
 
@@ -127,7 +127,7 @@ func normalize(i interface{}) (int, error) {
 		// We need this check here because NaN can be a float. Casting NaN to
 		// int results in a large negative number. Even after you add 0.5.
 		if math.IsNaN(v) {
-			return -1, fmt.Errorf("Could not normalize NaN %q", v)
+			return -1, fmt.Errorf("Could not normalize NaN %v", v)
 		}
 		return int(v + 0.5), nil
 	case string:
