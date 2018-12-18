@@ -23,7 +23,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	plugin "github.com/dcos/dcos-metrics/plugins"
 	"github.com/dcos/dcos-metrics/producers"
-	"github.com/etsy/statsd/examples/go"
+	statsd "github.com/etsy/statsd/examples/go"
 	"github.com/urfave/cli"
 )
 

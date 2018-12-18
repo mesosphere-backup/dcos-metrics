@@ -6,4 +6,4 @@ RUN go get -u golang.org/x/tools/cmd/cover
 RUN go get -u github.com/axw/gocov/...
 RUN go get -u github.com/AlekSi/gocov-xml
 RUN go get -u golang.org/x/tools/cmd/goimports
-RUN go get -u github.com/golang/lint/golint
+RUN go get -u golang.org/x/lint/golint

@@ -53,6 +53,12 @@ type promProducer struct {
 	janitorRunInterval time.Duration
 }
 
+// datapointLabels associates a datapoint with its labels.
+type datapointLabels struct {
+	datapoint *producers.Datapoint
+	labels    map[string]string
+}
+
 // New returns a prometheus producer and a channel for passing in metrics
 func New(cfg Config) (producers.MetricsProducer, chan producers.MetricsMessage) {
 	p := promProducer{
@@ -127,35 +133,29 @@ func (p *promProducer) Describe(ch chan<- *prometheus.Desc) {
 // them to prometheus.Metric and passing them into the prometheus producer
 // channel, where they will be served to consumers.
 func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
-	for _, obj := range p.store.Objects() {
-		message, ok := obj.(producers.MetricsMessage)
-		if !ok {
-			promLog.Warnf("Unsupported message type %T", obj)
-			continue
-		}
-		dims := dimsToMap(message.Dimensions)
+	for name, datapointsLabels := range datapointLabelsByName(p.store) {
+		variableLabels := getLabelNames(datapointsLabels)
+		desc := prometheus.NewDesc(sanitize(name), "DC/OS Metrics Datapoint", sanitizeSlice(variableLabels), nil)
 
-		for _, d := range message.Datapoints {
-			promLog.Debugf("Processing datapoint %s", d.Name)
-			var tagKeys []string
-			var tagVals []string
-			for k, v := range dims {
-				tagKeys = append(tagKeys, sanitizeName(k))
-				tagVals = append(tagVals, v)
-			}
-			for k, v := range d.Tags {
-				tagKeys = append(tagKeys, sanitizeName(k))
-				tagVals = append(tagVals, v)
+		// Publish a metric for each datapoint.
+		for _, dpLabels := range datapointsLabels {
+			// Collect this datapoint's variable label values.
+			var variableLabelVals []string
+			for _, labelName := range variableLabels {
+				if val, ok := dpLabels.labels[labelName]; ok {
+					variableLabelVals = append(variableLabelVals, val)
+				} else {
+					variableLabelVals = append(variableLabelVals, "")
+				}
 			}
 
-			name := sanitizeName(d.Name)
-			val, err := coerceToFloat(d.Value)
+			val, err := coerceToFloat(dpLabels.datapoint.Value)
 			if err != nil {
-				promLog.Debugf("Bad datapoint value %q: (%s) %s", d.Value, d.Name, err)
+				promLog.Debugf("Bad datapoint value %q: (%s) %s", dpLabels.datapoint.Value, dpLabels.datapoint.Name, err)
 				continue
 			}
-			desc := prometheus.NewDesc(name, "DC/OS Metrics Datapoint", tagKeys, nil)
-			metric, err := prometheus.NewConstMetric(desc, prometheus.GaugeValue, val, tagVals...)
+
+			metric, err := prometheus.NewConstMetric(desc, prometheus.GaugeValue, val, variableLabelVals...)
 			if err != nil {
 				promLog.Warnf("Could not create Prometheus metric %s: %s", name, err)
 				continue
@@ -164,7 +164,6 @@ func (p *promProducer) Collect(ch chan<- prometheus.Metric) {
 			promLog.Debugf("Emitting datapoint %s", name)
 			ch <- metric
 		}
-
 	}
 }
 
@@ -216,9 +215,9 @@ func (p *promProducer) janitor() {
 	}
 }
 
-// sanitizeName returns a metric or label name which is safe for use
-// in prometheus output
-func sanitizeName(name string) string {
+// sanitize returns a string which is safe to use as a metric or label name in Prometheus output.
+// Unsafe characters are replaced by `_`. If name begins with a numeral, it is prepended with `_`.
+func sanitize(name string) string {
 	output := strings.ToLower(illegalChars.ReplaceAllString(name, "_"))
 
 	if legalLabel.MatchString(output) {
@@ -226,6 +225,15 @@ func sanitizeName(name string) string {
 	}
 	// Prefix name with _ if it begins with a number
 	return "_" + output
+}
+
+// sanitizeSlice returns a []string whose elements have been sanitized.
+func sanitizeSlice(names []string) []string {
+	sanitized := []string{}
+	for _, n := range names {
+		sanitized = append(sanitized, sanitize(n))
+	}
+	return sanitized
 }
 
 // coerceToFloat attempts to convert an interface to float64. It should succeed
@@ -275,4 +283,51 @@ func dimsToMap(dims producers.Dimensions) map[string]string {
 		results[k] = v
 	}
 	return results
+}
+
+// datapointLabelsByName returns a mapping of datapoint names to a slice of structs pairing producers.Datapoints by that
+// name with their corresponding labels. Labels are derived from MetricsMessage dimensions and Datapoint tags.
+func datapointLabelsByName(s store.Store) map[string][]datapointLabels {
+	rval := map[string][]datapointLabels{}
+
+	for _, obj := range s.Objects() {
+		m, ok := obj.(producers.MetricsMessage)
+		if !ok {
+			promLog.Warnf("Unsupported message type %T", obj)
+			continue
+		}
+
+		// For each datapoint, collect its labels and add an entry to rval.
+		dims := dimsToMap(m.Dimensions)
+		for _, d := range m.Datapoints {
+			labels := map[string]string{}
+			for k, v := range dims {
+				labels[k] = v
+			}
+			for k, v := range d.Tags {
+				labels[k] = v
+			}
+			rval[d.Name] = append(rval[d.Name], datapointLabels{&d, labels})
+		}
+	}
+
+	return rval
+}
+
+// getLabelNames returns the names of all labels among datapointsLabels.
+func getLabelNames(datapointsLabels []datapointLabels) []string {
+	// Collect all label names used among datapointsLabels.
+	nameMap := map[string]bool{}
+	for _, kv := range datapointsLabels {
+		for k := range kv.labels {
+			nameMap[k] = true
+		}
+	}
+
+	// Return a slice of nameMap keys.
+	names := []string{}
+	for n := range nameMap {
+		names = append(names, n)
+	}
+	return names
 }
