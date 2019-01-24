@@ -1,5 +1,8 @@
 #include "isolator_module.hpp"
 
+#include <set>
+#include <string>
+
 #include <mesos/module/isolator.hpp>
 #include <mesos/slave/containerizer.hpp>
 #include <process/process.hpp>
@@ -38,7 +41,7 @@ namespace metrics {
   class IsolatorProcess : public process::Process<IsolatorProcess<ContainerAssigner>> {
    public:
     IsolatorProcess(std::shared_ptr<ContainerAssigner> container_assigner)
-      : container_assigner(container_assigner), registered(false) { }
+      : container_assigner(container_assigner) { }
     virtual ~IsolatorProcess() { }
 
     process::Future<Nothing> recover(
@@ -49,8 +52,13 @@ namespace metrics {
       for (const mesos::slave::ContainerState& state : states) {
         LOG(INFO) << "  container_state[" << state.ShortDebugString() << "]";
       }
+
+      // Track all recovered containers.
+      for (const mesos::slave::ContainerState& container : states) {
+        registered.insert(container.container_id().value());
+      }
+
       container_assigner->recover_containers(states);
-      registered = true;
       return Nothing();
     }
 
@@ -68,6 +76,7 @@ namespace metrics {
       LOG(INFO) << "Container prepare: "
                 << "container_id[" << container_id.ShortDebugString() << "] "
                 << "container_config[" << container_config.ShortDebugString() << "]";
+      registered.insert(container_id.value());
       Try<UDPEndpoint> endpoint =
         container_assigner->register_container(container_id, container_config.executor_info());
       if (endpoint.isError()) {
@@ -75,7 +84,6 @@ namespace metrics {
                    << container_id.ShortDebugString();
         return None();
       }
-      registered = true;
       mesos::slave::ContainerLaunchInfo launch_info;
       set_env(launch_info, endpoint.get());
       return launch_info;
@@ -86,7 +94,7 @@ namespace metrics {
       // If we haven't registered before and are not emitting metrics, e.g.,
       // because we are a nested container in the `DEBUG` class, we have
       // nothing to cleanup.
-      if (registered) {
+      if (registered.erase(container_id.value()) > 0) {
         container_assigner->unregister_container(container_id);
       }
       return Nothing();
@@ -94,7 +102,10 @@ namespace metrics {
 
    private:
     std::shared_ptr<ContainerAssigner> container_assigner;
-    bool registered;
+
+    // Tracks all registered containers. We are not interested in all
+    // containers we observe, e.g., we ignore `DEBUG` containers.
+    std::set<std::string> registered;
   };
 }
 
