@@ -21,9 +21,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-metrics/collectors"
 	"github.com/dcos/dcos-metrics/producers"
+	"github.com/sirupsen/logrus"
 )
 
 const (
