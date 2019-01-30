@@ -26,11 +26,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
+	. "github.com/smartystreets/goconvey/convey"
+
 	"github.com/dcos/dcos-metrics/collectors"
 	"github.com/dcos/dcos-metrics/producers"
 	httpHelpers "github.com/dcos/dcos-metrics/util/http/helpers"
-	. "github.com/smartystreets/goconvey/convey"
 )
 
 var (

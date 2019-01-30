@@ -23,12 +23,13 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-go/store"
-	"github.com/dcos/dcos-metrics/producers"
-	prodHelpers "github.com/dcos/dcos-metrics/util/producers"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	log "github.com/sirupsen/logrus"
+
+	"github.com/dcos/dcos-metrics/producers"
+	prodHelpers "github.com/dcos/dcos-metrics/util/producers"
 )
 
 var (

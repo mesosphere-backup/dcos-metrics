@@ -23,11 +23,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-go/dcos"
-	"github.com/dcos/dcos-metrics/producers"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
+
+	"github.com/dcos/dcos-metrics/producers"
 )
 
 // Plugin is used to collect metrics and then send them to a remote system
