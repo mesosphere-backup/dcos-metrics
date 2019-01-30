@@ -22,10 +22,11 @@ import (
 	"math"
 	"net/http"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
+
 	plugin "github.com/dcos/dcos-metrics/plugins"
 	"github.com/dcos/dcos-metrics/producers"
-	"github.com/urfave/cli"
 )
 
 var (

@@ -23,7 +23,7 @@ import (
 	"net"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/dcos/dcos-metrics/collectors"
 	mesosAgent "github.com/dcos/dcos-metrics/collectors/mesos/agent"

@@ -28,8 +28,8 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/antonholmquist/jason"
+	log "github.com/sirupsen/logrus"
 )
 
 var (

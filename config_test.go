@@ -29,8 +29,8 @@ import (
 
 	"strings"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-go/dcos/nodeutil"
+	"github.com/sirupsen/logrus"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	schema "github.com/dcos/dcos-metrics/schema/metrics_schema"
 	"github.com/linkedin/goavro"

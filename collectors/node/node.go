@@ -17,7 +17,8 @@ package node
 import (
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/dcos/dcos-metrics/collectors"
 	"github.com/dcos/dcos-metrics/producers"
 )

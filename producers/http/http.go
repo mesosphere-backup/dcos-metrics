@@ -22,8 +22,9 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-go/store"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/dcos/dcos-metrics/producers"
 	prodHelpers "github.com/dcos/dcos-metrics/util/producers"
 )
