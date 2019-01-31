@@ -20,11 +20,12 @@ import (
 	"strconv"
 	"sync"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
+
 	plugin "github.com/dcos/dcos-metrics/plugins"
 	"github.com/dcos/dcos-metrics/producers"
 	statsd "github.com/etsy/statsd/examples/go"
-	"github.com/urfave/cli"
 )
 
 var (

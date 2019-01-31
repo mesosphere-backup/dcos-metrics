@@ -19,7 +19,7 @@ import (
 	"reflect"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	frameworkCollector "github.com/dcos/dcos-metrics/collectors/framework"
 	mesosAgentCollector "github.com/dcos/dcos-metrics/collectors/mesos/agent"

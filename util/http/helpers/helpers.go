@@ -22,8 +22,8 @@ import (
 	"net/http"
 	"os"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/dcos/dcos-go/dcos/http/transport"
+	log "github.com/sirupsen/logrus"
 )
 
 // loadCAPool will load a valid x509 cert.

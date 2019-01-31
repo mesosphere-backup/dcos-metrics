@@ -34,7 +34,7 @@ import (
 	httpClient "github.com/dcos/dcos-metrics/util/http/client"
 	httpHelpers "github.com/dcos/dcos-metrics/util/http/helpers"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
 )
 

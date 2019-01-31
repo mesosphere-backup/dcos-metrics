@@ -25,7 +25,8 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
+
 	plugin "github.com/dcos/dcos-metrics/plugins"
 	"github.com/dcos/dcos-metrics/producers"
 )

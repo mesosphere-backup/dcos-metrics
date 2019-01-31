@@ -19,7 +19,8 @@ import (
 	"fmt"
 	"regexp"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
+
 	plugin "github.com/dcos/dcos-metrics/plugins"
 )
 
