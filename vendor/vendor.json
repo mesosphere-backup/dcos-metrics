@@ -45,6 +45,7 @@
 			"revisionTime": "2015-11-05T21:09:06Z"
 		},
 		{
+			"checksumSHA1": "83RsgATCda47dxjiEllfWPnb/xg=",
 			"path": "github.com/dcos/dcos-go",
 			"revision": "bedbcc6fcb03444c055a00c4d36c2f2783fb9973",
 			"version": "bedbcc6fcb03444c055a00c4d36c2f2783fb9973"
