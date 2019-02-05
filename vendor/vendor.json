@@ -33,10 +33,10 @@
 			"revisionTime": "2016-08-04T10:47:26Z"
 		},
 		{
-			"checksumSHA1": "RBwpnMpfQt7Jo7YWrRph0Vwe+f0=",
+			"checksumSHA1": "zg16zjZTQ9R89+UOLmEZxHgxDtM=",
 			"path": "github.com/coreos/go-systemd/activation",
-			"revision": "d659fb6603e3f57bf01c293c5ffda0debc726d8d",
-			"revisionTime": "2016-11-08T12:53:20Z"
+			"revision": "081494f7ee4fefe1c167a57d77488b0698ffcdaa",
+			"revisionTime": "2019-02-04T11:20:23Z"
 		},
 		{
 			"checksumSHA1": "5rPfda8jFccr3A6heL+JAmi9K9g=",
