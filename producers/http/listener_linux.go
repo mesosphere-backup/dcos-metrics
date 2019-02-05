@@ -22,7 +22,7 @@ import (
 )
 
 func getListener(unsetEnv bool) ([]net.Listener, error) {
-	return activation.Listeners(true)
+	return activation.Listeners()
 }
 
 func getFiles(unsetEnv bool) []*os.File {
