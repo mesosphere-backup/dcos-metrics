@@ -19,7 +19,7 @@ import (
 	"os"
 )
 
-func getListener(unsetEnv bool) ([]net.Listener, error) {
+func getListener() ([]net.Listener, error) {
 	return nil, nil
 }
 

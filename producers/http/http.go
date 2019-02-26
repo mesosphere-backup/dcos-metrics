@@ -94,7 +94,7 @@ func (p *producerImpl) Run() error {
 
 	r := newRouter(p)
 
-	listeners, err := getListener(true)
+	listeners, err := getListener()
 	if err != nil {
 		return fmt.Errorf("Unable to get listeners: %s", err)
 	}
