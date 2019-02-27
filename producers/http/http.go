@@ -39,6 +39,7 @@ type Config struct {
 	IP          string
 	CacheExpiry time.Duration
 	DCOSRole    string
+	Listener    net.Listener
 }
 
 type producerImpl struct {
@@ -94,17 +95,23 @@ func (p *producerImpl) Run() error {
 
 	r := newRouter(p)
 
+	// If a listener was provided directly in config, use it.
+	if p.config.Listener != nil {
+		httpLog.Infof("http producer serving requests on: %s", p.config.Listener.Addr().String())
+		return http.Serve(p.config.Listener, r)
+	}
+
+	// If a listener from systemd is available, use it.
 	listeners, err := getListener()
 	if err != nil {
 		return fmt.Errorf("Unable to get listeners: %s", err)
 	}
-	// If a listener is available, use that. If it is not avialable,
-	// listen on the default TCP socket and port.
 	if len(listeners) == 1 {
 		httpLog.Infof("http producer serving requests on systemd socket: %s", listeners[0].Addr().String())
 		return http.Serve(listeners[0], r)
 	}
 
+	// Listen on the configured TCP port.
 	httpLog.Infof("http producer serving requests on tcp socket: %s", net.JoinHostPort(p.config.IP, strconv.Itoa(p.config.Port)))
 	return http.ListenAndServe(fmt.Sprintf("%s:%d", p.config.IP, p.config.Port), r)
 }
